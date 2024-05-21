@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentlab"
+version = "0.0.1"
+description = "Main package for developing agents and experiments"
+authors = [
+    {name = "Rim Assouel", email = "rim.assouel@gmail.com"},
+    {name = "Alex Drouin", email = "alex.drouin@servicenow.com"},
+    {name = "Maxime Gasse", email = "maxime.gasse@servicenow.com"},
+    {name = "Alex Lacoste", email = "alex.lacoste@servicenow.com"},
+    {name = "Tom Marty", email = "tom.marty@polymtl.ca"},
+    {name = "Massimo Caccia", email = "massimo.caccia1@servicenow.com"}
+]
+readme = "README.md"
+requires-python = ">3.7"
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+"Homepage" = "https://github.com/ServiceNow/ui-copilot"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
