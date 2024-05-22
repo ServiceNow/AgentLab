@@ -153,7 +153,7 @@ FLAG_EXPECTED_PROMPT = [
 def test_shrinking_observation():
     flags = dp.ObsFlags(use_ax_tree=True, use_html=True, use_screenshot=False)
     prompt_maker = MainPrompt(
-        action_set=dp.make_action_set(dp.HighLevelActionSet()),
+        action_set=dp.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
         actions=ACTIONS,
         memories=MEMORIES,
