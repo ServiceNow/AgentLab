@@ -113,15 +113,14 @@ def _validate_launch_mode(exp_root, exp_group_name, exp_args_list, relaunch_mode
     else:
         if exp_args_list is None:
             from agentlab.experiments import exp_configs
-            from agentlab.llm import exp_configs_OSS
 
             # TODO: probably we want something cleaner than this.
             # Merging the to files would take care of this.
             try:
-                exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
-                    exp_group_name
-                )  # type: list[ExpArgs]
-            except:
+                exp_group_name, exp_args_list = exp_configs.get_exp_args_list(exp_group_name)
+            except KeyError:
+                from agentlab.llm import exp_configs_OSS
+
                 exp_group_name, exp_args_list = exp_configs_OSS.get_exp_args_list(exp_group_name)
 
         # overwriting exp_group_name for the recursive call

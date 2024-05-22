@@ -21,8 +21,29 @@ from agentlab.llm.llm_utils import (
 )
 
 
+class Flags:
+    """Base class for flags. Mostly for backward compatibility."""
+
+    def copy(self) -> "Flags":
+        return deepcopy(self)
+
+    def asdict(self):
+        """Helper for JSON serializable requirement."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(self, flags_dict):
+        """Helper for JSON serializable requirement."""
+        if isinstance(flags_dict, ObsFlags):
+            return flags_dict
+
+        if not isinstance(flags_dict, dict):
+            raise ValueError(f"Unregcognized type for flags_dict of type {type(flags_dict)}.")
+        return ObsFlags(**flags_dict)
+
+
 @dataclass
-class ObsFlags:
+class ObsFlags(Flags):
     """
     A class to represent various flags used to control features in an application.
 
@@ -62,26 +83,9 @@ class ObsFlags:
     extract_coords: Literal["False", "center", "box"] = "False"
     filter_visible_elements_only: bool = False
 
-    def copy(self) -> "ObsFlags":
-        return deepcopy(self)
-
-    def asdict(self):
-        """Helper for JSON serializable requirement."""
-        return asdict(self)
-
-    @classmethod
-    def from_dict(self, flags_dict):
-        """Helper for JSON serializable requirement."""
-        if isinstance(flags_dict, ObsFlags):
-            return flags_dict
-
-        if not isinstance(flags_dict, dict):
-            raise ValueError(f"Unregcognized type for flags_dict of type {type(flags_dict)}.")
-        return ObsFlags(**flags_dict)
-
 
 @dataclass
-class ActionFlags:
+class ActionFlags(Flags):
     multi_actions: bool = False
     action_set: str = "bid"
     is_strict: bool = False
