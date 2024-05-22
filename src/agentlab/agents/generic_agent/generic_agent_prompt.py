@@ -7,7 +7,7 @@ from agentlab.llm.llm_utils import parse_html_tags_raise
 
 
 @dataclass
-class GenericPromptFlags:
+class GenericPromptFlags(dp.Flags):
     """
     A class to represent various flags used to control features in an application.
 
