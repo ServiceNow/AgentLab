@@ -686,7 +686,7 @@ class History(Shrinkable):
         return "\n".join(prompts) + "\n"
 
 
-def make_obs_mapping(flags: ObsFlags):
+def make_obs_preprocessor(flags: ObsFlags):
     def obs_mapping(obs: dict):
         obs = copy(obs)
         obs["dom_txt"] = flatten_dom_to_str(

@@ -42,13 +42,13 @@ class GenericAgent(Agent):
 
         self.flags = flags
         self.action_set = dp.make_action_set(self.flags.action)
-        self.observation_mapping = dp.make_obs_mapping(flags.obs)
+        self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
         self._check_flag_constancy()
         self.reset(seed=None)
 
-    def action_mapping(self, action: str):
-        return self.action_set.to_python_code(action)
+    def obs_preprocessor(self, obs: dict) -> dict:
+        return self._obs_preprocessor(obs)
 
     @openai_monitored_agent
     def get_action(self, obs):
