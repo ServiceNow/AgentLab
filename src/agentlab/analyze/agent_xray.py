@@ -506,10 +506,8 @@ def get_row_info(row_id, episode_id, step_id):
     """
     row = from_gradio_id_to_result_df_subset(row_id)
     episode_series = row.reset_index().iloc[episode_id]
-    exp_result = get_exp_result(
-        "/mnt/home/projects/ui-copilot/data/sample/2024-05-22_07-28-12_GenericAgent_on_miniwob.visual-addition_43_f53668"
-    )
 
+    exp_result = get_exp_result(savedir_base / Path(episode_series["exp_dir"].name))
     try:
         step_list = exp_result.steps_info
 
