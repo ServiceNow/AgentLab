@@ -209,11 +209,11 @@ def _apply_change(params, change):
 
 
 def make_progression_study(start_point, changes, return_cross_prod=True):
-    """Ablation study by changing the start_point with changes one by
+    """A kind of ablation study by changing the start_point with changes one by
     one.
 
     Args:
-        start_point: the starting point of the ablation study
+        start_point: the starting point of the study
         changes: a list of changes to make to the start_point
         return_cross_prod: return a CrossProd object or just the list
 
