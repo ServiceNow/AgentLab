@@ -5,9 +5,10 @@ def test_all_configs():
     exp_name_list = [
         "generic_agent_test",
         "generic_agent_eval_llm",
-        # "random_search",
-        # "progression_study",
-        # "demo_maker",
+        "random_search",
+        "progression_study",
+        "ablation_study",
+        "demo_maker",
     ]
 
     for exp_name in exp_name_list:
