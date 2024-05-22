@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 class CheatMiniWoBLLM:
-    """For unit-testing purposes only."""
+    """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
     def invoke(self, messages) -> str:
         prompt = messages[-1].content
