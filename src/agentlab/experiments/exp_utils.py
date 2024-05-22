@@ -9,8 +9,8 @@ import logging
 # TODO move this to a more appropriate place
 RESULTS_DIR = os.environ.get("UI_COPILOT_RESULTS_DIR", None)
 if RESULTS_DIR is None:
-    logging.info("$UI_COPILOT_RESULTS_DIR is not defined, Using $HOME/ui_copilot_results.")
-    RESULTS_DIR = Path.home() / "ui_copilot_results"
+    logging.info("$UI_COPILOT_RESULTS_DIR is not defined, Using $HOME/agentlab_results.")
+    RESULTS_DIR = Path.home() / "agentlab_results"
 else:
     RESULTS_DIR = Path(RESULTS_DIR)
 

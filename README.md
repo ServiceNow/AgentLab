@@ -1,6 +1,6 @@
-## Install ui_copilot
+## Install agentlab
 
-:warning: skip this section if you've already installed the `ui_copilot` conda env.
+:warning: skip this section if you've already installed the `agentlab` conda env.
 
 install the package locall with the `-e` flag
 From the same directory as this README file run:
@@ -9,14 +9,14 @@ From the same directory as this README file run:
     pip install -e .
 ```
 
-or `conda env update` from the main ui_copilot directory.
+or `conda env update` from the main agentlab directory.
 
 This will ensure that the `PYTHONPATH` will be set correctly.
 
 ## Launch experiments
 
 Open and modify `exp_configs.py` and `launch_command.py` to your needs. They are
-located in `ui_copilot/experiments/`.
+located in `agentlab/experiments/`.
 
 Then launch the experiment with
 
@@ -53,7 +53,7 @@ ensure the process keeps running even if you disconnect.
 ```
 
 ## Visualize results
-Open `ui_copilot/experiments/inspect_results.ipynb` in jupyter notebook.
+Open `agentlab/experiments/inspect_results.ipynb` in jupyter notebook.
 
 Set your `result_dir` to the right value and run the notebook.
 
@@ -62,13 +62,13 @@ Set your `result_dir` to the right value and run the notebook.
 ## Launch experiments with command line
 Alternatively, you can launch experiments from the command line.
 
-Choose or configure your experiment in `ui_copilot/experiments/exp_configs.py`.
+Choose or configure your experiment in `agentlab/experiments/exp_configs.py`.
 Make sure it is in the EXP_GROUPS global variable.
 
 Then launch the experiment with
 
 ```bash
-    python src/ui_copilot/experiments/launch_exp.py  \
+    python src/agentlab/experiments/launch_exp.py  \
         --savedir_base=<directory/to/save/experiments> \
         --exp_group_name=<name_of_exp_group> \
         --n_jobs=<joblib_pool_size>
@@ -77,7 +77,7 @@ Then launch the experiment with
 For example, this will launch a quick test in the default directory:
 
 ```bash
-    python src/ui_copilot/experiments/launch_exp.py  \
+    python src/agentlab/experiments/launch_exp.py  \
         --exp_group_name=generic_agent_test \
         --n_jobs=1
 ```
