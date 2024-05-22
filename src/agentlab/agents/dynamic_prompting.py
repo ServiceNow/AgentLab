@@ -24,7 +24,7 @@ from agentlab.llm.llm_utils import (
 class Flags:
     """Base class for flags. Mostly for backward compatibility."""
 
-    def copy(self) -> "Flags":
+    def copy(self):
         return deepcopy(self)
 
     def asdict(self):

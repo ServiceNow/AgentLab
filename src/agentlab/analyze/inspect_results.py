@@ -3,7 +3,6 @@ import fnmatch
 import io
 from logging import warn
 from pathlib import Path
-import re
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
