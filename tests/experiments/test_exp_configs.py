@@ -4,6 +4,7 @@ from agentlab.experiments import exp_configs
 def test_all_configs():
     exp_name_list = [
         "generic_agent_test",
+        "tgi_toolkit_test",
         "generic_agent_eval_llm",
         "random_search",
         "progression_study",
