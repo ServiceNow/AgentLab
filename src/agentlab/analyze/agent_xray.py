@@ -1,5 +1,4 @@
 import argparse
-from calendar import c
 import os
 import argparse
 import re
@@ -8,7 +7,6 @@ import json
 import pandas as pd
 import json
 import os
-import gymnasium as gym
 
 from pathlib import Path
 from PIL import ImageDraw
@@ -18,8 +16,10 @@ from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from textwrap import dedent
 from PIL import Image
 from agentlab.analyze import inspect_results
-from browsergym.experiments.loop import ExpArgs, StepInfo
+
+# from browsergym.experiments.loop import ExpArgs, StepInfo
 from agentlab.llm.llm_utils import count_tokens
+from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs, get_exp_result
 
 
 # -------------------------
@@ -29,11 +29,13 @@ def run_gradio(savedir_base):
     """
     Run Gradio on the selected experiments saved at savedir_base.
     """
+    global row_episode_step_ids
+
     with gr.Blocks(theme=gr.themes.Soft()) as demo:
         # Render the blocks
         # -----------------
         # Hidden cell to store information about the experiment
-        row_episode_step_ids = gr.Json(visible=False)
+        row_episode_step_ids = {}
 
         # 1. Render Title
         gr.Markdown(
@@ -182,15 +184,15 @@ def run_gradio(savedir_base):
         exp_dict_gr.select(
             fn=on_select_df,
             inputs=[exp_dict_gr],
-            outputs=[row_episode_step_ids, main_info_gr, episode_gr, step_gr] + steps_out_list,
+            outputs=[main_info_gr, episode_gr, step_gr] + steps_out_list,
         )
 
         # Episode Change Callback
         # ---------------------------------
         episode_gr.change(
             fn=on_change_episode_info,
-            inputs=[episode_gr, row_episode_step_ids],
-            outputs=[row_episode_step_ids, step_gr] + steps_out_list,
+            inputs=[episode_gr],
+            outputs=[step_gr] + steps_out_list,
         )
 
         # Step Change Callback
@@ -198,7 +200,7 @@ def run_gradio(savedir_base):
         # Add callback to step change
         step_gr.change(
             fn=on_change_step_info,
-            inputs=[row_episode_step_ids, step_gr],
+            inputs=[step_gr],
             outputs=steps_out_list,
         )
 
@@ -213,7 +215,7 @@ def run_gradio(savedir_base):
                 row_episode_step_ids["episode_id"],
                 row_episode_step_ids["step_id"],
             )
-            image_src = episode_series.exp_result.screenshots[row_episode_step_ids["step_id"]]
+            image_src = exp_result.screenshots[row_episode_step_ids["step_id"]]
 
             action_dict_list = convert_action_text_to_dict(action_text)
             image = get_image_with_bid(
@@ -227,13 +229,13 @@ def run_gradio(savedir_base):
         # Add callback to step change
         gr_selected_bid_button.click(
             fn=on_change_overlay_source_image,
-            inputs=[gr_selected_bid, row_episode_step_ids],
+            inputs=[gr_selected_bid],
             outputs=[image_src],
         )
 
         # Prompt Change Callback
         # ---------------------------------
-        def on_change_prompt(editable_gr, row_episode_step_ids):
+        def on_change_prompt(editable_gr):
             """
             Get the output from the LLM using the prompt
             """
@@ -243,7 +245,7 @@ def run_gradio(savedir_base):
                 row_episode_step_ids["step_id"],
             )
 
-            exp_args = episode_series["exp_result"].exp_args  # type: ExpArgs
+            exp_args = exp_result.exp_args  # type: ExpArgs
             # TODO: start servers if we use custom LLMs
             chat_model = exp_args.agent_args.chat_model_args.make_chat_model()
 
@@ -267,7 +269,7 @@ def run_gradio(savedir_base):
         # Add callback to prompt change
         submit_prompt_gr.click(
             fn=on_change_prompt,
-            inputs=[editable_gr, row_episode_step_ids],
+            inputs=[editable_gr],
             outputs=[output_gr],
         )
 
@@ -291,7 +293,7 @@ def run_gradio(savedir_base):
         #     env = gym.make(task_name, headless=headless)
         #     obs, env_info = env.reset(seed=int(episode_series["task_seed"]))
         #     tgt_image = obs["image"]
-        #     steps_list = episode_series["exp_result"].steps_info
+        #     steps_list = exp_result.steps_info
         #     action_list = [s.action for s in steps_list]
         #     for step, action in enumerate(action_list):
         #         src_image = tgt_image
@@ -368,23 +370,23 @@ def run_gradio(savedir_base):
                 gr.update(label=f"Output", value=tgt_image, visible=True),
             )
 
-        env_submit_text.click(
-            fn=on_action_env_run,
-            inputs=[row_episode_step_ids, env_image_tgt, env_action_text],
-            outputs=[row_episode_step_ids, env_image_src, env_image_tgt],
-        )
+        # env_submit_text.click(
+        #     fn=on_action_env_run,
+        #     inputs=[row_episode_step_ids, env_image_tgt, env_action_text],
+        #     outputs=[row_episode_step_ids, env_image_src, env_image_tgt],
+        # )
 
         # Savedir Base Change Callback
-        savedir_base_text_button.click(
-            fn=on_change_savedir_base,
-            inputs=[savedir_base_text],
-            outputs=(
-                [exp_dict_gr, savedir_base_text_label]
-                + [row_episode_step_ids, main_info_gr, episode_gr, step_gr]
-                + [row_episode_step_ids, step_gr]
-                + steps_out_list
-            ),
-        )
+        # savedir_base_text_button.click(
+        #     fn=on_change_savedir_base,
+        #     inputs=[savedir_base_text],
+        #     outputs=(
+        #         [exp_dict_gr, savedir_base_text_label]
+        #         + [main_info_gr, episode_gr, step_gr]
+        #         + [row_episode_step_ids, step_gr]
+        #         + steps_out_list
+        #     ),
+        # )
 
     demo.queue()
     demo.launch(server_port=7888)
@@ -393,10 +395,11 @@ def run_gradio(savedir_base):
 # -------------------------
 # Public Helper Functions
 # -------------------------
-def on_change_episode_info(episode_id, row_episode_step_ids):
+def on_change_episode_info(episode_id):
     """
     Update the step information when selecting a different step
     """
+
     # update_episode_id
     row_id = row_episode_step_ids["row_id"]
     step_id = 0
@@ -404,14 +407,10 @@ def on_change_episode_info(episode_id, row_episode_step_ids):
     row_episode_step_ids["step_id"] = step_id
     row_episode_step_ids["episode_id"] = episode_id
 
-    _, episode_series, step_obj = get_row_info(row_id, episode_id, step_id)
+    _, episode_series, step_obj, exp_result = get_row_info(row_id, episode_id, step_id)
 
-    step_max = len(episode_series["exp_result"].steps_info) - 1
+    step_max = len(exp_result.steps_info) - 1
 
-    row_episode_step_ids_update = gr.update(
-        value=row_episode_step_ids,
-        visible=False,
-    )
     step_info_gr_update = gr.update(
         value=step_id,
         minimum=0,
@@ -420,12 +419,10 @@ def on_change_episode_info(episode_id, row_episode_step_ids):
         label="Step",
         visible=True,
     )
-    return [row_episode_step_ids_update, step_info_gr_update] + update_step_info(
-        row_id, episode_id, step_id
-    )
+    return [step_info_gr_update] + update_step_info(row_id, episode_id, step_id)
 
 
-def on_change_step_info(row_episode_step_ids, step_id):
+def on_change_step_info(step_id):
     """
     Update the step information when selecting a different step
     """
@@ -509,8 +506,13 @@ def get_row_info(row_id, episode_id, step_id):
     """
     row = from_gradio_id_to_result_df_subset(row_id)
     episode_series = row.reset_index().iloc[episode_id]
+    exp_result = get_exp_result(
+        "/mnt/home/projects/ui-copilot/data/sample/2024-05-22_07-28-12_GenericAgent_on_miniwob.visual-addition_43_f53668"
+    )
+
     try:
-        step_list = episode_series["exp_result"].steps_info
+        step_list = exp_result.steps_info
+
     except FileNotFoundError:
         step_list = []
     if len(step_list) == 0:
@@ -518,37 +520,40 @@ def get_row_info(row_id, episode_id, step_id):
     else:
         step_obj = step_list[step_id]
 
-    return row, episode_series, step_obj
+    return row, episode_series, step_obj, exp_result
 
 
 def on_select_df(evt: gr.SelectData, df):
     """
     Update the main information when selecting a different experiment
     """
+    global row_episode_step_ids
+
     # start with zero episode and step as default
     row_id = evt.index[0]
     episode_id = 0
     step_id = 0
 
-    row, episode_series, step_obj = get_row_info(row_id, episode_id, step_id)
+    row, episode_series, step_obj, exp_result = get_row_info(row_id, episode_id, step_id)
 
     # get max
-    step_max = len(episode_series["exp_result"].steps_info) - 1
+    step_max = len(exp_result.steps_info) - 1
 
     # get reward info
     avg_reward = row.cum_reward.mean()
     cum_rewards = ", ".join([f"{r:.1f}" for r in row.cum_reward])
 
     # Main information (not step depedent)
-    agent_name = episode_series["agent_args.agent_name"]
-    task_name = episode_series["task_name"]
+    agent_name = exp_result.exp_args.agent_args.agent_name
+    task_name = episode_series["env_args.task_name"]
     episode_max = len(row)
-    row_episode_step_ids = gr.update(
-        value={"row_id": row_id, "episode_id": episode_id, "step_id": step_id},
-        visible=False,
-    )
+
+    row_episode_step_ids["row_id"] = row_id
+    row_episode_step_ids["episode_id"] = episode_id
+    row_episode_step_ids["step_id"] = step_id
+
     main_info_list = [
-        row_episode_step_ids,
+        # row_episode_step_ids,
         gr.update(
             value=dedent(
                 f"""\
@@ -590,17 +595,22 @@ def update_step_info(row_id, episode_id, step_id):
     """
     Update the step information when selecting a different step
     """
-    row, episode_series, step_obj = get_row_info(row_id, episode_id, step_id)
+    # update row_episode_step_ids
+    row_episode_step_ids["row_id"] = row_id
+    row_episode_step_ids["episode_id"] = episode_id
+    row_episode_step_ids["step_id"] = step_id
 
-    step_max = len(episode_series["exp_result"].steps_info) - 1
+    row, episode_series, step_obj, exp_result = get_row_info(row_id, episode_id, step_id)
+
+    step_max = len(exp_result.steps_info) - 1
 
     # Step Info
-    cumulative_reward = episode_series.cum_reward
+    cumulative_reward = episode_series["cum_reward"]
 
-    if episode_series.err_msg is None:
+    if episode_series["err_msg"] is None:
         task_err_msg = "No Error"
     else:
-        task_err_msg = f"{episode_series.err_msg}\n\n{episode_series.stack_trace}"
+        task_err_msg = f"{episode_series['err_msg']}\n\n{episode_series['stack_trace']}"
 
     obs = step_obj.obs if step_obj is not None else None
 
@@ -618,7 +628,7 @@ def update_step_info(row_id, episode_id, step_id):
 **Cumulative Reward:** {cumulative_reward}
 
 **exp_dir:**
-<small>{episode_series.exp_dir.parent.name}/{episode_series.exp_dir.name}</small>"""
+<small>{episode_series['exp_dir'].parent.name}/{episode_series['exp_dir'].name}</small>"""
     )
 
     # Action Info
@@ -641,10 +651,10 @@ def update_step_info(row_id, episode_id, step_id):
     else:
         error_info = dedent(
             f"""## Error Logs
-            {logs}
+            {str(logs)}
             """
         )
-    screenshots = episode_series.exp_result.screenshots
+    screenshots = exp_result.screenshots
     # back node id
     # extract
     if step_id + 1 < len(screenshots):
@@ -689,7 +699,7 @@ def update_step_info(row_id, episode_id, step_id):
         pruned_html = ""
         acc_tree = ""
     else:
-        exp_args = episode_series["exp_result"].exp_args  # type: ExpArgs
+        exp_args = exp_result.exp_args  # type: ExpArgs
         model_name = exp_args.agent_args.chat_model_args.model_name
 
         image_src_org = screenshots[step_id]
