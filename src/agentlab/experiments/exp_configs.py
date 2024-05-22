@@ -144,7 +144,7 @@ def random_search(benchmark: str = "miniwob"):
         task_list = tasks.workarena_tasks
     elif benchmark == "webarena":
         task_list = tasks.webarena_tasks
-        n_seeds = 1  # webearana doesn't have any randomness for a given task
+        n_seeds = 1  # webarana doesn't have any randomness for a given task
     return args.sample_and_expand_cross_product(
         ExpArgs(
             agent_args=DEFAULT_RS_FLAGS,
