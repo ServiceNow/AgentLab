@@ -1,5 +1,5 @@
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from browsergym.experiments.loop import ExpArgs, get_ckpt_list
+from browsergym.experiments.loop import ExpArgs
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
 from agentlab.agents.dynamic_prompting import Flags, BASIC_FLAGS

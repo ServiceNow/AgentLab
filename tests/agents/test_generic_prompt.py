@@ -1,6 +1,10 @@
 from copy import deepcopy
 from agentlab.agents import dynamic_prompting as dp
-from agentlab.agents.generic_agent.generic_agent_prompt import MainPrompt, GenericPromptFlags
+from agentlab.agents.generic_agent.generic_agent_prompt import (
+    MainPrompt,
+    GenericPromptFlags,
+    BASIC_FLAGS,
+)
 import pytest
 
 from agentlab.llm.llm_utils import count_tokens
@@ -151,7 +155,8 @@ FLAG_EXPECTED_PROMPT = [
 
 
 def test_shrinking_observation():
-    flags = dp.ObsFlags(use_ax_tree=True, use_html=True, use_screenshot=False)
+    flags = deepcopy(BASIC_FLAGS)
+    flags.use_html = True
     prompt_maker = MainPrompt(
         action_set=dp.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
