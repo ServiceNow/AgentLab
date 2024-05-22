@@ -92,9 +92,11 @@ def generic_agent_eval_llm(benchmark="miniwob"):
                 chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
                 flags=flags,
             ),
-            max_steps=10,
-            task_seed=args.CrossProd(make_seeds(n_seeds)),
-            task_name=args.CrossProd(task_list),
+            env_args=EnvArgs(
+                max_steps=5,
+                task_seed=args.CrossProd(make_seeds(n_seeds)),
+                task_name=args.CrossProd(task_list),
+            ),
             enable_debug=False,
         )
     )
