@@ -156,7 +156,8 @@ FLAG_EXPECTED_PROMPT = [
 
 def test_shrinking_observation():
     flags = deepcopy(BASIC_FLAGS)
-    flags.use_html = True
+    flags.obs.use_html = True
+
     prompt_maker = MainPrompt(
         action_set=dp.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
