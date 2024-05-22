@@ -153,7 +153,7 @@ def episode_action_count(exp_result: ExpResult):
     return sum([step_action_count(step_info.action) for step_info in episode])
 
 
-cache_dir = str((Path.home() / ".ui_copilot_cache").mkdir(exist_ok=True))
+cache_dir = str((Path.home() / ".agentlab_cache").mkdir(exist_ok=True))
 memory = Memory(cache_dir, verbose=0)
 
 
