@@ -153,6 +153,7 @@ FLAG_EXPECTED_PROMPT = [
 def test_shrinking_observation():
     flags = dp.ObsFlags(use_ax_tree=True, use_html=True, use_screenshot=False)
     prompt_maker = MainPrompt(
+        action_set=dp.make_action_set(dp.HighLevelActionSet()),
         obs_history=OBS_HISTORY,
         actions=ACTIONS,
         memories=MEMORIES,
@@ -173,7 +174,7 @@ def test_shrinking_observation():
     assert "</html>" not in new_prompt
 
 
-@pytest.mark.parametrize("flag, expected_prompts", FLAG_EXPECTED_PROMPT)
+@pytest.mark.parametrize("flag_name, expected_prompts", FLAG_EXPECTED_PROMPT)
 def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompts):
     # Disable the flag
     flags = deepcopy(ALL_TRUE_FLAGS)
@@ -228,7 +229,7 @@ def test_main_prompt_elements_present():
 
 if __name__ == "__main__":
     # for debugging
-    # test_shrinking_observation()
-    # test_main_prompt_elements_present()
+    test_shrinking_observation()
+    test_main_prompt_elements_present()
     for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
         test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
