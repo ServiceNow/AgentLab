@@ -82,6 +82,10 @@ class ObsFlags(Flags):
     extract_clickable_tag: bool = False
     extract_coords: Literal["False", "center", "box"] = "False"
     filter_visible_elements_only: bool = False
+    # low sets the token count of each image to 65 (85?)
+    # high sets the token count of each image to 2*65 (2*85?) times the amount of 512x512px patches
+    # auto chooses between low and high based on image size (openai default)
+    openai_vision_detail: Literal["low", "high", "auto"] = "auto"
 
 
 @dataclass
@@ -365,7 +369,12 @@ class Observation(Shrinkable):
             else:
                 screenshot = self.obs["screenshot"]
             img_url = image_to_jpg_base64_url(screenshot)
-            prompt.append({"type": "image_url", "image_url": {"url": img_url, "detail": "high"}})
+            prompt.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
+                }
+            )
 
         return prompt
 
