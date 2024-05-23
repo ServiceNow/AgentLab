@@ -474,7 +474,7 @@ class ActionSpace(PromptElement):
         action_set_generic_info = """\
 Note: This action set allows you to interact with your environment. Most of them
 are python function executing playwright code. The primary way of referring to
-elemets in the page is through bid which are specified in your observations.
+elements in the page is through bid which are specified in your observations.
 
 """
         self._prompt = f"# Action space:\n{action_set_generic_info}{self.action_set.describe()}{MacNote().prompt}\n"
