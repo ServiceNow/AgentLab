@@ -28,6 +28,26 @@ def order(exp_args_list):
     return exp_args_list
 
 
+def miniwob_fix_flags(benchmark: str, flags: GenericPromptFlags):
+    if benchmark == "miniwob":
+        flags.obs.use_html = True
+
+
+def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
+    if benchmark == "webarena":
+        return 1
+    return default_n_seeds
+
+
+def get_task_list(benchmark: str):
+    if benchmark == "miniwob":
+        return tasks.miniwob_all
+    elif benchmark == "workarena":
+        return tasks.workarena_tasks
+    elif benchmark == "webarena":
+        return tasks.webarena_tasks
+
+
 def generic_agent_test():
     """Minimalistic experiment to test the system."""
     return args.expand_cross_product(
@@ -105,17 +125,11 @@ def generic_agent_eval_llm(benchmark="workarena"):
     flags.obs.extract_clickable_tag = False
     flags.obs.use_think_history = False
     flags.obs.use_focused_element = False
+    flags.use_hints = True
 
-    n_seeds = 5
-    if benchmark == "miniwob":
-        flags.obs.use_html = True  # it's better to use HTML for miniwob
-        task_list = tasks.miniwob_all
-    elif benchmark == "workarena":
-        task_list = tasks.workarena_tasks
-    elif benchmark == "webarena":
-        task_list = tasks.webarena_tasks
-        n_seeds = 1  # webearana doesn't have any randomness for a given task
-        # TODO(we need to not randomize task list if it's webarena)
+    flags = miniwob_fix_flags(benchmark, flags)
+    n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
+    task_list = get_task_list(benchmark)
 
     return args.expand_cross_product(
         ExpArgs(
@@ -142,17 +156,13 @@ def random_search(benchmark: str = "miniwob"):
     analyze the  results with caution and don't actually draw final conclusions
     from these experiments.
     """
-    n_seeds = 3
-    if benchmark == "miniwob":
-        task_list = tasks.miniwob_all
-    elif benchmark == "workarena":
-        task_list = tasks.workarena_tasks
-    elif benchmark == "webarena":
-        task_list = tasks.webarena_tasks
-        n_seeds = 1  # webarana doesn't have any randomness for a given task
+    flags = miniwob_fix_flags(benchmark, DEFAULT_RS_FLAGS)
+    n_seeds = get_n_seeds(benchmark, default_n_seeds=3)
+    task_list = get_task_list(benchmark)
+
     return args.sample_and_expand_cross_product(
         ExpArgs(
-            agent_args=DEFAULT_RS_FLAGS,
+            agent_args=flags,
             env_args=EnvArgs(
                 max_steps=10,
                 task_seed=args.CrossProd(make_seeds(n_seeds)),
@@ -172,14 +182,6 @@ def progression_study(benchmark: str = "miniwob"):
     configuration and a sequence of changes are applied to the base
     configuration progressively.
     """
-    n_seeds = 10
-    if benchmark == "miniwob":
-        task_list = tasks.miniwob_all
-    elif benchmark == "workarena":
-        task_list = tasks.workarena_tasks
-    elif benchmark == "webarena":
-        task_list = tasks.webarena_tasks
-        n_seeds = 1
     start_point = GenericPromptFlags(
         obs=dp.ObsFlags(
             use_html=True,
@@ -215,6 +217,11 @@ def progression_study(benchmark: str = "miniwob"):
         be_cautious=True,
         extra_instructions=None,
     )
+
+    start_point = miniwob_fix_flags(benchmark, start_point)
+    n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
+    task_list = get_task_list(benchmark)
+
     return order(
         args.expand_cross_product(
             ExpArgs(
@@ -247,12 +254,12 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
 
-def ablation_study():
+def ablation_study(benchmark: str = "miniwob"):
 
     start_point = GenericPromptFlags(
         obs=dp.ObsFlags(
-            use_html=False,
-            use_ax_tree=True,
+            use_html=True,
+            use_ax_tree=False,
             use_focused_element=True,
             use_error_logs=True,
             use_history=True,
@@ -284,6 +291,10 @@ def ablation_study():
         be_cautious=True,
         extra_instructions=None,
     )
+
+    start_point = miniwob_fix_flags(benchmark, start_point)
+    n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
+    task_list = get_task_list(benchmark)
 
     return order(
         args.expand_cross_product(
