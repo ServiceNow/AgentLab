@@ -86,6 +86,8 @@ class ObsFlags(Flags):
     # high sets the token count of each image to 2*65 (2*85?) times the amount of 512x512px patches
     # auto chooses between low and high based on image size (openai default)
     openai_vision_detail: Literal["low", "high", "auto"] = "auto"
+    filter_with_bid_only: bool = False
+    filter_som_only: bool = False
 
 
 @dataclass
@@ -718,8 +720,8 @@ def make_obs_preprocessor(flags: ObsFlags):
             with_center_coords=flags.extract_coords == "center",
             with_bounding_box_coords=flags.extract_coords == "box",
             filter_visible_only=flags.filter_visible_elements_only,
-            filter_with_bid_only=False,  # TODO
-            filter_som_only=False,  # TODO
+            filter_with_bid_only=flags.filter_with_bid_only,
+            filter_som_only=flags.filter_som_only,
         )
         obs["axtree_txt"] = flatten_axtree_to_str(
             obs["axtree_object"],
@@ -729,8 +731,8 @@ def make_obs_preprocessor(flags: ObsFlags):
             with_center_coords=flags.extract_coords == "center",
             with_bounding_box_coords=flags.extract_coords == "box",
             filter_visible_only=flags.filter_visible_elements_only,
-            filter_with_bid_only=False,  # TODO
-            filter_som_only=False,  # TODO
+            filter_with_bid_only=flags.filter_with_bid_only,
+            filter_som_only=flags.filter_som_only,
         )
         obs["pruned_html"] = prune_html(obs["dom_txt"])
         obs["screenshot_som"] = overlay_som(
