@@ -291,7 +291,7 @@ def ablation_study():
                         start_point=start_point,
                         changes=[
                             (".action.multi_actions", False),
-                            (".filter_visible_elements_only", True),
+                            (".obs.filter_visible_elements_only", True),
                             [
                                 (".action.action_set", "bid+coord"),
                                 (".obs.extract_coords", "center"),
@@ -306,7 +306,7 @@ def ablation_study():
                             [
                                 (".obs.use_screenshot", True),
                                 (".obs.use_som", True),
-                            ]
+                            ],
                             # agent features
                             (".use_thinking", False),
                         ],
