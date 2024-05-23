@@ -231,7 +231,7 @@ def ablation_study():
             use_think_history=True,
             use_diff=False,
             html_type="pruned_html",
-            use_screenshot=True,
+            use_screenshot=False,
             use_som=False,
             extract_visible_tag=True,
             extract_clickable_tag=True,
@@ -240,6 +240,7 @@ def ablation_study():
         ),
         action=dp.ActionFlags(
             multi_actions=True,
+            action_set="bid",
         ),
         use_plan=False,
         use_criticise=False,
@@ -264,14 +265,25 @@ def ablation_study():
                     flags=args.make_ablation_study(
                         start_point=start_point,
                         changes=[
-                            (".use_error_logs", True),
-                            (".use_past_error_logs", True),
-                            (".use_ax_tree", True),
-                            (".multi_actions", True),
-                            (".extract_coords", "center"),
-                            (".action_space", "bid+coord"),
-                            (".extract_coords", "box"),
-                            (".extract_visible_tag", True),
+                            (".action.multi_actions", False),
+                            (".filter_visible_elements_only", True),
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "center"),
+                            ],
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "box"),
+                            ],
+                            # obs flags
+                            (".obs.use_history", False),
+                            (".obs.use_screenshot", True),
+                            [
+                                (".obs.use_screenshot", True),
+                                (".obs.use_som", True),
+                            ]
+                            # agent features
+                            (".use_thinking", False),
                         ],
                     ),
                 ),

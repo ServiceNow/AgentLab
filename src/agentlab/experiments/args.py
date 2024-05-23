@@ -200,9 +200,13 @@ def _apply_change(params, change):
     """Apply the change to the params object in place."""
     if callable(change):
         change(params)
-    elif isinstance(change, (tuple, list)) and len(change) == 2:
-        path, value = change
-        _change_value(params, path, value)
+    elif isinstance(change, (tuple, list)):
+        if isinstance(change[0], str) and len(change) == 2:
+            path, value = change
+            _change_value(params, path, value)
+        else:
+            for c in change:
+                _apply_change(params, c)
     else:
         raise ValueError(f"change {change} not recognized")
     return params
@@ -214,7 +218,9 @@ def make_progression_study(start_point, changes, return_cross_prod=True):
 
     Args:
         start_point: the starting point of the study
-        changes: a list of changes to make to the start_point
+        changes: a list of changes to make to the start_point. Each change is
+            either a callable or tuple containing a string identifying the path in the object to
+            change and the value to change to. ex: (".obs.use_html", True)
         return_cross_prod: return a CrossProd object or just the list
 
     Returns:
@@ -241,7 +247,9 @@ def make_ablation_study(start_point, changes, return_cross_prod=True):
 
     Args:
         start_point: the starting point of the ablation study
-        changes: a list of individual changes to make to the start_point
+        changes: a list of changes to make to the start_point. Each change is
+            either a callable or tuple containing a string identifying the path in the object to
+            change and the value to change to. ex: (".obs.use_html", True)
         return_cross_prod: return a CrossProd object or just the list
 
     Returns:
