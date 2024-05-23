@@ -9,6 +9,11 @@ from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments.launch_exp import main
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
+# set logging level to info
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 exp_args_list = None
 
 ## select your experiment group here from exp_configs.py

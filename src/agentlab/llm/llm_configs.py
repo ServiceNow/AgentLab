@@ -39,6 +39,11 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=16_384,
         max_input_tokens=15_000,
     ),
+    "openai/gpt-3.5-turbo-1106": ChatModelArgs(
+        model_name="openai/gpt-3.5-turbo-1106",
+        max_total_tokens=16_384,
+        max_input_tokens=15_000,
+    ),
     "reka/reka-core": ChatModelArgs(
         model_name="reka/reka-core",
         max_total_tokens=128_000,

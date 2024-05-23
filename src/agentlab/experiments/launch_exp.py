@@ -3,7 +3,6 @@ import logging
 import multiprocessing
 from pathlib import Path
 import random
-import shutil
 from joblib import Parallel, delayed
 from agentlab.analyze import error_categorization
 from agentlab.llm.llm_servers import LLMServers
@@ -82,7 +81,9 @@ def main(
     return exp_group_name
 
 
-def _validate_launch_mode(exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept):
+def _validate_launch_mode(
+    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+) -> tuple[list[ExpArgs], Path]:
     if relaunch_mode is not None:
         # dig into an existing experiment group and relaunch all incomplete experiments
         exp_dir = Path(exp_root) / exp_group_name

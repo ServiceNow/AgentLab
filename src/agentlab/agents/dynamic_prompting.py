@@ -259,6 +259,11 @@ class AXTree(Trunkater):
         self, ax_tree, visible_elements_only: bool, visible: bool = True, coord_type=None, prefix=""
     ) -> None:
         super().__init__(visible=visible, start_trunkate_iteration=10)
+        bid_info = """\
+Note: [bid] is the unique identifier at the beginning of lines for each element in the AXTree. It is used to
+refer to elements in actions.
+
+"""
         if coord_type == "center":
             coord_note = """\
 Note: center coordinates are provided in parenthesis and are relative to the top left corner of the page.
@@ -278,7 +283,9 @@ Note: only elements that are visible in the viewport are presented. You might ne
 """
         else:
             visible_elements_note = ""
-        self._prompt = f"\n{prefix}AXTree:\n{coord_note}{visible_elements_note}{ax_tree}\n"
+        self._prompt = (
+            f"\n{prefix}AXTree:\n{bid_info}{coord_note}{visible_elements_note}{ax_tree}\n"
+        )
 
 
 class Error(PromptElement):
@@ -464,8 +471,13 @@ class ActionSpace(PromptElement):
     def __init__(self, action_set: AbstractActionSet) -> None:
         super().__init__()
         self.action_set = action_set
+        action_set_generic_info = """\
+Note: This action set allows you to interact with your environment. Most of them
+are python function executing playwright code. The primary way of referring to
+elemets in the page is through bid which are specified in your observations.
 
-        self._prompt = f"# Action space:\n{self.action_set.describe()}{MacNote().prompt}\n"
+"""
+        self._prompt = f"# Action space:\n{action_set_generic_info}{self.action_set.describe()}{MacNote().prompt}\n"
         self._abstract_ex = f"""
 <action>
 {self.action_set.example_action(abstract=True)}

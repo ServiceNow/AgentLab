@@ -74,7 +74,7 @@ model_name_list = [
     # "openai/gpt-4-1106-preview",
     # "openai/gpt-4-vision-preview",
     # "openai/gpt-4-1106-vision-preview",
-    # "openai/gpt-3.5-turbo-1106",
+    "openai/gpt-3.5-turbo-1106",
     # "openai/gpt-3.5-turbo-0125",
     # "openai/gpt-3.5-turbo-0301",
     # "openai/gpt-3.5-turbo-16k-0613",
@@ -86,7 +86,7 @@ model_name_list = [
     # ------------------ OSS ------------------------
     # "finetuning/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-8B-Instruct",
-    "meta-llama/Meta-Llama-3-70B-Instruct",
+    # "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
     # "codellama/CodeLlama-34b-Instruct-hf",
     # "Salesforce/xLAM-v0.1-r",
@@ -98,9 +98,14 @@ model_name_list = [
 
 
 # test GenericAgent with different LLMs
-def generic_agent_eval_llm(benchmark="miniwob"):
+def generic_agent_eval_llm(benchmark="workarena"):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
     flags = ADVANCED_FLAGS.copy()
+    flags.obs.extract_visible_tag = False
+    flags.obs.extract_clickable_tag = False
+    flags.obs.use_think_history = False
+    flags.obs.use_focused_element = False
+
     n_seeds = 5
     if benchmark == "miniwob":
         flags.obs.use_html = True  # it's better to use HTML for miniwob
@@ -119,7 +124,7 @@ def generic_agent_eval_llm(benchmark="miniwob"):
                 flags=flags,
             ),
             env_args=EnvArgs(
-                max_steps=5,
+                max_steps=15,
                 task_seed=args.CrossProd(make_seeds(n_seeds)),
                 task_name=args.CrossProd(task_list),
             ),
