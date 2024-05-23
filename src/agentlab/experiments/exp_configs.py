@@ -31,6 +31,7 @@ def order(exp_args_list):
 def miniwob_fix_flags(benchmark: str, flags: GenericPromptFlags):
     if benchmark == "miniwob":
         flags.obs.use_html = True
+    return flags
 
 
 def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
