@@ -242,7 +242,7 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
 
-def ablation_study(benchmark: str = "miniwob"):
+def ablation_study():
 
     start_point = GenericPromptFlags(
         obs=dp.ObsFlags(
