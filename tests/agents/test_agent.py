@@ -30,14 +30,6 @@ def test_generic_agent():
 
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
-        # for key, val in result_record.items():
-        #     print(key, val[0])
-        # pass
-        # # exp_args.prepare(tmp_dir)
-        # # exp_args.run()
-        # # exp_result = get_exp_result(exp_args.exp_dir)
-        # # exp_record = exp_result.get_exp_record()
-
         target = {
             "n_steps": 1,
             "cum_reward": 1.0,
@@ -51,18 +43,6 @@ def test_generic_agent():
         for key, target_val in target.items():
             assert key in result_record
             assert result_record[key][0] == target_val
-
-        # for key, target_val in target.items():
-        #     assert key in exp_record
-        #     assert exp_record[key] == target_val
-
-        # # TODO investigate why it's taking almost 5 seconds to solve
-        # assert exp_record["stats.cum_step_elapsed"] < 5
-        # if exp_record["stats.cum_step_elapsed"] > 3:
-        #     t = exp_record["stats.cum_step_elapsed"]
-        #     logging.warning(
-        #         f"miniwob.click-test is taking {t:.2f}s (> 3s) to solve with an oracle."
-        #     )
 
 
 if __name__ == "__main__":
