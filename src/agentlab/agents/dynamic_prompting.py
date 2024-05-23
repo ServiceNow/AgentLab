@@ -365,7 +365,7 @@ class Observation(Shrinkable):
             else:
                 screenshot = self.obs["screenshot"]
             img_url = image_to_jpg_base64_url(screenshot)
-            prompt.append({"type": "image_url", "image_url": img_url})
+            prompt.append({"type": "image_url", "image_url": {"url": img_url, "detail": "high"}})
 
         return prompt
 
