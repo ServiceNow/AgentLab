@@ -163,7 +163,10 @@ def random_search(benchmark: str = "miniwob"):
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
-            agent_args=flags,
+            agent_args=GenericAgentArgs(
+                chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+                flags=flags,
+            ),
             env_args=EnvArgs(
                 max_steps=10,
                 task_seed=args.CrossProd(make_seeds(n_seeds)),
@@ -183,7 +186,7 @@ def progression_study(benchmark: str = "miniwob"):
     configuration and a sequence of changes are applied to the base
     configuration progressively.
     """
-    start_point = GenericPromptFlags(
+    flags = GenericPromptFlags(
         obs=dp.ObsFlags(
             use_html=True,
             use_ax_tree=True,
@@ -219,7 +222,7 @@ def progression_study(benchmark: str = "miniwob"):
         extra_instructions=None,
     )
 
-    start_point = miniwob_fix_flags(benchmark, start_point)
+    flags = miniwob_fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
     task_list = get_task_list(benchmark)
 
@@ -231,7 +234,7 @@ def progression_study(benchmark: str = "miniwob"):
                         [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
                     ),
                     flags=args.make_progression_study(
-                        start_point=start_point,
+                        start_point=flags,
                         changes=[
                             (".obs.use_error_logs", True),
                             (".obs.use_past_error_logs", True),
@@ -257,7 +260,7 @@ def progression_study(benchmark: str = "miniwob"):
 
 def ablation_study(benchmark: str = "miniwob"):
 
-    start_point = GenericPromptFlags(
+    flags = GenericPromptFlags(
         obs=dp.ObsFlags(
             use_html=True,
             use_ax_tree=False,
@@ -293,7 +296,7 @@ def ablation_study(benchmark: str = "miniwob"):
         extra_instructions=None,
     )
 
-    start_point = miniwob_fix_flags(benchmark, start_point)
+    flags = miniwob_fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
     task_list = get_task_list(benchmark)
 
@@ -305,7 +308,7 @@ def ablation_study(benchmark: str = "miniwob"):
                         [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
                     ),
                     flags=args.make_ablation_study(
-                        start_point=start_point,
+                        start_point=flags,
                         changes=[
                             (".action.multi_actions", False),
                             (".obs.filter_visible_elements_only", True),
@@ -331,8 +334,8 @@ def ablation_study(benchmark: str = "miniwob"):
                 ),
                 env_args=EnvArgs(
                     max_steps=10,
-                    task_seed=args.CrossProd(make_seeds(5)),
-                    task_name=args.CrossProd(tasks.miniwob_all),
+                    task_seed=args.CrossProd(make_seeds(n_seeds)),
+                    task_name=args.CrossProd(task_list),
                 ),
                 enable_debug=False,
             )
@@ -368,46 +371,43 @@ def demo_maker():
     )
 
 
-DEFAULT_RS_FLAGS = GenericAgentArgs(
-    chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
-    flags=GenericPromptFlags(
-        obs=dp.ObsFlags(
-            use_html=True,
-            use_ax_tree=args.Choice([True, False]),
-            use_focused_element=False,
-            use_error_logs=True,
-            use_history=True,
-            use_past_error_logs=args.Choice([True, False], p=[0.7, 0.3]),
-            use_action_history=True,
-            use_think_history=args.Choice([True, False], p=[0.7, 0.3]),
-            use_diff=args.Choice([True, False], p=[0.3, 0.7]),
-            html_type="pruned_html",
-            use_screenshot=False,
-            use_som=False,
-            extract_visible_tag=args.Choice([True, False]),
-            extract_clickable_tag=False,
-            extract_coords=args.Choice(["center", "box"]),
-            filter_visible_elements_only=args.Choice([True, False], p=[0.3, 0.7]),
-        ),
-        action=dp.ActionFlags(
-            multi_actions=args.Choice([True, False], p=[0.7, 0.3]),
-            action_set="bid",
-            # action_set=args.Choice(["python", "bid", "coord",
-            # "bid+coord"]),
-        ),
-        # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
-        use_plan=args.Choice([True, False]),
-        use_criticise=args.Choice([True, False], p=[0.7, 0.3]),
-        use_thinking=args.Choice([True, False], p=[0.7, 0.3]),
-        use_memory=args.Choice([True, False], p=[0.7, 0.3]),
-        use_concrete_example=True,
-        use_abstract_example=True,
-        use_hints=args.Choice([True, False], p=[0.7, 0.3]),
-        be_cautious=args.Choice([True, False]),
-        enable_chat=False,
-        max_prompt_tokens=None,
-        extra_instructions=None,
+DEFAULT_RS_FLAGS = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=True,
+        use_ax_tree=args.Choice([True, False]),
+        use_focused_element=False,
+        use_error_logs=True,
+        use_history=True,
+        use_past_error_logs=args.Choice([True, False], p=[0.7, 0.3]),
+        use_action_history=True,
+        use_think_history=args.Choice([True, False], p=[0.7, 0.3]),
+        use_diff=args.Choice([True, False], p=[0.3, 0.7]),
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=args.Choice([True, False]),
+        extract_clickable_tag=False,
+        extract_coords=args.Choice(["center", "box"]),
+        filter_visible_elements_only=args.Choice([True, False], p=[0.3, 0.7]),
     ),
+    action=dp.ActionFlags(
+        multi_actions=args.Choice([True, False], p=[0.7, 0.3]),
+        action_set=args.Choice(["bid", "bid+coord"]),
+        # action_set=args.Choice(["python", "bid", "coord",
+        # "bid+coord"]),
+    ),
+    # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
+    use_plan=args.Choice([True, False]),
+    use_criticise=args.Choice([True, False], p=[0.7, 0.3]),
+    use_thinking=args.Choice([True, False], p=[0.7, 0.3]),
+    use_memory=args.Choice([True, False], p=[0.7, 0.3]),
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=args.Choice([True, False], p=[0.7, 0.3]),
+    be_cautious=args.Choice([True, False]),
+    enable_chat=False,
+    max_prompt_tokens=None,
+    extra_instructions=None,
 )
 
 
