@@ -3,6 +3,7 @@ import fnmatch
 import io
 from logging import warn
 from pathlib import Path
+import re
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -541,15 +542,39 @@ def set_wrap_style(df):
 # ------------
 
 
+def map_err_key(err_msg):
+    if err_msg is None:
+        return err_msg
+
+    regex_replacements = [
+        (
+            r"your messages resulted in \d+ tokens",
+            "your messages resulted in x tokens",
+        ),
+        (
+            r"(?<=Exception uncaught by agent or environment in task\s)([^\s]+)",
+            "<task_name>.",
+        ),
+    ]
+
+    for pattern, replacement in regex_replacements:
+        err_msg = re.sub(pattern, replacement, err_msg)
+    return err_msg
+
+
 def error_report(df: pd.DataFrame, max_stack_trace=10):
     """Report the error message for each agent."""
-    unique_counts = df["err_msg"].value_counts().sort_values(ascending=False)
+
+    if "err_key" not in df:
+        df["err_key"] = df["err_msg"].map(map_err_key)
+
+    unique_counts = df["err_key"].value_counts().sort_values(ascending=False)
     report = []
-    for err_msg, count in unique_counts.items():
+    for err_key, count in unique_counts.items():
         report.append("-------------------")
-        report.append(f"{count}x : {err_msg}\n")
+        report.append(f"{count}x : {err_key}\n")
         # find sub_df with this error message
-        sub_df = df[df["err_msg"] == err_msg]
+        sub_df = df[df["err_key"] == err_key]
         idx = 0
         for _, row in sub_df.iterrows():
             if idx >= max_stack_trace:
