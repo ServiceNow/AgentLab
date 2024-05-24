@@ -71,9 +71,7 @@ class LLMServers:
         if chat_model_key not in self.server_dict:
             return
 
-        logging.warning(
-            f"if n_jobs < # experiments, it could lead to deadlock. make sure shuffle_jobs = False"
-        )
+        logging.warning(f"if n_jobs < # experiments, it could lead to deadlock.")
 
         server_info = self.server_dict[chat_model_key]
         job_id = server_info["job_id"]

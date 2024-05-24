@@ -67,10 +67,15 @@ CHAT_MODEL_ARGS_DICT = {
     "finetuning/Meta-Llama-3-8B-Instruct": ChatModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
         model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/output/",
-        # model_path=f"{toolkit_configs.FINETUNING_CKPT_RW_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/output/ckpt_itr_0",
-        # model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/output/ckpt_itr_0",
         training_total_tokens=8_192,
-        max_total_tokens=16_384,
+        model_size=8,
+        is_model_operational=True,
+        **default_oss_llms_args,
+    ),
+    "finetuning/debug": ChatModelArgs(
+        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
+        model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/output/ckpt_itr_0",
+        training_total_tokens=8_192,
         model_size=8,
         is_model_operational=True,
         **default_oss_llms_args,
@@ -302,7 +307,7 @@ CHAT_MODEL_ARGS_DICT = {
 # TODO: the base infra hparams could be infered from total params
 # NOTE: optimizing for a 8-16k context window
 INFRA_HPARAMS_DICT_BASE = {
-    4: {"gpu": 1, "gpu_mem": 12, "cpu": 6, "mem": 64},  # NOTE: for tests
+    4: {"gpu": 1, "gpu_mem": 16, "cpu": 6, "mem": 64},  # NOTE: for tests
     8: {"gpu": 1, "cpu": 6, "mem": 64},
     21: {"gpu": 2, "cpu": 8, "mem": 128},
     41: {"gpu": 2, "cpu": 8, "mem": 128},
