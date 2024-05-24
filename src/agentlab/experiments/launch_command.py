@@ -24,7 +24,10 @@ exp_group_name = "generic_agent_test"  ## this will make a very quick test
 
 ## or from exp_configs_OSS.py
 # exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
+# exp_group_name = "OSS_eval"
 # exp_group_name = "OSS_random_search"
+# exp_group_name = "OSS_finetuning_eval"
+
 
 ## you can also specify the experiment group name directly here to relaunch it
 # exp_group_name = "2024-01-22_23-46-25_random_search_prompt_OSS_LLMs"
@@ -46,7 +49,7 @@ main(
     exp_root=RESULTS_DIR,
     exp_group_name=exp_group_name,
     exp_args_list=exp_args_list,
-    n_jobs=1,  # 1 for debugging, -1 for all cores except 2
+    n_jobs=16,  # 1 for debugging, -1 for all cores except 2
     relaunch_mode=relaunch_mode,  # choices = [None, 'incomplete_only', 'all_errors', 'server_errors']. if not None, make sure you're pointing to an existing experiment directory
     shuffle_jobs=True,
     auto_accept=True,  # skip the prompt to accept the experiment

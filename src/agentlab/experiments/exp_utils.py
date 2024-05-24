@@ -55,3 +55,12 @@ def get_ckpt_list(chat_model_args, add_base_model=True):
         args_list.append(args)
 
     return args_list
+
+
+def overwrite_chat_model_arg(chat_model_args, overwrite_dict):
+
+    for chat_model_arg in chat_model_args:
+        for key, value in overwrite_dict.items():
+            setattr(chat_model_arg, key, value)
+
+    return chat_model_args
