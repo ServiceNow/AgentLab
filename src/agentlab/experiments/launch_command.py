@@ -22,6 +22,10 @@ exp_group_name = "generic_agent_test"  ## this will make a very quick test
 # exp_group_name = "random_search"
 # exp_group_name = "progression_study"
 
+from ui_copilot.demos.concur_assistant import make_exp_args_list
+
+exp_group_name, exp_args_list = make_exp_args_list()
+
 ## or from exp_configs_OSS.py
 # exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
 # exp_group_name = "OSS_random_search"
@@ -50,4 +54,5 @@ main(
     relaunch_mode=relaunch_mode,  # choices = [None, 'incomplete_only', 'all_errors', 'server_errors']. if not None, make sure you're pointing to an existing experiment directory
     shuffle_jobs=True,
     auto_accept=True,  # skip the prompt to accept the experiment
+    # overwrite_model_url="https://0c9382c6-7aca-4d63-be11-629d75fa852a.job.console.elementai.com",
 )

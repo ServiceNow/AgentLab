@@ -530,7 +530,7 @@ def shrink_columns(df, also_wrap_index=True):
             return "{:.10f}".format(x).rstrip("0").rstrip(".")
         return x
 
-    return df.applymap(formatter)
+    return df.map(formatter)
 
 
 def set_wrap_style(df):
