@@ -1,5 +1,5 @@
 import logging
-from agentlab.experiments.exp_utils import overwrite_chat_model_arg
+from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
 from browsergym.experiments.loop import EnvArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents import dynamic_prompting as dp
@@ -46,6 +46,9 @@ def fix_flags(benchmark: str, mode: str, flags: GenericPromptFlags):
             flags = MINIWOB_RS_OSS_FLAGS
         else:
             flags = RS_OSS_FLAGS
+
+    if mode == "OSS_finetuning_eval":
+        flags = FINETUNING_FLAGS
 
     return flags
 
@@ -121,9 +124,9 @@ model_name_list = [
     # "openai/gpt-4-turbo-2024-04-09",
     # "openai/gpt-4o-2024-05-13",
     # ------------------ OSS ------------------------
-    # "finetuning/Meta-Llama-3-8B-Instruct",
+    "finetuning/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-8B-Instruct",
-    "meta-llama/Meta-Llama-3-70B-Instruct",
+    # "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
     # "codellama/CodeLlama-34b-Instruct-hf",
     # "Salesforce/xLAM-v0.1-r",
@@ -134,7 +137,7 @@ model_name_list = [
 ]
 # set to None or empty dict to keep the default values
 overwrite_chat_model_args_dict = {
-    "model_url": "https://abceab17-35da-41a6-90cc-d223145a18d2.job.console.elementai.com",
+    # "model_url": "https://abceab17-35da-41a6-90cc-d223145a18d2.job.console.elementai.com",
     # "max_total_tokens": 16_384,
 }
 
@@ -255,7 +258,7 @@ def progression_study(benchmark: str = "miniwob"):
         extra_instructions=None,
     )
 
-    flags = miniwob_fix_flags(benchmark, flags)
+    flags = fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
     task_list = get_task_list(benchmark)
 
@@ -407,6 +410,51 @@ def demo_maker():
                 flags=flags,
             ),
             env_args=env_args,
+            enable_debug=False,
+        )
+    )
+
+
+# test GenericAgent with different LLMs
+def finetuning_eval(benchmark="workarena", task_name="AllMenuTask"):
+    """Evaluate GenericAgent with different LLMs on a selected benchmark."""
+
+    assert len(model_name_list) == 1, "Only one model is supported for finetuning eval"
+    assert model_name_list[0].startswith(
+        "finetuning/"
+    ), "Only finetuning models are supported for finetuning eval"
+
+    if task_name:
+        # TODO: automate this
+        if task_name == "AllMenuTask":
+            task_list = ["workarena.servicenow.all-menu"]
+
+        n_seeds = 10
+    else:
+        task_list = get_task_list(benchmark)
+        n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
+
+    flags = fix_flags(benchmark, mode="OSS_finetuning_eval")
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
+
+    return args.expand_cross_product(
+        ExpArgs(
+            agent_args=GenericAgentArgs(
+                chat_model_args=args.CrossProd(
+                    get_ckpt_list(CHAT_MODEL_ARGS_DICT[model_name_list[0]])
+                ),
+                flags=flags,
+            ),
+            env_args=EnvArgs(
+                max_steps=15,
+                task_seed=args.CrossProd(make_seeds(n_seeds)),
+                task_name=args.CrossProd(task_list),
+            ),
             enable_debug=False,
         )
     )
