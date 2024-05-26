@@ -1,3 +1,5 @@
+import logging
+from agentlab.experiments.exp_utils import overwrite_chat_model_arg
 from browsergym.experiments.loop import EnvArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents import dynamic_prompting as dp
@@ -28,9 +30,23 @@ def order(exp_args_list):
     return exp_args_list
 
 
-def miniwob_fix_flags(benchmark: str, flags: GenericPromptFlags):
-    if benchmark == "miniwob":
-        flags.obs.use_html = True
+def fix_flags(benchmark: str, mode: str, flags: GenericPromptFlags):
+    if not mode:
+        mode = "single_eval"
+        logging.warning(f"Mode not specified, defaulting to {mode}")
+    if mode not in ["single_eval", "rs", "OSS_eval", "OSS_rs", "OSS_finetuning_eval"]:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    if mode == "single_eval":
+        if benchmark == "miniwob":
+            flags.obs.use_html = True
+
+    if mode == "OSS_rs":
+        if benchmark == "miniwob":
+            flags = MINIWOB_RS_OSS_FLAGS
+        else:
+            flags = RS_OSS_FLAGS
+
     return flags
 
 
@@ -95,7 +111,7 @@ model_name_list = [
     # "openai/gpt-4-1106-preview",
     # "openai/gpt-4-vision-preview",
     # "openai/gpt-4-1106-vision-preview",
-    "openai/gpt-3.5-turbo-1106",
+    # "openai/gpt-3.5-turbo-1106",
     # "openai/gpt-3.5-turbo-0125",
     # "openai/gpt-3.5-turbo-0301",
     # "openai/gpt-3.5-turbo-16k-0613",
@@ -107,7 +123,7 @@ model_name_list = [
     # ------------------ OSS ------------------------
     # "finetuning/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-8B-Instruct",
-    # "meta-llama/Meta-Llama-3-70B-Instruct",
+    "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
     # "codellama/CodeLlama-34b-Instruct-hf",
     # "Salesforce/xLAM-v0.1-r",
@@ -116,6 +132,11 @@ model_name_list = [
     # "microsoft/WizardLM-2-8x22B"
     # "finetuning/Meta-Llama-3-8B-Instruct",
 ]
+# set to None or empty dict to keep the default values
+overwrite_chat_model_args_dict = {
+    "model_url": "https://abceab17-35da-41a6-90cc-d223145a18d2.job.console.elementai.com",
+    # "max_total_tokens": 16_384,
+}
 
 
 # test GenericAgent with different LLMs
@@ -128,14 +149,20 @@ def generic_agent_eval_llm(benchmark="workarena"):
     flags.obs.use_focused_element = False
     flags.use_hints = True
 
-    flags = miniwob_fix_flags(benchmark, flags)
+    flags = fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
     task_list = get_task_list(benchmark)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
 
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+                chat_model_args=args.CrossProd(chat_model_args_list),
                 flags=flags,
             ),
             env_args=EnvArgs(
@@ -148,7 +175,7 @@ def generic_agent_eval_llm(benchmark="workarena"):
     )
 
 
-def random_search(benchmark: str = "miniwob"):
+def random_search(benchmark: str = "workarena", mode="OSS_rs"):
     """Example of random search. Modify this at will, but don't push your
     changes.
 
@@ -157,14 +184,20 @@ def random_search(benchmark: str = "miniwob"):
     analyze the  results with caution and don't actually draw final conclusions
     from these experiments.
     """
-    flags = miniwob_fix_flags(benchmark, DEFAULT_RS_FLAGS)
+    flags = fix_flags(benchmark, mode=mode, flags=DEFAULT_RS_FLAGS)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=3)
     task_list = get_task_list(benchmark)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+                chat_model_args=args.Choice(chat_model_args_list),
                 flags=flags,
             ),
             env_args=EnvArgs(
@@ -226,13 +259,17 @@ def progression_study(benchmark: str = "miniwob"):
     n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
     task_list = get_task_list(benchmark)
 
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
+
     return order(
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=args.CrossProd(
-                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-                    ),
+                    chat_model_args=args.CrossProd(chat_model_args_list),
                     flags=args.make_progression_study(
                         start_point=flags,
                         changes=[
@@ -296,17 +333,21 @@ def ablation_study(benchmark: str = "miniwob"):
         extra_instructions=None,
     )
 
-    flags = miniwob_fix_flags(benchmark, flags)
+    flags = fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
     task_list = get_task_list(benchmark)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
 
     return order(
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=args.CrossProd(
-                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-                    ),
+                    chat_model_args=args.CrossProd(chat_model_args_list),
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
@@ -501,6 +542,7 @@ FINETUNING_FLAGS = GenericPromptFlags(
         use_history=True,
         use_action_history=True,
         use_diff=True,
+        html_type="pruned_html",
         use_screenshot=False,
     ),
     action=dp.ActionFlags(
@@ -511,7 +553,7 @@ FINETUNING_FLAGS = GenericPromptFlags(
     use_criticise=False,
     use_thinking=False,
     use_memory=False,
-    use_concrete_example=False,
-    use_abstract_example=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
     use_hints=False,
 )
