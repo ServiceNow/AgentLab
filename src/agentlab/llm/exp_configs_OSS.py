@@ -7,37 +7,13 @@ from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 from browsergym.experiments.loop import EnvArgs
 from agentlab.experiments.exp_configs import make_seeds
-from agentlab.src.agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
+from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
 
 
 def get_exp_args_list(func_name: str):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
     return func_name, func()
-
-
-def tgi_toolkit_test():
-    """Minimalistic experiment to test the system."""
-    basic_flags = BASIC_FLAGS.copy()
-    basic_flags.use_html = False
-    basic_flags.use_ax_tree = True
-    return args.expand_cross_product(
-        ExpArgs(
-            agent_args=GenericAgentArgs(
-                # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
-                chat_model_args=CHAT_MODEL_ARGS_DICT["microsoft/Phi-3-mini-4k-instruct"],
-                flags=basic_flags,
-            ),
-            env_args=EnvArgs(
-                max_steps=5,
-                task_seed=args.CrossProd([None] * 2),
-                # task_name=args.CrossProd(tasks.miniwob_tiny_test),
-                # task_name=args.CrossProd(tasks.workarena_tasks[:2]),
-                task_name=args.CrossProd(tasks.workarena_tasks[1:]),
-            ),
-            enable_debug=True,
-        )
-    )
 
 
 model_name_list = [
@@ -55,7 +31,7 @@ model_name_list = [
 
 # set to None or empty dict to keep the default values
 overwrite_chat_model_args_dict = {
-    # "model_url": "https://248fd46d-d232-4675-ba96-316700fe445c.job.console.elementai.com",
+    "model_url": "https://abceab17-35da-41a6-90cc-d223145a18d2.job.console.elementai.com",
     # "max_total_tokens": 16_384,
 }
 
