@@ -124,7 +124,7 @@ model_name_list = [
     # "openai/gpt-4-turbo-2024-04-09",
     # "openai/gpt-4o-2024-05-13",
     # ------------------ OSS ------------------------
-    "finetuning/Meta-Llama-3-8B-Instruct",
+    # "finetuning/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
@@ -134,6 +134,7 @@ model_name_list = [
     # "mistralai/Mixtral-8x7B-Instruct-v0.1",
     # "microsoft/WizardLM-2-8x22B"
     # "finetuning/Meta-Llama-3-8B-Instruct",
+    "finetuning/debug",
 ]
 # set to None or empty dict to keep the default values
 overwrite_chat_model_args_dict = {
@@ -143,16 +144,15 @@ overwrite_chat_model_args_dict = {
 
 
 # test GenericAgent with different LLMs
-def generic_agent_eval_llm(benchmark="workarena"):
+def generic_agent_eval_llm(benchmark="workarena", mode="single_eval"):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
-    flags = ADVANCED_FLAGS.copy()
+    flags = fix_flags(benchmark, mode="single_eval", flags=ADVANCED_FLAGS)
     flags.obs.extract_visible_tag = False
     flags.obs.extract_clickable_tag = False
     flags.obs.use_think_history = False
     flags.obs.use_focused_element = False
     flags.use_hints = True
 
-    flags = fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
     task_list = get_task_list(benchmark)
 
