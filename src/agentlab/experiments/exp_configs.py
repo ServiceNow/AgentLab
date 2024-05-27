@@ -136,7 +136,7 @@ def generic_agent_eval_llm(benchmark="workarena"):
     task_list = get_task_list(benchmark)
     # task_list = tasks.workarena_order_tasks
     # task_list = tasks.workarena_filter_tasks
-    # task_list = ["workarena.servicenow.sort-hardware-list"]
+    task_list = ["workarena.servicenow.sort-hardware-list"]
 
     return args.expand_cross_product(
         ExpArgs(

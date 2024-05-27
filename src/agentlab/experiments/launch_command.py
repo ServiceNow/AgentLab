@@ -13,8 +13,8 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 exp_args_list = None
 
 ## select your experiment group here from exp_configs.py
-exp_group_name = "generic_agent_test"  ## this will make a very quick test
-# exp_group_name = "generic_agent_eval_llm"
+# exp_group_name = "generic_agent_test"  ## this will make a very quick test
+exp_group_name = "generic_agent_eval_llm"
 # exp_group_name = "random_search"
 # exp_group_name = "progression_study"
 
@@ -43,7 +43,7 @@ main(
     exp_root=RESULTS_DIR,
     exp_group_name=exp_group_name,
     exp_args_list=exp_args_list,
-    n_jobs=1,  # 1 for debugging, -1 for all cores except 2
+    n_jobs=5,  # 1 for debugging, -1 for all cores except 2
     relaunch_mode=relaunch_mode,  # choices = [None, 'incomplete_only', 'all_errors', 'server_errors']. if not None, make sure you're pointing to an existing experiment directory
     shuffle_jobs=True,
     auto_accept=True,  # skip the prompt to accept the experiment
