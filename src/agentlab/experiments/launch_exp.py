@@ -143,7 +143,7 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
     # TODO(make relanch_mode a callable, for flexibility)
     for exp_result in yield_all_exp_results(exp_root, progress_fn=None):  # type: ExpArgs
         try:
-            reward_info = exp_result.reward_info
+            summary_info = exp_result.summary_info
         except FileNotFoundError:
             yield exp_result.exp_args
             continue
@@ -151,8 +151,8 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
         if relaunch_mode == "incomplete_only":
             continue
 
-        err_msg = reward_info.get("err_msg", None)
-        stack_trace = reward_info.get("stack_trace", None)
+        err_msg = summary_info.get("err_msg", None)
+        stack_trace = summary_info.get("stack_trace", None)
 
         if err_msg is not None:
             if relaunch_mode == "all_errors":

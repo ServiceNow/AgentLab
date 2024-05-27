@@ -6,6 +6,10 @@ from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
 workarena_tasks = [task_class.get_task_id() for task_class in ALL_WORKARENA_TASKS]
 workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
+workarena_order_tasks = [task for task in workarena_tasks if "order" in task]
+workarena_sort_tasks = [task for task in workarena_tasks if "sort" in task]
+workarena_filter_tasks = [task for task in workarena_tasks if "filter" in task]
+
 webarena_tasks = ALL_WEBARENA_TASK_IDS
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
