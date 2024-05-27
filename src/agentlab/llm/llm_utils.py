@@ -305,6 +305,13 @@ class ParseError(Exception):
     pass
 
 
+def extract_code_blocks(text) -> list[tuple[str, str]]:
+    pattern = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+
+    matches = pattern.findall(text)
+    return [(match[0], match[1].strip()) for match in matches]
+
+
 def parse_html_tags_raise(text, keys=(), optional_keys=(), merge_multiple=False):
     """A version of parse_html_tags that raises an exception if the parsing is not successful."""
     content_dict, valid, retry_message = parse_html_tags(

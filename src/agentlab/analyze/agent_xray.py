@@ -19,7 +19,7 @@ from agentlab.analyze import inspect_results
 
 # from browsergym.experiments.loop import ExpArgs, StepInfo
 from agentlab.llm.llm_utils import count_tokens
-from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs, get_exp_result
+from browsergym.experiments.loop import ExpArgs, get_exp_result, StepInfo
 
 
 # -------------------------
@@ -74,7 +74,7 @@ def run_gradio(savedir_base):
             with gr.Row():
                 step_info_gr = gr.Markdown(visible=False)
                 action_info_gr = gr.Text(visible=False, label="Action")
-                error_info_gr = gr.Markdown(visible=False)
+                error_info_gr = gr.Textbox(visible=False)
 
         # 6. Render the before and after images
         with gr.Tab("Images"):
@@ -600,6 +600,8 @@ def update_step_info(row_id, episode_id, step_id):
 
     row, episode_series, step_obj, exp_result = get_row_info(row_id, episode_id, step_id)
 
+    step_obj = step_obj  # type: StepInfo
+
     step_max = len(exp_result.steps_info) - 1
 
     # Step Info
@@ -638,6 +640,9 @@ def update_step_info(row_id, episode_id, step_id):
         action_info = "No Action"
     else:
         action_info = convert_action_dict_to_markdown(action)
+
+    if "think" in step_obj.agent_info:
+        action_info += "\nthink:\n" + step_obj.agent_info["think"]
 
     # Error Logs
     if obs is None:
@@ -690,7 +695,7 @@ def update_step_info(row_id, episode_id, step_id):
         agent_info = convert_to_markdown(agent_info_dict)
 
     # Images
-    if obs is None or step_obj is None:
+    if obs is None or step_obj is None or "axtree_txt" not in obs:
         image_src = None
         action_bid_list = ""
         html = ""

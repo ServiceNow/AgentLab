@@ -247,9 +247,35 @@ def test_retry_parse_raises():
         llm_utils.retry(mock_chat, [], 3, parser_raises)
 
 
+def test_extract_code_blocks():
+    text = """\
+This is some text.
+```python
+def hello_world():
+    print("Hello, world!")
+```
+Some more text.
+```
+More code without a language.
+```
+Another block of code:
+```javascript
+console.log("Hello, world!");
+```
+"""
+
+    expected_output = [
+        ("python", 'def hello_world():\n    print("Hello, world!")'),
+        ("", "More code without a language."),
+        ("javascript", 'console.log("Hello, world!");'),
+    ]
+
+    assert llm_utils.extract_code_blocks(text) == expected_output
+
+
 if __name__ == "__main__":
     # test_retry_parallel()
-    test_rate_limit_max_wait_time()
+    # test_rate_limit_max_wait_time()
     # test_successful_parse_before_max_retries()
     # test_unsuccessful_parse_before_max_retries()
-    test_rate_limit_success()
+    test_extract_code_blocks()
