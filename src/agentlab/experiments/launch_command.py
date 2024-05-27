@@ -9,10 +9,6 @@ from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments.launch_exp import main
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
-# set logging level to info
-import logging
-
-logging.basicConfig(level=logging.INFO)
 
 exp_args_list = None
 
@@ -28,7 +24,6 @@ exp_group_name = "generic_agent_test"  ## this will make a very quick test
 
 ## you can also specify the experiment group name directly here to relaunch it
 # exp_group_name = "2024-01-22_23-46-25_random_search_prompt_OSS_LLMs"
-# exp_group_name = get_most_recent_folder(RESULTS_DIR).name
 
 # WorkArena Ablation Study for ICML
 # exp_group_name = "2024-02-01_03-20-14_ablation_study_browsergym_workarena"
@@ -36,6 +31,8 @@ exp_group_name = "generic_agent_test"  ## this will make a very quick test
 # MiniWob Ablation Study for ICML
 # exp_group_name = "2024-02-01_03-24-01_ablation_study_browsergym_miniwob"
 
+
+# exp_group_name = get_most_recent_folder(RESULTS_DIR).name
 
 # relaunch_mode = "incomplete_only"
 # relaunch_mode = "all_errors"
