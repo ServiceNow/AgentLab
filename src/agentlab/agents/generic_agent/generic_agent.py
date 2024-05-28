@@ -64,19 +64,9 @@ class GenericAgent(Agent):
             step=self.plan_step,
             flags=self.flags,
         )
-        # Determine the minimum non-None token limit from prompt, total, and input tokens, or set to None if all are None.
-        maxes = (
-            self.flags.max_prompt_tokens,
-            self.chat_model_args.max_total_tokens,
-            self.chat_model_args.max_input_tokens,
-        )
-        maxes = [m for m in maxes if m is not None]
-        max_prompt_tokens = min(maxes) if maxes else None
-        max_trunk_itr = (
-            self.chat_model_args.max_trunk_itr
-            if self.chat_model_args.max_trunk_itr
-            else 20  # dangerous to change the default value here?
-        )
+
+        max_prompt_tokens, max_trunk_itr = self._get_maxes()
+
         # TODO: fit_tokens will have to move w/in retry() so that it can be called multiple times
         prompt = dp.fit_tokens(
             main_prompt,
@@ -84,6 +74,7 @@ class GenericAgent(Agent):
             model_name=self.chat_model_args.model_name,
             max_iterations=max_trunk_itr,
         )
+
         chat_messages = [
             SystemMessage(content=dp.SystemPrompt().prompt),
             HumanMessage(content=prompt),
@@ -147,3 +138,18 @@ does not support vision. Disabling use_screenshot."""
                 )
                 flags.obs.use_screenshot = False
         return flags
+
+    def _get_maxes(self):
+        maxes = (
+            self.flags.max_prompt_tokens,
+            self.chat_model_args.max_total_tokens,
+            self.chat_model_args.max_input_tokens,
+        )
+        maxes = [m for m in maxes if m is not None]
+        max_prompt_tokens = min(maxes) if maxes else None
+        max_trunk_itr = (
+            self.chat_model_args.max_trunk_itr
+            if self.chat_model_args.max_trunk_itr
+            else 20  # dangerous to change the default value here?
+        )
+        return max_prompt_tokens, max_trunk_itr
