@@ -50,5 +50,4 @@ main(
     relaunch_mode=relaunch_mode,  # choices = [None, 'incomplete_only', 'all_errors', 'server_errors']. if not None, make sure you're pointing to an existing experiment directory
     shuffle_jobs=True,
     auto_accept=True,  # skip the prompt to accept the experiment
-    # overwrite_model_url="https://0c9382c6-7aca-4d63-be11-629d75fa852a.job.console.elementai.com",
 )
