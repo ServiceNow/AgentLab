@@ -491,7 +491,9 @@ characters and wait until next step.
 * If you have to cut and paste, don't forget to select the text first.
 * Coordinate inside an SVG are relative to it's top left corner.
 * Make sure to use bid to identify elements when using commands.
-* To select a combobox element use select_option command if available.
+* Interacting with combobox, dropdowns and auto-complete fields can be tricky,
+sometimes you need to use select_option, while other times you need to use fill
+or click and wait for the reaction of the page.
 """
 
 
@@ -633,8 +635,9 @@ class Diff(Shrinkable):
         self, previous, new, prefix="", max_line_diff=20, shrink_speed=2, visible=True
     ) -> None:
         super().__init__(visible=visible)
+        self.previous = previous
+        self.new = new
         self.max_line_diff = max_line_diff
-        self.header, self.diff_lines = diff(previous, new)
         self.shrink_speed = shrink_speed
         self.prefix = prefix
 
@@ -644,11 +647,13 @@ class Diff(Shrinkable):
 
     @property
     def _prompt(self) -> str:
-        diff_str = "\n".join(self.diff_lines[: self.max_line_diff])
-        if len(self.diff_lines) > self.max_line_diff:
-            original_count = len(self.diff_lines)
+        header, diff_lines = diff(self.previous, self.new)
+
+        diff_str = "\n".join(diff_lines[: self.max_line_diff])
+        if len(diff_lines) > self.max_line_diff:
+            original_count = len(diff_lines)
             diff_str = f"{diff_str}\nDiff truncated, {original_count - self.max_line_diff} changes now shown."
-        return f"{self.prefix}{self.header}\n{diff_str}\n"
+        return f"{self.prefix}{header}\n{diff_str}\n"
 
 
 class HistoryStep(Shrinkable):

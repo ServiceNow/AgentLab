@@ -12,11 +12,12 @@ from agentlab.analyze.error_categorization import (
     is_critical_server_error,
     is_minor_server_error,
 )
-from browsergym.experiments.loop import ExpResult, yield_all_exp_results
+from browsergym.experiments.loop import ExpResult, yield_all_exp_results, get_exp_result
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
+from agentlab.experiments.task_collections import TASK_CATEGORY_MAP
 
 try:
     import pyperclip
@@ -292,19 +293,22 @@ def _find_diff(tuple1, tuple2):
     return [i for i, (a, b) in enumerate(zip(tuple1, tuple2)) if a != b]
 
 
-def _extract_ablation_study(report: pd.DataFrame):
+def _extract_ablation_study(report: pd.DataFrame, progression=False):
     """Reduce the multi-index to a change description compared to the previous row."""
     names = report.index.names
     report = report.copy()
-    previous_index = None
+    reference_index = None
     for index in report.index:
-        if previous_index is not None:
-            diffs = _find_diff(previous_index, index)
+        if reference_index is not None:
+            diffs = _find_diff(reference_index, index)
             change = "↳ " + ", ".join([f"{names[i]}={index[i]}" for i in diffs])
         else:
             change = "Initial Configuration"
         report.loc[index, "change"] = change
-        previous_index = index
+        if progression:
+            reference_index = index
+        else:
+            reference_index = report.index[0]
 
     report = report.reset_index()
     report = report.set_index(["change"])
@@ -313,7 +317,7 @@ def _extract_ablation_study(report: pd.DataFrame):
     return report.drop(names, axis=1)
 
 
-def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize):
+def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize, progression=False):
     """Reduce the multi-index to a change description compared to the previous row.
 
     *NOTE*: This assumes that this experiments was launched with make_ablation_study.
@@ -330,7 +334,7 @@ def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize):
     """
     report = global_report(result_df, reduce_fn=reduce_fn)
     report = _sort_order(result_df, report)
-    report = _extract_ablation_study(report)
+    report = _extract_ablation_study(report, progression=progression)
     return report
 
 
@@ -338,8 +342,7 @@ def _get_avg_order(df: pd.DataFrame, row: pd.Series):
     """Return the average order for the given row."""
     df = df.reset_index(level=0, drop=True, inplace=False)
     sub_df = df.loc[row.name]
-
-    orders = [exp_result.exp_args.order for exp_result in sub_df.exp_result]
+    orders = [get_exp_result(exp_dir).exp_args.order for exp_dir in sub_df.exp_dir]
     orders = [order for order in orders if order is not None]
     if len(orders) == 0:
         return None
@@ -706,3 +709,14 @@ def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
         df_dict[value] = sub_df
 
     return df_dict
+
+
+def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
+    """Create task_category index from task_name if needed and re-assign index
+    from variables using task_category."""
+    # rested index task_name (level 0)
+    new_df = result_df.reset_index(inplace=False)
+    if not "task_category" in new_df.columns:
+        new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
+    set_index_from_variables(new_df, task_key="task_category")
+    return new_df
