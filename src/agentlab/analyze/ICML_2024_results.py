@@ -71,15 +71,15 @@ def make_joint_ablation_study(result_dict):
     return pd.DataFrame(col_dict)
 
 
-def set_task_category_as_index(result_df):
-    """Create task_category index from task_name if needed and re-assign index
-    from variables using task_category."""
-    # rested index task_name (level 0)
-    new_df = result_df.reset_index(inplace=False)
-    if not "task_category" in new_df.columns:
-        new_df["task_category"] = new_df["task_name"].map(TASK_CATEGORY_MAP)
-    inspect_results.set_index_from_variables(new_df, task_key="task_category")
-    return new_df
+# def set_task_category_as_index(result_df, TASK_CATEGORY_MAP):
+#     """Create task_category index from task_name if needed and re-assign index
+#     from variables using task_category."""
+#     # rested index task_name (level 0)
+#     new_df = result_df.reset_index(inplace=False)
+#     if not "task_category" in new_df.columns:
+#         new_df["task_category"] = new_df["task_name"].map(TASK_CATEGORY_MAP)
+#     inspect_results.set_index_from_variables(new_df, task_key="task_category")
+#     return new_df
 
 
 def make_joint_report(result_dict, agent_index_dict, use_category=True):

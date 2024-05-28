@@ -1,3 +1,4 @@
+import logging
 from browsergym.experiments.loop import EnvArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents import dynamic_prompting as dp
@@ -43,10 +44,14 @@ def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
 def get_task_list(benchmark: str):
     if benchmark == "miniwob":
         return tasks.miniwob_all
-    elif benchmark == "workarena":
-        return tasks.workarena_tasks
+    elif benchmark == "workarena_l1":
+        return tasks.workarena_tasks_l1
+    elif benchmark == "workarena_all":
+        return tasks.workarena_tasks_all
     elif benchmark == "webarena":
         return tasks.webarena_tasks
+    else:
+        raise ValueError(f"benchmark {benchmark} not recognized")
 
 
 def generic_agent_test():
@@ -83,7 +88,7 @@ def tgi_toolkit_test():
                 max_steps=5,
                 task_seed=args.CrossProd([None] * 2),
                 # task_name=args.CrossProd(tasks.miniwob_tiny_test),
-                task_name=args.CrossProd(tasks.workarena_tasks[:2]),
+                task_name=args.CrossProd(tasks.workarena_tasks_l1[:2]),
             ),
             enable_debug=True,
         )
@@ -92,11 +97,10 @@ def tgi_toolkit_test():
 
 # use list_openai_models.py to get the latest list of models
 model_name_list = [
-    # "openai/gpt-4-1106-preview",
     # "openai/gpt-4-vision-preview",
     # "openai/gpt-4-1106-vision-preview",
-    "openai/gpt-3.5-turbo-1106",
-    # "openai/gpt-3.5-turbo-0125",
+    # "openai/gpt-3.5-turbo-1106",
+    "openai/gpt-3.5-turbo-0125",
     # "openai/gpt-3.5-turbo-0301",
     # "openai/gpt-3.5-turbo-16k-0613",
     # "openai/gpt-4-0314",
@@ -119,18 +123,26 @@ model_name_list = [
 
 
 # test GenericAgent with different LLMs
-def generic_agent_eval_llm(benchmark="workarena"):
+def generic_agent_eval_llm(benchmark="workarena_l1"):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
     flags = ADVANCED_FLAGS.copy()
-    flags.obs.extract_visible_tag = False
+    flags.obs.extract_visible_tag = True
     flags.obs.extract_clickable_tag = False
-    flags.obs.use_think_history = False
-    flags.obs.use_focused_element = False
+    flags.obs.use_think_history = True
+    flags.obs.use_screenshot = False
+    flags.obs.use_focused_element = True
     flags.use_hints = True
+    flags.action.is_strict = False
+    flags.action.multi_actions = True
+    flags.action.action_set = "bid+coord"
 
     flags = miniwob_fix_flags(benchmark, flags)
     n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
     task_list = get_task_list(benchmark)
+    # task_list = tasks.workarena_order_tasks
+    # task_list = tasks.workarena_filter_tasks
+    # task_list = ["workarena.servicenow.sort-hardware-list"]
+    # task_list = tasks.workarena_task_categories["menu"]
 
     return args.expand_cross_product(
         ExpArgs(
@@ -139,11 +151,12 @@ def generic_agent_eval_llm(benchmark="workarena"):
                 flags=flags,
             ),
             env_args=EnvArgs(
-                max_steps=15,
+                max_steps=10,
                 task_seed=args.CrossProd(make_seeds(n_seeds)),
                 task_name=args.CrossProd(task_list),
             ),
             enable_debug=False,
+            logging_level=logging.DEBUG,
         )
     )
 
@@ -263,7 +276,7 @@ def ablation_study(benchmark: str = "miniwob"):
     flags = GenericPromptFlags(
         obs=dp.ObsFlags(
             use_html=True,
-            use_ax_tree=False,
+            use_ax_tree=True,
             use_focused_element=True,
             use_error_logs=True,
             use_history=True,
@@ -275,7 +288,7 @@ def ablation_study(benchmark: str = "miniwob"):
             use_screenshot=False,
             use_som=False,
             extract_visible_tag=True,
-            extract_clickable_tag=True,
+            extract_clickable_tag=False,
             extract_coords="False",
             filter_visible_elements_only=False,
         ),
@@ -289,7 +302,7 @@ def ablation_study(benchmark: str = "miniwob"):
         use_memory=False,
         use_concrete_example=True,
         use_abstract_example=True,
-        use_hints=False,
+        use_hints=True,
         enable_chat=False,
         max_prompt_tokens=None,
         be_cautious=True,
@@ -312,23 +325,23 @@ def ablation_study(benchmark: str = "miniwob"):
                         changes=[
                             (".action.multi_actions", False),
                             (".obs.filter_visible_elements_only", True),
-                            [
-                                (".action.action_set", "bid+coord"),
-                                (".obs.extract_coords", "center"),
-                            ],
-                            [
-                                (".action.action_set", "bid+coord"),
-                                (".obs.extract_coords", "box"),
-                            ],
-                            # obs flags
-                            (".obs.use_history", False),
-                            (".obs.use_screenshot", True),
-                            [
-                                (".obs.use_screenshot", True),
-                                (".obs.use_som", True),
-                            ],
-                            # agent features
-                            (".use_thinking", False),
+                            # [
+                            #     (".action.action_set", "bid+coord"),
+                            #     (".obs.extract_coords", "center"),
+                            # ],
+                            # [
+                            #     (".action.action_set", "bid+coord"),
+                            #     (".obs.extract_coords", "box"),
+                            # ],
+                            # # obs flags
+                            # (".obs.use_history", False),
+                            # (".obs.use_screenshot", True),
+                            # [
+                            #     (".obs.use_screenshot", True),
+                            #     (".obs.use_som", True),
+                            # ],
+                            # # agent features
+                            # (".use_thinking", False),
                         ],
                     ),
                 ),
@@ -350,7 +363,7 @@ def demo_maker():
     flags.action.demo_mode = "all_blue"
 
     env_args = EnvArgs(
-        task_name=args.CrossProd(tasks.workarena_tasks),
+        task_name=args.CrossProd(tasks.workarena_tasks_l1),
         task_seed=args.CrossProd([None] * 3),
         max_steps=15,
         viewport={"width": 1280, "height": 720},

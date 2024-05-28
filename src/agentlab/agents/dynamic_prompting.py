@@ -18,6 +18,7 @@ from agentlab.llm.llm_utils import (
     count_tokens,
     image_to_jpg_base64_url,
     parse_html_tags_raise,
+    extract_code_blocks,
 )
 
 
@@ -157,7 +158,11 @@ class PromptElement:
         else:
             return ""
 
-    def _parse_answer(self, text_answer) -> dict:
+    def _parse_answer(self, text_answer):
+        """Override to actually extract elements from the answer."""
+        return {}
+
+    def parse_answer(self, text_answer) -> dict:
         if self.is_visible:
             return self._parse_answer(text_answer)
         else:
@@ -262,12 +267,17 @@ Note: only elements that are visible in the viewport are presented. You might ne
 
 class AXTree(Trunkater):
     def __init__(
-        self, ax_tree, visible_elements_only: bool, visible: bool = True, coord_type=None, prefix=""
+        self,
+        ax_tree,
+        visible_elements_only: bool,
+        visible: bool = True,
+        coord_type=None,
+        visible_tag=True,
+        prefix="",
     ) -> None:
         super().__init__(visible=visible, start_trunkate_iteration=10)
         bid_info = """\
-Note: [bid] is the unique identifier at the beginning of lines for each element in the AXTree. It is used to
-refer to elements in actions.
+Note: [bid] is the unique alpha-numeric identifier at the beginning of lines for each element in the AXTree. Always use bid to refer to elements in your actions.
 
 """
         if coord_type == "center":
@@ -289,13 +299,26 @@ Note: only elements that are visible in the viewport are presented. You might ne
 """
         else:
             visible_elements_note = ""
-        self._prompt = (
-            f"\n{prefix}AXTree:\n{bid_info}{coord_note}{visible_elements_note}{ax_tree}\n"
-        )
+
+        if visible_tag:
+            vsible_tag_note = """\
+Note: You can only interact with visible elements. If the "visible" tag is not
+present, the element is not visible on the page.
+
+"""
+        else:
+            vsible_tag_note = ""
+        self._prompt = f"\n{prefix}AXTree:\n{bid_info}{coord_note}{visible_elements_note}{vsible_tag_note}{ax_tree}\n"
 
 
 class Error(PromptElement):
-    def __init__(self, error, visible: bool = True, prefix="") -> None:
+    def __init__(self, error: str, visible: bool = True, prefix="", limit_logs=True) -> None:
+        logs_separator = "=========================== logs ========================="
+        if limit_logs and logs_separator in error:
+            error, logs = error.split(logs_separator)
+            logs = "\n".join(logs.split("\n")[:10])
+            error = error + f"\n{logs_separator}\n{logs}"
+
         super().__init__(visible=visible)
         self._prompt = f"\n{prefix}Error from previous action:\n{error}\n"
 
@@ -337,6 +360,7 @@ class Observation(Shrinkable):
             visible_elements_only=flags.filter_visible_elements_only,
             visible=lambda: flags.use_ax_tree,
             coord_type=flags.extract_coords,
+            visible_tag=flags.extract_visible_tag,
             prefix="## ",
         )
         self.error = Error(
@@ -377,7 +401,6 @@ class Observation(Shrinkable):
                     "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
                 }
             )
-
         return prompt
 
 
@@ -468,6 +491,9 @@ characters and wait until next step.
 * If you have to cut and paste, don't forget to select the text first.
 * Coordinate inside an SVG are relative to it's top left corner.
 * Make sure to use bid to identify elements when using commands.
+* Interacting with combobox, dropdowns and auto-complete fields can be tricky,
+sometimes you need to use select_option, while other times you need to use fill
+or click and wait for the reaction of the page.
 """
 
 
@@ -478,10 +504,11 @@ user instructions. You can interact with the page and explore, and send messages
 submit an action it will be sent to the browser and you will receive a new page."""
 
 
-class ActionSpace(PromptElement):
-    def __init__(self, action_set: AbstractActionSet) -> None:
+class ActionPrompt(PromptElement):
+    def __init__(self, action_set: AbstractActionSet, is_strict=True) -> None:
         super().__init__()
         self.action_set = action_set
+        self.is_strict = is_strict
         action_set_generic_info = """\
 Note: This action set allows you to interact with your environment. Most of them
 are python function executing playwright code. The primary way of referring to
@@ -501,7 +528,19 @@ elements in the page is through bid which are specified in your observations.
 """
 
     def _parse_answer(self, text_answer):
-        ans_dict = parse_html_tags_raise(text_answer, keys=["action"], merge_multiple=True)
+        try:
+            ans_dict = parse_html_tags_raise(text_answer, keys=["action"], merge_multiple=True)
+        except ParseError as e:
+            if self.is_strict:
+                raise e
+            else:
+                # try to extract code blocks
+                blocks = extract_code_blocks(text_answer)
+                if len(blocks) == 0:
+                    raise e
+                else:
+                    code = "\n".join([block for _, block in blocks])
+                    ans_dict = {"action": code, "parse_error": str(e)}
 
         try:
             # just check if action can be mapped to python code but keep action as is
@@ -554,7 +593,10 @@ the form is not visible yet or some fields are disabled. I need to replan.
 """
 
     def _parse_answer(self, text_answer):
-        return parse_html_tags_raise(text_answer, optional_keys=["think"], merge_multiple=True)
+        try:
+            return parse_html_tags_raise(text_answer, keys=["think"], merge_multiple=True)
+        except ParseError as e:
+            return {"think": text_answer, "parse_error": str(e)}
 
 
 def diff(previous, new):
@@ -593,8 +635,9 @@ class Diff(Shrinkable):
         self, previous, new, prefix="", max_line_diff=20, shrink_speed=2, visible=True
     ) -> None:
         super().__init__(visible=visible)
+        self.previous = previous
+        self.new = new
         self.max_line_diff = max_line_diff
-        self.header, self.diff_lines = diff(previous, new)
         self.shrink_speed = shrink_speed
         self.prefix = prefix
 
@@ -604,11 +647,13 @@ class Diff(Shrinkable):
 
     @property
     def _prompt(self) -> str:
-        diff_str = "\n".join(self.diff_lines[: self.max_line_diff])
-        if len(self.diff_lines) > self.max_line_diff:
-            original_count = len(self.diff_lines)
+        header, diff_lines = diff(self.previous, self.new)
+
+        diff_str = "\n".join(diff_lines[: self.max_line_diff])
+        if len(diff_lines) > self.max_line_diff:
+            original_count = len(diff_lines)
             diff_str = f"{diff_str}\nDiff truncated, {original_count - self.max_line_diff} changes now shown."
-        return f"{self.prefix}{self.header}\n{diff_str}\n"
+        return f"{self.prefix}{header}\n{diff_str}\n"
 
 
 class HistoryStep(Shrinkable):
@@ -738,6 +783,7 @@ def make_obs_preprocessor(flags: ObsFlags):
         obs["screenshot_som"] = overlay_som(
             obs["screenshot"], extra_properties=obs["extra_element_properties"]
         )
+
         return obs
 
     return obs_mapping
