@@ -88,7 +88,7 @@ def tgi_toolkit_test():
                 max_steps=5,
                 task_seed=args.CrossProd([None] * 2),
                 # task_name=args.CrossProd(tasks.miniwob_tiny_test),
-                task_name=args.CrossProd(tasks.workarena_tasks_all[:2]),
+                task_name=args.CrossProd(tasks.workarena_tasks_l1[:2]),
             ),
             enable_debug=True,
         )
@@ -363,7 +363,7 @@ def demo_maker():
     flags.action.demo_mode = "all_blue"
 
     env_args = EnvArgs(
-        task_name=args.CrossProd(tasks.workarena_tasks_all),
+        task_name=args.CrossProd(tasks.workarena_tasks_l1),
         task_seed=args.CrossProd([None] * 3),
         max_steps=15,
         viewport={"width": 1280, "height": 720},
