@@ -31,7 +31,7 @@ def tgi_toolkit_test():
                 max_steps=5,
                 task_seed=args.CrossProd([None] * 2),
                 # task_name=args.CrossProd(tasks.miniwob_tiny_test),
-                task_name=args.CrossProd(tasks.workarena_tasks[:2]),
+                task_name=args.CrossProd(tasks.workarena_tasks_l1[:2]),
             ),
             enable_debug=True,
         )
@@ -112,7 +112,7 @@ def OSS_random_search(benchmark: str = "workarena"):
         task_list = tasks.miniwob_all
         flags = MINIWOB_RS_OSS_FLAGS
     elif benchmark == "workarena":
-        task_list = tasks.workarena_tasks
+        task_list = tasks.workarena_tasks_l1
         flags = RS_OSS_FLAGS
     elif benchmark == "webarena":
         task_list = tasks.webarena_tasks

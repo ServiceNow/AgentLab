@@ -74,7 +74,7 @@ def run_gradio(savedir_base):
             with gr.Row():
                 step_info_gr = gr.Markdown(visible=False)
                 action_info_gr = gr.Text(visible=False, label="Action")
-                error_info_gr = gr.Textbox(visible=False)
+                error_info_gr = gr.Textbox(visible=False, label="Step error")
 
         # 6. Render the before and after images
         with gr.Tab("Images"):
@@ -160,6 +160,9 @@ def run_gradio(savedir_base):
         with gr.Tab("Task Error"):
             task_error_gr = gr.Textbox(show_label=False, lines=50)
 
+        with gr.Tab("Task Logs"):
+            task_logs_gr = gr.Textbox(show_label=False, lines=50)
+
         steps_out_list = [
             step_info_gr,
             action_info_gr,
@@ -178,6 +181,7 @@ def run_gradio(savedir_base):
             submit_prompt_gr,
             output_gr,
             task_error_gr,
+            task_logs_gr,
         ]
         # Experiment Change Callback
         # ---------------------------------
@@ -612,6 +616,11 @@ def update_step_info(row_id, episode_id, step_id):
     else:
         task_err_msg = f"{episode_series['err_msg']}\n\n{episode_series['stack_trace']}"
 
+    try:
+        task_logs = exp_result.logs
+    except FileNotFoundError:
+        task_logs = ""
+
     obs = step_obj.obs if step_obj is not None else None
 
     if obs is None:
@@ -626,6 +635,10 @@ def update_step_info(row_id, episode_id, step_id):
 **Goal:** {goal}
 
 **Cumulative Reward:** {cumulative_reward}
+
+**Task info:** 
+{step_obj.task_info}
+
 
 **exp_dir:**
 <small>{episode_series['exp_dir'].parent.name}/{episode_series['exp_dir'].name}</small>"""
@@ -642,7 +655,7 @@ def update_step_info(row_id, episode_id, step_id):
         action_info = convert_action_dict_to_markdown(action)
 
     if "think" in step_obj.agent_info:
-        action_info += "\nthink:\n" + step_obj.agent_info["think"]
+        action_info += "\n\n<think>\n" + step_obj.agent_info["think"] + "\n</think>"
 
     # Error Logs
     if obs is None:
@@ -737,6 +750,7 @@ def update_step_info(row_id, episode_id, step_id):
         gr.update(visible=True),
         gr.update(visible=True, value=""),
         gr.update(visible=True, value=task_err_msg),
+        gr.update(visible=True, value=task_logs),
     ]
 
 

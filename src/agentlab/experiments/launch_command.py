@@ -16,7 +16,7 @@ exp_args_list = None
 # exp_group_name = "generic_agent_test"  ## this will make a very quick test
 exp_group_name = "generic_agent_eval_llm"
 # exp_group_name = "random_search"
-# exp_group_name = "progression_study"
+# exp_group_name = "ablation_study"
 
 ## or from exp_configs_OSS.py
 # exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
