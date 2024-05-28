@@ -22,10 +22,6 @@ exp_group_name = "generic_agent_test"  ## this will make a very quick test
 # exp_group_name = "random_search"
 # exp_group_name = "progression_study"
 
-from ui_copilot.demos.concur_assistant import make_exp_args_list
-
-exp_group_name, exp_args_list = make_exp_args_list()
-
 ## or from exp_configs_OSS.py
 # exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
 # exp_group_name = "OSS_random_search"
