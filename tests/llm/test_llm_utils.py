@@ -153,6 +153,7 @@ def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> Rate
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = status_code
     mock_response.json.return_value = {"error": {"message": message}}
+    mock_response.headers = {"x-request-id": "test-request-id"}  # Add headers attribute
 
     return RateLimitError(message, response=mock_response, body=mock_response.json())
 
