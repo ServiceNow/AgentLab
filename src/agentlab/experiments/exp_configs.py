@@ -30,11 +30,11 @@ def order(exp_args_list):
     return exp_args_list
 
 
-def fix_flags(benchmark: str, mode: str, flags: GenericPromptFlags):
+def fix_flags(benchmark: str, mode: str = None, flags: GenericPromptFlags = None):
     if not mode:
         mode = "single_eval"
         logging.warning(f"Mode not specified, defaulting to {mode}")
-    if mode not in ["single_eval", "rs", "OSS_eval", "OSS_rs", "OSS_finetuning_eval"]:
+    if mode not in ["single_eval", "rs", "OSS_eval", "OSS_rs", "finetuning_eval"]:
         raise ValueError(f"Unknown mode: {mode}")
 
     if mode == "single_eval":
@@ -42,13 +42,16 @@ def fix_flags(benchmark: str, mode: str, flags: GenericPromptFlags):
             flags.obs.use_html = True
 
     if mode == "OSS_rs":
-        if benchmark == "miniwob":
+        if "miniwob" in benchmark:
             flags = MINIWOB_RS_OSS_FLAGS
         else:
             flags = RS_OSS_FLAGS
 
-    if mode == "OSS_finetuning_eval":
-        flags = FINETUNING_FLAGS
+    if mode == "finetuning_eval":
+        if "miniwob" in benchmark:
+            flags = FINETUNING_MINIWOB_FLAGS
+        else:
+            flags = FINETUNING_FLAGS
 
     return flags
 
@@ -56,6 +59,8 @@ def fix_flags(benchmark: str, mode: str, flags: GenericPromptFlags):
 def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
     if benchmark == "webarena":
         return 1
+    if benchmark == "workarena.servicenow.all-menu":
+        return 10
     return default_n_seeds
 
 
@@ -66,6 +71,9 @@ def get_task_list(benchmark: str):
         return tasks.workarena_tasks
     elif benchmark == "webarena":
         return tasks.webarena_tasks
+    else:
+        # TODO: automate this
+        return [benchmark]
 
 
 def generic_agent_test():
@@ -124,7 +132,6 @@ model_name_list = [
     # "openai/gpt-4-turbo-2024-04-09",
     # "openai/gpt-4o-2024-05-13",
     # ------------------ OSS ------------------------
-    # "finetuning/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
@@ -133,8 +140,8 @@ model_name_list = [
     # "deepseek-ai/deepseek-coder-6.7b-instruct",
     # "mistralai/Mixtral-8x7B-Instruct-v0.1",
     # "microsoft/WizardLM-2-8x22B"
-    # "finetuning/Meta-Llama-3-8B-Instruct",
-    "finetuning/debug",
+    "finetuning/Meta-Llama-3-8B-Instruct",
+    # "finetuning/debug",
 ]
 # set to None or empty dict to keep the default values
 overwrite_chat_model_args_dict = {
@@ -144,7 +151,9 @@ overwrite_chat_model_args_dict = {
 
 
 # test GenericAgent with different LLMs
-def generic_agent_eval_llm(benchmark="workarena", mode="single_eval"):
+def generic_agent_eval_llm(
+    benchmark="workarena",
+):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
     flags = fix_flags(benchmark, mode="single_eval", flags=ADVANCED_FLAGS)
     flags.obs.extract_visible_tag = False
@@ -178,7 +187,11 @@ def generic_agent_eval_llm(benchmark="workarena", mode="single_eval"):
     )
 
 
-def random_search(benchmark: str = "workarena", mode="OSS_rs"):
+def random_search(
+    # benchmark: str = "workarena.servicenow.all-menu",
+    benchmark: str = "miniwob.click-menu-2",
+    mode="OSS_rs",
+):
     """Example of random search. Modify this at will, but don't push your
     changes.
 
@@ -214,7 +227,9 @@ def random_search(benchmark: str = "workarena", mode="OSS_rs"):
     )
 
 
-def progression_study(benchmark: str = "miniwob"):
+def progression_study(
+    benchmark: str = "miniwob",
+):
     """Example of a progression study. Modify this at will, but don't push your
     changes.
 
@@ -298,7 +313,9 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
 
-def ablation_study(benchmark: str = "miniwob"):
+def ablation_study(
+    benchmark: str = "miniwob",
+):
 
     flags = GenericPromptFlags(
         obs=dp.ObsFlags(
@@ -415,8 +432,10 @@ def demo_maker():
     )
 
 
-# test GenericAgent with different LLMs
-def finetuning_eval(benchmark="workarena", task_name="AllMenuTask"):
+def finetuning_eval(
+    # benchmark: str = "workarena.servicenow.all-menu",
+    benchmark: str = "miniwob.click-menu-2",
+):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
 
     assert len(model_name_list) == 1, "Only one model is supported for finetuning eval"
@@ -424,17 +443,13 @@ def finetuning_eval(benchmark="workarena", task_name="AllMenuTask"):
         "finetuning/"
     ), "Only finetuning models are supported for finetuning eval"
 
-    if task_name:
-        # TODO: automate this
-        if task_name == "AllMenuTask":
-            task_list = ["workarena.servicenow.all-menu"]
+    task_list = get_task_list(benchmark)
+    n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
 
-        n_seeds = 10
-    else:
-        task_list = get_task_list(benchmark)
-        n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
-
-    flags = fix_flags(benchmark, mode="OSS_finetuning_eval")
+    flags = fix_flags(
+        benchmark,
+        mode="finetuning_eval",
+    )
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
     if overwrite_chat_model_args_dict:
@@ -451,7 +466,7 @@ def finetuning_eval(benchmark="workarena", task_name="AllMenuTask"):
                 flags=flags,
             ),
             env_args=EnvArgs(
-                max_steps=15,
+                max_steps=10,
                 task_seed=args.CrossProd(make_seeds(n_seeds)),
                 task_name=args.CrossProd(task_list),
             ),
@@ -577,6 +592,33 @@ RS_OSS_FLAGS = GenericPromptFlags(
     enable_chat=False,
     max_prompt_tokens=None,
     extra_instructions=None,
+)
+
+FINETUNING_MINIWOB_FLAGS = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=True,
+        use_ax_tree=False,
+        use_think_history=False,
+        use_error_logs=False,
+        use_past_error_logs=False,
+        use_history=True,
+        use_action_history=True,
+        use_diff=False,
+        # use_diff=True,
+        html_type="pruned_html",
+        use_screenshot=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=False,
+        action_set="bid",
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=False,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=False,
 )
 
 
