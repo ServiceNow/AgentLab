@@ -12,6 +12,8 @@ from agentlab.webarena_setup.check_webarena_servers import check_webarena_server
 import agentlab
 import argparse
 
+logging.getLogger().setLevel(logging.INFO)
+
 
 def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers):
     if server_error_flag is not None and server_error_flag.value:
