@@ -169,7 +169,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1"):
                 chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
                 flags=flags,
             ),
-            env_args=args.CrossProd(env_args_list)
+            env_args=args.CrossProd(env_args_list),
             enable_debug=False,
             logging_level=logging.DEBUG,
         )
