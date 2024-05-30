@@ -37,6 +37,7 @@ class GenericPromptFlags(dp.Flags):
     max_prompt_tokens: int = None
     be_cautious: bool = True
     extra_instructions: str | None = None
+    add_missparsed_messages: bool = True
 
 
 BASIC_FLAGS = GenericPromptFlags(
