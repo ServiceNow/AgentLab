@@ -301,6 +301,8 @@ def _extract_ablation_study(report: pd.DataFrame, progression=False):
     """Reduce the multi-index to a change description compared to the previous row."""
     names = report.index.names
     report = report.copy()
+    report.sort_index(inplace=True)
+
     reference_index = None
     for index in report.index:
         if reference_index is not None:
@@ -345,6 +347,8 @@ def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize, progression=Fa
 def _get_avg_order(df: pd.DataFrame, row: pd.Series):
     """Return the average order for the given row."""
     df = df.reset_index(level=0, drop=True, inplace=False)
+    df.sort_index(inplace=True)
+
     sub_df = df.loc[row.name]
     orders = [get_exp_result(exp_dir).exp_args.order for exp_dir in sub_df.exp_dir]
     orders = [order for order in orders if order is not None]
@@ -537,7 +541,7 @@ def shrink_columns(df, also_wrap_index=True):
             return "{:.10f}".format(x).rstrip("0").rstrip(".")
         return x
 
-    return df.applymap(formatter)
+    return df.map(formatter)
 
 
 def set_wrap_style(df):
