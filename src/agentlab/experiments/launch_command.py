@@ -9,6 +9,11 @@ from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments.launch_exp import main
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
+# set basic config of loggig to debug
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
 
 exp_args_list = None
 
@@ -16,7 +21,7 @@ exp_args_list = None
 # exp_group_name = "generic_agent_test"  ## this will make a very quick test
 exp_group_name = "generic_agent_eval_llm"
 # exp_group_name = "random_search"
-# exp_group_name = "ablation_study"
+# exp_group_name = "ablation_study_GPT_3_5"
 
 ## or from exp_configs_OSS.py
 # exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
