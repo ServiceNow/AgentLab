@@ -28,7 +28,9 @@ def get_exp_args_list(func_name: str):
         else:
             not_filter_task.append(exp_args)
 
-    return func_name, not_filter_task + filter_task
+    exp_arg_list = not_filter_task + filter_task
+    logging.info(f"{len(filter_task)}/{len(exp_arg_list)} are moved to the end.")
+    return func_name, exp_arg_list
 
 
 def make_seeds(n, offset=42):
@@ -315,7 +317,9 @@ def ablation_study(benchmark: str = "workarena.l1"):
     )
 
     flags = miniwob_fix_flags(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(benchmark)
+    env_args_list = tasks.get_benchmark_env_args(
+        benchmark,
+    )
 
     return order(
         args.expand_cross_product(
@@ -411,10 +415,10 @@ def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
-                            (".action.multi_actions", False),
+                            (".action.multi_actions", True),
                             # (".obs.filter_visible_elements_only", True),
                             (".action.long_description", True),
-                            (".action.individual_examples", True),
+                            (".action.individual_examples", False),
                             # [
                             #     (".action.action_set", "bid+coord"),
                             #     (".obs.extract_coords", "center"),
@@ -424,7 +428,7 @@ def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
                             #     (".obs.extract_coords", "box"),
                             # ],
                             # obs flags
-                            (".obs.use_think_history", False),
+                            (".obs.use_think_history", True),
                             (".obs.use_past_error_logs", False),
                             # [
                             #     (".obs.use_screenshot", True),
