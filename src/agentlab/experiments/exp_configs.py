@@ -1,4 +1,5 @@
 import logging
+import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents import dynamic_prompting as dp
@@ -20,13 +21,23 @@ def get_exp_args_list(func_name: str):
 
     not_filter_task = []
     filter_task = []
+    has_webarena = False
     for exp_args in exp_args_list:
         task_name = exp_args.env_args.task_name
+
+        if task_name.startswith("webarena"):
+            has_webarena = True
 
         if task_name.startswith("workarena") and "sort" in task_name:
             filter_task.append(exp_args)
         else:
             not_filter_task.append(exp_args)
+
+    # shuffle sepearately
+    if not has_webarena:
+        logging.info("Shuffling the task list.")
+        random.shuffle(not_filter_task)
+        random.shuffle(filter_task)
 
     exp_arg_list = not_filter_task + filter_task
     logging.info(f"{len(filter_task)}/{len(exp_arg_list)} are moved to the end.")
