@@ -93,7 +93,7 @@ def retry(
 
         # fit tokens
         prompt = fit_function(
-            main_prompt=main_prompt, additional_prompts=[system_prompt] + additional_prompts
+            shrinkable=main_prompt, additional_prompts=[system_prompt] + additional_prompts
         )
         messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
         messages += [HumanMessage(content=content) for content in additional_prompts]
