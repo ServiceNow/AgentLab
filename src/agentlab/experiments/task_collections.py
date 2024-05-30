@@ -225,7 +225,7 @@ def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None) ->
 
         for task_name in ALL_WEBARENA_TASK_IDS:
             seed = rng.randint(0, 100)
-            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+            env_args_list.append(EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps))
 
     elif benchmark_name == "miniwob":
         if max_steps is None:
@@ -233,7 +233,7 @@ def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None) ->
 
         for task_name in MINIWOB_ALL:
             seed = rng.randint(0, 100)
-            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+            env_args_list.append(EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps))
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
