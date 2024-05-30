@@ -2,8 +2,14 @@ from logging import warning
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import time as t
 
+t0 = t.time()
 from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
+
+dt = t.time() - t0
+print(f"done importing workarena, took {dt:.2f} seconds")
+
 from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 from browsergym.experiments import EnvArgs
 
@@ -195,7 +201,9 @@ def get_task_category(task_name):
     return benchmark, TASK_CATEGORY_MAP.get(task_name, None)
 
 
-def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None):
+def get_benchmark_env_args(
+    benchmark_name: str, meta_seed=42, max_steps=None, n_seeds_default=10
+) -> list[EnvArgs]:
 
     env_args_list = []
     rng = np.random.RandomState(meta_seed)
@@ -209,25 +217,43 @@ def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None):
         if max_steps is None:
             max_steps = {"l1": 15, "l2": 20, "l3": 20}[filters[1]]
 
-        for task_name, seed in get_all_tasks_agents(filter=".".join(filters[1:]), seed=meta_seed):
-            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+        if benchmark_name == "workarena.l1.sort":
+            task_names = [task.get_task_id() for task in ATOMIC_TASKS]
+            task_names = [task for task in task_names if "sort" in task]
+            env_args_list = _make_env_args(task_names, max_steps, n_seeds_default, rng)
+
+        for task, seed in get_all_tasks_agents(
+            filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_seeds_default
+        ):
+            task_name = task.get_task_id()
+            env_args_list.append(EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps))
 
     elif benchmark_name == "webarena":
         if max_steps is None:
             max_steps = 15
-
-        for task_name in ALL_WEBARENA_TASK_IDS:
-            seed = rng.randint(0, 100)
-            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+        env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_seeds_default, rng)
 
     elif benchmark_name == "miniwob":
         if max_steps is None:
             max_steps = 10
+        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_seeds_default, rng)
 
-        for task_name in MINIWOB_ALL:
-            seed = rng.randint(0, 100)
-            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
     return env_args_list
+
+
+def _make_env_args(task_list, max_steps, n_seeds_default, rng):
+    env_args_list = []
+    for task in task_list:
+        for seed in rng.randint(0, 100, n_seeds_default):
+            env_args_list.append(EnvArgs(task_name=task, task_seed=int(seed), max_steps=max_steps))
+    return env_args_list
+
+
+if __name__ == "__main__":
+    env_args_list = get_benchmark_env_args("workarena.l1")
+    print(f"Number of tasks: {len(env_args_list)}")
+    for env_args in env_args_list:
+        print(env_args.task_seed, env_args.task_name)

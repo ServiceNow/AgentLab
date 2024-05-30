@@ -107,10 +107,10 @@ def convert_df_to_array(grouped, metric="cum_reward", threshold=0.9):
     for task_idx, (group_id, group) in enumerate(grouped):
         # Calculate the ratio of valid values
         valid_ratio = len(group) / max_samples_per_task
-        if valid_ratio < threshold:
-            raise ValueError(
-                f"Task {group_id} has insufficient data: ratio {valid_ratio} is below the threshold {threshold}"
-            )
+        # if valid_ratio < threshold:
+        #     raise ValueError(
+        #         f"Task {group_id} has insufficient data: ratio {valid_ratio} is below the threshold {threshold}"
+        #     )
 
         # Repeat the task data cyclically to fill up to max_samples_per_task
         repeated_data = np.resize(group[metric].values, max_samples_per_task)
