@@ -1,11 +1,9 @@
 import logging
-from browsergym.experiments.loop import EnvArgs
+from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents import dynamic_prompting as dp
-from browsergym.experiments.loop import ExpArgs
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
-from agentlab.experiments.task_collections import get_benchmark_env_args
 from agentlab.agents.generic_agent.generic_agent_prompt import (
     GenericPromptFlags,
     BASIC_FLAGS,
@@ -156,7 +154,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1"):
     # n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
     # task_list = get_task_list(benchmark)
 
-    env_args_list = get_benchmark_env_args(benchmark)
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     # task_list = tasks.workarena_order_tasks
     # task_list = tasks.workarena_filter_tasks
@@ -169,7 +167,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1"):
                 chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
                 flags=flags,
             ),
-            env_args=args.CrossProd(env_args_list)
+            env_args=args.CrossProd(env_args_list),
             enable_debug=False,
             logging_level=logging.DEBUG,
         )
@@ -186,7 +184,7 @@ def random_search(benchmark: str = "miniwob"):
     from these experiments.
     """
     flags = miniwob_fix_flags(benchmark, DEFAULT_RS_FLAGS)
-    env_args_list = get_benchmark_env_args(benchmark)
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
@@ -246,7 +244,7 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
     flags = miniwob_fix_flags(benchmark, flags)
-    env_args_list = get_benchmark_env_args(benchmark)
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     return order(
         args.expand_cross_product(
@@ -317,8 +315,91 @@ def ablation_study(benchmark: str = "workarena.l1"):
     )
 
     flags = miniwob_fix_flags(benchmark, flags)
-    env_args_list = get_benchmark_env_args(benchmark)
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
+    return order(
+        args.expand_cross_product(
+            ExpArgs(
+                agent_args=GenericAgentArgs(
+                    chat_model_args=args.CrossProd(
+                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+                    ),
+                    flags=args.make_ablation_study(
+                        start_point=flags,
+                        changes=[
+                            (".action.multi_actions", False),
+                            # (".obs.filter_visible_elements_only", True),
+                            (".action.long_description", True),
+                            (".action.individual_examples", True),
+                            # [
+                            #     (".action.action_set", "bid+coord"),
+                            #     (".obs.extract_coords", "center"),
+                            # ],
+                            # [
+                            #     (".action.action_set", "bid+coord"),
+                            #     (".obs.extract_coords", "box"),
+                            # ],
+                            # obs flags
+                            (".obs.use_think_history", False),
+                            (".obs.use_past_error_logs", False),
+                            # [
+                            #     (".obs.use_screenshot", True),
+                            #     (".obs.use_som", True),
+                            # ],
+                            # agent features
+                            (".use_thinking", False),
+                        ],
+                    ),
+                ),
+                env_args=args.CrossProd(env_args_list),
+                enable_debug=False,
+            )
+        )
+    )
+
+
+def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
+
+    flags = GenericPromptFlags(
+        obs=dp.ObsFlags(
+            use_html=False,
+            use_ax_tree=True,
+            use_focused_element=True,
+            use_error_logs=True,
+            use_history=True,
+            use_past_error_logs=True,
+            use_action_history=True,
+            use_think_history=False,
+            use_diff=False,
+            html_type="pruned_html",
+            use_screenshot=False,
+            use_som=False,
+            extract_visible_tag=True,
+            extract_clickable_tag=False,
+            extract_coords="False",
+            filter_visible_elements_only=False,
+        ),
+        action=dp.ActionFlags(
+            multi_actions=False,
+            action_set="bid",
+            long_description=False,
+            individual_examples=True,
+        ),
+        use_plan=False,
+        use_criticise=False,
+        use_thinking=True,
+        use_memory=False,
+        use_concrete_example=True,
+        use_abstract_example=True,
+        use_hints=True,
+        enable_chat=False,
+        max_prompt_tokens=None,
+        be_cautious=True,
+        extra_instructions=None,
+    )
+
+    flags = miniwob_fix_flags(benchmark, flags)
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     return order(
         args.expand_cross_product(
