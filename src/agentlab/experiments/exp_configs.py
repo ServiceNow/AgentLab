@@ -16,7 +16,20 @@ from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 def get_exp_args_list(func_name: str):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
-    return func_name, func()
+
+    exp_args_list = func()  # type: list[ExpArgs]
+
+    not_filter_task = []
+    filter_task = []
+    for exp_args in exp_args_list:
+        task_name = exp_args.env_args.task_name
+
+        if task_name.startswith("workarena") and "sort" in task_name:
+            filter_task.append(exp_args)
+        else:
+            not_filter_task.append(exp_args)
+
+    return func_name, not_filter_task + filter_task
 
 
 def make_seeds(n, offset=42):
@@ -99,8 +112,8 @@ def tgi_toolkit_test():
 model_name_list = [
     # "openai/gpt-4-vision-preview",
     # "openai/gpt-4-1106-vision-preview",
-    # "openai/gpt-3.5-turbo-1106",
-    "openai/gpt-3.5-turbo-0125",
+    "openai/gpt-3.5-turbo-1106",
+    # "openai/gpt-3.5-turbo-0125",
     # "openai/gpt-3.5-turbo-0301",
     # "openai/gpt-3.5-turbo-16k-0613",
     # "openai/gpt-4-0314",
@@ -134,10 +147,12 @@ def generic_agent_eval_llm(benchmark="workarena_l1"):
     flags.use_hints = True
     flags.action.is_strict = False
     flags.action.multi_actions = True
-    flags.action.action_set = "bid+coord"
+    flags.action.action_set = "bid"
+    flags.action.individual_examples = False
+    flags.action.long_description = False
 
     flags = miniwob_fix_flags(benchmark, flags)
-    n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
+    n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
     task_list = get_task_list(benchmark)
     # task_list = tasks.workarena_order_tasks
     # task_list = tasks.workarena_filter_tasks
@@ -271,11 +286,11 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
 
-def ablation_study(benchmark: str = "miniwob"):
+def ablation_study(benchmark: str = "workarena_l1"):
 
     flags = GenericPromptFlags(
         obs=dp.ObsFlags(
-            use_html=True,
+            use_html=False,
             use_ax_tree=True,
             use_focused_element=True,
             use_error_logs=True,
@@ -295,6 +310,8 @@ def ablation_study(benchmark: str = "miniwob"):
         action=dp.ActionFlags(
             multi_actions=True,
             action_set="bid",
+            long_description=False,
+            individual_examples=False,
         ),
         use_plan=False,
         use_criticise=False,
@@ -324,7 +341,9 @@ def ablation_study(benchmark: str = "miniwob"):
                         start_point=flags,
                         changes=[
                             (".action.multi_actions", False),
-                            (".obs.filter_visible_elements_only", True),
+                            # (".obs.filter_visible_elements_only", True),
+                            (".action.long_description", True),
+                            (".action.individual_examples", True),
                             # [
                             #     (".action.action_set", "bid+coord"),
                             #     (".obs.extract_coords", "center"),
@@ -333,20 +352,20 @@ def ablation_study(benchmark: str = "miniwob"):
                             #     (".action.action_set", "bid+coord"),
                             #     (".obs.extract_coords", "box"),
                             # ],
-                            # # obs flags
-                            # (".obs.use_history", False),
-                            # (".obs.use_screenshot", True),
+                            # obs flags
+                            (".obs.use_think_history", False),
+                            (".obs.use_past_error_logs", False),
                             # [
                             #     (".obs.use_screenshot", True),
                             #     (".obs.use_som", True),
                             # ],
-                            # # agent features
-                            # (".use_thinking", False),
+                            # agent features
+                            (".use_thinking", False),
                         ],
                     ),
                 ),
                 env_args=EnvArgs(
-                    max_steps=10,
+                    max_steps=15,
                     task_seed=args.CrossProd(make_seeds(n_seeds)),
                     task_name=args.CrossProd(task_list),
                 ),

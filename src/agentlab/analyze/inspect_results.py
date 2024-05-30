@@ -220,6 +220,10 @@ def summarize(sub_df):
         if n_completed == 0:
             return None
         _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+
+        # sanity check, if there is an error the reward should be zero
+        assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
+
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
             uncertainty_reward=std_reward.round(3),
@@ -579,15 +583,25 @@ def error_report(df: pd.DataFrame, max_stack_trace=10):
         # find sub_df with this error message
         sub_df = df[df["err_key"] == err_key]
         idx = 0
-        for _, row in sub_df.iterrows():
+
+        exp_result_list = [get_exp_result(row.exp_dir) for _, row in sub_df.iterrows()]
+        task_names = [exp_result.exp_args.env_args.task_name for exp_result in exp_result_list]
+
+        # count unique using numpy
+        unique_task_names, counts = np.unique(task_names, return_counts=True)
+        task_and_count = sorted(zip(unique_task_names, counts), key=lambda x: x[1], reverse=True)
+        for task_name, count in task_and_count:
+            report.append(f"{count:2d} {task_name}")
+
+        report.append(f"\nShowing Max {max_stack_trace} stack traces:\n")
+        for exp_result in exp_result_list:
             if idx >= max_stack_trace:
                 break
             # print task name and stack trace
-
-            exp_result = ExpResult(row.exp_dir)  # type: ExpResult
+            stack_trace = exp_result.summary_info.get("stack_trace", "")
             report.append(f"Task Name: {exp_result.exp_args.env_args.task_name}\n")
             report.append(f"exp_dir: {exp_result.exp_dir}\n")
-            report.append(f"Stack Trace: \n {row['stack_trace']}\n")
+            report.append(f"Stack Trace: \n {stack_trace}\n")
             report.append("\n")
             idx += 1
 
