@@ -217,6 +217,11 @@ def get_benchmark_env_args(
         if max_steps is None:
             max_steps = {"l1": 15, "l2": 20, "l3": 20}[filters[1]]
 
+        if benchmark_name == "workarena.l1.sort":
+            task_names = [task.get_task_id() for task in ATOMIC_TASKS]
+            task_names = [task for task in task_names if "sort" in task]
+            env_args_list = _make_env_args(task_names, max_steps, n_seeds_default, rng)
+
         for task, seed in get_all_tasks_agents(
             filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_seeds_default
         ):
