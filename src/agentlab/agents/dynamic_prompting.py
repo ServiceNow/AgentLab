@@ -97,6 +97,8 @@ class ActionFlags(Flags):
     action_set: str = "bid"
     is_strict: bool = False
     demo_mode: Literal["off", "default", "all_blue", "only_visible_elements"] = "off"
+    long_description: bool = True
+    individual_examples: bool = False
 
 
 class PromptElement:
@@ -121,7 +123,10 @@ class PromptElement:
     @property
     def prompt(self):
         """Avoid overriding this method. Override _prompt instead."""
-        return self._hide(self._prompt)
+        if self.is_visible:
+            return self._prompt
+        else:
+            return ""
 
     @property
     def abstract_ex(self):
@@ -131,7 +136,10 @@ class PromptElement:
 
         Avoid overriding this method. Override _abstract_ex instead
         """
-        return self._hide(self._abstract_ex)
+        if self.is_visible:
+            return self._abstract_ex
+        else:
+            return ""
 
     @property
     def concrete_ex(self):
@@ -141,7 +149,10 @@ class PromptElement:
 
         Avoid overriding this method. Override _concrete_ex instead
         """
-        return self._hide(self._concrete_ex)
+        if self.is_visible:
+            return self._concrete_ex
+        else:
+            return ""
 
     @property
     def is_visible(self):
@@ -150,13 +161,6 @@ class PromptElement:
         if callable(visible):
             visible = visible()
         return visible
-
-    def _hide(self, value):
-        """Return value if visible is True, else return empty string."""
-        if self.is_visible:
-            return value
-        else:
-            return ""
 
     def _parse_answer(self, text_answer):
         """Override to actually extract elements from the answer."""
@@ -271,7 +275,7 @@ class HTML(Trunkater):
         super().__init__(visible=visible, start_trunkate_iteration=5)
         if visible_elements_only:
             visible_elements_note = """\
-Note: only elements that are visible in the viewport are presented. You might need to sroll the page, or open tabs or menus to see more.
+Note: only elements that are visible in the viewport are presented. You might need to scroll the page, or open tabs or menus to see more.
 
 """
         else:
@@ -308,7 +312,7 @@ Note: bounding box of each object are provided in parenthesis and are relative t
             coord_note = ""
         if visible_elements_only:
             visible_elements_note = """\
-Note: only elements that are visible in the viewport are presented. You might need to sroll the page, or open tabs or menus to see more.
+Note: only elements that are visible in the viewport are presented. You might need to scroll the page, or open tabs or menus to see more.
 
 """
         else:
@@ -327,7 +331,7 @@ present, the element is not visible on the page.
 
 class Error(PromptElement):
     def __init__(self, error: str, visible: bool = True, prefix="", limit_logs=True) -> None:
-        logs_separator = "=========================== logs ========================="
+        logs_separator = "Call log:"
         if limit_logs and logs_separator in error:
             error, logs = error.split(logs_separator)
             logs = "\n".join(logs.split("\n")[:10])
@@ -519,33 +523,47 @@ submit an action it will be sent to the browser and you will receive a new page.
 
 
 class ActionPrompt(PromptElement):
-    def __init__(self, action_set: AbstractActionSet, is_strict=True) -> None:
+
+    _concrete_ex = """
+<action>
+click('a324')
+</action>
+"""
+
+    def __init__(self, action_set: AbstractActionSet, action_flags: ActionFlags) -> None:
         super().__init__()
         self.action_set = action_set
-        self.is_strict = is_strict
+        self.action_flags = action_flags
         action_set_generic_info = """\
 Note: This action set allows you to interact with your environment. Most of them
 are python function executing playwright code. The primary way of referring to
 elements in the page is through bid which are specified in your observations.
 
 """
-        self._prompt = f"# Action space:\n{action_set_generic_info}{self.action_set.describe()}{MacNote().prompt}\n"
+        action_description = action_set.describe(
+            with_long_description=action_flags.long_description,
+            with_examples=action_flags.individual_examples,
+        )
+        self._prompt = (
+            f"# Action space:\n{action_set_generic_info}{action_description}{MacNote().prompt}\n"
+        )
         self._abstract_ex = f"""
 <action>
 {self.action_set.example_action(abstract=True)}
 </action>
 """
-        self._concrete_ex = f"""
-<action>
-{self.action_set.example_action(abstract=False)}
-</action>
-"""
+
+    #         self._concrete_ex = f"""
+    # <action>
+    # {self.action_set.example_action(abstract=False)}
+    # </action>
+    # """
 
     def _parse_answer(self, text_answer):
         try:
             ans_dict = parse_html_tags_raise(text_answer, keys=["action"], merge_multiple=True)
         except ParseError as e:
-            if self.is_strict:
+            if self.action_flags.is_strict:
                 raise e
             else:
                 # try to extract code blocks
@@ -600,9 +618,10 @@ that your previous action had on the current content of the page.
 """
     _concrete_ex = """
 <think>
-My memory says that I filled the first name and last name, but I can't see any
-content in the form. I need to explore different ways to fill the form. Perhaps
-the form is not visible yet or some fields are disabled. I need to replan.
+From previous action I tried to set the value of year to "2022",
+using select_option, but it doesn't appear to be in the form. It may be a
+dynamic dropdown, I will try using click with the bid "a324" and look at the
+response from the page.
 </think>
 """
 
@@ -613,61 +632,61 @@ the form is not visible yet or some fields are disabled. I need to replan.
             return {"think": text_answer, "parse_error": str(e)}
 
 
-def diff(previous, new):
-    """Return a string showing the difference between original and new.
+# def diff(previous, new):
+#     """Return a string showing the difference between original and new.
 
-    If the difference is above diff_threshold, return the diff string."""
+#     If the difference is above diff_threshold, return the diff string."""
 
-    if previous == new:
-        return "Identical", []
+#     if previous == new:
+#         return "Identical", []
 
-    if len(previous) == 0 or previous is None:
-        return "previous is empty", []
+#     if len(previous) == 0 or previous is None:
+#         return "previous is empty", []
 
-    diff_gen = difflib.ndiff(previous.splitlines(), new.splitlines())
+#     diff_gen = difflib.ndiff(previous.splitlines(), new.splitlines())
 
-    diff_lines = []
-    plus_count = 0
-    minus_count = 0
-    for line in diff_gen:
-        if line.strip().startswith("+"):
-            diff_lines.append(line)
-            plus_count += 1
-        elif line.strip().startswith("-"):
-            diff_lines.append(line)
-            minus_count += 1
-        else:
-            continue
+#     diff_lines = []
+#     plus_count = 0
+#     minus_count = 0
+#     for line in diff_gen:
+#         if line.strip().startswith("+"):
+#             diff_lines.append(line)
+#             plus_count += 1
+#         elif line.strip().startswith("-"):
+#             diff_lines.append(line)
+#             minus_count += 1
+#         else:
+#             continue
 
-    header = f"{plus_count} lines added and {minus_count} lines removed:"
+#     header = f"{plus_count} lines added and {minus_count} lines removed:"
 
-    return header, diff_lines
+#     return header, diff_lines
 
 
-class Diff(Shrinkable):
-    def __init__(
-        self, previous, new, prefix="", max_line_diff=20, shrink_speed=2, visible=True
-    ) -> None:
-        super().__init__(visible=visible)
-        self.previous = previous
-        self.new = new
-        self.max_line_diff = max_line_diff
-        self.shrink_speed = shrink_speed
-        self.prefix = prefix
+# class Diff(Shrinkable):
+#     def __init__(
+#         self, previous, new, prefix="", max_line_diff=20, shrink_speed=2, visible=True
+#     ) -> None:
+#         super().__init__(visible=visible)
+#         self.previous = previous
+#         self.new = new
+#         self.max_line_diff = max_line_diff
+#         self.shrink_speed = shrink_speed
+#         self.prefix = prefix
 
-    def shrink(self):
-        self.max_line_diff -= self.shrink_speed
-        self.max_line_diff = max(1, self.max_line_diff)
+#     def shrink(self):
+#         self.max_line_diff -= self.shrink_speed
+#         self.max_line_diff = max(1, self.max_line_diff)
 
-    @property
-    def _prompt(self) -> str:
-        header, diff_lines = diff(self.previous, self.new)
+#     @property
+#     def _prompt(self) -> str:
+#         header, diff_lines = diff(self.previous, self.new)
 
-        diff_str = "\n".join(diff_lines[: self.max_line_diff])
-        if len(diff_lines) > self.max_line_diff:
-            original_count = len(diff_lines)
-            diff_str = f"{diff_str}\nDiff truncated, {original_count - self.max_line_diff} changes now shown."
-        return f"{self.prefix}{header}\n{diff_str}\n"
+#         diff_str = "\n".join(diff_lines[: self.max_line_diff])
+#         if len(diff_lines) > self.max_line_diff:
+#             original_count = len(diff_lines)
+#             diff_str = f"{diff_str}\nDiff truncated, {original_count - self.max_line_diff} changes now shown."
+#         return f"{self.prefix}{header}\n{diff_str}\n"
 
 
 class HistoryStep(Shrinkable):
@@ -675,20 +694,20 @@ class HistoryStep(Shrinkable):
         self, previous_obs, current_obs, action, memory, thought, flags: ObsFlags, shrink_speed=1
     ) -> None:
         super().__init__()
-        self.html_diff = Diff(
-            previous_obs[flags.html_type],
-            current_obs[flags.html_type],
-            prefix="\n### HTML diff:\n",
-            shrink_speed=shrink_speed,
-            visible=lambda: flags.use_html and flags.use_diff,
-        )
-        self.ax_tree_diff = Diff(
-            previous_obs["axtree_txt"],
-            current_obs["axtree_txt"],
-            prefix=f"\n### Accessibility tree diff:\n",
-            shrink_speed=shrink_speed,
-            visible=lambda: flags.use_ax_tree and flags.use_diff,
-        )
+        # self.html_diff = Diff(
+        #     previous_obs[flags.html_type],
+        #     current_obs[flags.html_type],
+        #     prefix="\n### HTML diff:\n",
+        #     shrink_speed=shrink_speed,
+        #     visible=lambda: flags.use_html and flags.use_diff,
+        # )
+        # self.ax_tree_diff = Diff(
+        #     previous_obs["axtree_txt"],
+        #     current_obs["axtree_txt"],
+        #     prefix=f"\n### Accessibility tree diff:\n",
+        #     shrink_speed=shrink_speed,
+        #     visible=lambda: flags.use_ax_tree and flags.use_diff,
+        # )
         self.error = Error(
             current_obs["last_action_error"],
             visible=(
@@ -706,23 +725,24 @@ class HistoryStep(Shrinkable):
 
     def shrink(self):
         super().shrink()
-        self.html_diff.shrink()
-        self.ax_tree_diff.shrink()
+        # self.html_diff.shrink()
+        # self.ax_tree_diff.shrink()
 
     @property
     def _prompt(self) -> str:
         prompt = ""
 
         if self.flags.use_think_history:
-            prompt += f"\n### Think:\n{self.thought}\n"
+            prompt += f"\n<think>\n{self.thought}\n</think>\n"
 
         if self.flags.use_action_history:
-            prompt += f"\n### Action:\n{self.action}\n"
+            prompt += f"\n<action>\n{self.action}\n</action>\n"
 
-        prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
+        # prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
+        prompt += f"{self.error.prompt}"
 
         if self.memory is not None:
-            prompt += f"\n### Memory:\n{self.memory}\n"
+            prompt += f"\n<memory>\n{self.memory}\n</memory>\n"
 
         return prompt
 
