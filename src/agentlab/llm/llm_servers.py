@@ -176,7 +176,7 @@ def launch_toolkit_tgi_server(
     return job_id, model_url
 
 
-def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
+def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server") -> str:
     """Launch a server with the given kwargs. Return the url of the server.
 
     Parameters
@@ -212,7 +212,7 @@ def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
         n_shard = 1
 
     job_id, model_url = launch_toolkit_tgi_server(
-        job_name="ui_copilot_tgi_server",
+        job_name=job_name,
         model_name=model_path,
         max_total_tokens=max_total_tokens,
         gpu=gpu,
@@ -310,7 +310,7 @@ def kill_server(job_id: str):
         logging.info(f"Toolkit job {job_id} is still {job_status}")
 
 
-def kill_all_servers(job_name="ui_copilot_tgi_server"):
+def kill_all_servers(job_name="auto_tgi_server"):
     """Kill all servers that have been left running unintentionally."""
 
     # get all the job_id of the running jobs
@@ -330,7 +330,7 @@ if __name__ == "__main__":
 
     ## launching a TGI server on Toolkit
 
-    # model = "meta-llama/Meta-Llama-3-70B-Instruct"
+    model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
     # model = "finetuning/Meta-Llama-3-8B-Instruct"
     # model = "deepseek-ai/DeepSeek-V2-Chat"
@@ -339,8 +339,8 @@ if __name__ == "__main__":
     # model = "codellama/CodeLlama-34b-Python-hf"
     # model = "codellama/CodeLlama-13b-Python-hf"
     # model = "codellama/CodeLlama-7b-Python-hf"
-    model = "microsoft/Phi-3-mini-128k-instruct"
+    # model = "microsoft/Phi-3-mini-128k-instruct"
 
-    # auto_launch_server(CHAT_MODEL_ARGS_DICT[model])
+    auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
 
-    kill_all_servers()
+    # kill_all_servers()

@@ -435,6 +435,7 @@ def demo_maker():
 def finetuning_eval(
     # benchmark: str = "workarena.servicenow.all-menu",
     benchmark: str = "miniwob.click-menu-2",
+    dataset_name: str = "miniwob_overfit_240523",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
 
@@ -456,6 +457,12 @@ def finetuning_eval(
         chat_model_args_list = overwrite_chat_model_arg(
             chat_model_args_list, overwrite_chat_model_args_dict
         )
+
+    model_path = chat_model_args_list[0].model_path
+    new_model_path = model_path + f"/{dataset_name}"
+    chat_model_args_list = overwrite_chat_model_arg(
+        chat_model_args_list, {"model_path": new_model_path}
+    )
 
     return args.expand_cross_product(
         ExpArgs(

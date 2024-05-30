@@ -18,7 +18,7 @@ def get_exp_args_list(func_name: str):
 
 model_name_list = [
     "meta-llama/Meta-Llama-3-70B-Instruct",
-    # "meta-llama/Meta-Llama-3-8B-Instruct",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
     # "codellama/CodeLlama-34b-Instruct-hf",
     # "Salesforce/xLAM-v0.1-r",
@@ -26,12 +26,12 @@ model_name_list = [
     # "mistralai/Mixtral-8x7B-Instruct-v0.1",
     # "microsoft/WizardLM-2-8x22B"
     # "finetuning/Meta-Llama-3-8B-Instruct",
-    # "finetuning/debug",
+    "finetuning/debug",
 ]
 
 # set to None or empty dict to keep the default values
 overwrite_chat_model_args_dict = {
-    "model_url": "https://abceab17-35da-41a6-90cc-d223145a18d2.job.console.elementai.com",
+    # "model_url": "https://abceab17-35da-41a6-90cc-d223145a18d2.job.console.elementai.com",
     # "max_total_tokens": 16_384,
 }
 
