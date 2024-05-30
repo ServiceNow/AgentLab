@@ -164,15 +164,8 @@ def generic_agent_eval_llm(benchmark="workarena.l1"):
     flags.action.long_description = False
 
     flags = miniwob_fix_flags(benchmark, flags)
-    # n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
-    # task_list = get_task_list(benchmark)
 
-    env_args_list = tasks.get_benchmark_env_args(benchmark)
-
-    # task_list = tasks.workarena_order_tasks
-    # task_list = tasks.workarena_filter_tasks
-    # task_list = ["workarena.servicenow.sort-hardware-list"]
-    # task_list = tasks.workarena_task_categories["menu"]
+    env_args_list = tasks.get_benchmark_env_args(benchmark, default_n_seeds=5)
 
     return args.expand_cross_product(
         ExpArgs(
@@ -373,7 +366,7 @@ def ablation_study(benchmark: str = "workarena.l1"):
     )
 
 
-def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
+def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
 
     flags = GenericPromptFlags(
         obs=dp.ObsFlags(
@@ -382,7 +375,7 @@ def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
             use_focused_element=True,
             use_error_logs=True,
             use_history=True,
-            use_past_error_logs=True,
+            use_past_error_logs=False,
             use_action_history=True,
             use_think_history=False,
             use_diff=False,
@@ -414,7 +407,7 @@ def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
     )
 
     flags = miniwob_fix_flags(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(benchmark)
+    env_args_list = tasks.get_benchmark_env_args(benchmark, n_seeds_default=5)
 
     return order(
         args.expand_cross_product(
@@ -426,7 +419,7 @@ def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
-                            (".action.multi_actions", True),
+                            # (".action.multi_actions", True),
                             # (".obs.filter_visible_elements_only", True),
                             (".action.long_description", True),
                             (".action.individual_examples", False),
@@ -440,13 +433,16 @@ def ablation_study_GPT_3_5_L1(benchmark: str = "workarena.l1"):
                             # ],
                             # obs flags
                             (".obs.use_think_history", True),
-                            (".obs.use_past_error_logs", False),
+                            (".obs.use_past_error_logs", True),
+                            (".obs.use_action_history", False),
+                            (".obs.extract_visible_tag", False),
+                            (".obs.extract_clickable_tag", True),
                             # [
                             #     (".obs.use_screenshot", True),
                             #     (".obs.use_som", True),
                             # ],
                             # agent features
-                            (".use_thinking", False),
+                            # (".use_thinking", False),
                         ],
                     ),
                 ),

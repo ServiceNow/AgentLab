@@ -4,6 +4,7 @@ import io
 from logging import warn
 from pathlib import Path
 import re
+import warnings
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -18,6 +19,8 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
 from agentlab.experiments.task_collections import TASK_CATEGORY_MAP
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 try:
     import pyperclip
@@ -301,7 +304,7 @@ def _extract_ablation_study(report: pd.DataFrame, progression=False):
     """Reduce the multi-index to a change description compared to the previous row."""
     names = report.index.names
     report = report.copy()
-    report.sort_index(inplace=True)
+    # report.sort_index(inplace=True)
 
     reference_index = None
     for index in report.index:
@@ -347,7 +350,7 @@ def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize, progression=Fa
 def _get_avg_order(df: pd.DataFrame, row: pd.Series):
     """Return the average order for the given row."""
     df = df.reset_index(level=0, drop=True, inplace=False)
-    df.sort_index(inplace=True)
+    # df.sort_index(inplace=True)
 
     sub_df = df.loc[row.name]
     orders = [get_exp_result(exp_dir).exp_args.order for exp_dir in sub_df.exp_dir]
