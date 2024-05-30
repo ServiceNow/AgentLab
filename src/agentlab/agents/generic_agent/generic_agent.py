@@ -94,14 +94,14 @@ class GenericAgent(Agent):
             # cause it to be too long
             ans_dict = retry(self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser)
             # inferring the number of retries, TODO: make this less hacky
-            ans_dict["n_retry"] = (len(chat_messages) - 3) / 2 
+            ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
         except RetryError as e:
             # Likely due to maximum retry. We catch it here to be able to return
             # the list of messages for further analysis
             ans_dict = {"action": None}
 
             # TODO Debatable, it shouldn't be reported as some error, since we don't
-            # want to re-launch those failure. 
+            # want to re-launch those failure.
 
             # ans_dict["err_msg"] = str(e)
             # ans_dict["stack_trace"] = traceback.format_exc()
