@@ -92,7 +92,7 @@ ALL_TRUE_FLAGS = GenericPromptFlags(
 FLAG_EXPECTED_PROMPT = [
     (
         "obs.use_html",
-        ("HTML:", "</html>", "Hello World.", "Step 1."),
+        ("HTML:", "</html>", "Hello World.", "Step 1"),
     ),
     (
         "obs.use_ax_tree",
