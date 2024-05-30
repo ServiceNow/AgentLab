@@ -34,12 +34,15 @@ def _extract_wait_time(error_message, min_retry_wait_time=60):
 
 def retry(
     chat: ChatOpenAI,
-    messages,
+    main_prompt,
+    system_prompt: str,
     n_retry,
     parser,
     log=True,
     min_retry_wait_time=60,
     rate_limit_max_wait_time=60 * 30,
+    fit_function: callable = lambda x: x,
+    add_missparsed_messages=True,
 ):
     """Retry querying the chat models with the response from the parser until it
     returns a valid value.
@@ -65,6 +68,13 @@ def retry(
         min_retry_wait_time (float): the minimum wait time in seconds
             after RateLimtError. will try to parse the wait time from the error
             message.
+        rate_limit_max_wait_time (float): the maximum total wait time in seconds
+            for rate limit errors.
+        fit_function (callable): a function to fit the tokens before retrying.
+            takes main_prompt (str) and additional_prompts (List[str]) and returns
+            a new prompt.
+        add_missparsed_messages (bool): whether to add the retry message to the
+            chat.
 
     Returns:
     --------
@@ -72,7 +82,18 @@ def retry(
     """
     tries = 0
     rate_limit_total_delay = 0
+
+    additional_prompts = []
+
     while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
+
+        # fit tokens
+        prompt = fit_function(
+            main_prompt=main_prompt, additional_prompts=[system_prompt] + additional_prompts
+        )
+        messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
+        messages += [HumanMessage(content=content) for content in additional_prompts]
+
         try:
             answer = chat.invoke(messages)
         except RateLimitError as e:
@@ -87,17 +108,19 @@ def retry(
                 raise
             continue
 
-        messages.append(answer)
-
         value, valid, retry_message = parser(answer.content)
         if valid:
+            value["n_retry"] = tries
+            value["chat_messages"] = [m.content for m in messages]
             return value
 
         tries += 1
         if log:
             msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
             logging.info(msg)
-        messages.append(HumanMessage(content=retry_message))
+        if add_missparsed_messages:
+            additional_prompts.append(answer.content)
+            additional_prompts.append(retry_message)
 
     raise ValueError(f"Could not parse a valid value after {n_retry} retries.")
 
