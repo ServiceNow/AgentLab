@@ -140,7 +140,7 @@ class MainPrompt(dp.Shrinkable):
 
         self.obs = dp.Observation(obs_history[-1], self.flags.obs)
 
-        self.action_prompt = dp.ActionPrompt(action_set, is_strict=flags.action.is_strict)
+        self.action_prompt = dp.ActionPrompt(action_set, action_flags=flags.action)
 
         def time_for_caution():
             # no need for caution if we're in single action mode
