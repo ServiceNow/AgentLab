@@ -123,7 +123,10 @@ class PromptElement:
     @property
     def prompt(self):
         """Avoid overriding this method. Override _prompt instead."""
-        return self._hide(self._prompt)
+        if self.is_visible:
+            return self._prompt
+        else:
+            return ""
 
     @property
     def abstract_ex(self):
@@ -133,7 +136,10 @@ class PromptElement:
 
         Avoid overriding this method. Override _abstract_ex instead
         """
-        return self._hide(self._abstract_ex)
+        if self.is_visible:
+            return self._abstract_ex
+        else:
+            return ""
 
     @property
     def concrete_ex(self):
@@ -143,7 +149,10 @@ class PromptElement:
 
         Avoid overriding this method. Override _concrete_ex instead
         """
-        return self._hide(self._concrete_ex)
+        if self.is_visible:
+            return self._concrete_ex
+        else:
+            return ""
 
     @property
     def is_visible(self):
@@ -152,13 +161,6 @@ class PromptElement:
         if callable(visible):
             visible = visible()
         return visible
-
-    def _hide(self, value):
-        """Return value if visible is True, else return empty string."""
-        if self.is_visible:
-            return value
-        else:
-            return ""
 
     def _parse_answer(self, text_answer):
         """Override to actually extract elements from the answer."""
