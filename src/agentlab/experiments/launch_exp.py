@@ -15,10 +15,7 @@ import argparse
 logging.getLogger().setLevel(logging.INFO)
 
 
-def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers):
-    if server_error_flag is not None and server_error_flag.value:
-        logging.info("Skipping job because of server error.")
-        return
+def run_exp(exp_args: ExpArgs, llm_servers: LLMServers):
     llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
     exp_args.run()
 
@@ -70,7 +67,7 @@ def main(
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
         Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(run_exp)(exp_args, server_error_flag, llm_servers) for exp_args in exp_args_list
+            delayed(run_exp)(exp_args, llm_servers) for exp_args in exp_args_list
         )
     finally:
         # will close servers even if there is an exception or ctrl+c
