@@ -165,7 +165,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1"):
 
     flags = miniwob_fix_flags(benchmark, flags)
 
-    env_args_list = tasks.get_benchmark_env_args(benchmark, default_n_seeds=5)
+    env_args_list = tasks.get_benchmark_env_args(benchmark, n_seeds_default=5)
 
     return args.expand_cross_product(
         ExpArgs(
