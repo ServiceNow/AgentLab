@@ -5,6 +5,7 @@ from agentlab.agents import dynamic_prompting as dp
 from browsergym.experiments.loop import ExpArgs
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
+from agentlab.experiments.task_collections import get_benchmark_env_args
 from agentlab.agents.generic_agent.generic_agent_prompt import (
     GenericPromptFlags,
     BASIC_FLAGS,
@@ -48,23 +49,23 @@ def miniwob_fix_flags(benchmark: str, flags: GenericPromptFlags):
     return flags
 
 
-def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
-    if benchmark == "webarena":
-        return 1
-    return default_n_seeds
+# def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
+#     if benchmark == "webarena":
+#         return 1
+#     return default_n_seeds
 
 
-def get_task_list(benchmark: str):
-    if benchmark == "miniwob":
-        return tasks.miniwob_all
-    elif benchmark == "workarena_l1":
-        return tasks.workarena_tasks_l1
-    elif benchmark == "workarena_all":
-        return tasks.workarena_tasks_all
-    elif benchmark == "webarena":
-        return tasks.webarena_tasks
-    else:
-        raise ValueError(f"benchmark {benchmark} not recognized")
+# def get_task_list(benchmark: str):
+#     if benchmark == "miniwob":
+#         return tasks.MINIWOB_ALL
+#     elif benchmark == "workarena.l1":
+#         return tasks.workarena_tasks_l1
+#     elif benchmark == "workarena_all":
+#         return tasks.workarena_tasks_all
+#     elif benchmark == "webarena":
+#         return tasks.webarena_tasks
+#     else:
+#         raise ValueError(f"benchmark {benchmark} not recognized")
 
 
 def generic_agent_test():
@@ -136,7 +137,7 @@ model_name_list = [
 
 
 # test GenericAgent with different LLMs
-def generic_agent_eval_llm(benchmark="workarena_l1"):
+def generic_agent_eval_llm(benchmark="workarena.l1"):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
     flags = ADVANCED_FLAGS.copy()
     flags.obs.extract_visible_tag = True
@@ -152,8 +153,11 @@ def generic_agent_eval_llm(benchmark="workarena_l1"):
     flags.action.long_description = False
 
     flags = miniwob_fix_flags(benchmark, flags)
-    n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
-    task_list = get_task_list(benchmark)
+    # n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
+    # task_list = get_task_list(benchmark)
+
+    env_args_list = get_benchmark_env_args(benchmark)
+
     # task_list = tasks.workarena_order_tasks
     # task_list = tasks.workarena_filter_tasks
     # task_list = ["workarena.servicenow.sort-hardware-list"]
@@ -165,11 +169,7 @@ def generic_agent_eval_llm(benchmark="workarena_l1"):
                 chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
                 flags=flags,
             ),
-            env_args=EnvArgs(
-                max_steps=10,
-                task_seed=args.CrossProd(make_seeds(n_seeds)),
-                task_name=args.CrossProd(task_list),
-            ),
+            env_args=args.CrossProd(env_args_list)
             enable_debug=False,
             logging_level=logging.DEBUG,
         )
@@ -186,8 +186,7 @@ def random_search(benchmark: str = "miniwob"):
     from these experiments.
     """
     flags = miniwob_fix_flags(benchmark, DEFAULT_RS_FLAGS)
-    n_seeds = get_n_seeds(benchmark, default_n_seeds=3)
-    task_list = get_task_list(benchmark)
+    env_args_list = get_benchmark_env_args(benchmark)
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
@@ -195,11 +194,7 @@ def random_search(benchmark: str = "miniwob"):
                 chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
                 flags=flags,
             ),
-            env_args=EnvArgs(
-                max_steps=10,
-                task_seed=args.CrossProd(make_seeds(n_seeds)),
-                task_name=args.CrossProd(task_list),
-            ),
+            env_args=args.CrossProd(env_args_list),
             enable_debug=False,
         ),
         n_samples=20,  # number of samples
@@ -251,8 +246,7 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
     flags = miniwob_fix_flags(benchmark, flags)
-    n_seeds = get_n_seeds(benchmark, default_n_seeds=10)
-    task_list = get_task_list(benchmark)
+    env_args_list = get_benchmark_env_args(benchmark)
 
     return order(
         args.expand_cross_product(
@@ -275,18 +269,14 @@ def progression_study(benchmark: str = "miniwob"):
                         ],
                     ),
                 ),
-                env_args=EnvArgs(
-                    max_steps=10,
-                    task_seed=args.CrossProd(make_seeds(n_seeds)),
-                    task_name=args.CrossProd(task_list),
-                ),
+                env_args=args.CrossProd(env_args_list),
                 enable_debug=False,
             )
         )
     )
 
 
-def ablation_study(benchmark: str = "workarena_l1"):
+def ablation_study(benchmark: str = "workarena.l1"):
 
     flags = GenericPromptFlags(
         obs=dp.ObsFlags(
@@ -327,8 +317,8 @@ def ablation_study(benchmark: str = "workarena_l1"):
     )
 
     flags = miniwob_fix_flags(benchmark, flags)
-    n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
-    task_list = get_task_list(benchmark)
+    env_args_list = get_benchmark_env_args(benchmark)
+
 
     return order(
         args.expand_cross_product(
@@ -364,11 +354,7 @@ def ablation_study(benchmark: str = "workarena_l1"):
                         ],
                     ),
                 ),
-                env_args=EnvArgs(
-                    max_steps=15,
-                    task_seed=args.CrossProd(make_seeds(n_seeds)),
-                    task_name=args.CrossProd(task_list),
-                ),
+                env_args=args.CrossProd(env_args_list),
                 enable_debug=False,
             )
         )
