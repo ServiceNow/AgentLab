@@ -45,6 +45,5 @@ main(
     exp_args_list=exp_args_list,
     n_jobs=5,  # 1 for debugging, -1 for all cores except 2
     relaunch_mode=relaunch_mode,  # choices = [None, 'incomplete_only', 'all_errors', 'server_errors']. if not None, make sure you're pointing to an existing experiment directory
-    shuffle_jobs=True,
     auto_accept=True,  # skip the prompt to accept the experiment
 )
