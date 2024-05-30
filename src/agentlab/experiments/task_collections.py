@@ -2,8 +2,14 @@ from logging import warning
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import time as t
 
+t0 = t.time()
 from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
+
+dt = t.time() - t0
+print(f"done importing workarena, took {dt:.2f} seconds")
+
 from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 from browsergym.experiments import EnvArgs
 
@@ -195,7 +201,7 @@ def get_task_category(task_name):
     return benchmark, TASK_CATEGORY_MAP.get(task_name, None)
 
 
-def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None):
+def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None) -> list[EnvArgs]:
 
     env_args_list = []
     rng = np.random.RandomState(meta_seed)
@@ -209,8 +215,9 @@ def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None):
         if max_steps is None:
             max_steps = {"l1": 15, "l2": 20, "l3": 20}[filters[1]]
 
-        for task_name, seed in get_all_tasks_agents(filter=".".join(filters[1:]), seed=meta_seed):
-            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+        for task, seed in get_all_tasks_agents(filter=".".join(filters[1:]), meta_seed=meta_seed):
+            task_name = task.get_task_id()
+            env_args_list.append(EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps))
 
     elif benchmark_name == "webarena":
         if max_steps is None:
@@ -231,3 +238,8 @@ def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None):
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
     return env_args_list
+
+
+if __name__ == "__main__":
+    for env_args in get_benchmark_env_args("workarena.l2"):
+        print(env_args.task_name)
