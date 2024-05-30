@@ -1,9 +1,11 @@
 from logging import warning
 from pathlib import Path
+import numpy as np
 import pandas as pd
 
-from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS
+from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
 from browsergym.webarena import ALL_WEBARENA_TASK_IDS
+from browsergym.experiments import EnvArgs
 
 workarena_tasks_all = [task_class.get_task_id() for task_class in ALL_WORKARENA_TASKS]
 workarena_tasks_atomic = [task_class.get_task_id() for task_class in ATOMIC_TASKS]
@@ -12,19 +14,18 @@ workarena_tasks_atomic = [task_class.get_task_id() for task_class in ATOMIC_TASK
 # workarena_sort_tasks = [task for task in workarena_tasks if "sort" in task]
 # workarena_filter_tasks = [task for task in workarena_tasks if "filter" in task]
 
-webarena_tasks = ALL_WEBARENA_TASK_IDS
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
 df["task_name"] = "miniwob." + df["task_name"]
-miniwob_all = df["task_name"].tolist()
+MINIWOB_ALL = df["task_name"].tolist()
 tasks_eval = df[df["miniwob_category"].isin(["original", "additional", "hidden test"])][
     "task_name"
 ].tolist()
 miniwob_debug = df[df["miniwob_category"].isin(["debug"])]["task_name"].tolist()
 miniwob_tiny_test = ["miniwob.click-dialog", "miniwob.click-dialog-2"]
 
-assert len(miniwob_all) == 125
+assert len(MINIWOB_ALL) == 125
 assert len(tasks_eval) == 107
 assert len(miniwob_debug) == 12
 assert len(miniwob_tiny_test) == 2
@@ -192,3 +193,41 @@ for task in workarena_tasks_atomic:
 def get_task_category(task_name):
     benchmark = task_name.split(".")[0]
     return benchmark, TASK_CATEGORY_MAP.get(task_name, None)
+
+
+def get_benchmark_env_args(benchmark_name: str, meta_seed=42, max_steps=None):
+
+    env_args_list = []
+    rng = np.random.RandomState(meta_seed)
+
+    if benchmark_name.startswith("workarena"):
+
+        filters = benchmark_name.split(".")
+        if len(filters) < 2:
+            raise ValueError(f"You must specify the sub set of workarena, e.g.: workarena.l2.")
+
+        if max_steps is None:
+            max_steps = {"l1": 15, "l2": 20, "l3": 20}[filters[1]]
+
+        for task_name, seed in get_all_tasks_agents(filter=".".join(filters[1:]), seed=meta_seed):
+            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+
+    elif benchmark_name == "webarena":
+        if max_steps is None:
+            max_steps = 15
+
+        for task_name in ALL_WEBARENA_TASK_IDS:
+            seed = rng.randint(0, 100)
+            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+
+    elif benchmark_name == "miniwob":
+        if max_steps is None:
+            max_steps = 10
+
+        for task_name in MINIWOB_ALL:
+            seed = rng.randint(0, 100)
+            env_args_list.append(EnvArgs(task_name=task_name, seed=seed, max_steps=max_steps))
+    else:
+        raise ValueError(f"Unknown benchmark name: {benchmark_name}")
+
+    return env_args_list
