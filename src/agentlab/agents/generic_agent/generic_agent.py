@@ -99,8 +99,8 @@ class GenericAgent(Agent):
             # Likely due to maximum retry. We catch it here to be able to return
             # the list of messages for further analysis
             ans_dict = {"action": None}
-            ans_dict["err_msg"] = str(e)
-            ans_dict["stack_trace"] = traceback.format_exc()
+            # ans_dict["err_msg"] = str(e)
+            # ans_dict["stack_trace"] = traceback.format_exc()
             ans_dict["n_retry"] = self.max_retry
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)

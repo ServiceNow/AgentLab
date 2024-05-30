@@ -32,6 +32,10 @@ def _extract_wait_time(error_message, min_retry_wait_time=60):
     return min_retry_wait_time
 
 
+class RetryError(ValueError):
+    pass
+
+
 def retry(
     chat: ChatOpenAI,
     messages,
@@ -99,7 +103,7 @@ def retry(
             logging.info(msg)
         messages.append(HumanMessage(content=retry_message))
 
-    raise ValueError(f"Could not parse a valid value after {n_retry} retries.")
+    raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
 
 def retry_parallel(chat: ChatOpenAI, messages, n_retry, parser):
