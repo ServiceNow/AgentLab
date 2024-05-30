@@ -74,7 +74,7 @@ def run_gradio(savedir_base):
             with gr.Row():
                 step_info_gr = gr.Markdown(visible=False)
                 action_info_gr = gr.Text(visible=False, label="Action")
-                error_info_gr = gr.Textbox(visible=False, label="Step error")
+                error_info_gr = gr.Textbox(visible=False, label="Next Step error")
 
         # 6. Render the before and after images
         with gr.Tab("Images"):
@@ -517,7 +517,7 @@ def get_row_info(row_id, episode_id, step_id):
 
     except FileNotFoundError:
         step_list = []
-    if len(step_list) == 0:
+    if step_id >= len(step_list) or step_id < 0:
         step_obj = None
     else:
         step_obj = step_list[step_id]
@@ -604,6 +604,8 @@ def update_step_info(row_id, episode_id, step_id):
 
     row, episode_series, step_obj, exp_result = get_row_info(row_id, episode_id, step_id)
 
+    _, _, next_step_obj, _ = get_row_info(row_id, episode_id, step_id + 1)
+
     step_obj = step_obj  # type: StepInfo
 
     step_max = len(exp_result.steps_info) - 1
@@ -622,7 +624,7 @@ def update_step_info(row_id, episode_id, step_id):
         task_logs = ""
 
     obs = step_obj.obs if step_obj is not None else None
-
+    next_obs = next_step_obj.obs if next_step_obj is not None else None
     if obs is None:
         goal = "No Goal"
     else:
@@ -658,18 +660,13 @@ def update_step_info(row_id, episode_id, step_id):
         action_info += "\n\n<think>\n" + step_obj.agent_info["think"] + "\n</think>"
 
     # Error Logs
-    if obs is None:
-        logs = ""
+    if next_obs is None:
+        error_info = ""
     else:
-        logs = obs["last_action_error"]  # TODO make sure we get the right error logs
-    if logs == "":
+        error_info = next_obs["last_action_error"]
+    if error_info == "":
         error_info = "## No Error Logs"
-    else:
-        error_info = dedent(
-            f"""## Error Logs
-            {str(logs)}
-            """
-        )
+
     screenshots = exp_result.screenshots
     # back node id
     # extract
