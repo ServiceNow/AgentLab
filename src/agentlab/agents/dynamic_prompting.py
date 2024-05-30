@@ -261,7 +261,7 @@ class HTML(Trunkater):
         super().__init__(visible=visible, start_trunkate_iteration=5)
         if visible_elements_only:
             visible_elements_note = """\
-Note: only elements that are visible in the viewport are presented. You might need to sroll the page, or open tabs or menus to see more.
+Note: only elements that are visible in the viewport are presented. You might need to scroll the page, or open tabs or menus to see more.
 
 """
         else:
@@ -298,7 +298,7 @@ Note: bounding box of each object are provided in parenthesis and are relative t
             coord_note = ""
         if visible_elements_only:
             visible_elements_note = """\
-Note: only elements that are visible in the viewport are presented. You might need to sroll the page, or open tabs or menus to see more.
+Note: only elements that are visible in the viewport are presented. You might need to scroll the page, or open tabs or menus to see more.
 
 """
         else:
