@@ -1,8 +1,10 @@
+from collections import defaultdict
 from datetime import datetime
 import fnmatch
 import io
 from logging import warn
 from pathlib import Path
+import random
 import re
 import warnings
 import numpy as np
@@ -310,7 +312,18 @@ def _extract_ablation_study(report: pd.DataFrame, progression=False):
     for index in report.index:
         if reference_index is not None:
             diffs = _find_diff(reference_index, index)
-            change = "↳ " + ", ".join([f"{names[i]}={index[i]}" for i in diffs])
+
+            if progression:
+                change = "↳ " + ", ".join([f"{names[i]}={index[i]}" for i in diffs])
+            else:
+                changes = []
+                for i in diffs:
+                    val = index[i]
+                    if isinstance(val, bool):
+                        changes.append(("+" if val else "-") + names[i])
+                    else:
+                        changes.append(f"{names[i]}←{val}")
+                change = ", ".join(changes)
         else:
             change = "Initial Configuration"
         report.loc[index, "change"] = change
@@ -741,3 +754,28 @@ def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
         new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
     set_index_from_variables(new_df, task_key="task_category")
     return new_df
+
+
+def get_all_task_messages(exp_dir, max_n_exp=None):
+    result_list = list(yield_all_exp_results(exp_dir, progress_fn=tqdm))
+
+    if max_n_exp is not None:
+        result_list = random.sample(result_list, min(max_n_exp, len(result_list)))
+
+    task_messages = defaultdict(list)
+    for exp_result in tqdm(result_list):
+        task_name = exp_result.exp_args.env_args.task_name
+        for step in exp_result.steps_info:
+            try:
+                task_messages[task_name].append(step.task_info["message"])
+            except (KeyError, TypeError):
+                pass
+
+    # count identical task messages:
+    for task_name, messages in task_messages.items():
+        unique_messages, count = np.unique(messages, return_counts=True)
+        # sort them
+        print(task_name)
+        for msg, count in sorted(zip(unique_messages, count), key=lambda x: x[1], reverse=True):
+            print(f"{count}x : {msg}")
+        print()
