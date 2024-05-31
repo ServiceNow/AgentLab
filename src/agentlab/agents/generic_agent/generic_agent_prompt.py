@@ -38,6 +38,7 @@ class GenericPromptFlags(dp.Flags):
     be_cautious: bool = True
     extra_instructions: str | None = None
     add_missparsed_messages: bool = True
+    use_retry_and_fit: bool = False
 
 
 BASIC_FLAGS = GenericPromptFlags(
