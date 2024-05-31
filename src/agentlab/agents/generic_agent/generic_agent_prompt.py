@@ -22,6 +22,8 @@ class GenericPromptFlags(dp.Flags):
         max_prompt_tokens (int): Maximum number of tokens allowed in the prompt.
         be_cautious (bool): Instruct the agent to be cautious about its actions.
         extra_instructions (Optional[str]): Extra instructions to provide to the agent.
+        add_missparsed_messages (bool): When retrying, add the missparsed messages to the prompt.
+        use_retry_and_fit (bool): Use the retry_and_fit function that shrinks the prompt at each retry iteration.
     """
 
     obs: dp.ObsFlags
