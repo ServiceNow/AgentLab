@@ -119,10 +119,11 @@ def retry_and_fit(
     add_missparsed_messages=True,
 ):
     """Retry querying the chat models with the response from the parser until it
-    returns a valid value.
+    returns a valid value. The prompt is passed through a fitting function at each
+    retry.
 
-    If the answer is not valid, it will retry and append to the chat the  retry
-    message.  It will stop after `n_retry`.
+    If the answer is not valid, it will retry and append to the chat (depending on
+    add_missparsed_messages) the  retry message.  It will stop after `n_retry`.
 
     Note, each retry has to resend the whole prompt to the API. This can be slow
     and expensive.
