@@ -372,7 +372,7 @@ def ablation_study(benchmark: str = "workarena.l1"):
     )
 
 
-def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
+def ablation_study_GPT_3_5(benchmark: str = "miniwob"):
 
     flags = miniwob_add_html(benchmark, FLAGS_GPT_3_5)
     env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
@@ -385,30 +385,27 @@ def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
-                            # (".action.multi_actions", True),
-                            # (".obs.filter_visible_elements_only", True),
-                            (".action.long_description", True),
-                            (".action.individual_examples", False),
-                            # [
-                            #     (".action.action_set", "bid+coord"),
-                            #     (".obs.extract_coords", "center"),
-                            # ],
-                            # [
-                            #     (".action.action_set", "bid+coord"),
-                            #     (".obs.extract_coords", "box"),
-                            # ],
+                            (".action.multi_actions", True),
+                            (".obs.filter_visible_elements_only", True),
+                            # (".action.long_description", True),
+                            # (".action.individual_examples", False),
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "center"),
+                            ],
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "box"),
+                            ],
                             # obs flags
-                            (".obs.use_think_history", True),
-                            (".obs.use_past_error_logs", True),
-                            (".obs.use_action_history", False),
-                            (".obs.extract_visible_tag", False),
-                            (".obs.extract_clickable_tag", True),
-                            # [
-                            #     (".obs.use_screenshot", True),
-                            #     (".obs.use_som", True),
-                            # ],
+                            (".obs.use_focused_element", False),
+                            # (".obs.use_think_history", True),
+                            # (".obs.use_past_error_logs", True),
+                            # (".obs.use_action_history", False),
+                            # (".obs.extract_visible_tag", False),
+                            # (".obs.extract_clickable_tag", True),
                             # agent features
-                            # (".use_thinking", False),
+                            (".use_thinking", False),
                         ],
                     ),
                 ),
@@ -641,36 +638,36 @@ FINETUNING_FLAGS = GenericPromptFlags(
 
 FLAGS_GPT_3_5 = GenericPromptFlags(
     obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
+        use_html=False,  # too big for most benchmark except miniwob
+        use_ax_tree=True,  # very useful
         use_focused_element=True,
         use_error_logs=True,
         use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
+        use_past_error_logs=False,  # very detrimental on L1 and miniwob
+        use_action_history=True,  # helpful on miniwob
+        use_think_history=False,  # detrimental on L1 and miniwob
         use_diff=False,
         html_type="pruned_html",
         use_screenshot=False,
         use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=False,
+        extract_visible_tag=True,  # doesn't change much
+        extract_clickable_tag=False,  # doesn't change much
         extract_coords="False",
         filter_visible_elements_only=False,
     ),
     action=dp.ActionFlags(
-        multi_actions=False,
+        multi_actions=False,  # often detrimental
         action_set="bid",
-        long_description=False,
-        individual_examples=True,
+        long_description=False,  # detrimental on L1, not influential on miniwob
+        individual_examples=True,  # useful on miniwob
     ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
+    use_plan=False,  # usually detrimental
+    use_criticise=False,  # usually detrimental
+    use_thinking=True,  # very usefu
     use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
+    use_concrete_example=True,  # useful
+    use_abstract_example=True,  # useful
+    use_hints=True,  # useful
     enable_chat=False,
     max_prompt_tokens=None,
     be_cautious=True,

@@ -24,8 +24,6 @@ from transformers import GPT2TokenizerFast
 
 from langchain.schema import AIMessage
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
 
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
