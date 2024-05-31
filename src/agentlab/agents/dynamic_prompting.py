@@ -210,7 +210,11 @@ class Trunkater(Shrinkable):
 
 
 def fit_tokens(
-    shrinkable: Shrinkable, max_prompt_tokens=None, max_iterations=20, model_name="openai/gpt-4"
+    shrinkable: Shrinkable,
+    max_prompt_tokens=None,
+    max_iterations=20,
+    model_name="openai/gpt-4",
+    additional_prompts=[""],
 ):
     """Shrink a prompt element until it fits `max_prompt_tokens`.
 
@@ -224,6 +228,8 @@ def fit_tokens(
         The maximum number of shrink iterations, by default 20.
     model_name : str, optional
         The name of the model used when tokenizing.
+    additional_prompts : str or List[str], optional
+        Additional prompts to account for when shrinking, by default [""].
 
     Returns
     -------
@@ -232,6 +238,14 @@ def fit_tokens(
 
     if max_prompt_tokens is None:
         return shrinkable.prompt
+
+    if isinstance(additional_prompts, str):
+        additional_prompts = [additional_prompts]
+
+    for prompt in additional_prompts:
+        max_prompt_tokens -= (
+            count_tokens(prompt, model=model_name) + 1
+        )  # +1 accounts for LangChain token
 
     for _ in range(max_iterations):
         prompt = shrinkable.prompt
