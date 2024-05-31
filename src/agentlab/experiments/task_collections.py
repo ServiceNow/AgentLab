@@ -3,9 +3,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import time as t
+import logging
 
 t0 = t.time()
 from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
+
+logger = logging.getLogger(__name__)
 
 dt = t.time() - t0
 print(f"done importing workarena, took {dt:.2f} seconds")
@@ -202,42 +205,77 @@ def get_task_category(task_name):
 
 
 def get_benchmark_env_args(
-    benchmark_name: str, meta_seed=42, max_steps=None, n_seeds_default=10
+    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None
 ) -> list[EnvArgs]:
+    """
+    Returns a list of EnvArgs for the given benchmark_name.
 
+    Args:
+        benchmark_name: A string representing the benchmark name.
+        meta_seed: The seed for the random number generator.
+        max_steps: None or int. The maximum number of steps for each task.
+            if None, it will use the default value for the benchmark.
+        n_repeat: None or int. The number of seeds for each task.
+            if None, it will use the default value for the benchmark.
+    """
     env_args_list = []
     rng = np.random.RandomState(meta_seed)
 
+    filters = benchmark_name.split(".")
+    benchmark_id = filters[0]
+    if filters[0] == "workarena":
+        benchmark_id = "workarena." + filters[1]
+
+    max_steps_default = {
+        "workarena.l1": 15,
+        "workarena.l2": 30,
+        "workarena.l3": 30,
+        "webarena": 15,
+        "miniwob": 10,
+    }
+
+    n_repeat_default = {
+        "workarena.l1": 10,
+        "workarena.l2": 1,
+        "workarena.l3": 1,
+        "webarena": 1,
+        "miniwob": 5,
+    }
+
+    if max_steps is None:
+        max_steps = max_steps_default[benchmark_id]
+    if n_repeat is None:
+        n_repeat = n_repeat_default[benchmark_id]
+    else:
+        if benchmark_id == "webarena" and n_repeat != 1:
+            logger.warning(
+                f"webarena is expected to have only one seed per task. Ignoring n_seeds_default = {n_repeat}"
+            )
+            n_repeat = 1
+
     if benchmark_name.startswith("workarena"):
 
-        filters = benchmark_name.split(".")
         if len(filters) < 2:
             raise ValueError(f"You must specify the sub set of workarena, e.g.: workarena.l2.")
-
-        if max_steps is None:
-            max_steps = {"l1": 15, "l2": 20, "l3": 20}[filters[1]]
 
         if benchmark_name == "workarena.l1.sort":
             task_names = [task.get_task_id() for task in ATOMIC_TASKS]
             task_names = [task for task in task_names if "sort" in task]
-            env_args_list = _make_env_args(task_names, max_steps, n_seeds_default, rng)
+            env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
 
-        for task, seed in get_all_tasks_agents(
-            filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_seeds_default
-        ):
-            task_name = task.get_task_id()
-            env_args_list.append(EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps))
+        else:
+            for task, seed in get_all_tasks_agents(
+                filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_repeat
+            ):
+                task_name = task.get_task_id()
+                env_args_list.append(
+                    EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps)
+                )
 
     elif benchmark_name == "webarena":
-        if max_steps is None:
-            max_steps = 15
-        env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_seeds_default, rng)
-
+        env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
     elif benchmark_name == "miniwob":
-        if max_steps is None:
-            max_steps = 10
-        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_seeds_default, rng)
-
+        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_repeat, rng)
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
@@ -253,7 +291,7 @@ def _make_env_args(task_list, max_steps, n_seeds_default, rng):
 
 
 if __name__ == "__main__":
-    env_args_list = get_benchmark_env_args("workarena.l1")
+    env_args_list = get_benchmark_env_args("workarena.l1.sort")
     print(f"Number of tasks: {len(env_args_list)}")
     for env_args in env_args_list:
         print(env_args.task_seed, env_args.task_name)
