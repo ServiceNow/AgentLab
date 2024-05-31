@@ -38,6 +38,76 @@ class RetryError(ValueError):
 
 def retry(
     chat: ChatOpenAI,
+    messages,
+    n_retry,
+    parser,
+    log=True,
+    min_retry_wait_time=60,
+    rate_limit_max_wait_time=60 * 30,
+):
+    """Retry querying the chat models with the response from the parser until it
+    returns a valid value.
+
+    If the answer is not valid, it will retry and append to the chat the  retry
+    message.  It will stop after `n_retry`.
+
+    Note, each retry has to resend the whole prompt to the API. This can be slow
+    and expensive.
+
+    Parameters:
+    -----------
+        chat (function) : a langchain ChatOpenAI taking a list of messages and
+            returning a list of answers.
+        messages (list) : the list of messages so far.
+        n_retry (int) : the maximum number of sequential retries.
+        parser (function): a function taking a message and returning a tuple
+        with the following fields:
+            value : the parsed value,
+            valid : a boolean indicating if the value is valid,
+            retry_message : a message to send to the chat if the value is not valid
+        log (bool): whether to log the retry messages.
+        min_retry_wait_time (float): the minimum wait time in seconds
+            after RateLimtError. will try to parse the wait time from the error
+            message.
+
+    Returns:
+    --------
+        value: the parsed value
+    """
+    tries = 0
+    rate_limit_total_delay = 0
+    while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
+        try:
+            answer = chat.invoke(messages)
+        except RateLimitError as e:
+            wait_time = _extract_wait_time(e.args[0], min_retry_wait_time)
+            logging.warning(f"RateLimitError, waiting {wait_time}s before retrying.")
+            time.sleep(wait_time)
+            rate_limit_total_delay += wait_time
+            if rate_limit_total_delay >= rate_limit_max_wait_time:
+                logging.warning(
+                    f"Total wait time for rate limit exceeded. Waited {rate_limit_total_delay}s > {rate_limit_max_wait_time}s."
+                )
+                raise
+            continue
+
+        messages.append(answer)
+
+        value, valid, retry_message = parser(answer.content)
+        if valid:
+            return value
+
+        tries += 1
+        if log:
+            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
+            logging.info(msg)
+        messages.append(HumanMessage(content=retry_message))
+
+    raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
+
+
+def retry_and_fit(
+    chat: ChatOpenAI,
     main_prompt,
     system_prompt: str,
     n_retry,
