@@ -147,7 +147,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
 
     flags = miniwob_add_html(benchmark, flags)
 
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=20)
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=10)
 
     return args.expand_cross_product(
         ExpArgs(
@@ -268,17 +268,20 @@ def final_run():
     # benchmark = "workarena.l2"
     # benchmark = "webarena"
 
-    agent = AGENT_3_5
+    # agent = AGENT_3_5
     # agent = AGENT_4o
     # agent = AGENT_4o_VISION
 
-    agent.flags = miniwob_add_html(benchmark, agent.flags)
+    agents = [AGENT_3_5, AGENT_4o, AGENT_4o_VISION]
+
+    for agent in agents:
+        agent.flags = miniwob_add_html(benchmark, agent.flags)
 
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=None, n_repeat=None)
 
     return args.expand_cross_product(
         ExpArgs(
-            agent_args=agent,
+            agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
             logging_level=logging.DEBUG,
@@ -719,16 +722,16 @@ FLAGS_GPT_4o_VISION.obs.use_som = True
 
 AGENT_3_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
-    flags=FLAGS_GPT_3_5,
+    flags=FLAGS_GPT_3_5.copy(),
 )
 
 AGENT_4o = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
-    flags=FLAGS_GPT_4o,
+    flags=FLAGS_GPT_4o.copy(),
 )
 
 
 AGENT_4o_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
-    flags=FLAGS_GPT_4o_VISION,
+    flags=FLAGS_GPT_4o_VISION.copy(),
 )
