@@ -269,6 +269,7 @@ def final_run():
     # benchmark = "webarena"
 
     # agent = AGENT_3_5
+    # agent = AGENT_70B
     # agent = AGENT_4o
     # agent = AGENT_4o_VISION
 
@@ -409,6 +410,47 @@ def ablation_study_GPT_3_5(benchmark: str = "miniwob"):
                             # (".obs.extract_clickable_tag", True),
                             # agent features
                             (".use_thinking", False),
+                        ],
+                    ),
+                ),
+                env_args=args.CrossProd(env_args_list),
+                enable_debug=False,
+            )
+        )
+    )
+
+
+def ablation_study_OSS(benchmark: str = "workarena.l1"):
+
+    flags = FLAGS_70B
+
+    flags = miniwob_add_html(benchmark, flags)
+    env_args_list = tasks.get_benchmark_env_args(benchmark, n_seeds_default=5)
+
+    return order(
+        args.expand_cross_product(
+            ExpArgs(
+                agent_args=GenericAgentArgs(
+                    chat_model_args=args.CrossProd(
+                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+                    ),
+                    flags=args.make_ablation_study(
+                        start_point=flags,
+                        changes=[
+                            # action flags
+                            (".action.multi_actions", True),
+                            (".action.long_description", True),
+                            # (".action.individual_examples", False),
+                            # obs flags
+                            (".obs.use_think_history", False),
+                            (".obs.use_error_logs", True),
+                            (".obs.use_action_history", False),
+                            (".obs.extract_visible_tag", False),
+                            # agent features
+                            (".use_thinking", False),
+                            (".use_abstract_example", False),
+                            (".use_concrete_example", False),
+                            (".use_plan", True),
                         ],
                     ),
                 ),
@@ -677,6 +719,48 @@ FLAGS_GPT_3_5 = GenericPromptFlags(
     extra_instructions=None,
 )
 
+
+FLAGS_70B = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=False,
+        use_ax_tree=True,
+        use_focused_element=True,
+        use_error_logs=False,
+        use_history=True,
+        use_past_error_logs=False,
+        use_action_history=True,
+        use_think_history=True,
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=True,
+        extract_clickable_tag=False,
+        extract_coords="False",
+        filter_visible_elements_only=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=False,
+        action_set="bid",
+        long_description=False,
+        individual_examples=True,
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=True,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=True,
+    enable_chat=False,
+    max_prompt_tokens=None,
+    be_cautious=True,
+    extra_instructions=None,
+    add_missparsed_messages=True,
+    use_retry_and_fit=True,
+)
+
+
 FLAGS_GPT_4o = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
@@ -723,6 +807,11 @@ FLAGS_GPT_4o_VISION.obs.use_som = True
 AGENT_3_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
     flags=FLAGS_GPT_3_5.copy(),
+)
+
+AGENT_70B = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
+    flags=FLAGS_70B,
 )
 
 AGENT_4o = GenericAgentArgs(
