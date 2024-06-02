@@ -22,6 +22,8 @@ class GenericPromptFlags(dp.Flags):
         max_prompt_tokens (int): Maximum number of tokens allowed in the prompt.
         be_cautious (bool): Instruct the agent to be cautious about its actions.
         extra_instructions (Optional[str]): Extra instructions to provide to the agent.
+        add_missparsed_messages (bool): When retrying, add the missparsed messages to the prompt.
+        use_retry_and_fit (bool): Use the retry_and_fit function that shrinks the prompt at each retry iteration.
     """
 
     obs: dp.ObsFlags
@@ -37,6 +39,8 @@ class GenericPromptFlags(dp.Flags):
     max_prompt_tokens: int = None
     be_cautious: bool = True
     extra_instructions: str | None = None
+    add_missparsed_messages: bool = True
+    use_retry_and_fit: bool = False
 
 
 BASIC_FLAGS = GenericPromptFlags(
@@ -102,7 +106,7 @@ ADVANCED_FLAGS = GenericPromptFlags(
     use_memory=False,
     use_concrete_example=True,
     use_abstract_example=True,
-    use_hints=False,
+    use_hints=True,
     enable_chat=False,
     max_prompt_tokens=None,
     be_cautious=True,
@@ -140,7 +144,7 @@ class MainPrompt(dp.Shrinkable):
 
         self.obs = dp.Observation(obs_history[-1], self.flags.obs)
 
-        self.action_space = dp.ActionSpace(action_set)
+        self.action_prompt = dp.ActionPrompt(action_set, action_flags=flags.action)
 
         def time_for_caution():
             # no need for caution if we're in single action mode
@@ -161,7 +165,7 @@ class MainPrompt(dp.Shrinkable):
 {self.instructions.prompt}\
 {self.obs.prompt}\
 {self.history.prompt}\
-{self.action_space.prompt}\
+{self.action_prompt.prompt}\
 {self.hints.prompt}\
 {self.be_cautious.prompt}\
 {self.think.prompt}\
@@ -181,7 +185,7 @@ answer:
 {self.plan.abstract_ex}\
 {self.memory.abstract_ex}\
 {self.criticise.abstract_ex}\
-{self.action_space.abstract_ex}\
+{self.action_prompt.abstract_ex}\
 """
 
         if self.flags.use_concrete_example:
@@ -194,7 +198,7 @@ Make sure to follow the template with proper tags:
 {self.plan.concrete_ex}\
 {self.memory.concrete_ex}\
 {self.criticise.concrete_ex}\
-{self.action_space.concrete_ex}\
+{self.action_prompt.concrete_ex}\
 """
         return self.obs.add_screenshot(prompt)
 
@@ -204,11 +208,11 @@ Make sure to follow the template with proper tags:
 
     def _parse_answer(self, text_answer):
         ans_dict = {}
-        ans_dict.update(self.think._parse_answer(text_answer))
-        ans_dict.update(self.plan._parse_answer(text_answer))
-        ans_dict.update(self.memory._parse_answer(text_answer))
-        ans_dict.update(self.criticise._parse_answer(text_answer))
-        ans_dict.update(self.action_space._parse_answer(text_answer))
+        ans_dict.update(self.think.parse_answer(text_answer))
+        ans_dict.update(self.plan.parse_answer(text_answer))
+        ans_dict.update(self.memory.parse_answer(text_answer))
+        ans_dict.update(self.criticise.parse_answer(text_answer))
+        ans_dict.update(self.action_prompt.parse_answer(text_answer))
         return ans_dict
 
 

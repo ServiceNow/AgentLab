@@ -1,24 +1,40 @@
+from logging import warning
 from pathlib import Path
+import numpy as np
 import pandas as pd
+import time as t
+import logging
 
-from browsergym.workarena import ALL_WORKARENA_TASKS, DASHBOARD_TASKS
+t0 = t.time()
+from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
+
+logger = logging.getLogger(__name__)
+
+dt = t.time() - t0
+print(f"done importing workarena, took {dt:.2f} seconds")
+
 from browsergym.webarena import ALL_WEBARENA_TASK_IDS
+from browsergym.experiments import EnvArgs
 
-workarena_tasks = [task_class.get_task_id() for task_class in ALL_WORKARENA_TASKS]
-workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
-webarena_tasks = ALL_WEBARENA_TASK_IDS
+workarena_tasks_all = [task_class.get_task_id() for task_class in ALL_WORKARENA_TASKS]
+workarena_tasks_atomic = [task_class.get_task_id() for task_class in ATOMIC_TASKS]
+# workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
+# workarena_order_tasks = [task for task in workarena_tasks if "order" in task]
+# workarena_sort_tasks = [task for task in workarena_tasks if "sort" in task]
+# workarena_filter_tasks = [task for task in workarena_tasks if "filter" in task]
+
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
 df["task_name"] = "miniwob." + df["task_name"]
-miniwob_all = df["task_name"].tolist()
+MINIWOB_ALL = df["task_name"].tolist()
 tasks_eval = df[df["miniwob_category"].isin(["original", "additional", "hidden test"])][
     "task_name"
 ].tolist()
 miniwob_debug = df[df["miniwob_category"].isin(["debug"])]["task_name"].tolist()
 miniwob_tiny_test = ["miniwob.click-dialog", "miniwob.click-dialog-2"]
 
-assert len(miniwob_all) == 125
+assert len(MINIWOB_ALL) == 125
 assert len(tasks_eval) == 107
 assert len(miniwob_debug) == 12
 assert len(miniwob_tiny_test) == 2
@@ -131,3 +147,151 @@ webgum_tasks = [
     "miniwob.use-autocomplete",
     "miniwob.use-spinner",
 ]
+
+
+TASK_CATEGORY_MAP = {
+    "workarena.servicenow.all-menu": "menu",
+    "workarena.servicenow.create-change-request": "form",
+    "workarena.servicenow.create-hardware-asset": "form",
+    "workarena.servicenow.create-incident": "form",
+    "workarena.servicenow.create-problem": "form",
+    "workarena.servicenow.create-user": "form",
+    "workarena.servicenow.filter-asset-list": "list-filter",
+    "workarena.servicenow.filter-change-request-list": "list-filter",
+    "workarena.servicenow.filter-hardware-list": "list-filter",
+    "workarena.servicenow.filter-incident-list": "list-filter",
+    "workarena.servicenow.filter-service-catalog-item-list": "list-filter",
+    "workarena.servicenow.filter-user-list": "list-filter",
+    "workarena.servicenow.impersonation": "menu",
+    "workarena.servicenow.knowledge-base-search": "knowledge",
+    "workarena.servicenow.order-apple-mac-book-pro15": "service catalog",
+    "workarena.servicenow.order-apple-watch": "service catalog",
+    "workarena.servicenow.order-developer-laptop": "service catalog",
+    "workarena.servicenow.order-development-laptop-p-c": "service catalog",
+    "workarena.servicenow.order-ipad-mini": "service catalog",
+    "workarena.servicenow.order-ipad-pro": "service catalog",
+    "workarena.servicenow.order-loaner-laptop": "service catalog",
+    "workarena.servicenow.order-sales-laptop": "service catalog",
+    "workarena.servicenow.order-standard-laptop": "service catalog",
+    "workarena.servicenow.sort-asset-list": "list-sort",
+    "workarena.servicenow.sort-change-request-list": "list-sort",
+    "workarena.servicenow.sort-hardware-list": "list-sort",
+    "workarena.servicenow.sort-incident-list": "list-sort",
+    "workarena.servicenow.sort-service-catalog-item-list": "list-sort",
+    "workarena.servicenow.sort-user-list": "list-sort",
+    "workarena.servicenow.dashboard-min-max-retrieval": "dashboard",
+    "workarena.servicenow.dashboard-value-retrieval": "dashboard",
+    "workarena.servicenow.report-value-retrieval": "dashboard",
+    "workarena.servicenow.report-min-max-retrieval": "dashboard",
+}
+
+
+workarena_tasks_l1 = list(TASK_CATEGORY_MAP.keys())
+workarena_task_categories = {}
+for task in workarena_tasks_atomic:
+    if task not in TASK_CATEGORY_MAP:
+        warning(f"Atomic task {task} not found in TASK_CATEGORY_MAP")
+        continue
+    cat = TASK_CATEGORY_MAP[task]
+    if cat in workarena_task_categories:
+        workarena_task_categories[cat].append(task)
+    else:
+        workarena_task_categories[cat] = [task]
+
+
+def get_task_category(task_name):
+    benchmark = task_name.split(".")[0]
+    return benchmark, TASK_CATEGORY_MAP.get(task_name, None)
+
+
+def get_benchmark_env_args(
+    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None
+) -> list[EnvArgs]:
+    """
+    Returns a list of EnvArgs for the given benchmark_name.
+
+    Args:
+        benchmark_name: A string representing the benchmark name.
+        meta_seed: The seed for the random number generator.
+        max_steps: None or int. The maximum number of steps for each task.
+            if None, it will use the default value for the benchmark.
+        n_repeat: None or int. The number of seeds for each task.
+            if None, it will use the default value for the benchmark.
+    """
+    env_args_list = []
+    rng = np.random.RandomState(meta_seed)
+
+    filters = benchmark_name.split(".")
+    benchmark_id = filters[0]
+    if filters[0] == "workarena":
+        benchmark_id = "workarena." + filters[1]
+
+    max_steps_default = {
+        "workarena.l1": 15,
+        "workarena.l2": 30,
+        "workarena.l3": 30,
+        "webarena": 15,
+        "miniwob": 10,
+    }
+
+    n_repeat_default = {
+        "workarena.l1": 10,
+        "workarena.l2": 1,
+        "workarena.l3": 1,
+        "webarena": 1,
+        "miniwob": 5,
+    }
+
+    if max_steps is None:
+        max_steps = max_steps_default[benchmark_id]
+    if n_repeat is None:
+        n_repeat = n_repeat_default[benchmark_id]
+    else:
+        if benchmark_id == "webarena" and n_repeat != 1:
+            logger.warning(
+                f"webarena is expected to have only one seed per task. Ignoring n_seeds_default = {n_repeat}"
+            )
+            n_repeat = 1
+
+    if benchmark_name.startswith("workarena"):
+
+        if len(filters) < 2:
+            raise ValueError(f"You must specify the sub set of workarena, e.g.: workarena.l2.")
+
+        if benchmark_name == "workarena.l1.sort":
+            task_names = [task.get_task_id() for task in ATOMIC_TASKS]
+            task_names = [task for task in task_names if "sort" in task]
+            env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
+
+        else:
+            for task, seed in get_all_tasks_agents(
+                filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_repeat
+            ):
+                task_name = task.get_task_id()
+                env_args_list.append(
+                    EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps)
+                )
+
+    elif benchmark_name == "webarena":
+        env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
+    elif benchmark_name == "miniwob":
+        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_repeat, rng)
+    else:
+        raise ValueError(f"Unknown benchmark name: {benchmark_name}")
+
+    return env_args_list
+
+
+def _make_env_args(task_list, max_steps, n_seeds_default, rng):
+    env_args_list = []
+    for task in task_list:
+        for seed in rng.randint(0, 100, n_seeds_default):
+            env_args_list.append(EnvArgs(task_name=task, task_seed=int(seed), max_steps=max_steps))
+    return env_args_list
+
+
+if __name__ == "__main__":
+    env_args_list = get_benchmark_env_args("workarena.l1.sort")
+    print(f"Number of tasks: {len(env_args_list)}")
+    for env_args in env_args_list:
+        print(env_args.task_seed, env_args.task_name)

@@ -18,6 +18,7 @@ from agentlab.llm.llm_utils import (
     count_tokens,
     image_to_jpg_base64_url,
     parse_html_tags_raise,
+    extract_code_blocks,
 )
 
 
@@ -82,6 +83,12 @@ class ObsFlags(Flags):
     extract_clickable_tag: bool = False
     extract_coords: Literal["False", "center", "box"] = "False"
     filter_visible_elements_only: bool = False
+    # low sets the token count of each image to 65 (85?)
+    # high sets the token count of each image to 2*65 (2*85?) times the amount of 512x512px patches
+    # auto chooses between low and high based on image size (openai default)
+    openai_vision_detail: Literal["low", "high", "auto"] = "auto"
+    filter_with_bid_only: bool = False
+    filter_som_only: bool = False
 
 
 @dataclass
@@ -90,6 +97,8 @@ class ActionFlags(Flags):
     action_set: str = "bid"
     is_strict: bool = False
     demo_mode: Literal["off", "default", "all_blue", "only_visible_elements"] = "off"
+    long_description: bool = True
+    individual_examples: bool = False
 
 
 class PromptElement:
@@ -114,7 +123,10 @@ class PromptElement:
     @property
     def prompt(self):
         """Avoid overriding this method. Override _prompt instead."""
-        return self._hide(self._prompt)
+        if self.is_visible:
+            return self._prompt
+        else:
+            return ""
 
     @property
     def abstract_ex(self):
@@ -124,7 +136,10 @@ class PromptElement:
 
         Avoid overriding this method. Override _abstract_ex instead
         """
-        return self._hide(self._abstract_ex)
+        if self.is_visible:
+            return self._abstract_ex
+        else:
+            return ""
 
     @property
     def concrete_ex(self):
@@ -134,7 +149,10 @@ class PromptElement:
 
         Avoid overriding this method. Override _concrete_ex instead
         """
-        return self._hide(self._concrete_ex)
+        if self.is_visible:
+            return self._concrete_ex
+        else:
+            return ""
 
     @property
     def is_visible(self):
@@ -144,14 +162,11 @@ class PromptElement:
             visible = visible()
         return visible
 
-    def _hide(self, value):
-        """Return value if visible is True, else return empty string."""
-        if self.is_visible:
-            return value
-        else:
-            return ""
+    def _parse_answer(self, text_answer):
+        """Override to actually extract elements from the answer."""
+        return {}
 
-    def _parse_answer(self, text_answer) -> dict:
+    def parse_answer(self, text_answer) -> dict:
         if self.is_visible:
             return self._parse_answer(text_answer)
         else:
@@ -195,7 +210,11 @@ class Trunkater(Shrinkable):
 
 
 def fit_tokens(
-    shrinkable: Shrinkable, max_prompt_tokens=None, max_iterations=20, model_name="openai/gpt-4"
+    shrinkable: Shrinkable,
+    max_prompt_tokens=None,
+    max_iterations=20,
+    model_name="openai/gpt-4",
+    additional_prompts=[""],
 ):
     """Shrink a prompt element until it fits `max_prompt_tokens`.
 
@@ -209,6 +228,8 @@ def fit_tokens(
         The maximum number of shrink iterations, by default 20.
     model_name : str, optional
         The name of the model used when tokenizing.
+    additional_prompts : str or List[str], optional
+        Additional prompts to account for when shrinking, by default [""].
 
     Returns
     -------
@@ -217,6 +238,14 @@ def fit_tokens(
 
     if max_prompt_tokens is None:
         return shrinkable.prompt
+
+    if isinstance(additional_prompts, str):
+        additional_prompts = [additional_prompts]
+
+    for prompt in additional_prompts:
+        max_prompt_tokens -= (
+            count_tokens(prompt, model=model_name) + 1
+        )  # +1 accounts for LangChain token
 
     for _ in range(max_iterations):
         prompt = shrinkable.prompt
@@ -246,7 +275,7 @@ class HTML(Trunkater):
         super().__init__(visible=visible, start_trunkate_iteration=5)
         if visible_elements_only:
             visible_elements_note = """\
-Note: only elements that are visible in the viewport are presented. You might need to sroll the page, or open tabs or menus to see more.
+Note: only elements that are visible in the viewport are presented. You might need to scroll the page, or open tabs or menus to see more.
 
 """
         else:
@@ -256,12 +285,17 @@ Note: only elements that are visible in the viewport are presented. You might ne
 
 class AXTree(Trunkater):
     def __init__(
-        self, ax_tree, visible_elements_only: bool, visible: bool = True, coord_type=None, prefix=""
+        self,
+        ax_tree,
+        visible_elements_only: bool,
+        visible: bool = True,
+        coord_type=None,
+        visible_tag=True,
+        prefix="",
     ) -> None:
         super().__init__(visible=visible, start_trunkate_iteration=10)
         bid_info = """\
-Note: [bid] is the unique identifier at the beginning of lines for each element in the AXTree. It is used to
-refer to elements in actions.
+Note: [bid] is the unique alpha-numeric identifier at the beginning of lines for each element in the AXTree. Always use bid to refer to elements in your actions.
 
 """
         if coord_type == "center":
@@ -278,18 +312,31 @@ Note: bounding box of each object are provided in parenthesis and are relative t
             coord_note = ""
         if visible_elements_only:
             visible_elements_note = """\
-Note: only elements that are visible in the viewport are presented. You might need to sroll the page, or open tabs or menus to see more.
+Note: only elements that are visible in the viewport are presented. You might need to scroll the page, or open tabs or menus to see more.
 
 """
         else:
             visible_elements_note = ""
-        self._prompt = (
-            f"\n{prefix}AXTree:\n{bid_info}{coord_note}{visible_elements_note}{ax_tree}\n"
-        )
+
+        if visible_tag:
+            vsible_tag_note = """\
+Note: You can only interact with visible elements. If the "visible" tag is not
+present, the element is not visible on the page.
+
+"""
+        else:
+            vsible_tag_note = ""
+        self._prompt = f"\n{prefix}AXTree:\n{bid_info}{coord_note}{visible_elements_note}{vsible_tag_note}{ax_tree}\n"
 
 
 class Error(PromptElement):
-    def __init__(self, error, visible: bool = True, prefix="") -> None:
+    def __init__(self, error: str, visible: bool = True, prefix="", limit_logs=True) -> None:
+        logs_separator = "Call log:"
+        if limit_logs and logs_separator in error:
+            error, logs = error.split(logs_separator)
+            logs = "\n".join(logs.split("\n")[:10])
+            error = error + f"\n{logs_separator}\n{logs}"
+
         super().__init__(visible=visible)
         self._prompt = f"\n{prefix}Error from previous action:\n{error}\n"
 
@@ -331,6 +378,7 @@ class Observation(Shrinkable):
             visible_elements_only=flags.filter_visible_elements_only,
             visible=lambda: flags.use_ax_tree,
             coord_type=flags.extract_coords,
+            visible_tag=flags.extract_visible_tag,
             prefix="## ",
         )
         self.error = Error(
@@ -365,8 +413,12 @@ class Observation(Shrinkable):
             else:
                 screenshot = self.obs["screenshot"]
             img_url = image_to_jpg_base64_url(screenshot)
-            prompt.append({"type": "image_url", "image_url": img_url})
-
+            prompt.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
+                }
+            )
         return prompt
 
 
@@ -457,6 +509,9 @@ characters and wait until next step.
 * If you have to cut and paste, don't forget to select the text first.
 * Coordinate inside an SVG are relative to it's top left corner.
 * Make sure to use bid to identify elements when using commands.
+* Interacting with combobox, dropdowns and auto-complete fields can be tricky,
+sometimes you need to use select_option, while other times you need to use fill
+or click and wait for the reaction of the page.
 """
 
 
@@ -467,30 +522,57 @@ user instructions. You can interact with the page and explore, and send messages
 submit an action it will be sent to the browser and you will receive a new page."""
 
 
-class ActionSpace(PromptElement):
-    def __init__(self, action_set: AbstractActionSet) -> None:
+class ActionPrompt(PromptElement):
+
+    _concrete_ex = """
+<action>
+click('a324')
+</action>
+"""
+
+    def __init__(self, action_set: AbstractActionSet, action_flags: ActionFlags) -> None:
         super().__init__()
         self.action_set = action_set
+        self.action_flags = action_flags
         action_set_generic_info = """\
 Note: This action set allows you to interact with your environment. Most of them
 are python function executing playwright code. The primary way of referring to
 elements in the page is through bid which are specified in your observations.
 
 """
-        self._prompt = f"# Action space:\n{action_set_generic_info}{self.action_set.describe()}{MacNote().prompt}\n"
+        action_description = action_set.describe(
+            with_long_description=action_flags.long_description,
+            with_examples=action_flags.individual_examples,
+        )
+        self._prompt = (
+            f"# Action space:\n{action_set_generic_info}{action_description}{MacNote().prompt}\n"
+        )
         self._abstract_ex = f"""
 <action>
 {self.action_set.example_action(abstract=True)}
 </action>
 """
-        self._concrete_ex = f"""
-<action>
-{self.action_set.example_action(abstract=False)}
-</action>
-"""
+
+    #         self._concrete_ex = f"""
+    # <action>
+    # {self.action_set.example_action(abstract=False)}
+    # </action>
+    # """
 
     def _parse_answer(self, text_answer):
-        ans_dict = parse_html_tags_raise(text_answer, keys=["action"], merge_multiple=True)
+        try:
+            ans_dict = parse_html_tags_raise(text_answer, keys=["action"], merge_multiple=True)
+        except ParseError as e:
+            if self.action_flags.is_strict:
+                raise e
+            else:
+                # try to extract code blocks
+                blocks = extract_code_blocks(text_answer)
+                if len(blocks) == 0:
+                    raise e
+                else:
+                    code = "\n".join([block for _, block in blocks])
+                    ans_dict = {"action": code, "parse_error": str(e)}
 
         try:
             # just check if action can be mapped to python code but keep action as is
@@ -536,68 +618,75 @@ that your previous action had on the current content of the page.
 """
     _concrete_ex = """
 <think>
-My memory says that I filled the first name and last name, but I can't see any
-content in the form. I need to explore different ways to fill the form. Perhaps
-the form is not visible yet or some fields are disabled. I need to replan.
+From previous action I tried to set the value of year to "2022",
+using select_option, but it doesn't appear to be in the form. It may be a
+dynamic dropdown, I will try using click with the bid "a324" and look at the
+response from the page.
 </think>
 """
 
     def _parse_answer(self, text_answer):
-        return parse_html_tags_raise(text_answer, optional_keys=["think"], merge_multiple=True)
+        try:
+            return parse_html_tags_raise(text_answer, keys=["think"], merge_multiple=True)
+        except ParseError as e:
+            return {"think": text_answer, "parse_error": str(e)}
 
 
-def diff(previous, new):
-    """Return a string showing the difference between original and new.
+# def diff(previous, new):
+#     """Return a string showing the difference between original and new.
 
-    If the difference is above diff_threshold, return the diff string."""
+#     If the difference is above diff_threshold, return the diff string."""
 
-    if previous == new:
-        return "Identical", []
+#     if previous == new:
+#         return "Identical", []
 
-    if len(previous) == 0 or previous is None:
-        return "previous is empty", []
+#     if len(previous) == 0 or previous is None:
+#         return "previous is empty", []
 
-    diff_gen = difflib.ndiff(previous.splitlines(), new.splitlines())
+#     diff_gen = difflib.ndiff(previous.splitlines(), new.splitlines())
 
-    diff_lines = []
-    plus_count = 0
-    minus_count = 0
-    for line in diff_gen:
-        if line.strip().startswith("+"):
-            diff_lines.append(line)
-            plus_count += 1
-        elif line.strip().startswith("-"):
-            diff_lines.append(line)
-            minus_count += 1
-        else:
-            continue
+#     diff_lines = []
+#     plus_count = 0
+#     minus_count = 0
+#     for line in diff_gen:
+#         if line.strip().startswith("+"):
+#             diff_lines.append(line)
+#             plus_count += 1
+#         elif line.strip().startswith("-"):
+#             diff_lines.append(line)
+#             minus_count += 1
+#         else:
+#             continue
 
-    header = f"{plus_count} lines added and {minus_count} lines removed:"
+#     header = f"{plus_count} lines added and {minus_count} lines removed:"
 
-    return header, diff_lines
+#     return header, diff_lines
 
 
-class Diff(Shrinkable):
-    def __init__(
-        self, previous, new, prefix="", max_line_diff=20, shrink_speed=2, visible=True
-    ) -> None:
-        super().__init__(visible=visible)
-        self.max_line_diff = max_line_diff
-        self.header, self.diff_lines = diff(previous, new)
-        self.shrink_speed = shrink_speed
-        self.prefix = prefix
+# class Diff(Shrinkable):
+#     def __init__(
+#         self, previous, new, prefix="", max_line_diff=20, shrink_speed=2, visible=True
+#     ) -> None:
+#         super().__init__(visible=visible)
+#         self.previous = previous
+#         self.new = new
+#         self.max_line_diff = max_line_diff
+#         self.shrink_speed = shrink_speed
+#         self.prefix = prefix
 
-    def shrink(self):
-        self.max_line_diff -= self.shrink_speed
-        self.max_line_diff = max(1, self.max_line_diff)
+#     def shrink(self):
+#         self.max_line_diff -= self.shrink_speed
+#         self.max_line_diff = max(1, self.max_line_diff)
 
-    @property
-    def _prompt(self) -> str:
-        diff_str = "\n".join(self.diff_lines[: self.max_line_diff])
-        if len(self.diff_lines) > self.max_line_diff:
-            original_count = len(self.diff_lines)
-            diff_str = f"{diff_str}\nDiff truncated, {original_count - self.max_line_diff} changes now shown."
-        return f"{self.prefix}{self.header}\n{diff_str}\n"
+#     @property
+#     def _prompt(self) -> str:
+#         header, diff_lines = diff(self.previous, self.new)
+
+#         diff_str = "\n".join(diff_lines[: self.max_line_diff])
+#         if len(diff_lines) > self.max_line_diff:
+#             original_count = len(diff_lines)
+#             diff_str = f"{diff_str}\nDiff truncated, {original_count - self.max_line_diff} changes now shown."
+#         return f"{self.prefix}{header}\n{diff_str}\n"
 
 
 class HistoryStep(Shrinkable):
@@ -605,20 +694,20 @@ class HistoryStep(Shrinkable):
         self, previous_obs, current_obs, action, memory, thought, flags: ObsFlags, shrink_speed=1
     ) -> None:
         super().__init__()
-        self.html_diff = Diff(
-            previous_obs[flags.html_type],
-            current_obs[flags.html_type],
-            prefix="\n### HTML diff:\n",
-            shrink_speed=shrink_speed,
-            visible=lambda: flags.use_html and flags.use_diff,
-        )
-        self.ax_tree_diff = Diff(
-            previous_obs["axtree_txt"],
-            current_obs["axtree_txt"],
-            prefix=f"\n### Accessibility tree diff:\n",
-            shrink_speed=shrink_speed,
-            visible=lambda: flags.use_ax_tree and flags.use_diff,
-        )
+        # self.html_diff = Diff(
+        #     previous_obs[flags.html_type],
+        #     current_obs[flags.html_type],
+        #     prefix="\n### HTML diff:\n",
+        #     shrink_speed=shrink_speed,
+        #     visible=lambda: flags.use_html and flags.use_diff,
+        # )
+        # self.ax_tree_diff = Diff(
+        #     previous_obs["axtree_txt"],
+        #     current_obs["axtree_txt"],
+        #     prefix=f"\n### Accessibility tree diff:\n",
+        #     shrink_speed=shrink_speed,
+        #     visible=lambda: flags.use_ax_tree and flags.use_diff,
+        # )
         self.error = Error(
             current_obs["last_action_error"],
             visible=(
@@ -636,23 +725,24 @@ class HistoryStep(Shrinkable):
 
     def shrink(self):
         super().shrink()
-        self.html_diff.shrink()
-        self.ax_tree_diff.shrink()
+        # self.html_diff.shrink()
+        # self.ax_tree_diff.shrink()
 
     @property
     def _prompt(self) -> str:
         prompt = ""
 
         if self.flags.use_think_history:
-            prompt += f"\n### Think:\n{self.thought}\n"
+            prompt += f"\n<think>\n{self.thought}\n</think>\n"
 
         if self.flags.use_action_history:
-            prompt += f"\n### Action:\n{self.action}\n"
+            prompt += f"\n<action>\n{self.action}\n</action>\n"
 
-        prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
+        # prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
+        prompt += f"{self.error.prompt}"
 
         if self.memory is not None:
-            prompt += f"\n### Memory:\n{self.memory}\n"
+            prompt += f"\n<memory>\n{self.memory}\n</memory>\n"
 
         return prompt
 
@@ -709,8 +799,8 @@ def make_obs_preprocessor(flags: ObsFlags):
             with_center_coords=flags.extract_coords == "center",
             with_bounding_box_coords=flags.extract_coords == "box",
             filter_visible_only=flags.filter_visible_elements_only,
-            filter_with_bid_only=False,  # TODO
-            filter_som_only=False,  # TODO
+            filter_with_bid_only=flags.filter_with_bid_only,
+            filter_som_only=flags.filter_som_only,
         )
         obs["axtree_txt"] = flatten_axtree_to_str(
             obs["axtree_object"],
@@ -720,13 +810,14 @@ def make_obs_preprocessor(flags: ObsFlags):
             with_center_coords=flags.extract_coords == "center",
             with_bounding_box_coords=flags.extract_coords == "box",
             filter_visible_only=flags.filter_visible_elements_only,
-            filter_with_bid_only=False,  # TODO
-            filter_som_only=False,  # TODO
+            filter_with_bid_only=flags.filter_with_bid_only,
+            filter_som_only=flags.filter_som_only,
         )
         obs["pruned_html"] = prune_html(obs["dom_txt"])
         obs["screenshot_som"] = overlay_som(
             obs["screenshot"], extra_properties=obs["extra_element_properties"]
         )
+
         return obs
 
     return obs_mapping
