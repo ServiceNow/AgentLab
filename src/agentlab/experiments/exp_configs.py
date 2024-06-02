@@ -263,22 +263,23 @@ def progression_study(benchmark: str = "miniwob"):
 
 
 def final_run():
-    benchmark = "miniwob"
+    # benchmark = "miniwob"
     # benchmark = "workarena.l1"
-    # benchmark = "workarena.l2"
+    benchmark = "workarena.l2"
     # benchmark = "webarena"
 
-    # agent = AGENT_3_5
-    # agent = AGENT_70B
-    # agent = AGENT_4o
-    # agent = AGENT_4o_VISION
-
-    agents = [AGENT_3_5, AGENT_4o, AGENT_4o_VISION]
+    # agents = [AGENT_3_5, AGENT_4o, AGENT_4o_VISION]
+    # agents = [AGENT_3_5]
+    agents = [AGENT_4o]
+    # agents = [AGENT_4o_VISION]
+    # agents = [AGENT_70B]
 
     for agent in agents:
         agent.flags = miniwob_add_html(benchmark, agent.flags)
 
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=None, n_repeat=None)
+    env_args_list = tasks.get_benchmark_env_args(
+        benchmark, meta_seed=42, max_steps=None, n_repeat=None
+    )
 
     return args.expand_cross_product(
         ExpArgs(
@@ -685,7 +686,7 @@ FLAGS_GPT_3_5 = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,  # too big for most benchmark except miniwob
         use_ax_tree=True,  # very useful
-        use_focused_element=True,
+        use_focused_element=False,  # detrimental on minowob according to ablation study
         use_error_logs=True,
         use_history=True,
         use_past_error_logs=False,  # very detrimental on L1 and miniwob
@@ -765,7 +766,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
-        use_focused_element=True,
+        use_focused_element=False,
         use_error_logs=True,
         use_history=True,
         use_past_error_logs=False,
