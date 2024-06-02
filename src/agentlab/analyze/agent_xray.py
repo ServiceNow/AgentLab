@@ -19,7 +19,7 @@ from agentlab.analyze import inspect_results
 
 # from browsergym.experiments.loop import ExpArgs, StepInfo
 from agentlab.llm.llm_utils import count_tokens
-from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs, get_exp_result
+from browsergym.experiments.loop import ExpArgs, get_exp_result, StepInfo
 
 
 # -------------------------
@@ -74,7 +74,7 @@ def run_gradio(savedir_base):
             with gr.Row():
                 step_info_gr = gr.Markdown(visible=False)
                 action_info_gr = gr.Text(visible=False, label="Action")
-                error_info_gr = gr.Markdown(visible=False)
+                error_info_gr = gr.Textbox(visible=False, label="Next Step error")
 
         # 6. Render the before and after images
         with gr.Tab("Images"):
@@ -160,6 +160,9 @@ def run_gradio(savedir_base):
         with gr.Tab("Task Error"):
             task_error_gr = gr.Textbox(show_label=False, lines=50)
 
+        with gr.Tab("Task Logs"):
+            task_logs_gr = gr.Textbox(show_label=False, lines=50)
+
         steps_out_list = [
             step_info_gr,
             action_info_gr,
@@ -178,6 +181,7 @@ def run_gradio(savedir_base):
             submit_prompt_gr,
             output_gr,
             task_error_gr,
+            task_logs_gr,
         ]
         # Experiment Change Callback
         # ---------------------------------
@@ -513,7 +517,7 @@ def get_row_info(row_id, episode_id, step_id):
 
     except FileNotFoundError:
         step_list = []
-    if len(step_list) == 0:
+    if step_id >= len(step_list) or step_id < 0:
         step_obj = None
     else:
         step_obj = step_list[step_id]
@@ -600,6 +604,10 @@ def update_step_info(row_id, episode_id, step_id):
 
     row, episode_series, step_obj, exp_result = get_row_info(row_id, episode_id, step_id)
 
+    _, _, next_step_obj, _ = get_row_info(row_id, episode_id, step_id + 1)
+
+    step_obj = step_obj  # type: StepInfo
+
     step_max = len(exp_result.steps_info) - 1
 
     # Step Info
@@ -610,8 +618,13 @@ def update_step_info(row_id, episode_id, step_id):
     else:
         task_err_msg = f"{episode_series['err_msg']}\n\n{episode_series['stack_trace']}"
 
-    obs = step_obj.obs if step_obj is not None else None
+    try:
+        task_logs = exp_result.logs
+    except FileNotFoundError:
+        task_logs = ""
 
+    obs = step_obj.obs if step_obj is not None else None
+    next_obs = next_step_obj.obs if next_step_obj is not None else None
     if obs is None:
         goal = "No Goal"
     else:
@@ -624,6 +637,10 @@ def update_step_info(row_id, episode_id, step_id):
 **Goal:** {goal}
 
 **Cumulative Reward:** {cumulative_reward}
+
+**Task info:** 
+{step_obj.task_info}
+
 
 **exp_dir:**
 <small>{episode_series['exp_dir'].parent.name}/{episode_series['exp_dir'].name}</small>"""
@@ -639,19 +656,17 @@ def update_step_info(row_id, episode_id, step_id):
     else:
         action_info = convert_action_dict_to_markdown(action)
 
+    if "think" in step_obj.agent_info:
+        action_info += "\n\n<think>\n" + step_obj.agent_info["think"] + "\n</think>"
+
     # Error Logs
-    if obs is None:
-        logs = ""
+    if next_obs is None:
+        error_info = ""
     else:
-        logs = obs["last_action_error"]  # TODO make sure we get the right error logs
-    if logs == "":
+        error_info = next_obs["last_action_error"]
+    if error_info == "":
         error_info = "## No Error Logs"
-    else:
-        error_info = dedent(
-            f"""## Error Logs
-            {str(logs)}
-            """
-        )
+
     screenshots = exp_result.screenshots
     # back node id
     # extract
@@ -690,7 +705,7 @@ def update_step_info(row_id, episode_id, step_id):
         agent_info = convert_to_markdown(agent_info_dict)
 
     # Images
-    if obs is None or step_obj is None:
+    if obs is None or step_obj is None or "axtree_txt" not in obs:
         image_src = None
         action_bid_list = ""
         html = ""
@@ -732,6 +747,7 @@ def update_step_info(row_id, episode_id, step_id):
         gr.update(visible=True),
         gr.update(visible=True, value=""),
         gr.update(visible=True, value=task_err_msg),
+        gr.update(visible=True, value=task_logs),
     ]
 
 

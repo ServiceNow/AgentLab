@@ -1,9 +1,12 @@
+from collections import defaultdict
 from datetime import datetime
 import fnmatch
 import io
 from logging import warn
 from pathlib import Path
+import random
 import re
+import warnings
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -12,11 +15,14 @@ from agentlab.analyze.error_categorization import (
     is_critical_server_error,
     is_minor_server_error,
 )
-from browsergym.experiments.loop import ExpResult, yield_all_exp_results
+from browsergym.experiments.loop import ExpResult, yield_all_exp_results, get_exp_result
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
+from agentlab.experiments.task_collections import TASK_CATEGORY_MAP
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 try:
     import pyperclip
@@ -219,6 +225,10 @@ def summarize(sub_df):
         if n_completed == 0:
             return None
         _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+
+        # sanity check, if there is an error the reward should be zero
+        assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
+
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
             uncertainty_reward=std_reward.round(3),
@@ -292,19 +302,35 @@ def _find_diff(tuple1, tuple2):
     return [i for i, (a, b) in enumerate(zip(tuple1, tuple2)) if a != b]
 
 
-def _extract_ablation_study(report: pd.DataFrame):
+def _extract_ablation_study(report: pd.DataFrame, progression=False):
     """Reduce the multi-index to a change description compared to the previous row."""
     names = report.index.names
     report = report.copy()
-    previous_index = None
+    # report.sort_index(inplace=True)
+
+    reference_index = None
     for index in report.index:
-        if previous_index is not None:
-            diffs = _find_diff(previous_index, index)
-            change = "↳ " + ", ".join([f"{names[i]}={index[i]}" for i in diffs])
+        if reference_index is not None:
+            diffs = _find_diff(reference_index, index)
+
+            if progression:
+                change = "↳ " + ", ".join([f"{names[i]}={index[i]}" for i in diffs])
+            else:
+                changes = []
+                for i in diffs:
+                    val = index[i]
+                    if isinstance(val, bool):
+                        changes.append(("+" if val else "-") + names[i])
+                    else:
+                        changes.append(f"{names[i]}←{val}")
+                change = ", ".join(changes)
         else:
             change = "Initial Configuration"
         report.loc[index, "change"] = change
-        previous_index = index
+        if progression:
+            reference_index = index
+        else:
+            reference_index = report.index[0]
 
     report = report.reset_index()
     report = report.set_index(["change"])
@@ -313,7 +339,7 @@ def _extract_ablation_study(report: pd.DataFrame):
     return report.drop(names, axis=1)
 
 
-def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize):
+def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize, progression=False):
     """Reduce the multi-index to a change description compared to the previous row.
 
     *NOTE*: This assumes that this experiments was launched with make_ablation_study.
@@ -330,16 +356,17 @@ def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize):
     """
     report = global_report(result_df, reduce_fn=reduce_fn)
     report = _sort_order(result_df, report)
-    report = _extract_ablation_study(report)
+    report = _extract_ablation_study(report, progression=progression)
     return report
 
 
 def _get_avg_order(df: pd.DataFrame, row: pd.Series):
     """Return the average order for the given row."""
     df = df.reset_index(level=0, drop=True, inplace=False)
-    sub_df = df.loc[row.name]
+    # df.sort_index(inplace=True)
 
-    orders = [exp_result.exp_args.order for exp_result in sub_df.exp_result]
+    sub_df = df.loc[row.name]
+    orders = [get_exp_result(exp_dir).exp_args.order for exp_dir in sub_df.exp_dir]
     orders = [order for order in orders if order is not None]
     if len(orders) == 0:
         return None
@@ -530,7 +557,7 @@ def shrink_columns(df, also_wrap_index=True):
             return "{:.10f}".format(x).rstrip("0").rstrip(".")
         return x
 
-    return df.applymap(formatter)
+    return df.map(formatter)
 
 
 def set_wrap_style(df):
@@ -576,15 +603,25 @@ def error_report(df: pd.DataFrame, max_stack_trace=10):
         # find sub_df with this error message
         sub_df = df[df["err_key"] == err_key]
         idx = 0
-        for _, row in sub_df.iterrows():
+
+        exp_result_list = [get_exp_result(row.exp_dir) for _, row in sub_df.iterrows()]
+        task_names = [exp_result.exp_args.env_args.task_name for exp_result in exp_result_list]
+
+        # count unique using numpy
+        unique_task_names, counts = np.unique(task_names, return_counts=True)
+        task_and_count = sorted(zip(unique_task_names, counts), key=lambda x: x[1], reverse=True)
+        for task_name, count in task_and_count:
+            report.append(f"{count:2d} {task_name}")
+
+        report.append(f"\nShowing Max {max_stack_trace} stack traces:\n")
+        for exp_result in exp_result_list:
             if idx >= max_stack_trace:
                 break
             # print task name and stack trace
-
-            exp_result = ExpResult(row.exp_dir)  # type: ExpResult
+            stack_trace = exp_result.summary_info.get("stack_trace", "")
             report.append(f"Task Name: {exp_result.exp_args.env_args.task_name}\n")
             report.append(f"exp_dir: {exp_result.exp_dir}\n")
-            report.append(f"Stack Trace: \n {row['stack_trace']}\n")
+            report.append(f"Stack Trace: \n {stack_trace}\n")
             report.append("\n")
             idx += 1
 
@@ -706,3 +743,39 @@ def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
         df_dict[value] = sub_df
 
     return df_dict
+
+
+def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
+    """Create task_category index from task_name if needed and re-assign index
+    from variables using task_category."""
+    # rested index task_name (level 0)
+    new_df = result_df.reset_index(inplace=False)
+    if not "task_category" in new_df.columns:
+        new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
+    set_index_from_variables(new_df, task_key="task_category")
+    return new_df
+
+
+def get_all_task_messages(exp_dir, max_n_exp=None):
+    result_list = list(yield_all_exp_results(exp_dir, progress_fn=tqdm))
+
+    if max_n_exp is not None:
+        result_list = random.sample(result_list, min(max_n_exp, len(result_list)))
+
+    task_messages = defaultdict(list)
+    for exp_result in tqdm(result_list):
+        task_name = exp_result.exp_args.env_args.task_name
+        for step in exp_result.steps_info:
+            try:
+                task_messages[task_name].append(step.task_info["message"])
+            except (KeyError, TypeError):
+                pass
+
+    # count identical task messages:
+    for task_name, messages in task_messages.items():
+        unique_messages, count = np.unique(messages, return_counts=True)
+        # sort them
+        print(task_name)
+        for msg, count in sorted(zip(unique_messages, count), key=lambda x: x[1], reverse=True):
+            print(f"{count}x : {msg}")
+        print()

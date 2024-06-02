@@ -83,7 +83,7 @@ CHAT_MODEL_ARGS_DICT = {
     "meta-llama/Meta-Llama-3-70B-Instruct": ChatModelArgs(
         model_name="meta-llama/Meta-Llama-3-70B-Instruct",
         training_total_tokens=8_192,
-        max_total_tokens=16_384,
+        max_total_tokens=8_192,
         model_size=70,
         is_model_operational=True,
         **default_oss_llms_args,
