@@ -60,7 +60,12 @@ def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
     if benchmark == "webarena":
         return 1
     if benchmark == "workarena.servicenow.all-menu":
-        return 10
+        return 2
+        # return 10
+    if benchmark == "miniwob.click-menu-2":
+        return 1
+        # return 10
+
     return default_n_seeds
 
 
@@ -477,6 +482,7 @@ def finetuning_eval(
                 task_seed=args.CrossProd(make_seeds(n_seeds)),
                 task_name=args.CrossProd(task_list),
             ),
+            # enable_debug=True,
             enable_debug=False,
         )
     )
