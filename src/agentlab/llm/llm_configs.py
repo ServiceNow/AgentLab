@@ -194,29 +194,29 @@ CHAT_MODEL_ARGS_DICT = {
         **default_oss_llms_args,
     ),
     ## CodeLLAMA
-    "codellama/CodeLlama-7b-Python-hf": ChatModelArgs(
-        model_name="codellama/CodeLlama-7b-Python-hf",
+    "codellama/CodeLlama-7b-instruct-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-7b-instruct-hf",
         training_total_tokens=16_384,
         model_size=7,
         is_model_operational=True,
         **default_oss_llms_args,
     ),
-    "codellama/CodeLlama-13b-Python-hf": ChatModelArgs(
-        model_name="codellama/CodeLlama-13b-Python-hf",
+    "codellama/CodeLlama-13b-instruct-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-13b-instruct-hf",
         training_total_tokens=16_384,
         model_size=13,
         is_model_operational=True,
         **default_oss_llms_args,
     ),
-    "codellama/CodeLlama-34b-Python-hf": ChatModelArgs(
-        model_name="codellama/CodeLlama-34b-Python-hf",
+    "codellama/CodeLlama-34b-instruct-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-34b-instruct-hf",
         training_total_tokens=16_384,
         model_size=34,
         is_model_operational=True,
         **default_oss_llms_args,
     ),
-    "codellama/CodeLlama-70b-Python-hf": ChatModelArgs(
-        model_name="codellama/CodeLlama-70b-Python-hf",
+    "codellama/CodeLlama-70b-instruct-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-70b-instruct-hf",
         training_total_tokens=4_096,
         model_size=70,
         is_model_operational=False,
@@ -252,7 +252,7 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "bigcode/starcoder": ChatModelArgs(
         model_name="bigcode/starcoder",
-        model_path="/mnt/llmd/base_models/starcoder",
+        # model_path="/mnt/llmd/base_models/starcoder",
         training_total_tokens=8_192,
         model_size=15,
         is_model_operational=False,
