@@ -94,7 +94,6 @@ def set_index_from_variables(
     if len(index_variables) == 0 and force_at_leaste_one_variable:
         if "agent_args.agent_name" in constants:
             index_variables = ["agent_args.agent_name"]
-
     # agent_variables = [var for var in variables if var.startswith("agent_args.")]
     df.set_index([task_key] + index_variables, inplace=True)
     df.sort_index(inplace=True)
@@ -445,9 +444,9 @@ def to_clipboard(df: pd.DataFrame):
             pyperclip.copy(csv_string)
         except Exception as e:
             warn(f"Failed to copy to clipboard: {e}")
-    else:
-        print("pyperclip is not installed, cannot copy to clipboard.")
-    return df
+    # else:
+    #     print("pyperclip is not installed, cannot copy to clipboard.")
+    # return df
 
 
 def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: int = 2):

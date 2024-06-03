@@ -263,14 +263,14 @@ def progression_study(benchmark: str = "miniwob"):
 
 
 def final_run():
-    # benchmark = "miniwob"
+    benchmark = "miniwob"
     # benchmark = "workarena.l1"
-    benchmark = "workarena.l2"
+    # benchmark = "workarena.l2"
     # benchmark = "webarena"
 
-    # agents = [AGENT_3_5, AGENT_4o, AGENT_4o_VISION]
+    agents = [AGENT_3_5, AGENT_4o, AGENT_4o_VISION]
     # agents = [AGENT_3_5]
-    agents = [AGENT_4o]
+    # agents = [AGENT_4o]
     # agents = [AGENT_4o_VISION]
     # agents = [AGENT_70B]
 
@@ -278,7 +278,7 @@ def final_run():
         agent.flags = miniwob_add_html(benchmark, agent.flags)
 
     env_args_list = tasks.get_benchmark_env_args(
-        benchmark, meta_seed=42, max_steps=None, n_repeat=None
+        benchmark, meta_seed=43, max_steps=None, n_repeat=None
     )
 
     return args.expand_cross_product(
@@ -332,9 +332,7 @@ def ablation_study(benchmark: str = "workarena.l1"):
     )
 
     flags = miniwob_add_html(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(
-        benchmark,
-    )
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     return order(
         args.expand_cross_product(
@@ -403,7 +401,7 @@ def ablation_study_GPT_3_5(benchmark: str = "miniwob"):
                                 (".obs.extract_coords", "box"),
                             ],
                             # obs flags
-                            (".obs.use_focused_element", False),
+                            (".obs.use_focused_element", True),
                             # (".obs.use_think_history", True),
                             # (".obs.use_past_error_logs", True),
                             # (".obs.use_action_history", False),
@@ -462,10 +460,15 @@ def ablation_study_OSS(benchmark: str = "workarena.l1"):
     )
 
 
-def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
+def ablation_study_GPT_4(benchmark: str = "workarena.l3"):
 
     flags = miniwob_add_html(benchmark, FLAGS_GPT_4o)
     env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
+
+    # if benchmark.startswith("workarena"):
+    #     env_args_list = [
+    #         env_args for env_args in env_args_list if ".navigate-and" in env_args.task_name
+    #     ]
 
     return order(
         args.expand_cross_product(
@@ -477,8 +480,8 @@ def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
                         changes=[
                             (".action.multi_actions", True),
                             # (".obs.filter_visible_elements_only", True),
-                            (".action.long_description", False),
-                            (".action.individual_examples", False),
+                            (".action.long_description", True),
+                            (".action.individual_examples", True),
                             # [
                             #     (".action.action_set", "bid+coord"),
                             #     (".obs.extract_coords", "center"),
@@ -784,8 +787,8 @@ FLAGS_GPT_4o = GenericPromptFlags(
     action=dp.ActionFlags(
         multi_actions=False,
         action_set="bid",
-        long_description=True,
-        individual_examples=True,
+        long_description=False,
+        individual_examples=False,
     ),
     use_plan=False,
     use_criticise=False,
@@ -808,20 +811,23 @@ FLAGS_GPT_4o_VISION.obs.use_som = True
 AGENT_3_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
     flags=FLAGS_GPT_3_5.copy(),
+    agent_name="agent_gpt-3.5",
 )
 
 AGENT_70B = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
     flags=FLAGS_70B,
+    agent_name="agent_LLAMA_70B",
 )
 
 AGENT_4o = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
     flags=FLAGS_GPT_4o.copy(),
+    agent_name="agent_gpt-4o",
 )
-
 
 AGENT_4o_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
     flags=FLAGS_GPT_4o_VISION.copy(),
+    agent_name="agent_gpt-4o_vision",
 )
