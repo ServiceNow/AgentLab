@@ -228,8 +228,8 @@ def get_benchmark_env_args(
 
     max_steps_default = {
         "workarena.l1": 15,
-        "workarena.l2": 30,
-        "workarena.l3": 30,
+        "workarena.l2": 50,
+        "workarena.l3": 50,
         "webarena": 15,
         "miniwob": 10,
     }
@@ -291,7 +291,8 @@ def _make_env_args(task_list, max_steps, n_seeds_default, rng):
 
 
 if __name__ == "__main__":
-    env_args_list = get_benchmark_env_args("workarena.l1.sort")
+    env_args_list = get_benchmark_env_args("workarena.l2")
     print(f"Number of tasks: {len(env_args_list)}")
     for env_args in env_args_list:
-        print(env_args.task_seed, env_args.task_name)
+        if "nav" in env_args.task_name:
+            print(env_args.task_seed, env_args.task_name)
