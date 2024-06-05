@@ -393,7 +393,7 @@ def run_gradio(savedir_base):
         # )
 
     demo.queue()
-    demo.launch(server_port=7888)
+    demo.launch(server_port=7887)
 
 
 # -------------------------
@@ -638,10 +638,6 @@ def update_step_info(row_id, episode_id, step_id):
 
 **Cumulative Reward:** {cumulative_reward}
 
-**Task info:** 
-{step_obj.task_info}
-
-
 **exp_dir:**
 <small>{episode_series['exp_dir'].parent.name}/{episode_series['exp_dir'].name}</small>"""
     )
@@ -656,8 +652,9 @@ def update_step_info(row_id, episode_id, step_id):
     else:
         action_info = convert_action_dict_to_markdown(action)
 
-    if "think" in step_obj.agent_info:
-        action_info += "\n\n<think>\n" + step_obj.agent_info["think"] + "\n</think>"
+    if step_obj is not None:
+        if "think" in step_obj.agent_info:
+            action_info += "\n\n<think>\n" + step_obj.agent_info["think"] + "\n</think>"
 
     # Error Logs
     if next_obs is None:
