@@ -509,7 +509,11 @@ def get_row_info(row_id, episode_id, step_id):
     Get the row, episode series and step object
     """
     row = from_gradio_id_to_result_df_subset(row_id)
-    episode_series = row.reset_index().iloc[episode_id]
+
+    if row.ndim == 1:
+        episode_series = row
+    else:
+        episode_series = row.reset_index().iloc[episode_id]
 
     exp_result = get_exp_result(savedir_base / Path(episode_series["exp_dir"].name))
     try:
@@ -543,12 +547,15 @@ def on_select_df(evt: gr.SelectData, df):
 
     # get reward info
     avg_reward = row.cum_reward.mean()
-    cum_rewards = ", ".join([f"{r:.1f}" for r in row.cum_reward])
+
+    cum_rewards = (
+        ", ".join([f"{r:.1f}" for r in row.cum_reward]) if row.ndim != 1 else str(row.cum_reward)
+    )
 
     # Main information (not step depedent)
     agent_name = exp_result.exp_args.agent_args.agent_name
     task_name = episode_series["env_args.task_name"]
-    episode_max = len(row)
+    episode_max = 1 if row.ndim == 1 else len(row)
 
     row_episode_step_ids["row_id"] = row_id
     row_episode_step_ids["episode_id"] = episode_id
@@ -833,6 +840,9 @@ def from_gradio_id_to_result_df_subset(row_id):
     index_columns = result_df.index.names
     index_values = gradio_result_df.loc[row_id, index_columns].values
     result_subset = result_df.loc[tuple(index_values)]
+
+    if result_subset.ndim == 1:
+        result_subset["env_args.task_name"] = index_values[0]
 
     return result_subset
 
