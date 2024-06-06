@@ -111,7 +111,7 @@ SNOW_INSTANCE_UNAME = "admin"
 SNOW_INSTANCE_PWD = r"xx^DUF7Pu!z9"
 
 ## WebArena
-SERVER_HOSTNAME = "ec2-3-21-46-179.us-east-2.compute.amazonaws.com"
+SERVER_HOSTNAME = "http://webarena.eastus.cloudapp.azure.com"
 
 config = {
     # WorkArena
@@ -124,9 +124,9 @@ config = {
     "SHOPPING_ADMIN": f"{SERVER_HOSTNAME}:7565/admin",
     "REDDIT": f"{SERVER_HOSTNAME}:9001",
     "GITLAB": f"{SERVER_HOSTNAME}:8080",
-    "WIKIPEDIA": f"{SERVER_HOSTNAME}:80/wikipedia_en_all_maxi_2022-05/A/User:The_other_Kiwix_guy/Landing",
-    "MAP": f"{SERVER_HOSTNAME}:22",
-    "HOMEPAGE": f"{SERVER_HOSTNAME}:42022",
+    "WIKIPEDIA": f"{SERVER_HOSTNAME}:42022/wikipedia_en_all_maxi_2022-05/A/User:The_other_Kiwix_guy/Landing",
+    "MAP": f"{SERVER_HOSTNAME}:443",
+    "HOMEPAGE": f"{SERVER_HOSTNAME}:80",
 }
 
 for key, value in config.items():
