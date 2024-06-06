@@ -38,14 +38,29 @@ def hide_some_exp(base_dir, filter: callable, just_test):
     return filtered_out
 
 
-def get_ckpt_list(chat_model_args, add_base_model=True, keep_every=3):
+def get_ckpt_list(
+    chat_model_args,
+    add_base_model=True,
+    keep_every=None,
+    to_keep=[
+        0,
+        1,
+        2,
+        6,
+        11,
+    ],
+):
 
     args_list = []
     ckpt_dir = chat_model_args.model_path
     ckpt_itr_dirs = [d for d in os.listdir(ckpt_dir) if d.startswith("ckpt_itr_")]
     for ckpt_itr_dir in ckpt_itr_dirs:
-        if int(ckpt_itr_dir.split("_")[-1]) % keep_every != 0:
-            continue
+        if keep_every:
+            if int(ckpt_itr_dir.split("_")[-1]) % keep_every != 0:
+                continue
+        elif to_keep:
+            if int(ckpt_itr_dir.split("_")[-1]) not in to_keep:
+                continue
         args = copy.deepcopy(chat_model_args)
         args.model_path = os.path.join(ckpt_dir, ckpt_itr_dir)
         args_list.append(args)

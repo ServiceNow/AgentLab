@@ -60,7 +60,7 @@ def run_gradio(savedir_base):
 
         # 2. Render DataFrame for the experiments
         _, gradio_result_df = update_gradio_df_from_savedir_base(savedir_base)
-        exp_dict_gr = gr.DataFrame(gradio_result_df, height=200)
+        exp_dict_gr = gr.DataFrame(gradio_result_df, height=400)
 
         # 3. Render Key Info about the experiment
         with gr.Accordion(label="Main Information"):
