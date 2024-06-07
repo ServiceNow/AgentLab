@@ -115,7 +115,6 @@ def launch_toolkit_tgi_server(
     n_shard: int = 1,
     max_run_time: int = 172_800,
     extra_tgi_args: dict = None,
-    sliding_window: bool = False,  # TODO implement
 ):
     if model_name is None:
         raise ValueError("Model name must be provided.")
@@ -131,7 +130,8 @@ def launch_toolkit_tgi_server(
     max_batch_total_tokens = int(2 * max_batch_prefill_tokens)
 
     # tgi_image = toolkit_configs.TGI_IMAGE_LLMD
-    tgi_image = toolkit_configs.TGI_IMAGE_OFFICIAL
+    # tgi_image = toolkit_configs.TGI_IMAGE_OFFICIAL
+    tgi_image = toolkit_configs.TGI_IMAGE_LATEST
 
     if model_name.startswith("/"):
         assert model_name.startswith(toolkit_configs.UI_COPILOT_DATA_PATH)
@@ -354,20 +354,30 @@ if __name__ == "__main__":
 
     ## launching a TGI server on Toolkit
 
-    model = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
     # model = "finetuning/Meta-Llama-3-8B-Instruct"
-    # model = "deepseek-ai/DeepSeek-V2-Chat"
-    # model = "microsoft/WizardLM-2-8x22B"
-    # model = "bigcode/starcoderplus"
-    # model = "codellama/CodeLlama-34b-Python-hf"
-    # model = "codellama/CodeLlama-13b-instruct-hf"
-    # model = "codellama/CodeLlama-7b-Python-hf"
     # model = "microsoft/Phi-3-mini-128k-instruct"
+    # model = "bigcode/starcoder2-15b"
+
+    ## git chameleon
+    # model = "codellama/CodeLlama-34b-instruct-hf"
+    # model = "codellama/CodeLlama-13b-instruct-hf"
+    # model = "codellama/CodeLlama-7b-instruct-hf"
+    # model = "codellama/CodeLlama-7b-Python-hf"
+    # model = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # model = "meta-llama/Meta-Llama-3-8B-Instruct"
+    model = "bigcode/starcoder2-15b"
+    # model = "bigcode/starcoder2-15b-instruct-v0.1"
     # model = "bigcode/starcoder"
+    # model = "bigcode/starcoderplus"
     # model = "deepseek-ai/deepseek-coder-6.7b-base"
     # model = "deepseek-ai/deepseek-coder-6.7b-instruct"
+    # model = "Qwen/Qwen2-72B"
+    # model = "Qwen/Qwen2-72B-instruct"
+    # model = "Qwen/Qwen2-7B"
+    # model = "Qwen/Qwen2-7B-instruct"
 
-    # auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
+    auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
 
-    kill_all_servers()
+    # kill_all_servers()
