@@ -115,7 +115,7 @@ def retry_and_fit(
     log=True,
     min_retry_wait_time=60,
     rate_limit_max_wait_time=60 * 30,
-    fit_function: callable = lambda x: x,
+    fit_function: callable = lambda shrinkable, *kw: shrinkable,
     add_missparsed_messages=True,
 ):
     """Retry querying the chat models with the response from the parser until it
