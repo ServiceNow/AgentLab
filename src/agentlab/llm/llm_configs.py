@@ -1,4 +1,4 @@
-from agentlab.llm.chat_api import ChatModelArgs, OpenAIChatModelArgs, ToolkitModelArgs
+from agentlab.llm.chat_api import OpenAIChatModelArgs, ToolkitModelArgs
 from agentlab.llm import toolkit_configs
 
 default_oss_llms_args = {

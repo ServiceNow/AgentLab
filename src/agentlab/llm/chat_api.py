@@ -4,6 +4,12 @@ import json
 import re
 
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
+from agentlab.llm.toolkit_servers import (
+    auto_launch_server,
+    compute_total_params,
+    kill_server,
+    check_server_status,
+)
 from langchain.schema import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from functools import partial
 from typing import Optional, List, Any
@@ -62,6 +68,10 @@ class ChatModelArgs(ABC):
     temperature: float = 0.1
     model_url: str = None
 
+    def __post_init__(self):
+        if self.max_total_tokens is None:
+            self.max_total_tokens = 4096
+
     @abstractmethod
     def make_chat_model(self):
         pass
@@ -71,7 +81,7 @@ class ChatModelArgs(ABC):
         pass
 
     @abstractmethod
-    def close_server(self):
+    def close_server(self, registry):
         pass
 
     def cleanup(self):
@@ -106,7 +116,7 @@ class OpenAIChatModelArgs(ChatModelArgs):
     def prepare_server(self, registry):
         pass
 
-    def close_server(self):
+    def close_server(self, registry):
         pass
 
 
@@ -145,15 +155,10 @@ class ToolkitModelArgs(ChatModelArgs):
         Any other information about how the model was finetuned.
     """
 
-    model_name: str = "openai/gpt-3.5-turbo"
     model_path: str = None
     model_url: str = None
     model_size: str = None
-    temperature: float = 0.1
     training_total_tokens: int = None
-    max_new_tokens: int = None
-    max_total_tokens: int = None
-    max_input_tokens: int = None
     hf_hosted: bool = False
     is_model_operational: str = False
     sliding_window: bool = False
@@ -169,55 +174,19 @@ class ToolkitModelArgs(ChatModelArgs):
         if self.model_url is not None and self.hf_hosted:
             raise ValueError("model_url cannot be specified when hf_hosted is True")
 
-        if self.infer_tokens_length:
-
-            if self.max_total_tokens is None:
-                if self.training_total_tokens is not None:
-                    self.max_total_tokens = self.training_total_tokens
-                else:
-                    logging.warning(
-                        "max_total_tokens is not specified. Setting it to 4096 (default value)."
-                    )
-                    self.max_total_tokens = 4096
-            if self.max_new_tokens is None and self.max_input_tokens is not None:
-                self.max_new_tokens = self.max_total_tokens - self.max_input_tokens
-            elif self.max_new_tokens is not None and self.max_input_tokens is None:
-                self.max_input_tokens = self.max_total_tokens - self.max_new_tokens
-            elif self.max_new_tokens is None and self.max_input_tokens is None:
-                raise ValueError("max_new_tokens or max_input_tokens must be specified")
-
     def make_chat_model(self):
-        if self.model_name.startswith("test/"):
-            constructor_name = self.model_name.split("/")[1]
-            return globals()[constructor_name]()
-
-        elif self.model_name.startswith("openai"):
-            _, model_name = self.model_name.split("/")
-            return ChatOpenAI(
-                model_name=model_name,
-                temperature=self.temperature,
-                max_tokens=self.max_new_tokens,
-            )
-        elif self.model_name.startswith("reka"):
-            import reka  # type: ignore
-
-            reka.API_KEY = os.environ["REKA_API_KEY"]
-            _, model_name = self.model_name.split("/")
-            return RekaChatModel(model_name=model_name, n_retry_server=self.n_retry_server)
-
-        else:
-            # TODO: eventually check if the path is either a valid repo_id or a valid local checkpoint on DGX
-            self.model_name = self.model_path if self.model_path else self.model_name
-            return HuggingFaceChatModel(
-                model_name=self.model_name,
-                hf_hosted=self.hf_hosted,
-                temperature=self.temperature,
-                max_new_tokens=self.max_new_tokens,
-                max_total_tokens=self.max_total_tokens,
-                max_input_tokens=self.max_input_tokens,
-                model_url=self.model_url,
-                n_retry_server=self.n_retry_server,
-            )
+        # TODO: eventually check if the path is either a valid repo_id or a valid local checkpoint on DGX
+        self.model_name = self.model_path if self.model_path else self.model_name
+        return HuggingFaceChatModel(
+            model_name=self.model_name,
+            hf_hosted=self.hf_hosted,
+            temperature=self.temperature,
+            max_new_tokens=self.max_new_tokens,
+            max_total_tokens=self.max_total_tokens,
+            max_input_tokens=self.max_input_tokens,
+            model_url=self.model_url,
+            n_retry_server=self.n_retry_server,
+        )
 
     @property
     def model_short_name(self):
@@ -226,18 +195,37 @@ class ToolkitModelArgs(ChatModelArgs):
         else:
             return self.model_name
 
-    def key(self):
-        """Return a unique key for these arguments."""
-        keys = asdict(self)
-        # removing the model_url since it will be modified by LLM_servers
-        keys.pop("model_url", None)
-        return json.dumps(keys, sort_keys=True)
+    # def key(self):
+    #     """Return a unique key for these arguments."""
+    #     keys = asdict(self)
+    #     # removing the model_url since it will be modified by LLM_servers
+    #     keys.pop("model_url", None)
+    #     return json.dumps(keys, sort_keys=True)
 
-    def prepare_server(self):
-        pass
+    def prepare_server(self, registry):
+        if self.key() in registry:
+            self.model_url = registry[self.key()]["model_url"]
+        else:
+            job_id, model_url = auto_launch_server(self)
+            registry[self.key()] = {"job_id": job_id, "model_url": model_url, "is_ready": False}
 
-    def close_server(self):
-        pass
+        self.wait_server(registry)
+        return
+
+    def close_server(self, registry):
+        if self.key() in registry:
+            job_id = registry[self.key()]["job_id"]
+            kill_server(job_id)
+            del registry[self.key()]
+
+    def wait_server(self, registry):
+        job_id = registry[self.key()]["job_id"]
+        model_url = registry[self.key()]["model_url"]
+        is_ready = registry[self.key()]["is_ready"]
+        while not is_ready:
+            is_ready = check_server_status(job_id, model_url)
+            time.sleep(3)
+        registry[self.key()]["is_ready"] = is_ready
 
 
 class RekaChatModel(SimpleChatModel):

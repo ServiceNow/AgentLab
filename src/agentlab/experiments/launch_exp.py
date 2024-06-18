@@ -5,7 +5,6 @@ from pathlib import Path
 import random
 from joblib import Parallel, delayed
 from agentlab.analyze import error_categorization
-from agentlab.llm.llm_servers import LLMServers
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
@@ -13,11 +12,11 @@ import agentlab
 import argparse
 
 
-def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers):
+def run_exp(exp_args: ExpArgs, server_error_flag: bool, registry: dict):
     if server_error_flag is not None and server_error_flag.value:
         logging.info("Skipping job because of server error.")
         return
-    llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
+    exp_args.agent_args.chat_model_args.wait_server(registry)
     exp_args.run()
 
 
@@ -73,8 +72,6 @@ def main(
         check_webarena_servers()
 
     # launch servers if needed
-    llm_servers = LLMServers(exp_args_list)
-
     registry = {}
 
     logging.info(f"Saving experiments to {exp_dir}")
@@ -85,14 +82,15 @@ def main(
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
         Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(run_exp)(exp_args, server_error_flag, llm_servers) for exp_args in exp_args_list
+            delayed(run_exp)(exp_args, server_error_flag, registry) for exp_args in exp_args_list
         )
     finally:
         # will close servers even if there is an exception or ctrl+c
         # servers won't be closed if the script is killed with kill -9 or segfaults.
         # TODO: it would be convinient to have a way to close servers in that case.
         logging.info("Closing all LLM servers...")
-        llm_servers.close_all_servers()
+        for exp_args in exp_args_list:
+            exp_args.agent_args.chat_model_args.close_server()
         logging.info("LLM servers closed.")
 
     return exp_group_name
@@ -263,7 +261,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="gpt-3.5",
+        default="llama3-70b",
         choices=["gpt-3.5", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
         help="Model to launch",
     )

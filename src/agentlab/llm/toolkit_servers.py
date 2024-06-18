@@ -6,7 +6,6 @@ import time
 import yaml
 
 from agentlab.llm import toolkit_configs
-from agentlab.llm.chat_api import ChatModelArgs
 
 
 def launch_toolkit_tgi_server(
@@ -102,7 +101,32 @@ def launch_toolkit_tgi_server(
     return job_id, model_url
 
 
-def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
+## Utility functions
+def run_subprocess(command):
+    """Utility function to run subprocess commands with error handling."""
+    try:
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        return result
+    except subprocess.CalledProcessError as e:
+        logging.error(f"An error occurred while executing command: {e}")
+        logging.error(e.output)  # Print the error output
+        raise
+
+
+def compute_total_params(value):
+    """Compute the total number of parameters for MoE models of the form 'n_experts x expert_size'."""
+    if isinstance(value, str) and "x" in value:
+        # Split the string by 'x' and convert the parts to integers, then multiply
+        factors = value.split("x")
+        return int(factors[0]) * int(factors[1])
+    # if int or float, return as is
+    elif isinstance(value, (int, float)):
+        return value
+    else:
+        raise ValueError("Unsupported value format")
+
+
+def auto_launch_server(chat_model_args) -> str:
     """Launch a server with the given kwargs. Return the url of the server.
 
     Parameters
@@ -152,26 +176,60 @@ def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
     return job_id, model_url
 
 
-## Utility functions
-def run_subprocess(command):
-    """Utility function to run subprocess commands with error handling."""
+def check_server_status(job_id: str, model_url: str) -> bool:
+    """
+    Checks the server status at the specified URL.
+
+    Parameters:
+    url (str): The URL of the server to be checked.
+
+    Returns:
+    bool: True if the server is ready, False otherwise.
+    """
+
+    # first check if toolkit job is still running
+    command = f"eai job info {job_id}"
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-        return result
-    except subprocess.CalledProcessError as e:
-        logging.error(f"An error occurred while executing command: {e}")
-        logging.error(e.output)  # Print the error output
-        raise
+        result = run_subprocess(command)
+    except:
+        raise Exception(f"tell Massimo if you hit this bug. it's sporadic and I can't reproduce")
 
+    stdout = result.stdout.strip()
+    data = yaml.safe_load(stdout)
 
-def compute_total_params(value):
-    """Compute the total number of parameters for MoE models of the form 'n_experts x expert_size'."""
-    if isinstance(value, str) and "x" in value:
-        # Split the string by 'x' and convert the parts to integers, then multiply
-        factors = value.split("x")
-        return int(factors[0]) * int(factors[1])
-    # if int or float, return as is
-    elif isinstance(value, (int, float)):
-        return value
+    job_status = data.get("state", {})
+
+    if job_status in ["QUEUING", "QUEUED"]:
+        logging.info(f"Toolkit job {job_id} is still {job_status}")
+        return False
+    if job_status == "RUNNING":
+        client = InferenceClient(model=model_url, token=os.environ["TGI_TOKEN"])
+        try:
+            client.text_generation(prompt="hello")
+            logging.info(f"TGI server for job {job_id} is ready")
+            return True
+        except:
+            logging.info(f"Waiting for job {job_id}'s TGI server to be ready...")
+            return False
     else:
-        raise ValueError("Unsupported value format")
+        raise Exception(f"Toolkit job {job_id} is {job_status}")
+
+
+def kill_server(job_id: str):
+    """Kill the server at the given url."""
+
+    command = f"eai job kill {job_id}"
+
+    run_subprocess(command)
+
+    logging.info(f"submitted kill command for Toolkit job {job_id}...")
+
+    time.sleep(1)
+    command = f"eai job info {job_id}"
+    result = run_subprocess(command)
+
+    stdout = result.stdout.strip()
+    data = yaml.safe_load(stdout)
+    job_status = data.get("state", {})
+    if job_status not in ["CANCELLED", "CANCELLING", "FAILED"]:
+        logging.info(f"Toolkit job {job_id} is still {job_status}")
