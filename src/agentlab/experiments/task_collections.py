@@ -9,11 +9,6 @@ logger = logging.getLogger(__name__)
 
 from browsergym.experiments import EnvArgs
 
-# workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
-# workarena_order_tasks = [task for task in workarena_tasks if "order" in task]
-# workarena_sort_tasks = [task for task in workarena_tasks if "sort" in task]
-# workarena_filter_tasks = [task for task in workarena_tasks if "filter" in task]
-
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column

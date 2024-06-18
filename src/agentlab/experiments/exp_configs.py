@@ -116,17 +116,6 @@ model_name_list = [
     # "openai/gpt-4-1106-preview",
     # "openai/gpt-4-turbo-2024-04-09",
     "openai/gpt-4o-2024-05-13",
-    # ------------------ OSS ------------------------
-    # "finetuning/Meta-Llama-3-8B-Instruct",
-    # "meta-llama/Meta-Llama-3-8B-Instruct",
-    # "meta-llama/Meta-Llama-3-70B-Instruct",
-    # "microsoft/Phi-3-mini-128k-instruct",
-    # "codellama/CodeLlama-34b-Instruct-hf",
-    # "Salesforce/xLAM-v0.1-r",
-    # "deepseek-ai/deepseek-coder-6.7b-instruct",
-    # "mistralai/Mixtral-8x7B-Instruct-v0.1",
-    # "microsoft/WizardLM-2-8x22B"
-    # "finetuning/Meta-Llama-3-8B-Instruct",
 ]
 
 
@@ -162,31 +151,6 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
             logging_level=logging.DEBUG,
         )
     )
-
-
-# def random_search(benchmark: str = "miniwob"):
-#     """Example of random search. Modify this at will, but don't push your
-#     changes.
-
-#     The variance will usually be relatively high and the search space is soo big
-#     that the false discovery rate will be particularly high. Make sure to
-#     analyze the  results with caution and don't actually draw final conclusions
-#     from these experiments.
-#     """
-#     flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
-#     env_args_list = tasks.get_benchmark_env_args(benchmark)
-
-#     return args.sample_and_expand_cross_product(
-#         ExpArgs(
-#             agent_args=GenericAgentArgs(
-#                 chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
-#                 flags=flags,
-#             ),
-#             env_args=args.CrossProd(env_args_list),
-#             enable_debug=False,
-#         ),
-#         n_samples=20,  # number of samples
-#     )
 
 
 def progression_study(benchmark: str = "miniwob"):
