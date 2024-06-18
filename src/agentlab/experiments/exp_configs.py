@@ -15,6 +15,7 @@ from agentlab.agents.generic_agent.configs import (
     AGENT_3_5,
     AGENT_4o,
     AGENT_4o_VISION,
+    AGENT_CHEAT_MINIWOB,
 )
 
 
@@ -275,6 +276,8 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
         agent = AGENT_4o
     elif model_name.lower() in ["gpt-4o-vision"]:
         agent = AGENT_4o_VISION
+    elif model_name.lower() in ["cheat"]:
+        agent = AGENT_CHEAT_MINIWOB
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 

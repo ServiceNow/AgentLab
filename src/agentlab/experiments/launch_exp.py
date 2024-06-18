@@ -257,8 +257,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="gpt-3.5",
-        choices=["gpt-3.5", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
+        default="cheat",
+        choices=["gpt-3.5", "llama3-70b", "gpt-4o", "gpt-4o-vision", "cheat"],
         help="Model to launch",
     )
     parser.add_argument(

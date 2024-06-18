@@ -2,6 +2,7 @@ from .generic_agent_prompt import GenericPromptFlags
 from agentlab.agents import dynamic_prompting as dp
 from .generic_agent import GenericAgentArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
+from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
 
 # GPT-3.5 default config
@@ -45,6 +46,12 @@ FLAGS_GPT_3_5 = GenericPromptFlags(
 
 AGENT_3_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    flags=FLAGS_GPT_3_5,
+)
+
+
+AGENT_CHEAT_MINIWOB = GenericAgentArgs(
+    chat_model_args=CheatMiniWoBLLMArgs(),
     flags=FLAGS_GPT_3_5,
 )
 
