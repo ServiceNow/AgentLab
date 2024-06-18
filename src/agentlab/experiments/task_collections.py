@@ -1,4 +1,3 @@
-from logging import warning
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -8,14 +7,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from browsergym.experiments import EnvArgs
-
-# workarena_tasks_all = [task_class.get_task_id() for task_class in ALL_WORKARENA_TASKS]
-# workarena_tasks_atomic = [task_class.get_task_id() for task_class in ATOMIC_TASKS]
-# workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
-# workarena_order_tasks = [task for task in workarena_tasks if "order" in task]
-# workarena_sort_tasks = [task for task in workarena_tasks if "sort" in task]
-# workarena_filter_tasks = [task for task in workarena_tasks if "filter" in task]
-
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
@@ -32,55 +23,6 @@ assert len(tasks_eval) == 107
 assert len(miniwob_debug) == 12
 assert len(miniwob_tiny_test) == 2
 
-# small set of task that should be a good indicator of the agent's performance
-miniwob_allac_test = [
-    "miniwob.use-slider-2",
-    "miniwob.book-flight",  # long html
-    "miniwob.hot-cold",  # many iterations + memory
-    "miniwob.login-user-popup",  # challenge: it sometimes has a random popup that prevents the agent from logging in. Seed 43 has a popup.
-    "miniwob.guess-number",
-    "miniwob.copy-paste-2",  # requires ctrl+A befor ctrl+C and cmd on mac
-    "miniwob.bisect-angle",  # requires good 2d understanding
-]
-
-suspisous_tasks = [
-    "miniwob.choose-date",
-    "miniwob.copy-paste",
-    "miniwob.copy-paste-2",
-    "miniwob.find-word",
-    "miniwob.resize-textarea",
-    "miniwob.text-transform",
-    "miniwob.use-autocomplete",
-    "miniwob.use-colorwheel",
-    "miniwob.use-colorwheel-2",
-    "miniwob.click-button-sequence",
-    "miniwob.click-checkboxes-large",
-]
-
-# the best agent is able to solve these tasks some of the time but often fails
-edge_tasks = [
-    "miniwob.choose-date",
-    "miniwob.click-scroll-list",
-    "miniwob.count-shape",
-    "miniwob.daily-calendar",
-    "miniwob.drag-cube",
-    "miniwob.drag-shapes",
-    "miniwob.draw-line",
-    "miniwob.email-inbox-forward",
-    "miniwob.email-inbox-forward-nl",
-    "miniwob.email-inbox-forward-nl-turk",
-    "miniwob.form-sequence",
-    "miniwob.form-sequence-2",
-    "miniwob.hot-cold",
-    "miniwob.resize-textarea",
-    "miniwob.right-angle",
-    "miniwob.sign-agreement",
-    "miniwob.text-editor",
-    "miniwob.use-slider-2",
-    "miniwob.bisect-angle",
-    "miniwob.choose-date-medium",
-    "miniwob.choose-date-nodelay",
-]
 
 webgum_tasks = [
     "miniwob.book-flight",
@@ -140,61 +82,6 @@ webgum_tasks = [
     "miniwob.use-autocomplete",
     "miniwob.use-spinner",
 ]
-
-
-TASK_CATEGORY_MAP = {
-    "workarena.servicenow.all-menu": "menu",
-    "workarena.servicenow.create-change-request": "form",
-    "workarena.servicenow.create-hardware-asset": "form",
-    "workarena.servicenow.create-incident": "form",
-    "workarena.servicenow.create-problem": "form",
-    "workarena.servicenow.create-user": "form",
-    "workarena.servicenow.filter-asset-list": "list-filter",
-    "workarena.servicenow.filter-change-request-list": "list-filter",
-    "workarena.servicenow.filter-hardware-list": "list-filter",
-    "workarena.servicenow.filter-incident-list": "list-filter",
-    "workarena.servicenow.filter-service-catalog-item-list": "list-filter",
-    "workarena.servicenow.filter-user-list": "list-filter",
-    "workarena.servicenow.impersonation": "menu",
-    "workarena.servicenow.knowledge-base-search": "knowledge",
-    "workarena.servicenow.order-apple-mac-book-pro15": "service catalog",
-    "workarena.servicenow.order-apple-watch": "service catalog",
-    "workarena.servicenow.order-developer-laptop": "service catalog",
-    "workarena.servicenow.order-development-laptop-p-c": "service catalog",
-    "workarena.servicenow.order-ipad-mini": "service catalog",
-    "workarena.servicenow.order-ipad-pro": "service catalog",
-    "workarena.servicenow.order-loaner-laptop": "service catalog",
-    "workarena.servicenow.order-sales-laptop": "service catalog",
-    "workarena.servicenow.order-standard-laptop": "service catalog",
-    "workarena.servicenow.sort-asset-list": "list-sort",
-    "workarena.servicenow.sort-change-request-list": "list-sort",
-    "workarena.servicenow.sort-hardware-list": "list-sort",
-    "workarena.servicenow.sort-incident-list": "list-sort",
-    "workarena.servicenow.sort-service-catalog-item-list": "list-sort",
-    "workarena.servicenow.sort-user-list": "list-sort",
-    "workarena.servicenow.dashboard-min-max-retrieval": "dashboard",
-    "workarena.servicenow.dashboard-value-retrieval": "dashboard",
-    "workarena.servicenow.report-value-retrieval": "dashboard",
-    "workarena.servicenow.report-min-max-retrieval": "dashboard",
-}
-
-# # this should probably be done in workarena
-# workarena_tasks_l1 = list(TASK_CATEGORY_MAP.keys())
-# workarena_task_categories = {}
-# for task in workarena_tasks_atomic:
-#     if task not in TASK_CATEGORY_MAP:
-#         warning(f"Atomic task {task} not found in TASK_CATEGORY_MAP")
-#         continue
-#     cat = TASK_CATEGORY_MAP[task]
-#     if cat in workarena_task_categories:
-#         workarena_task_categories[cat].append(task)
-#     else:
-#         workarena_task_categories[cat] = [task]
-
-
-# def get_task_category(task_name):
-#     benchmark = task_name.split(".")[0]
-#     return benchmark, TASK_CATEGORY_MAP.get(task_name, None)
 
 
 def get_benchmark_env_args(
