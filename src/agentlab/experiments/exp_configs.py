@@ -11,13 +11,19 @@ from agentlab.agents.generic_agent.generic_agent_prompt import (
     ADVANCED_FLAGS,
 )
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
+from agentlab.agents.generic_agent.configs import (
+    AGENT_3_5,
+    AGENT_70B,
+    AGENT_4o,
+    AGENT_4o_VISION,
+)
 
 
-def get_exp_args_list(func_name: str):
+def get_exp_args_list(func_name: str, *a, **kw):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
 
-    exp_args_list = func()  # type: list[ExpArgs]
+    exp_args_list = func(*a, **kw)  # type: list[ExpArgs]
 
     not_filter_task = []
     filter_task = []
@@ -162,29 +168,29 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     )
 
 
-def random_search(benchmark: str = "miniwob"):
-    """Example of random search. Modify this at will, but don't push your
-    changes.
+# def random_search(benchmark: str = "miniwob"):
+#     """Example of random search. Modify this at will, but don't push your
+#     changes.
 
-    The variance will usually be relatively high and the search space is soo big
-    that the false discovery rate will be particularly high. Make sure to
-    analyze the  results with caution and don't actually draw final conclusions
-    from these experiments.
-    """
-    flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
-    env_args_list = tasks.get_benchmark_env_args(benchmark)
+#     The variance will usually be relatively high and the search space is soo big
+#     that the false discovery rate will be particularly high. Make sure to
+#     analyze the  results with caution and don't actually draw final conclusions
+#     from these experiments.
+#     """
+#     flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
+#     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
-    return args.sample_and_expand_cross_product(
-        ExpArgs(
-            agent_args=GenericAgentArgs(
-                chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
-                flags=flags,
-            ),
-            env_args=args.CrossProd(env_args_list),
-            enable_debug=False,
-        ),
-        n_samples=20,  # number of samples
-    )
+#     return args.sample_and_expand_cross_product(
+#         ExpArgs(
+#             agent_args=GenericAgentArgs(
+#                 chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+#                 flags=flags,
+#             ),
+#             env_args=args.CrossProd(env_args_list),
+#             enable_debug=False,
+#         ),
+#         n_samples=20,  # number of samples
+#     )
 
 
 def progression_study(benchmark: str = "miniwob"):
@@ -262,16 +268,16 @@ def progression_study(benchmark: str = "miniwob"):
     )
 
 
-def final_run():
-    benchmark = "miniwob"
-    # benchmark = "workarena.l1"
-    # benchmark = "workarena.l2"
-    # benchmark = "webarena"
+def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
 
-    # agent = AGENT_3_5
-    agent = AGENT_70B
-    # agent = AGENT_4o
-    # agent = AGENT_4o_VISION
+    if model_name.lower() in ["gpt-3.5"]:
+        agent = AGENT_3_5
+    elif model_name.lower() in ["gpt-4o"]:
+        agent = AGENT_4o
+    elif model_name.lower() in ["gpt-4o-vision"]:
+        agent = AGENT_4o_VISION
+    elif model_name.lower() in ["llama3-70b"]:
+        agent = AGENT_70B
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
@@ -374,15 +380,16 @@ def ablation_study(benchmark: str = "workarena.l1"):
 
 
 def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
-
-    flags = miniwob_add_html(benchmark, FLAGS_GPT_3_5)
+    chat_model_args = AGENT_3_5.chat_model_args
+    flags = AGENT_3_5.flags
+    flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
 
     return order(
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+                    chat_model_args=chat_model_args,
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
@@ -421,8 +428,8 @@ def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
 
 
 def ablation_study_OSS(benchmark: str = "workarena.l1"):
-
-    flags = FLAGS_70B
+    chat_model_args = AGENT_70B.chat_model_args
+    flags = AGENT_70B.flags
 
     flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark, n_seeds_default=5)
@@ -431,9 +438,7 @@ def ablation_study_OSS(benchmark: str = "workarena.l1"):
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=args.CrossProd(
-                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-                    ),
+                    chat_model_args=chat_model_args,
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
@@ -462,15 +467,17 @@ def ablation_study_OSS(benchmark: str = "workarena.l1"):
 
 
 def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
+    chat_model_args = AGENT_4o.chat_model_args
+    flags = AGENT_4o.flags
 
-    flags = miniwob_add_html(benchmark, FLAGS_GPT_4o)
+    flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
 
     return order(
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+                    chat_model_args=chat_model_args,
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
@@ -534,293 +541,3 @@ def demo_maker():
             enable_debug=False,
         )
     )
-
-
-DEFAULT_RS_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=True,
-        use_ax_tree=args.Choice([True, False]),
-        use_focused_element=False,
-        use_error_logs=True,
-        use_history=True,
-        use_past_error_logs=args.Choice([True, False], p=[0.7, 0.3]),
-        use_action_history=True,
-        use_think_history=args.Choice([True, False], p=[0.7, 0.3]),
-        use_diff=args.Choice([True, False], p=[0.3, 0.7]),
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=args.Choice([True, False]),
-        extract_clickable_tag=False,
-        extract_coords=args.Choice(["center", "box"]),
-        filter_visible_elements_only=args.Choice([True, False], p=[0.3, 0.7]),
-    ),
-    action=dp.ActionFlags(
-        multi_actions=args.Choice([True, False], p=[0.7, 0.3]),
-        action_set=args.Choice(["bid", "bid+coord"]),
-        # action_set=args.Choice(["python", "bid", "coord",
-        # "bid+coord"]),
-    ),
-    # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
-    use_plan=args.Choice([True, False]),
-    use_criticise=args.Choice([True, False], p=[0.7, 0.3]),
-    use_thinking=args.Choice([True, False], p=[0.7, 0.3]),
-    use_memory=args.Choice([True, False], p=[0.7, 0.3]),
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=args.Choice([True, False], p=[0.7, 0.3]),
-    be_cautious=args.Choice([True, False]),
-    enable_chat=False,
-    max_prompt_tokens=None,
-    extra_instructions=None,
-)
-
-
-MINIWOB_RS_OSS_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=args.Choice([True, False], p=[0.75, 0.25]),
-        use_ax_tree=args.Choice([True, False], p=[0.75, 0.25]),
-        use_focused_element=False,
-        use_error_logs=args.Choice([True, False], p=[0.8, 0.2]),
-        use_history=args.Choice([True, False], p=[0.8, 0.2]),
-        use_past_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
-        use_action_history=args.Choice([True, False], p=[0.8, 0.2]),
-        use_think_history=args.Choice([True, False], p=[0.5, 0.5]),
-        use_diff=args.Choice([True, False], p=[0.5, 0.5]),
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=False,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=args.Choice([True, False], p=[0.5, 0.5]),
-        action_set=args.Choice(["bid", "python"]),
-        # action_set=args.Choice(["python", "bid", "coord",
-        # "bid+coord"]),
-    ),
-    # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
-    use_plan=args.Choice([True, False], p=[0.25, 0.75]),
-    use_criticise=args.Choice([True, False], p=[0.25, 0.75]),
-    use_thinking=args.Choice([True, False], p=[0.5, 0.5]),
-    use_memory=args.Choice([True, False], p=[0.25, 0.75]),
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=args.Choice([True, False], p=[0.25, 0.75]),
-    be_cautious=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    extra_instructions=None,
-)
-
-
-RS_OSS_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=args.Choice([True, False], p=[0.75, 0.25]),
-        use_ax_tree=args.Choice([True, False], p=[0.75, 0.25]),
-        use_focused_element=False,
-        use_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
-        use_history=args.Choice([True, False], p=[0.8, 0.2]),
-        use_past_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
-        use_action_history=args.Choice([True, False], p=[0.8, 0.2]),
-        use_think_history=args.Choice([True, False], p=[0.5, 0.5]),
-        use_diff=args.Choice([True, False], p=[0.5, 0.5]),
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=False,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=args.Choice([True, False], p=[0.5, 0.5]),
-        action_set=args.Choice(["bid", "python"]),
-        # action_set=args.Choice(["python", "bid", "coord",
-        # "bid+coord"]),
-    ),
-    # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
-    use_plan=args.Choice([True, False], p=[0.25, 0.75]),
-    use_criticise=args.Choice([True, False], p=[0.25, 0.75]),
-    use_thinking=args.Choice([True, False], p=[0.5, 0.5]),
-    use_memory=args.Choice([True, False], p=[0.25, 0.75]),
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=args.Choice([True, False], p=[0.25, 0.75]),
-    be_cautious=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    extra_instructions=None,
-)
-
-
-FINETUNING_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_think_history=False,
-        use_error_logs=False,
-        use_past_error_logs=False,
-        use_history=True,
-        use_action_history=True,
-        use_diff=True,
-        use_screenshot=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=False,
-        action_set="bid",
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=False,
-    use_memory=False,
-    use_concrete_example=False,
-    use_abstract_example=False,
-    use_hints=False,
-)
-
-FLAGS_GPT_3_5 = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
-        use_error_logs=True,
-        use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=False,
-        action_set="bid",
-        long_description=False,
-        individual_examples=True,
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    be_cautious=True,
-    extra_instructions=None,
-)
-
-
-FLAGS_70B = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
-        use_error_logs=False,
-        use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=True,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=False,
-        action_set="bid",
-        long_description=False,
-        individual_examples=True,
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    be_cautious=True,
-    extra_instructions=None,
-    add_missparsed_messages=True,
-    use_retry_and_fit=True,
-)
-
-
-FLAGS_GPT_4o = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
-        use_error_logs=True,
-        use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=True,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=False,
-        action_set="bid",
-        long_description=True,
-        individual_examples=True,
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    be_cautious=True,
-    extra_instructions=None,
-)
-
-FLAGS_GPT_4o_VISION = FLAGS_GPT_4o.copy()
-FLAGS_GPT_4o_VISION.obs.use_screenshot = True
-FLAGS_GPT_4o_VISION.obs.use_som = True
-
-
-AGENT_3_5 = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
-    flags=FLAGS_GPT_3_5,
-)
-
-AGENT_70B = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
-    flags=FLAGS_70B,
-)
-
-AGENT_4o = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
-    flags=FLAGS_GPT_4o,
-)
-
-
-AGENT_4o_VISION = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
-    flags=FLAGS_GPT_4o_VISION,
-)

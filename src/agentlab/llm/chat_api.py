@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 import json
 import re
@@ -52,7 +53,65 @@ class CheatMiniWoBLLM:
 
 
 @dataclass
-class ChatModelArgs:
+class ChatModelArgs(ABC):
+    model_name: str
+    max_total_tokens: int
+    max_input_tokens: int
+    max_new_tokens: int
+    max_trunk_itr: int = None
+    temperature: float = 0.1
+    model_url: str = None
+
+    @abstractmethod
+    def make_chat_model(self):
+        pass
+
+    @abstractmethod
+    def prepare_server(self, registry):
+        pass
+
+    @abstractmethod
+    def close_server(self):
+        pass
+
+    def cleanup(self):
+        if self.model_url:
+            self.close_server()
+            self.model_url = None
+
+    def key(self):
+        return json.dumps(
+            {
+                "model_name": self.model_name,
+                "max_total_tokens": self.max_total_tokens,
+                "max_input_tokens": self.max_input_tokens,
+                "max_new_tokens": self.max_new_tokens,
+                "temperature": self.temperature,
+            }
+        )
+
+
+@dataclass
+class OpenAIChatModelArgs(ChatModelArgs):
+    vision_support: bool = False
+
+    def make_chat_model(self):
+        model_name = self.model_name.split("/")[-1]
+        return ChatOpenAI(
+            model_name=model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
+
+    def prepare_server(self, registry):
+        pass
+
+    def close_server(self):
+        pass
+
+
+@dataclass
+class ToolkitModelArgs(ChatModelArgs):
     """Serializable object for instantiating a generic chat model.
 
     Attributes
@@ -174,6 +233,12 @@ class ChatModelArgs:
         keys.pop("model_url", None)
         return json.dumps(keys, sort_keys=True)
 
+    def prepare_server(self):
+        pass
+
+    def close_server(self):
+        pass
+
 
 class RekaChatModel(SimpleChatModel):
     llm: Any = Field(description="The Reka chat instance")
@@ -226,6 +291,12 @@ class RekaChatModel(SimpleChatModel):
 
     def _llm_type(self):
         return "closed-source"
+
+    def prepare_server(self):
+        pass
+
+    def close_server(self):
+        pass
 
 
 class HuggingFaceChatModel(SimpleChatModel):
