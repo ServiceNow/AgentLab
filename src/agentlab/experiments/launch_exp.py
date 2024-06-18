@@ -13,11 +13,10 @@ import agentlab
 import argparse
 
 
-def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers):
+def run_exp(exp_args: ExpArgs, server_error_flag: bool):
     if server_error_flag is not None and server_error_flag.value:
         logging.info("Skipping job because of server error.")
         return
-    llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
     exp_args.run()
 
 
@@ -73,26 +72,22 @@ def main(
         check_webarena_servers()
 
     # launch servers if needed
-    llm_servers = LLMServers(exp_args_list)
-
     registry = {}
 
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.prepare(exp_root=exp_dir)
-        exp_args.agent_args.chat_model_args.prepare_server(registry)
 
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
         Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(run_exp)(exp_args, server_error_flag, llm_servers) for exp_args in exp_args_list
+            delayed(run_exp)(exp_args, server_error_flag) for exp_args in exp_args_list
         )
     finally:
         # will close servers even if there is an exception or ctrl+c
         # servers won't be closed if the script is killed with kill -9 or segfaults.
         # TODO: it would be convinient to have a way to close servers in that case.
         logging.info("Closing all LLM servers...")
-        llm_servers.close_all_servers()
         logging.info("LLM servers closed.")
 
     return exp_group_name
