@@ -13,7 +13,6 @@ from agentlab.agents.generic_agent.generic_agent_prompt import (
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.agents.generic_agent.configs import (
     AGENT_3_5,
-    AGENT_70B,
     AGENT_4o,
     AGENT_4o_VISION,
 )
@@ -276,8 +275,6 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
         agent = AGENT_4o
     elif model_name.lower() in ["gpt-4o-vision"]:
         agent = AGENT_4o_VISION
-    elif model_name.lower() in ["llama3-70b"]:
-        agent = AGENT_70B
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
@@ -417,45 +414,6 @@ def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
                             # ],
                             # agent features
                             # (".use_thinking", False),
-                        ],
-                    ),
-                ),
-                env_args=args.CrossProd(env_args_list),
-                enable_debug=False,
-            )
-        )
-    )
-
-
-def ablation_study_OSS(benchmark: str = "workarena.l1"):
-    chat_model_args = AGENT_70B.chat_model_args
-    flags = AGENT_70B.flags
-
-    flags = miniwob_add_html(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(benchmark, n_seeds_default=5)
-
-    return order(
-        args.expand_cross_product(
-            ExpArgs(
-                agent_args=GenericAgentArgs(
-                    chat_model_args=chat_model_args,
-                    flags=args.make_ablation_study(
-                        start_point=flags,
-                        changes=[
-                            # action flags
-                            (".action.multi_actions", True),
-                            (".action.long_description", True),
-                            # (".action.individual_examples", False),
-                            # obs flags
-                            (".obs.use_think_history", False),
-                            (".obs.use_error_logs", True),
-                            (".obs.use_action_history", False),
-                            (".obs.extract_visible_tag", False),
-                            # agent features
-                            (".use_thinking", False),
-                            (".use_abstract_example", False),
-                            (".use_concrete_example", False),
-                            (".use_plan", True),
                         ],
                     ),
                 ),

@@ -5,7 +5,6 @@ from pathlib import Path
 import random
 from joblib import Parallel, delayed
 from agentlab.analyze import error_categorization
-from agentlab.llm.llm_servers import LLMServers
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
