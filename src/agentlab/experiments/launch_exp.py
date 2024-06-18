@@ -16,10 +16,10 @@ import argparse
 logging.getLogger().setLevel(logging.INFO)
 
 
-# def run_exp(exp_args: ExpArgs, llm_servers: LLMServers, exp_args_list: list[ExpArgs]):
+def run_exp(exp_args: ExpArgs, llm_servers: LLMServers, exp_args_list: list[ExpArgs]):
 
-#     llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
-#     exp_args.run()
+    llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
+    exp_args.run()
 
 
 def remove_exp_args(exp_args, shared_exp_args_list):
@@ -30,15 +30,15 @@ def remove_exp_args(exp_args, shared_exp_args_list):
             break
 
 
-def run_exp(exp_args, llm_servers, shared_exp_args_list):
-    status = llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
-    # if status != "failed":
-    exp_args.run()
-    remove_exp_args(exp_args, shared_exp_args_list)
-    llm_servers.close_unused_servers(shared_exp_args_list)
-    # else:
-    # logging.info("Server failed. Skipping run")
-    # remove_exp_args(exp_args, shared_exp_args_list)
+# def run_exp(exp_args, llm_servers, shared_exp_args_list):
+#     status = llm_servers.wait_for_server(exp_args.agent_args.chat_model_args.key())
+#     # if status != "failed":
+#     exp_args.run()
+#     remove_exp_args(exp_args, shared_exp_args_list)
+#     llm_servers.close_unused_servers(shared_exp_args_list)
+#     # else:
+#     # logging.info("Server failed. Skipping run")
+#     # remove_exp_args(exp_args, shared_exp_args_list)
 
 
 def main(
@@ -86,19 +86,18 @@ def main(
 
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
-        # Parallel(n_jobs=n_jobs, prefer=prefer)(
-        #     delayed(run_exp)(exp_args, llm_servers, exp_args_list) for exp_args in exp_args_list
-        # )
-        # Setup for threads
-
-        # Setup for processes
-        manager = multiprocessing.Manager()
-        shared_exp_args_list = manager.list(exp_args_list)
-
         Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(run_exp)(exp_args, llm_servers, shared_exp_args_list)
-            for exp_args in shared_exp_args_list
+            delayed(run_exp)(exp_args, llm_servers, exp_args_list) for exp_args in exp_args_list
         )
+
+        # prefer = "threads" if use_threads_instead_of_processes else "processes"
+        # manager = multiprocessing.Manager()
+        # shared_exp_args_list = manager.list(exp_args_list)
+
+        # Parallel(n_jobs=n_jobs, prefer=prefer)(
+        #     delayed(run_exp)(exp_args, llm_servers, shared_exp_args_list)
+        #     for exp_args in shared_exp_args_list
+        # )
 
     finally:
         # will close servers even if there is an exception or ctrl+c

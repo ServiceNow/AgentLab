@@ -113,6 +113,30 @@ CHAT_MODEL_ARGS_DICT = {
         is_model_operational=True,
         **default_oss_llms_args,
     ),
+    "meta-llama/Meta-Llama-3-70B": ChatModelArgs(
+        model_name="meta-llama/Meta-Llama-3-70B",
+        training_total_tokens=8_192,
+        max_total_tokens=8_192,
+        model_size=70,
+        is_model_operational=True,
+        **default_oss_llms_args,
+    ),
+    "meta-llama/Meta-Llama-3-8B": ChatModelArgs(
+        model_name="meta-llama/Meta-Llama-3-8B",
+        training_total_tokens=8_192,
+        max_total_tokens=16_384,
+        model_size=8,
+        is_model_operational=True,
+        **default_oss_llms_args,
+    ),
+    "Qwen/Qwen2-72B-instruct": ChatModelArgs(
+        model_name="Qwen/Qwen2-72B-instruct",
+        training_total_tokens=32_768,
+        model_size=72,
+        is_model_operational=True,
+        **default_oss_llms_args,
+        info="use YARN to go beyond the training_total_tokens",
+    ),
     "Qwen/Qwen2-72B": ChatModelArgs(
         model_name="Qwen/Qwen2-72B",
         training_total_tokens=32_768,
@@ -165,9 +189,8 @@ CHAT_MODEL_ARGS_DICT = {
         model_name="bullerwins/Codestral-22B-v0.1-hf",
         training_total_tokens=32_768,
         model_size=22,
-        is_model_operational=False,
+        is_model_operational=True,
         **default_oss_llms_args,
-        info="shard not supported for AutoModel",
     ),
     "deepseek-ai/DeepSeek-V2-Chat": ChatModelArgs(
         model_name="deepseek-ai/DeepSeek-V2-Chat",
@@ -187,7 +210,24 @@ CHAT_MODEL_ARGS_DICT = {
         shard_support=False,
         extra_tgi_args={"TRUST_REMOTE_CODE": "true"},
         **default_oss_llms_args,
-        info="looks like sharding is not supported, but the model doesn't fit on a single GPU... I also tried the lastest LLM image, but it didn't work",
+    ),
+    "microsoft/Phi-3-small-8k-instruct": ChatModelArgs(
+        model_name="microsoft/Phi-3-small-8k-instruct",
+        training_total_tokens=8_000,
+        model_size=7,
+        is_model_operational=False,
+        shard_support=False,
+        extra_tgi_args={"TRUST_REMOTE_CODE": "true"},
+        **default_oss_llms_args,
+    ),
+    "microsoft/Phi-3-medium-4k-instruct": ChatModelArgs(
+        model_name="microsoft/Phi-3-medium-4k-instruct",
+        training_total_tokens=4_000,
+        model_size=14,
+        is_model_operational=False,
+        shard_support=False,
+        extra_tgi_args={"TRUST_REMOTE_CODE": "true"},
+        **default_oss_llms_args,
     ),
     "microsoft/WizardLM-2-8x22B": ChatModelArgs(
         model_name="microsoft/WizardLM-2-8x22B",
@@ -237,11 +277,21 @@ CHAT_MODEL_ARGS_DICT = {
         is_model_operational=False,
         **default_oss_llms_args,
     ),
+    ## DeepSeek-AI
+    "deepseek-ai/deepseek-coder-1.3b-base": ChatModelArgs(
+        model_name="deepseek-ai/deepseek-coder-1.3b-base",
+        training_total_tokens=16_384,
+        model_size=1.3,
+        is_model_operational=True,
+        tgi_image=toolkit_configs.TGI_IMAGE_LLMD,
+        **default_oss_llms_args,
+    ),
     "deepseek-ai/deepseek-coder-6.7b-instruct": ChatModelArgs(
         model_name="deepseek-ai/deepseek-coder-6.7b-instruct",
         training_total_tokens=16_384,
         model_size=7,
         is_model_operational=True,
+        tgi_image=toolkit_configs.TGI_IMAGE_LLMD,
         **default_oss_llms_args,
     ),
     "deepseek-ai/deepseek-coder-6.7b-base": ChatModelArgs(
@@ -249,6 +299,23 @@ CHAT_MODEL_ARGS_DICT = {
         training_total_tokens=16_384,
         model_size=7,
         is_model_operational=True,
+        tgi_image=toolkit_configs.TGI_IMAGE_LLMD,
+        **default_oss_llms_args,
+    ),
+    "deepseek-ai/deepseek-coder-33b-instruct": ChatModelArgs(
+        model_name="deepseek-ai/deepseek-coder-33b-instruct",
+        training_total_tokens=16_384,
+        model_size=33,
+        is_model_operational=True,
+        tgi_image=toolkit_configs.TGI_IMAGE_LLMD,
+        **default_oss_llms_args,
+    ),
+    "deepseek-ai/deepseek-coder-33b-base": ChatModelArgs(
+        model_name="deepseek-ai/deepseek-coder-33b-base",
+        training_total_tokens=16_384,
+        model_size=33,
+        is_model_operational=True,
+        tgi_image=toolkit_configs.TGI_IMAGE_LLMD,
         **default_oss_llms_args,
     ),
     ## MistralAI
@@ -267,15 +334,36 @@ CHAT_MODEL_ARGS_DICT = {
         **default_oss_llms_args,
     ),
     ## CodeLLAMA
-    "codellama/CodeLlama-7b-instruct-hf": ChatModelArgs(
-        model_name="codellama/CodeLlama-7b-instruct-hf",
+    "codellama/CodeLlama-7b-Python-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-7b-Python-hf",
         training_total_tokens=16_384,
         model_size=7,
         is_model_operational=True,
         **default_oss_llms_args,
     ),
-    "codellama/CodeLlama-7b-Python-hf": ChatModelArgs(
-        model_name="codellama/CodeLlama-7b-Python-hf",
+    "codellama/CodeLlama-13b-Python-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-13b-Python-hf",
+        training_total_tokens=16_384,
+        model_size=13,
+        is_model_operational=True,
+        **default_oss_llms_args,
+    ),
+    "codellama/CodeLlama-34b-Python-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-34b-Python-hf",
+        training_total_tokens=16_384,
+        model_size=34,
+        is_model_operational=True,
+        **default_oss_llms_args,
+    ),
+    "codellama/CodeLlama-70b-Python-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-70b-Python-hf",
+        training_total_tokens=4_096,
+        model_size=70,
+        is_model_operational=False,
+        **default_oss_llms_args,
+    ),
+    "codellama/CodeLlama-7b-instruct-hf": ChatModelArgs(
+        model_name="codellama/CodeLlama-7b-instruct-hf",
         training_total_tokens=16_384,
         model_size=7,
         is_model_operational=True,
@@ -319,23 +407,56 @@ CHAT_MODEL_ARGS_DICT = {
         sliding_window=True,
         **default_oss_llms_args,
     ),
-    "bigcode/starcoder2-3b": ChatModelArgs(
-        model_name="bigcode/starcoder2-3b",
+    "bigcode/starcoder2-7b": ChatModelArgs(
+        model_name="bigcode/starcoder2-7b",
         training_total_tokens=16_384,
-        model_size=15,
+        model_size=3,
         is_model_operational=False,
         sliding_window=True,
         **default_oss_llms_args,
-        info="WARNING: not instruct finetuned",
+    ),
+    "bigcode/starcoder2-3b": ChatModelArgs(
+        model_name="bigcode/starcoder2-3b",
+        training_total_tokens=16_384,
+        model_size=3,
+        is_model_operational=False,
+        sliding_window=True,
+        **default_oss_llms_args,
     ),
     "bigcode/starcoder": ChatModelArgs(
         model_name="bigcode/starcoder",
-        # model_path="/mnt/llmd/base_models/starcoder",
         training_total_tokens=8_192,
         model_size=15,
         is_model_operational=False,
         **default_oss_llms_args,
-        info="there's something wrong w/ the model checkpoint; WARNING: not instruct finetuned",
+    ),
+    "bigcode/starcoderbase": ChatModelArgs(
+        model_name="bigcode/starcoderbase",
+        training_total_tokens=8_192,
+        model_size=15,
+        is_model_operational=False,
+        **default_oss_llms_args,
+    ),
+    "bigcode/starcoderbase-1b": ChatModelArgs(
+        model_name="bigcode/starcoderbase-1b",
+        training_total_tokens=8_192,
+        model_size=1,
+        is_model_operational=False,
+        **default_oss_llms_args,
+    ),
+    "bigcode/starcoderbase-3b": ChatModelArgs(
+        model_name="bigcode/starcoderbase-3b",
+        training_total_tokens=8_192,
+        model_size=3,
+        is_model_operational=False,
+        **default_oss_llms_args,
+    ),
+    "bigcode/starcoderbase-7b": ChatModelArgs(
+        model_name="bigcode/starcoderbase-7b",
+        training_total_tokens=8_192,
+        model_size=7,
+        is_model_operational=False,
+        **default_oss_llms_args,
     ),
     "bigcode/starcoderplus": ChatModelArgs(
         model_name="bigcode/starcoderplus",
@@ -344,7 +465,6 @@ CHAT_MODEL_ARGS_DICT = {
         model_size=15,
         is_model_operational=True,
         **default_oss_llms_args,
-        info="WARNING: not instruct finetuned?",
     ),
     "HuggingFaceH4/starchat-beta": ChatModelArgs(
         model_name="HuggingFaceH4/starchat-beta",
@@ -353,7 +473,6 @@ CHAT_MODEL_ARGS_DICT = {
         model_size=15,
         is_model_operational=True,
         **default_oss_llms_args,
-        info="WARNING: not instruct finetuned?",
     ),
     ## Others
     "THUDM/agentlm-70b": ChatModelArgs(
@@ -385,9 +504,10 @@ CHAT_MODEL_ARGS_DICT = {
 # TODO: the base infra hparams could be infered from total params
 # NOTE: optimizing for a 8-16k context window
 INFRA_HPARAMS_DICT_BASE = {
-    4: {"gpu": 1, "gpu_mem": 16, "cpu": 6, "mem": 64},  # NOTE: for tests
+    1: {"gpu": 1, "gpu_mem": 16, "cpu": 6, "mem": 64},  # NOTE: for tests
+    4: {"gpu": 1, "cpu": 6, "mem": 64},  # NOTE: for tests
     8: {"gpu": 1, "cpu": 6, "mem": 64},
-    21: {"gpu": 2, "cpu": 8, "mem": 128},
+    22: {"gpu": 2, "cpu": 8, "mem": 128},
     41: {"gpu": 2, "cpu": 8, "mem": 128},
     56: {"gpu": 2, "cpu": 8, "mem": 256},
     72: {"gpu": 4, "cpu": 12, "mem": 256},

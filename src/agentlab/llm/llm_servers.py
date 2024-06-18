@@ -114,6 +114,7 @@ def launch_toolkit_tgi_server(
     mem: int = 64,
     n_shard: int = 1,
     max_run_time: int = 172_800,
+    tgi_image: str = None,
     extra_tgi_args: dict = None,
 ):
     if model_name is None:
@@ -128,10 +129,6 @@ def launch_toolkit_tgi_server(
     # NOTE: you need to set MAX_BATCH_TOTAL_TOKENS >= MAX_BATCH_PREFILL_TOKENS
     # NOTE: MAX_BATCH_TOTAL_TOKENS is inferred but still need to be set if we want TGI to output the infered value
     max_batch_total_tokens = int(2 * max_batch_prefill_tokens)
-
-    # tgi_image = toolkit_configs.TGI_IMAGE_LLMD
-    # tgi_image = toolkit_configs.TGI_IMAGE_OFFICIAL
-    tgi_image = toolkit_configs.TGI_IMAGE_LATEST
 
     if model_name.startswith("/"):
         assert model_name.startswith(toolkit_configs.UI_COPILOT_DATA_PATH)
@@ -223,13 +220,19 @@ def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server
     extra_tgi_args = chat_model_args.extra_tgi_args
 
     # adjust gpu based on context window
-    gpu += CONTEXT_WINDOW_EXTRA_GPU.get(max_total_tokens, 0)
+    # TODO: uncomment me:
+    # gpu += CONTEXT_WINDOW_EXTRA_GPU.get(max_total_tokens, 0)
 
     if chat_model_args.shard_support:
         # NOTE: n_shard needs to be a power of 2 to properly shard the n_heads and activations
         n_shard = 2 ** (gpu.bit_length() - 1)
     else:
         n_shard = 1
+
+    if not chat_model_args.tgi_image:
+        tgi_image = toolkit_configs.TGI_IMAGE_LATEST
+    else:
+        tgi_image = chat_model_args.tgi_image
 
     job_id, model_url = launch_toolkit_tgi_server(
         job_name=job_name,
@@ -240,6 +243,7 @@ def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server
         mem=mem,
         gpu_mem=gpu_mem,
         n_shard=n_shard,
+        tgi_image=tgi_image,
         extra_tgi_args=extra_tgi_args,
     )
 
@@ -357,27 +361,50 @@ if __name__ == "__main__":
     # model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
     # model = "finetuning/Meta-Llama-3-8B-Instruct"
-    # model = "microsoft/Phi-3-mini-128k-instruct"
+    # model = "microsoft/Phi-3-mini-4k-instruct"
     # model = "bigcode/starcoder2-15b"
 
     ## git chameleon
+    # model = "codellama/CodeLlama-70b-instruct-hf"
     # model = "codellama/CodeLlama-34b-instruct-hf"
     # model = "codellama/CodeLlama-13b-instruct-hf"
     # model = "codellama/CodeLlama-7b-instruct-hf"
+    # model = "codellama/CodeLlama-70b-Python-hf"
+    # model = "codellama/CodeLlama-34b-Python-hf"
+    # model = "codellama/CodeLlama-13b-Python-hf"
     # model = "codellama/CodeLlama-7b-Python-hf"
+
     # model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
-    model = "bigcode/starcoder2-15b"
+    # model = "meta-llama/Meta-Llama-3-70B"
+    # model = "meta-llama/Meta-Llama-3-8B"
+
     # model = "bigcode/starcoder2-15b-instruct-v0.1"
+    # model = "bigcode/starcoder2-15b"
+    # model = "bigcode/starcoder2-3b"
+    # model = "bigcode/starcoder2-7b"
+
     # model = "bigcode/starcoder"
-    # model = "bigcode/starcoderplus"
+    # model = "bigcode/starcoderbase"
+    # model = "bigcode/starcoderbase-1b"
+    # model = "bigcode/starcoderbase-3b"
+    # model = "bigcode/starcoderbase-7b"
+
+    # model = "deepseek-ai/deepseek-coder-1.3b-base"
     # model = "deepseek-ai/deepseek-coder-6.7b-base"
-    # model = "deepseek-ai/deepseek-coder-6.7b-instruct"
+    # model = "deepseek-ai/deepseek-coder-33b-base"
+
     # model = "Qwen/Qwen2-72B"
-    # model = "Qwen/Qwen2-72B-instruct"
+    model = "Qwen/Qwen2-72B-instruct"
     # model = "Qwen/Qwen2-7B"
     # model = "Qwen/Qwen2-7B-instruct"
 
-    auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
+    # model = "bullerwins/Codestral-22B-v0.1-hf"
 
+    # model = "microsoft/Phi-3-mini-4k-instruct"
+    # model = "microsoft/Phi-3-medium-4k-instruct"
+
+    # auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
+
+    kill_all_servers("ui_copilot_tgi_server")
     # kill_all_servers()
