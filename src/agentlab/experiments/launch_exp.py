@@ -23,9 +23,11 @@ def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers)
 
 def main(
     exp_root,
-    exp_group_name,
     n_jobs,
-    exp_args_list=None,
+    exp_group_name=None,
+    benchmark: str = None,
+    model_name: str = None,
+    exp_args_list=None,  # is this ever used ?
     shuffle_jobs=False,
     auto_accept=False,
     use_threads_instead_of_processes=False,
@@ -35,9 +37,9 @@ def main(
     """Launch a group of experiments.
 
     Args:
-        exp_root: folder where experiments will be saved
         exp_group_name: name of the experiment group to launch as defined in
             exp_configs.EXP_GROUPS
+        exp_root: folder where experiments will be saved
         n_jobs: number of parallel jobs in joblib
         exp_args_list: list of ExpArgs to launch. If None, will use the list
             from exp_configs.EXP_GROUPS[exp_group_name]
@@ -47,8 +49,19 @@ def main(
             joblib, useful for debugging.
         relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
     """
+    if exp_group_name:
+        logging.info(f"Launching experiment group: {exp_group_name}")
+        if benchmark or model_name:
+            logging.info(f"Overriding benchmark: {benchmark} and model_name: {model_name}")
+        extra_kwargs = {}
+
+    elif benchmark and model_name:
+        logging.info(f"Launching benchmark: {benchmark} with model: {model_name}")
+        exp_group_name = "final_run"
+        extra_kwargs = {"benchmark": benchmark, "model_name": model_name}
+
     exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
     )
 
     if shuffle_jobs:
@@ -61,9 +74,13 @@ def main(
 
     # launch servers if needed
     llm_servers = LLMServers(exp_args_list)
+
+    registry = {}
+
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.prepare(exp_root=exp_dir)
+        exp_args.agent_args.chat_model_args.prepare_server(registry)
 
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
@@ -82,7 +99,7 @@ def main(
 
 
 def _validate_launch_mode(
-    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
 ) -> tuple[list[ExpArgs], Path]:
     if relaunch_mode is not None:
         # dig into an existing experiment group and relaunch all incomplete experiments
@@ -115,7 +132,9 @@ def _validate_launch_mode(
         if exp_args_list is None:
             from agentlab.experiments import exp_configs
 
-            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(exp_group_name)
+            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
+                exp_group_name, **extra_kwargs
+            )
 
         # overwriting exp_group_name for the recursive call
         exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
@@ -214,21 +233,39 @@ def meta_main(
 
 
 if __name__ == "__main__":
+    from agentlab.experiments.exp_utils import RESULTS_DIR
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_group_name",
-        default="generic_agent_test",
-    )
-    parser.add_argument(
         "--exp_root",
-        default=Path(agentlab.__file__).parent.parent.parent.parent / "results",
+        default=RESULTS_DIR,
         help="folder where experiments will be saved",
     )
     parser.add_argument(
         "--n_jobs",
-        default=-1,
+        default=1,
         type=int,
         help="number of parallel jobs",
+    )
+    parser.add_argument(
+        "--exp_group_name",
+        type=str,
+        default=None,
+        help="Name of the experiment group to launch as defined in exp_configs.py",
+    )
+    parser.add_argument(
+        "--benchmark",
+        type=str,
+        default="miniwob",
+        choices=["miniwob", "workarena.l1", "workarena.l2", "workarena.l3"],
+        help="Benchmark to launch",
+    )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default="gpt-3.5",
+        choices=["gpt-3.5", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
+        help="Model to launch",
     )
     parser.add_argument(
         "--relaunch_mode",
@@ -239,4 +276,11 @@ if __name__ == "__main__":
     )
 
     args, unknown = parser.parse_known_args()
-    main(args.exp_root, args.exp_group_name, args.n_jobs, relaunch_mode=args.relaunch_mode)
+    main(
+        exp_root=args.exp_root,
+        n_jobs=args.n_jobs,
+        exp_group_name=args.exp_group_name,
+        benchmark=args.benchmark,
+        model_name=args.model_name,
+        relaunch_mode=args.relaunch_mode,
+    )
