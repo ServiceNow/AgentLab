@@ -1,11 +1,4 @@
-from agentlab.llm.chat_api import ChatModelArgs, OpenAIChatModelArgs
-from agentlab.llm import toolkit_configs
-
-default_oss_llms_args = {
-    "infer_tokens_length": True,
-    "max_trunk_itr": int(1e6),
-    "max_new_tokens": 512,
-}
+from agentlab.llm.chat_api import OpenAIChatModelArgs
 
 CLOSED_SOURCE_APIS = [
     "openai",

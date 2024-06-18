@@ -12,10 +12,7 @@ import agentlab
 import argparse
 
 
-def run_exp(exp_args: ExpArgs, server_error_flag: bool):
-    if server_error_flag is not None and server_error_flag.value:
-        logging.info("Skipping job because of server error.")
-        return
+def run_exp(exp_args: ExpArgs):
     exp_args.run()
 
 
@@ -25,20 +22,21 @@ def main(
     exp_group_name=None,
     benchmark: str = None,
     model_name: str = None,
-    exp_args_list=None,  # is this ever used ?
+    exp_args_list=None,  # TODO: is this ever used ?
     shuffle_jobs=False,
     auto_accept=False,
     use_threads_instead_of_processes=False,
     relaunch_mode=None,
-    server_error_flag=None,
 ):
     """Launch a group of experiments.
 
     Args:
-        exp_group_name: name of the experiment group to launch as defined in
-            exp_configs.EXP_GROUPS
         exp_root: folder where experiments will be saved
         n_jobs: number of parallel jobs in joblib
+        exp_group_name: name of the experiment group to launch as defined in
+            exp_configs.EXP_GROUPS. Overrides benchmark and model_name.
+        benchmark: benchmark to launch, among ["miniwob", "workarena.l1", "workarena.l2", "workarena.l3"]
+        model_name: model to launch, among ["gpt-3.5", "gpt-4o", "gpt-4o-vision", "cheat"]
         exp_args_list: list of ExpArgs to launch. If None, will use the list
             from exp_configs.EXP_GROUPS[exp_group_name]
         shuffle_jobs: shuffle the order of the experiments
@@ -80,7 +78,7 @@ def main(
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
         Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(run_exp)(exp_args, server_error_flag) for exp_args in exp_args_list
+            delayed(run_exp)(exp_args) for exp_args in exp_args_list
         )
     finally:
         # will close servers even if there is an exception or ctrl+c
@@ -183,6 +181,7 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
                 raise ValueError(f"Unknown relaunch_mode: {relaunch_mode}")
 
 
+# TODO: is that still relevant since the column fixes on workarena ?
 def meta_main(
     exp_root,
     exp_group_name,
@@ -193,7 +192,6 @@ def meta_main(
     relaunch_mode=None,
     n_retry=10,
 ):
-    # TODO: deprecated: server_error_flag isn't used anymore
 
     manager = multiprocessing.Manager()
     server_error_flag = manager.Value("i", 0)
@@ -258,7 +256,7 @@ if __name__ == "__main__":
         "--model_name",
         type=str,
         default="cheat",
-        choices=["gpt-3.5", "llama3-70b", "gpt-4o", "gpt-4o-vision", "cheat"],
+        choices=["gpt-3.5", "gpt-4o", "gpt-4o-vision", "cheat"],
         help="Model to launch",
     )
     parser.add_argument(
