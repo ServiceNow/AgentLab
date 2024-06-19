@@ -273,6 +273,8 @@ def truncate_tokens(text, max_tokens=8000, start=0, model_name="gpt-4"):
 
 @cache
 def get_tokenizer(model_name="openai/gpt-4"):
+    if model_name.startswith("test"):
+        return tiktoken.encoding_for_model("gpt-4")
     if model_name.startswith("openai"):
         return tiktoken.encoding_for_model(model_name.split("/")[-1])
     if model_name.startswith("reka"):

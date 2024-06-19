@@ -6,10 +6,10 @@ def test_all_configs():
         "generic_agent_test",
         "tgi_toolkit_test",
         "generic_agent_eval_llm",
-        "random_search",
         "progression_study",
         "ablation_study",
         "demo_maker",
+        "final_run",
     ]
 
     for exp_name in exp_name_list:
