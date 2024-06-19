@@ -83,6 +83,7 @@ def tgi_toolkit_test():
     basic_flags = BASIC_FLAGS.copy()
     basic_flags.obs.use_html = False
     basic_flags.obs.use_ax_tree = True
+    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=5, n_repeat=2)[:4]
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
@@ -90,12 +91,7 @@ def tgi_toolkit_test():
                 chat_model_args=CHAT_MODEL_ARGS_DICT["microsoft/Phi-3-mini-4k-instruct"],
                 flags=basic_flags,
             ),
-            env_args=EnvArgs(
-                max_steps=5,
-                task_seed=args.CrossProd([None] * 2),
-                # task_name=args.CrossProd(tasks.miniwob_tiny_test),
-                task_name=args.CrossProd(tasks.workarena_tasks_l1[:2]),
-            ),
+            env_args=args.CrossProd(env_args_list),
             enable_debug=True,
         )
     )
@@ -518,15 +514,12 @@ def demo_maker():
     flags.obs.use_screenshot = True
     flags.action.demo_mode = "all_blue"
 
-    env_args = EnvArgs(
-        task_name=args.CrossProd(tasks.workarena_tasks_l1),
-        task_seed=args.CrossProd([None] * 3),
-        max_steps=15,
-        viewport={"width": 1280, "height": 720},
-        record_video=True,
-        wait_for_user_message=False,
-        slow_mo=1000,
-    )
+    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=15, n_repeat=3)
+    for env_args in env_args_list:
+        env_args.viewport = {"width": 1280, "height": 720}
+        env_args.record_video = True
+        env_args.wait_for_user_message = False
+        env_args.slow_mo = 1000
 
     return args.expand_cross_product(
         ExpArgs(
@@ -534,7 +527,7 @@ def demo_maker():
                 chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
                 flags=flags,
             ),
-            env_args=env_args,
+            env_args=args.CrossProd(env_args_list),
             enable_debug=False,
         )
     )
