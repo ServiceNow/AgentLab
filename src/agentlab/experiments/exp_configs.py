@@ -94,7 +94,7 @@ def tgi_toolkit_test():
         ExpArgs(
             agent_args=GenericAgentArgs(
                 # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
-                chat_model_args=CHAT_MODEL_ARGS_DICT["microsoft/Phi-3-mini-4k-instruct"],
+                chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-8B-Instruct"],
                 flags=basic_flags,
             ),
             env_args=args.CrossProd(env_args_list),

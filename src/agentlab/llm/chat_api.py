@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
 import re
 
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
 from agentlab.llm.toolkit_servers import (
     auto_launch_server,
-    compute_total_params,
     kill_server,
     check_server_status,
 )
