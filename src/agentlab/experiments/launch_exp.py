@@ -12,11 +12,7 @@ import agentlab
 import argparse
 
 
-def run_exp(exp_args: ExpArgs, server_error_flag: bool, registry: dict):
-    if server_error_flag is not None and server_error_flag.value:
-        logging.info("Skipping job because of server error.")
-        return
-    exp_args.agent_args.chat_model_args.wait_server(registry)
+def run_exp(exp_args: ExpArgs):
     exp_args.run()
 
 
@@ -76,8 +72,8 @@ def main(
 
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
-        exp_args.prepare(exp_root=exp_dir)
         exp_args.agent_args.chat_model_args.prepare_server(registry)
+        exp_args.prepare(exp_root=exp_dir)
 
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
@@ -185,49 +181,6 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
                     yield exp_result.exp_args
             else:
                 raise ValueError(f"Unknown relaunch_mode: {relaunch_mode}")
-
-
-def meta_main(
-    exp_root,
-    exp_group_name,
-    n_jobs,
-    shuffle_jobs=True,
-    auto_accept=False,
-    use_threads_instead_of_processes=False,
-    relaunch_mode=None,
-    n_retry=10,
-):
-    # TODO: deprecated: server_error_flag isn't used anymore
-
-    manager = multiprocessing.Manager()
-    server_error_flag = manager.Value("i", 0)
-
-    itr = 0
-    while itr < n_retry:
-        exp_group_name = main(
-            exp_root=exp_root,
-            exp_group_name=exp_group_name,
-            n_jobs=n_jobs,
-            shuffle_jobs=shuffle_jobs,
-            auto_accept=auto_accept,
-            use_threads_instead_of_processes=use_threads_instead_of_processes,
-            relaunch_mode=relaunch_mode,
-            server_error_flag=server_error_flag,
-        )
-        if not server_error_flag.value:
-            return
-
-        # values to overwrite for the next iterations
-        server_error_flag.value = 0
-        relaunch_mode = "server_errors"
-        auto_accept = True
-
-        itr += 1
-        logging.info("\n-----------------------------------")
-        logging.info(f"Server error occurred. Retrying {itr}/{n_retry}...")
-        logging.info("-----------------------------------\n")
-
-    logging.info("Server error occurred too many times. Aborting.")
 
 
 if __name__ == "__main__":
