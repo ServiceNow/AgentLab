@@ -224,7 +224,10 @@ def get_benchmark_env_args(
     filters = benchmark_name.split(".")
     benchmark_id = filters[0]
     if filters[0] == "workarena":
-        benchmark_id = "workarena." + filters[1]
+        # benchmark_id = "workarena." + filters[1]
+        benchmark_id = benchmark_name
+    # elif filters[0] == "miniwob":
+    #     benchmark_id = "miniwob." + filters[0]
 
     max_steps_default = {
         "workarena.l1": 15,
@@ -232,6 +235,8 @@ def get_benchmark_env_args(
         "workarena.l3": 30,
         "webarena": 15,
         "miniwob": 10,
+        "miniwob.click-menu-2": 10,
+        "workarena.servicenow.all-menu": 10,
     }
 
     n_repeat_default = {
@@ -240,6 +245,8 @@ def get_benchmark_env_args(
         "workarena.l3": 1,
         "webarena": 1,
         "miniwob": 5,
+        "miniwob.click-menu-2": 10,
+        "workarena.servicenow.all-menu": 10,
     }
 
     if max_steps is None:
@@ -258,7 +265,11 @@ def get_benchmark_env_args(
         if len(filters) < 2:
             raise ValueError(f"You must specify the sub set of workarena, e.g.: workarena.l2.")
 
-        if benchmark_name == "workarena.l1.sort":
+        if benchmark_name == "workarena.servicenow.all-menu":
+            task_names = [benchmark_name]
+            env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
+
+        elif benchmark_name == "workarena.l1.sort":
             task_names = [task.get_task_id() for task in ATOMIC_TASKS]
             task_names = [task for task in task_names if "sort" in task]
             env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
@@ -274,8 +285,12 @@ def get_benchmark_env_args(
 
     elif benchmark_name == "webarena":
         env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
-    elif benchmark_name == "miniwob":
-        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_repeat, rng)
+    elif benchmark_name.startswith("miniwob"):
+        if benchmark_name == "miniwob":
+            env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_repeat, rng)
+        else:
+            env_args_list = _make_env_args([benchmark_name], max_steps, n_repeat, rng)
+
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
