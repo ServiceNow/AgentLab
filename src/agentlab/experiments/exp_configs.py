@@ -19,6 +19,50 @@ from agentlab.agents.generic_agent.configs import (
 )
 
 
+FLAGS_CUSTOM = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=False,
+        use_ax_tree=True,
+        use_focused_element=True,
+        use_error_logs=True,
+        use_history=True,
+        use_past_error_logs=False,
+        use_action_history=True,
+        use_think_history=False,
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=True,
+        extract_clickable_tag=False,
+        extract_coords="False",
+        filter_visible_elements_only=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=False,
+        action_set="bid",
+        long_description=False,
+        individual_examples=True,
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=True,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=True,
+    enable_chat=False,
+    max_prompt_tokens=None,
+    be_cautious=True,
+    extra_instructions=None,
+)
+
+AGENT_CUSTOM = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    flags=FLAGS_CUSTOM,
+)
+
+
 def get_exp_args_list(func_name: str, *a, **kw):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
@@ -89,12 +133,16 @@ def tgi_toolkit_test():
     basic_flags = BASIC_FLAGS.copy()
     basic_flags.obs.use_html = False
     basic_flags.obs.use_ax_tree = True
-    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=5, n_repeat=2)[:4]
+    env_args_list = tasks.get_benchmark_env_args(
+        "workarena.l1", max_steps=5, n_repeat=2
+    )[:4]
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
                 # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
-                chat_model_args=CHAT_MODEL_ARGS_DICT["microsoft/Phi-3-mini-4k-instruct"],
+                chat_model_args=CHAT_MODEL_ARGS_DICT[
+                    "microsoft/Phi-3-mini-4k-instruct"
+                ],
                 flags=basic_flags,
             ),
             env_args=args.CrossProd(env_args_list),
@@ -143,7 +191,9 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+                chat_model_args=args.CrossProd(
+                    [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+                ),
                 flags=flags,
             ),
             env_args=args.CrossProd(env_args_list),
@@ -238,10 +288,14 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
         agent = AGENT_4o_VISION
     elif model_name.lower() in ["cheat"]:
         agent = AGENT_CHEAT_MINIWOB
+    elif model_name.lower() in ["custom"]:
+        agent = AGENT_CUSTOM
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=None, n_repeat=None)
+    env_args_list = tasks.get_benchmark_env_args(
+        benchmark, max_steps=None, n_repeat=None
+    )
 
     return args.expand_cross_product(
         ExpArgs(
@@ -442,7 +496,9 @@ def demo_maker():
     flags.obs.use_screenshot = True
     flags.action.demo_mode = "all_blue"
 
-    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=15, n_repeat=3)
+    env_args_list = tasks.get_benchmark_env_args(
+        "workarena.l1", max_steps=15, n_repeat=3
+    )
     for env_args in env_args_list:
         env_args.viewport = {"width": 1280, "height": 720}
         env_args.record_video = True
