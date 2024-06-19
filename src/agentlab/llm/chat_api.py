@@ -101,6 +101,24 @@ class ChatModelArgs(ABC):
 
 
 @dataclass
+class CheatMiniWoBLLMArgs:
+    model_name = "test/cheat_miniwob_click_test"
+    max_total_tokens = 1024
+    max_input_tokens = 1024 - 128
+    max_new_tokens = 128
+    max_trunk_itr = 10
+
+    def make_chat_model(self):
+        return CheatMiniWoBLLM()
+
+    def prepare_server(self, registry):
+        pass
+
+    def close_server(self, registry):
+        pass
+
+
+@dataclass
 class OpenAIChatModelArgs(ChatModelArgs):
     vision_support: bool = False
 

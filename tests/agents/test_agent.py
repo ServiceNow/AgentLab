@@ -1,7 +1,7 @@
 import tempfile
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import BASIC_FLAGS
-from agentlab.llm.chat_api import ChatModelArgs
+from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments import launch_exp
 from agentlab.analyze import inspect_results
@@ -10,7 +10,7 @@ from agentlab.analyze import inspect_results
 def test_generic_agent():
     exp_args = ExpArgs(
         agent_args=GenericAgentArgs(
-            chat_model_args=ChatModelArgs(model_name="test/CheatMiniWoBLLM"),
+            chat_model_args=CheatMiniWoBLLMArgs(),
             flags=BASIC_FLAGS,
         ),
         env_args=EnvArgs(task_name="miniwob.click-test", task_seed=42),
