@@ -86,16 +86,17 @@ def generic_agent_test():
 
 def tgi_toolkit_test():
     """Minimalistic experiment to test the system."""
-    basic_flags = BASIC_FLAGS.copy()
-    basic_flags.obs.use_html = False
-    basic_flags.obs.use_ax_tree = True
-    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=5, n_repeat=2)[:4]
+    benchmark = "miniwob"
+    flags = AGENT_70B.flags
+    flags = miniwob_add_html(benchmark, flags)
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=5, n_repeat=2)[:4]
+
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
                 # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
                 chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-8B-Instruct"],
-                flags=basic_flags,
+                flags=flags,
             ),
             env_args=args.CrossProd(env_args_list),
             enable_debug=True,
