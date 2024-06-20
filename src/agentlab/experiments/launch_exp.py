@@ -1,6 +1,5 @@
 from datetime import datetime
 import logging
-import multiprocessing
 from pathlib import Path
 import random
 from joblib import Parallel, delayed
@@ -8,12 +7,7 @@ from agentlab.analyze import error_categorization
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
-import agentlab
 import argparse
-
-
-def run_exp(exp_args: ExpArgs):
-    exp_args.run()
 
 
 def main(
@@ -27,7 +21,6 @@ def main(
     auto_accept=False,
     use_threads_instead_of_processes=False,
     relaunch_mode=None,
-    server_error_flag=None,
 ):
     """Launch a group of experiments.
 
@@ -78,7 +71,7 @@ def main(
     try:
         prefer = "threads" if use_threads_instead_of_processes else "processes"
         Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(run_exp)(exp_args, server_error_flag, registry) for exp_args in exp_args_list
+            delayed(exp_args.run)() for exp_args in exp_args_list
         )
     finally:
         # will close servers even if there is an exception or ctrl+c
@@ -86,7 +79,7 @@ def main(
         # TODO: it would be convinient to have a way to close servers in that case.
         logging.info("Closing all LLM servers...")
         for exp_args in exp_args_list:
-            exp_args.agent_args.chat_model_args.close_server()
+            exp_args.agent_args.chat_model_args.close_server(registry)
         logging.info("LLM servers closed.")
 
     return exp_group_name
