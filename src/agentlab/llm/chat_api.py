@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 from dataclasses import dataclass
 import json
 import re
@@ -57,12 +57,21 @@ class CheatMiniWoBLLM:
         return self.invoke(messages)
 
 
+class PostInitMeta(ABCMeta):
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        for base in cls.__mro__[1:]:
+            if hasattr(base, "__post_init__"):
+                base.__post_init__(instance)
+        return instance
+
+
 @dataclass
-class ChatModelArgs(ABC):
+class ChatModelArgs(ABC, metaclass=PostInitMeta):
     model_name: str
-    max_total_tokens: int
-    max_input_tokens: int
-    max_new_tokens: int
+    max_total_tokens: int = None
+    max_input_tokens: int = None
+    max_new_tokens: int = None
     max_trunk_itr: int = None
     temperature: float = 0.1
     model_url: str = None
@@ -70,6 +79,13 @@ class ChatModelArgs(ABC):
     def __post_init__(self):
         if self.max_total_tokens is None:
             self.max_total_tokens = 4096
+
+        if self.max_new_tokens is None and self.max_input_tokens is not None:
+            self.max_new_tokens = self.max_total_tokens - self.max_input_tokens
+        elif self.max_new_tokens is not None and self.max_input_tokens is None:
+            self.max_input_tokens = self.max_total_tokens - self.max_new_tokens
+        elif self.max_new_tokens is None and self.max_input_tokens is None:
+            raise ValueError("max_new_tokens or max_input_tokens must be specified")
 
     @abstractmethod
     def make_chat_model(self):
@@ -225,6 +241,7 @@ class ToolkitModelArgs(ChatModelArgs):
         else:
             job_id, model_url = auto_launch_server(self)
             registry[self.key()] = {"job_id": job_id, "model_url": model_url, "is_ready": False}
+            self.model_url = model_url
 
         self.wait_server(registry)
         return
@@ -255,6 +272,7 @@ class RekaChatModel(SimpleChatModel):
 
     def __init__(self, model_name: str, n_retry_server: int):
         super().__init__()
+        import reka
 
         self.llm = partial(reka.chat, model_name=model_name)
         self.column_remap = {
