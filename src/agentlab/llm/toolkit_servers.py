@@ -4,8 +4,40 @@ import os
 import subprocess
 import time
 import yaml
+from huggingface_hub import InferenceClient
 
 from agentlab.llm import toolkit_configs
+
+
+# TODO: the base infra hparams could be infered from total params
+# NOTE: optimizing for a 8-16k context window
+INFRA_HPARAMS_DICT_BASE = {
+    4: {"gpu": 1, "gpu_mem": 12, "cpu": 6, "mem": 64},  # NOTE: for tests
+    8: {"gpu": 1, "cpu": 6, "mem": 64},
+    21: {"gpu": 2, "cpu": 8, "mem": 128},
+    41: {"gpu": 2, "cpu": 8, "mem": 128},
+    56: {"gpu": 2, "cpu": 8, "mem": 256},
+    70: {"gpu": 4, "cpu": 12, "mem": 256},
+    200: {
+        "gpu": 4,
+        "cpu": 12,
+        "mem": 512,
+    },
+    300: {
+        "gpu": 5,
+        "cpu": 12,
+        "mem": 512,
+    },
+}
+
+# TODO: definetely needs improvement
+CONTEXT_WINDOW_EXTRA_GPU = {
+    8_096: 0,
+    16_384: 0,
+    32_768: 1,
+    64_000: 2,
+    128_000: 3,
+}
 
 
 def launch_toolkit_tgi_server(
@@ -26,7 +58,7 @@ def launch_toolkit_tgi_server(
         raise ValueError("Model name must be provided.")
 
     max_input_length = max_total_tokens - max_new_tokens
-    now = datetime.now()
+    now = datetime.datetime.now()
     job_name_now = f"{job_name}_{now.strftime('%y%m%d_%H%M%S')}"
 
     # NOTE: you need to set MAX_BATCH_PREFILL_TOKENS >= MAX_INPUT_LENGTH
