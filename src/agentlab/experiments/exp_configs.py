@@ -330,9 +330,7 @@ def final_run():
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
-    env_args_list = tasks.get_benchmark_env_args(
-        benchmark, meta_seed=43, max_steps=None, n_repeat=None
-    )
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=None, n_repeat=None)
 
     return args.expand_cross_product(
         ExpArgs(
