@@ -3,6 +3,7 @@ import copy
 from dataclasses import fields, is_dataclass
 from itertools import product
 from typing import Any
+
 import numpy as np
 
 
