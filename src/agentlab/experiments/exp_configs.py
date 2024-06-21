@@ -111,7 +111,7 @@ def tgi_toolkit_test():
     basic_flags = BASIC_FLAGS.copy()
     basic_flags.obs.use_html = False
     basic_flags.obs.use_ax_tree = True
-    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=5, n_repeat=2)[:4]
+    env_args_list = tasks.get_benchmark_env_args("miniwob", max_steps=5, n_repeat=2)[:4]
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
