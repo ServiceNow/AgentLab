@@ -1,4 +1,6 @@
 import logging
+from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
+from browsergym.experiments.loop import EnvArgs
 import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
@@ -54,6 +56,32 @@ def order(exp_args_list):
     return exp_args_list
 
 
+def fix_flags(benchmark: str, mode: str = None, flags: GenericPromptFlags = None):
+    if not mode:
+        mode = "single_eval"
+        logging.warning(f"Mode not specified, defaulting to {mode}")
+    if mode not in ["single_eval", "rs", "OSS_eval", "OSS_rs", "finetuning_eval"]:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    if mode == "single_eval":
+        if benchmark == "miniwob":
+            flags.obs.use_html = True
+
+    if mode == "OSS_rs":
+        if "miniwob" in benchmark:
+            flags = MINIWOB_RS_OSS_FLAGS
+        else:
+            flags = RS_OSS_FLAGS
+
+    if mode == "finetuning_eval":
+        if "miniwob" in benchmark:
+            flags = FINETUNING_MINIWOB_FLAGS
+        else:
+            flags = FINETUNING_FLAGS
+
+    return flags
+
+
 def miniwob_add_html(benchmark: str, flags: GenericPromptFlags):
     if benchmark == "miniwob":
         flags.obs.use_html = True
@@ -83,12 +111,12 @@ def tgi_toolkit_test():
     basic_flags = BASIC_FLAGS.copy()
     basic_flags.obs.use_html = False
     basic_flags.obs.use_ax_tree = True
-    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=5, n_repeat=2)[:4]
+    env_args_list = tasks.get_benchmark_env_args("miniwob", max_steps=5, n_repeat=2)[:4]
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
                 # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
-                chat_model_args=CHAT_MODEL_ARGS_DICT["microsoft/Phi-3-mini-4k-instruct"],
+                chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-8B-Instruct"],
                 flags=basic_flags,
             ),
             env_args=args.CrossProd(env_args_list),
@@ -109,10 +137,9 @@ model_name_list = [
     # "openai/gpt-4-0613",
     # "openai/gpt-4-1106-preview",
     # "openai/gpt-4-turbo-2024-04-09",
-    "openai/gpt-4o-2024-05-13",
+    # "openai/gpt-4o-2024-05-13",
     # ------------------ OSS ------------------------
-    # "finetuning/Meta-Llama-3-8B-Instruct",
-    # "meta-llama/Meta-Llama-3-8B-Instruct",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
     # "codellama/CodeLlama-34b-Instruct-hf",
@@ -121,7 +148,14 @@ model_name_list = [
     # "mistralai/Mixtral-8x7B-Instruct-v0.1",
     # "microsoft/WizardLM-2-8x22B"
     # "finetuning/Meta-Llama-3-8B-Instruct",
+    # "finetuning/debug",
 ]
+
+# set to None or empty dict to keep the default values
+overwrite_chat_model_args_dict = {
+    # "model_url": "https://6be22ad6-b39e-4a6c-9449-c4d67f67e1af.job.console.elementai.com",
+    # "max_total_tokens": 16_384,
+}
 
 
 # test GenericAgent with different LLMs
@@ -142,13 +176,18 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     flags.action.long_description = False
 
     flags = miniwob_add_html(benchmark, flags)
-
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=20)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
 
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+                chat_model_args=args.CrossProd(chat_model_args_list),
                 flags=flags,
             ),
             env_args=args.CrossProd(env_args_list),
@@ -158,7 +197,12 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     )
 
 
-def random_search(benchmark: str = "miniwob"):
+def random_search(
+    # benchmark: str = "workarena.servicenow.all-menu",
+    # benchmark: str = "miniwob.click-menu-2",
+    benchmark: str = "workarena.l1",
+    mode="OSS_rs",
+):
     """Example of random search. Modify this at will, but don't push your
     changes.
 
@@ -167,23 +211,33 @@ def random_search(benchmark: str = "miniwob"):
     analyze the  results with caution and don't actually draw final conclusions
     from these experiments.
     """
-    flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
+    flags = fix_flags(benchmark, mode=mode, flags=DEFAULT_RS_FLAGS)
+    # flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
+
     env_args_list = tasks.get_benchmark_env_args(benchmark)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.Choice([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
+                chat_model_args=args.Choice(chat_model_args_list),
                 flags=flags,
             ),
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
         ),
-        n_samples=20,  # number of samples
+        n_samples=40,  # number of samples
     )
 
 
-def progression_study(benchmark: str = "miniwob"):
+def progression_study(
+    benchmark: str = "miniwob",
+):
     """Example of a progression study. Modify this at will, but don't push your
     changes.
 
@@ -230,13 +284,17 @@ def progression_study(benchmark: str = "miniwob"):
     flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
+
     return order(
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=args.CrossProd(
-                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-                    ),
+                    chat_model_args=args.CrossProd(chat_model_args_list),
                     flags=args.make_progression_study(
                         start_point=flags,
                         changes=[
@@ -265,7 +323,8 @@ def final_run():
     # benchmark = "webarena"
 
     # agent = AGENT_3_5
-    agent = AGENT_70B
+    # agent = AGENT_70B
+    agent = AGENT_8B
     # agent = AGENT_4o
     # agent = AGENT_4o_VISION
 
@@ -283,7 +342,10 @@ def final_run():
     )
 
 
-def ablation_study(benchmark: str = "workarena.l1"):
+def ablation_study(
+    benchmark: str = "workarena.l1",
+    # benchmark: str = "miniwob",
+):
 
     flags = GenericPromptFlags(
         obs=dp.ObsFlags(
@@ -328,13 +390,17 @@ def ablation_study(benchmark: str = "workarena.l1"):
         benchmark,
     )
 
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
+
     return order(
         args.expand_cross_product(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=args.CrossProd(
-                        [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-                    ),
+                    chat_model_args=args.CrossProd(chat_model_args_list),
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
@@ -416,12 +482,15 @@ def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
     )
 
 
-def ablation_study_OSS(benchmark: str = "workarena.l1"):
+def ablation_study_OSS(
+    # benchmark: str = "workarena.l1",
+    benchmark: str = "miniwob",
+):
 
     flags = FLAGS_70B
 
     flags = miniwob_add_html(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(benchmark, n_seeds_default=5)
+    env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
 
     return order(
         args.expand_cross_product(
@@ -444,9 +513,6 @@ def ablation_study_OSS(benchmark: str = "workarena.l1"):
                             (".obs.extract_visible_tag", False),
                             # agent features
                             (".use_thinking", False),
-                            (".use_abstract_example", False),
-                            (".use_concrete_example", False),
-                            (".use_plan", True),
                         ],
                     ),
                 ),
@@ -525,6 +591,55 @@ def demo_maker():
             ),
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
+        )
+    )
+
+
+def finetuning_eval(
+    # benchmark: str = "workarena.servicenow.all-menu",
+    # dataset_name: str = "AllMenuTask_240603",
+    # benchmark: str = "miniwob.click-menu-2",
+    # dataset_name: str = "miniwob_overfit_240523",
+    benchmark: str = "workarena.l1",
+    dataset_name: str = "ATOMIC_TASKS_240604",
+):
+    """Evaluate GenericAgent with different LLMs on a selected benchmark."""
+
+    assert len(model_name_list) == 1, "Only one model is supported for finetuning eval"
+    assert model_name_list[0].startswith(
+        "finetuning/"
+    ), "Only finetuning models are supported for finetuning eval"
+
+    flags = fix_flags(
+        benchmark,
+        mode="finetuning_eval",
+    )
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
+
+    model_path = chat_model_args_list[0].model_path
+    new_model_path = model_path + f"/{dataset_name}"
+    chat_model_args_list = overwrite_chat_model_arg(
+        chat_model_args_list, {"model_path": new_model_path}
+    )
+
+    return args.expand_cross_product(
+        ExpArgs(
+            agent_args=GenericAgentArgs(
+                chat_model_args=args.CrossProd(
+                    get_ckpt_list(CHAT_MODEL_ARGS_DICT[model_name_list[0]])
+                ),
+                flags=flags,
+            ),
+            env_args=args.CrossProd(env_args_list),
+            # enable_debug=True,
+            enable_debug=False,
+            logging_level=logging.INFO,
         )
     )
 
@@ -611,8 +726,10 @@ MINIWOB_RS_OSS_FLAGS = GenericPromptFlags(
 
 RS_OSS_FLAGS = GenericPromptFlags(
     obs=dp.ObsFlags(
-        use_html=args.Choice([True, False], p=[0.75, 0.25]),
-        use_ax_tree=args.Choice([True, False], p=[0.75, 0.25]),
+        # use_html=args.Choice([True, False], p=[0.75, 0.25]),
+        # use_ax_tree=args.Choice([True, False], p=[0.75, 0.25]),
+        use_html=False,
+        use_ax_tree=True,
         use_focused_element=False,
         use_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
         use_history=args.Choice([True, False], p=[0.8, 0.2]),
@@ -646,6 +763,33 @@ RS_OSS_FLAGS = GenericPromptFlags(
     enable_chat=False,
     max_prompt_tokens=None,
     extra_instructions=None,
+    use_retry_and_fit=True,
+)
+
+FINETUNING_MINIWOB_FLAGS = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=True,
+        use_ax_tree=False,
+        use_think_history=False,
+        use_error_logs=False,
+        use_past_error_logs=False,
+        use_history=True,
+        use_action_history=True,
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=False,
+        action_set="bid",
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=False,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=False,
 )
 
 
@@ -658,7 +802,9 @@ FINETUNING_FLAGS = GenericPromptFlags(
         use_past_error_logs=False,
         use_history=True,
         use_action_history=True,
-        use_diff=True,
+        # use_diff=True,
+        use_diff=False,
+        html_type="pruned_html",
         use_screenshot=False,
     ),
     action=dp.ActionFlags(
@@ -669,8 +815,8 @@ FINETUNING_FLAGS = GenericPromptFlags(
     use_criticise=False,
     use_thinking=False,
     use_memory=False,
-    use_concrete_example=False,
-    use_abstract_example=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
     use_hints=False,
 )
 
@@ -712,6 +858,45 @@ FLAGS_GPT_3_5 = GenericPromptFlags(
     extra_instructions=None,
 )
 
+FLAGS_8B = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=False,
+        use_ax_tree=True,
+        use_focused_element=True,
+        use_error_logs=False,
+        use_history=True,
+        use_past_error_logs=False,
+        use_action_history=True,
+        use_think_history=False,
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=False,
+        extract_clickable_tag=False,
+        extract_coords="False",
+        filter_visible_elements_only=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=True,
+        action_set="bid",
+        long_description=False,
+        individual_examples=True,
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=True,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=True,
+    enable_chat=False,
+    max_prompt_tokens=None,
+    be_cautious=True,
+    extra_instructions=None,
+    add_missparsed_messages=True,
+    use_retry_and_fit=True,
+)
 
 FLAGS_70B = GenericPromptFlags(
     obs=dp.ObsFlags(
@@ -805,6 +990,11 @@ AGENT_3_5 = GenericAgentArgs(
 AGENT_70B = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
     flags=FLAGS_70B,
+)
+
+AGENT_8B = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-8B-Instruct"],
+    flags=FLAGS_8B,
 )
 
 AGENT_4o = GenericAgentArgs(

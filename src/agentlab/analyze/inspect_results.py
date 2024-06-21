@@ -266,37 +266,6 @@ def summarize_stats(sub_df):
     return pd.Series(record)
 
 
-# NOTE: decprecated but I might want to use it again
-def summarize_tgi(sub_df):
-    err = sub_df["err_msg"].notnull()
-
-    n_server_errors = (
-        sub_df["stack_trace"]
-        .apply(
-            is_server_error,
-        )
-        .sum()
-    )
-
-    n_completed = (err | sub_df["truncated"] | sub_df["terminated"]).sum()
-
-    record = dict(
-        avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-        avg_reward_server_corr=(
-            sub_df["cum_reward"].mean(skipna=True) * n_completed / (n_completed - n_server_errors)
-        ).round(3),
-        avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
-        avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
-        n_completed=f"{n_completed}/{len(sub_df)}",
-        n_err=err.sum(skipna=True),
-        n_server_errors=n_server_errors,
-        # total_cost=sub_df["total_cost"].sum(skipna=True).round(3),
-        # exp_dir=",".join([str(path).split("/")[-1] for path in sub_df["exp_dir"]]),
-    )
-
-    return pd.Series(record)
-
-
 def _find_diff(tuple1, tuple2):
     """return the list of index wher tuple1 != tuple2"""
     return [i for i, (a, b) in enumerate(zip(tuple1, tuple2)) if a != b]
@@ -511,6 +480,7 @@ def display_report(
     apply_shrink_columns: bool = True,
     copy_to_clipboard: bool = True,
     rename_bool_flags: bool = True,
+    print_only: str = None,
 ):
     """Display the report in a nicer-ish format.
 
@@ -524,6 +494,7 @@ def display_report(
             underscores with newlines
         copy_to_clipboard: Copy the report to the clipboard
         rename_bool_flags: Rename the boolean flags to be more compact and readable
+        print_only: Print only the given column
     """
     report = report.copy()
 
@@ -536,7 +507,13 @@ def display_report(
     if copy_to_clipboard:
         to_clipboard(report)
 
+    columns = list(report.columns)
+
     report.reset_index(inplace=True)
+
+    if print_only:
+        columns = [print_only] + columns
+        report = report[columns]
 
     styled_report = set_wrap_style(report)
 
