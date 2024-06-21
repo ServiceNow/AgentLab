@@ -82,29 +82,6 @@ def fix_flags(benchmark: str, mode: str = None, flags: GenericPromptFlags = None
     return flags
 
 
-def get_n_seeds(benchmark: str, default_n_seeds: int = 5):
-    if benchmark == "webarena":
-        return 1
-    if benchmark == "workarena.servicenow.all-menu":
-        return 10
-    if benchmark == "miniwob.click-menu-2":
-        return 10
-
-    return default_n_seeds
-
-
-def get_task_list(benchmark: str):
-    if benchmark == "miniwob":
-        return tasks.miniwob_all
-    elif benchmark == "workarena":
-        return tasks.workarena_tasks
-    elif benchmark == "webarena":
-        return tasks.webarena_tasks
-    else:
-        # TODO: automate this
-        return [benchmark]
-
-
 def miniwob_add_html(benchmark: str, flags: GenericPromptFlags):
     if benchmark == "miniwob":
         flags.obs.use_html = True
@@ -198,9 +175,6 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     flags.action.action_set = "bid"
     flags.action.individual_examples = False
     flags.action.long_description = False
-
-    # n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
-    # task_list = get_task_list(benchmark)
 
     flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=20)
@@ -415,8 +389,6 @@ def ablation_study(
     )
 
     # flags = fix_flags(benchmark, flags)
-    # n_seeds = get_n_seeds(benchmark, default_n_seeds=5)
-    # task_list = get_task_list(benchmark)
 
     flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(
@@ -809,7 +781,6 @@ FINETUNING_MINIWOB_FLAGS = GenericPromptFlags(
         use_history=True,
         use_action_history=True,
         use_diff=False,
-        # use_diff=True,
         html_type="pruned_html",
         use_screenshot=False,
     ),
@@ -831,8 +802,6 @@ FINETUNING_FLAGS = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
-        # use_html=True,
-        # use_ax_tree=False,
         use_think_history=False,
         use_error_logs=False,
         use_past_error_logs=False,
