@@ -65,7 +65,7 @@ def add_to_bashrc(var, value):
                 command = f'echo "export {var}={value}" >> {rc_file}'
                 subprocess.run(command, shell=True)
     else:
-        print(
+        logging.warning(
             "Error: Neither ~/.bashrc nor ~/.zshrc file exists. Your environment variables will not be saved."
         )
 
@@ -82,7 +82,7 @@ try:
     result = subprocess.run(command, shell=True, capture_output=True)
     ACCOUNT_NAME = yaml.safe_load(result.stdout)["fullName"]
 except:
-    print(
+    logging.error(
         "Error: Could not get your eai account. You won't be able to automatically lauch OSS LLMs"
     )
 
@@ -97,11 +97,9 @@ def set_env_var_if_unset(var_name, value):
     """
     if os.getenv(var_name) is None:
         os.environ[var_name] = value
-        print(
+        logging.warning(
             f"Warning: The environment variable '{var_name}' was not set and has been set to '{value}'."
         )
-    else:
-        print(f"The environment variable '{var_name}' is already set.")
 
 
 ## WorkArena
@@ -111,7 +109,7 @@ SNOW_INSTANCE_UNAME = "admin"
 SNOW_INSTANCE_PWD = r"xx^DUF7Pu!z9"
 
 ## WebArena
-SERVER_HOSTNAME = "ec2-3-21-46-179.us-east-2.compute.amazonaws.com"
+SERVER_HOSTNAME = "http://webarena.eastus.cloudapp.azure.com"
 
 config = {
     # WorkArena
@@ -124,9 +122,9 @@ config = {
     "SHOPPING_ADMIN": f"{SERVER_HOSTNAME}:7565/admin",
     "REDDIT": f"{SERVER_HOSTNAME}:9001",
     "GITLAB": f"{SERVER_HOSTNAME}:8080",
-    "WIKIPEDIA": f"{SERVER_HOSTNAME}:80/wikipedia_en_all_maxi_2022-05/A/User:The_other_Kiwix_guy/Landing",
-    "MAP": f"{SERVER_HOSTNAME}:22",
-    "HOMEPAGE": f"{SERVER_HOSTNAME}:42022",
+    "WIKIPEDIA": f"{SERVER_HOSTNAME}:42022/wikipedia_en_all_maxi_2022-05/A/User:The_other_Kiwix_guy/Landing",
+    "MAP": f"{SERVER_HOSTNAME}:443",
+    "HOMEPAGE": f"{SERVER_HOSTNAME}:80",
 }
 
 for key, value in config.items():
