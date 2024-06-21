@@ -73,25 +73,9 @@ CHAT_MODEL_ARGS_DICT = {
         is_model_operational=True,
         **default_oss_llms_args,
     ),
-    "finetuning/debug0": ChatModelArgs(
+    "finetuning/debug": ChatModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
         model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/ATOMIC_TASKS_240604/ckpt_itr_0",
-        training_total_tokens=8_192,
-        model_size=8,
-        is_model_operational=True,
-        **default_oss_llms_args,
-    ),
-    "finetuning/debug1": ChatModelArgs(
-        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
-        model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/ATOMIC_TASKS_240604/ckpt_itr_1",
-        training_total_tokens=8_192,
-        model_size=8,
-        is_model_operational=True,
-        **default_oss_llms_args,
-    ),
-    "finetuning/debug2": ChatModelArgs(
-        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
-        model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/ATOMIC_TASKS_240604/ckpt_itr_6",
         training_total_tokens=8_192,
         model_size=8,
         is_model_operational=True,
