@@ -388,8 +388,6 @@ def ablation_study(
         extra_instructions=None,
     )
 
-    # flags = fix_flags(benchmark, flags)
-
     flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(
         benchmark,
