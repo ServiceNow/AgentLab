@@ -362,49 +362,10 @@ if __name__ == "__main__":
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
     # model = "finetuning/Meta-Llama-3-8B-Instruct"
     # model = "microsoft/Phi-3-mini-4k-instruct"
-    # model = "bigcode/starcoder2-15b"
+    model = "bigcode/starcoder2-15b"
 
-    ## git chameleon
-    # model = "codellama/CodeLlama-70b-instruct-hf"
-    # model = "codellama/CodeLlama-34b-instruct-hf"
-    # model = "codellama/CodeLlama-13b-instruct-hf"
-    # model = "codellama/CodeLlama-7b-instruct-hf"
-    # model = "codellama/CodeLlama-70b-Python-hf"
-    # model = "codellama/CodeLlama-34b-Python-hf"
-    # model = "codellama/CodeLlama-13b-Python-hf"
-    # model = "codellama/CodeLlama-7b-Python-hf"
-
-    # model = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # model = "meta-llama/Meta-Llama-3-8B-Instruct"
-    # model = "meta-llama/Meta-Llama-3-70B"
-    # model = "meta-llama/Meta-Llama-3-8B"
-
-    # model = "bigcode/starcoder2-15b-instruct-v0.1"
-    # model = "bigcode/starcoder2-15b"
-    # model = "bigcode/starcoder2-3b"
-    # model = "bigcode/starcoder2-7b"
-
-    # model = "bigcode/starcoder"
-    # model = "bigcode/starcoderbase"
-    # model = "bigcode/starcoderbase-1b"
-    # model = "bigcode/starcoderbase-3b"
-    # model = "bigcode/starcoderbase-7b"
-
-    # model = "deepseek-ai/deepseek-coder-1.3b-base"
-    # model = "deepseek-ai/deepseek-coder-6.7b-base"
-    # model = "deepseek-ai/deepseek-coder-33b-base"
-
-    # model = "Qwen/Qwen2-72B"
-    model = "Qwen/Qwen2-72B-instruct"
-    # model = "Qwen/Qwen2-7B"
-    # model = "Qwen/Qwen2-7B-instruct"
-
-    # model = "bullerwins/Codestral-22B-v0.1-hf"
-
-    # model = "microsoft/Phi-3-mini-4k-instruct"
-    # model = "microsoft/Phi-3-medium-4k-instruct"
-
-    # auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
+    auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
 
     kill_all_servers("ui_copilot_tgi_server")
+
     # kill_all_servers()

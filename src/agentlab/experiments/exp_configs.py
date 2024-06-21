@@ -148,10 +148,9 @@ model_name_list = [
     # "mistralai/Mixtral-8x7B-Instruct-v0.1",
     # "microsoft/WizardLM-2-8x22B"
     # "finetuning/Meta-Llama-3-8B-Instruct",
-    # "finetuning/debug0",
-    # "finetuning/debug1",
-    # "finetuning/debug2",
+    # "finetuning/debug",
 ]
+
 # set to None or empty dict to keep the default values
 overwrite_chat_model_args_dict = {
     # "model_url": "https://6be22ad6-b39e-4a6c-9449-c4d67f67e1af.job.console.elementai.com",
@@ -340,7 +339,7 @@ def final_run():
             agent_args=agent,
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
-            logging_level=logging.INFO,
+            logging_level=logging.DEBUG,
         )
     )
 
