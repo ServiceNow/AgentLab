@@ -42,14 +42,20 @@ def get_ckpt_list(
     chat_model_args,
     add_base_model=True,
     keep_every=None,
-    to_keep=[
-        0,
-        1,
-        2,
-        6,
-        11,
-    ],
+    to_keep=None,
 ):
+    """
+    Returns a list of arguments for each checkpoint iteration directory in the given model path.
+
+    Args:
+        chat_model_args (object): The arguments for the chat model.
+        add_base_model (bool, optional): Whether to add the base model directory to the list. Defaults to True.
+        keep_every (int, optional): If provided, only checkpoints with iteration numbers divisible by this value will be included. Defaults to None.
+        to_keep (list, optional): If provided, only checkpoints with iteration numbers in this list will be included. Defaults to None.
+
+    Returns:
+        list: A list of arguments for each checkpoint iteration directory.
+    """
 
     args_list = []
     ckpt_dir = chat_model_args.model_path
