@@ -120,7 +120,8 @@ def launch_toolkit_tgi_server(
     if model_name is None:
         raise ValueError("Model name must be provided.")
 
-    max_input_length = max_total_tokens - max_new_tokens
+    max_buffer_parsing_tokens = 128
+    max_input_length = max_total_tokens - max_new_tokens - max_buffer_parsing_tokens
     now = datetime.now()
     job_name_now = f"{job_name}_{now.strftime('%y%m%d_%H%M%S')}"
 
@@ -207,6 +208,7 @@ def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server
     )
     # TODO: should max_total_tokens be overriden?
     max_total_tokens = chat_model_args.max_total_tokens
+    max_new_tokens = chat_model_args.max_new_tokens
     model_size = chat_model_args.model_size
     total_params = compute_total_params(model_size)
 
@@ -238,6 +240,7 @@ def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server
         job_name=job_name,
         model_name=model_path,
         max_total_tokens=max_total_tokens,
+        max_new_tokens=max_new_tokens,
         gpu=gpu,
         cpu=cpu,
         mem=mem,
