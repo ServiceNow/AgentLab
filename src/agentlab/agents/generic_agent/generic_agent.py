@@ -11,7 +11,7 @@ from browsergym.experiments.agent import Agent
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import ChatModelArgs
-from agentlab.llm.llm_utils import ParseError, RetryError, retry_and_fit, retry
+from agentlab.llm.llm_utils import ParseError, RetryError, retry
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
 
@@ -68,11 +68,14 @@ class GenericAgent(Agent):
 
         max_prompt_tokens, max_trunk_itr = self._get_maxes()
 
-        fit_function = partial(
-            dp.fit_tokens,
+        system_prompt = dp.SystemPrompt().prompt
+
+        prompt = dp.fit_tokens(
+            shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
             model_name=self.chat_model_args.model_name,
             max_iterations=max_trunk_itr,
+            additional_prompts=system_prompt,
         )
 
         def parser(text):
@@ -87,28 +90,14 @@ class GenericAgent(Agent):
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
-            if self.flags.use_retry_and_fit:
-                ans_dict = retry_and_fit(
-                    self.chat_llm,
-                    main_prompt=main_prompt,
-                    system_prompt=dp.SystemPrompt().prompt,
-                    n_retry=self.max_retry,
-                    parser=parser,
-                    fit_function=fit_function,
-                    add_missparsed_messages=self.flags.add_missparsed_messages,
-                )
-            else:  # classic retry
-                prompt = fit_function(shrinkable=main_prompt)
 
-                chat_messages = [
-                    SystemMessage(content=dp.SystemPrompt().prompt),
-                    HumanMessage(content=prompt),
-                ]
-                ans_dict = retry(
-                    self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser
-                )
-                # inferring the number of retries, TODO: make this less hacky
-                ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
+            chat_messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt),
+            ]
+            ans_dict = retry(self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser)
+            # inferring the number of retries, TODO: make this less hacky
+            ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
         except RetryError as e:
             # Likely due to maximum retry. We catch it here to be able to return
             # the list of messages for further analysis
