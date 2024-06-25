@@ -95,7 +95,6 @@ def retry(
 
         value, valid, retry_message = parser(answer.content)
         if valid:
-            value["chat_messages"] = [m.content for m in messages]
             return value
 
         tries += 1

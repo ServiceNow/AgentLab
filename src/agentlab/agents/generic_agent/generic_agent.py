@@ -126,6 +126,7 @@ class GenericAgent(Agent):
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
         ans_dict["chat_model_args"] = asdict(self.chat_model_args)
+        ans_dict["chat_messages"] = chat_messages
         return ans_dict["action"], ans_dict
 
     def reset(self, seed=None):
