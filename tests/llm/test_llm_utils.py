@@ -134,7 +134,7 @@ class MockChatOpenAI:
 
 def mock_parser(answer):
     if answer == "correct content":
-        return {"action": "Parsed value"}, True, ""
+        return "Parsed value", True, ""
 
     return None, False, "Retry message"
 
@@ -197,7 +197,7 @@ def test_rate_limit_success():
         min_retry_wait_time=1,
     )
 
-    assert result["action"] == "Parsed value"
+    assert result == "Parsed value"
     assert mock_chat.invoke.call_count == 2
 
 
@@ -217,7 +217,7 @@ def test_successful_parse_before_max_retries():
 
     result = llm_utils.retry(mock_chat, [], 5, mock_parser, min_retry_wait_time=1)
 
-    assert result["action"] == "Parsed value"
+    assert result == "Parsed value"
     assert mock_chat.invoke.call_count == 3
 
 
