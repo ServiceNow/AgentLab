@@ -768,7 +768,6 @@ RS_OSS_FLAGS = GenericPromptFlags(
     enable_chat=False,
     max_prompt_tokens=None,
     extra_instructions=None,
-    use_retry_and_fit=True,
 )
 
 FINETUNING_MINIWOB_FLAGS = GenericPromptFlags(
