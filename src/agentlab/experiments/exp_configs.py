@@ -763,7 +763,6 @@ RS_OSS_FLAGS = GenericPromptFlags(
     enable_chat=False,
     max_prompt_tokens=None,
     extra_instructions=None,
-    use_retry_and_fit=True,
 )
 
 FINETUNING_MINIWOB_FLAGS = GenericPromptFlags(
@@ -895,7 +894,6 @@ FLAGS_8B = GenericPromptFlags(
     be_cautious=True,
     extra_instructions=None,
     add_missparsed_messages=True,
-    use_retry_and_fit=True,
 )
 
 FLAGS_70B = GenericPromptFlags(
@@ -935,7 +933,6 @@ FLAGS_70B = GenericPromptFlags(
     be_cautious=True,
     extra_instructions=None,
     add_missparsed_messages=True,
-    use_retry_and_fit=True,
 )
 
 
