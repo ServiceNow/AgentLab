@@ -61,7 +61,7 @@ class LLMServers:
             job_id, model_url = auto_launch_server(chat_model_args)
             self.server_dict[chat_model_key]["model_url"] = model_url
             self.server_dict[chat_model_key]["job_id"] = job_id
-            self.server_dict[chat_model_key]["is_ready"] = False
+            self.server_dict[chat_model_key]["status"] = "not_ready"
             chat_model_args.model_url = model_url
         return
 
@@ -71,18 +71,36 @@ class LLMServers:
         if chat_model_key not in self.server_dict:
             return
 
-        logging.warning(
-            f"if n_jobs < # experiments, it could lead to deadlock. make sure shuffle_jobs = False"
-        )
+        logging.warning(f"if n_jobs < # experiments, it could lead to deadlock.")
 
         server_info = self.server_dict[chat_model_key]
         job_id = server_info["job_id"]
         model_url = server_info["model_url"]
-        is_ready = server_info["is_ready"]
-        while not is_ready:
+        status = server_info["status"]
+        while status not in ["running", "failed"]:
+            if status == "killed":
+                raise Exception(f"Server for model {chat_model_key} was killed. WEIRD")
             time.sleep(3)
-            is_ready = check_server_status(job_id, model_url)
-        self.server_dict[chat_model_key]["is_ready"] = is_ready
+            status = check_server_status(job_id, model_url)
+        self.server_dict[chat_model_key]["status"] = status
+        return status
+
+    def close_unused_servers(self, shared_exp_args_list):
+        running_servers_dict = {
+            key: server_dict
+            for key, server_dict in self.server_dict.items()
+            if server_dict.get("status") == "running"
+        }
+
+        list_of_necessary_servers = list(
+            set(
+                [exp_args.agent_args.chat_model_args.model_url for exp_args in shared_exp_args_list]
+            )
+        )
+        for key, server_dict in running_servers_dict.items():
+            if server_dict["model_url"] not in list_of_necessary_servers:
+                kill_server(server_dict["job_id"])
+                self.server_dict[key]["status"] = "killed"
 
 
 def launch_toolkit_tgi_server(
@@ -96,8 +114,8 @@ def launch_toolkit_tgi_server(
     mem: int = 64,
     n_shard: int = 1,
     max_run_time: int = 172_800,
+    tgi_image: str = None,
     extra_tgi_args: dict = None,
-    sliding_window: bool = False,  # TODO implement
 ):
     if model_name is None:
         raise ValueError("Model name must be provided.")
@@ -111,9 +129,6 @@ def launch_toolkit_tgi_server(
     # NOTE: you need to set MAX_BATCH_TOTAL_TOKENS >= MAX_BATCH_PREFILL_TOKENS
     # NOTE: MAX_BATCH_TOTAL_TOKENS is inferred but still need to be set if we want TGI to output the infered value
     max_batch_total_tokens = int(2 * max_batch_prefill_tokens)
-
-    # tgi_image = toolkit_configs.TGI_IMAGE_LLMD
-    tgi_image = toolkit_configs.TGI_IMAGE_OFFICIAL
 
     if model_name.startswith("/"):
         assert model_name.startswith(toolkit_configs.UI_COPILOT_DATA_PATH)
@@ -178,7 +193,7 @@ def launch_toolkit_tgi_server(
     return job_id, model_url
 
 
-def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
+def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server") -> str:
     """Launch a server with the given kwargs. Return the url of the server.
 
     Parameters
@@ -205,7 +220,8 @@ def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
     extra_tgi_args = chat_model_args.extra_tgi_args
 
     # adjust gpu based on context window
-    gpu += CONTEXT_WINDOW_EXTRA_GPU.get(max_total_tokens, 0)
+    # TODO: uncomment me:
+    # gpu += CONTEXT_WINDOW_EXTRA_GPU.get(max_total_tokens, 0)
 
     if chat_model_args.shard_support:
         # NOTE: n_shard needs to be a power of 2 to properly shard the n_heads and activations
@@ -213,8 +229,13 @@ def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
     else:
         n_shard = 1
 
+    if not chat_model_args.tgi_image:
+        tgi_image = toolkit_configs.TGI_IMAGE_LATEST
+    else:
+        tgi_image = chat_model_args.tgi_image
+
     job_id, model_url = launch_toolkit_tgi_server(
-        job_name="ui_copilot_tgi_server",
+        job_name=job_name,
         model_name=model_path,
         max_total_tokens=max_total_tokens,
         gpu=gpu,
@@ -222,6 +243,7 @@ def auto_launch_server(chat_model_args: ChatModelArgs) -> str:
         mem=mem,
         gpu_mem=gpu_mem,
         n_shard=n_shard,
+        tgi_image=tgi_image,
         extra_tgi_args=extra_tgi_args,
     )
 
@@ -278,16 +300,19 @@ def check_server_status(job_id: str, model_url: str) -> bool:
 
     if job_status in ["QUEUING", "QUEUED"]:
         logging.info(f"Toolkit job {job_id} is still {job_status}")
-        return False
-    if job_status == "RUNNING":
+        return "not_ready"
+    elif job_status == "RUNNING":
         client = InferenceClient(model=model_url, token=os.environ["TGI_TOKEN"])
         try:
             client.text_generation(prompt="hello")
             logging.info(f"TGI server for job {job_id} is ready")
-            return True
+            return "running"
         except:
             logging.info(f"Waiting for job {job_id}'s TGI server to be ready...")
-            return False
+            return "not_ready"
+    elif job_status in ["CANCELLED", "CANCELLING", "FAILED"]:
+        logging.info(f"Toolkit job {job_id} is {job_status}")
+        return "failed"
     else:
         raise Exception(f"Toolkit job {job_id} is {job_status}")
 
@@ -295,24 +320,25 @@ def check_server_status(job_id: str, model_url: str) -> bool:
 def kill_server(job_id: str):
     """Kill the server at the given url."""
 
-    command = f"eai job kill {job_id}"
-
-    run_subprocess(command)
-
-    logging.info(f"submitted kill command for Toolkit job {job_id}...")
-
-    time.sleep(1)
+    # first check if toolkit job is still running
     command = f"eai job info {job_id}"
     result = run_subprocess(command)
 
     stdout = result.stdout.strip()
     data = yaml.safe_load(stdout)
     job_status = data.get("state", {})
-    if job_status not in ["CANCELLED", "CANCELLING", "FAILED"]:
-        logging.info(f"Toolkit job {job_id} is still {job_status}")
+    if job_status in ["CANCELLED", "CANCELLING", "FAILED"]:
+        logging.info(f"Can't kill Toolkit job {job_id}: job is {job_status}")
+        return
+
+    command = f"eai job kill {job_id}"
+
+    run_subprocess(command)
+
+    logging.info(f"submitted kill command for Toolkit job {job_id}...")
 
 
-def kill_all_servers(job_name="ui_copilot_tgi_server"):
+def kill_all_servers(job_name="auto_tgi_server"):
     """Kill all servers that have been left running unintentionally."""
 
     # get all the job_id of the running jobs
@@ -335,14 +361,11 @@ if __name__ == "__main__":
     # model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
     # model = "finetuning/Meta-Llama-3-8B-Instruct"
-    # model = "deepseek-ai/DeepSeek-V2-Chat"
-    # model = "microsoft/WizardLM-2-8x22B"
-    # model = "bigcode/starcoderplus"
-    # model = "codellama/CodeLlama-34b-Python-hf"
-    # model = "codellama/CodeLlama-13b-Python-hf"
-    # model = "codellama/CodeLlama-7b-Python-hf"
-    model = "microsoft/Phi-3-mini-128k-instruct"
+    # model = "microsoft/Phi-3-mini-4k-instruct"
+    model = "bigcode/starcoder2-15b"
 
-    # auto_launch_server(CHAT_MODEL_ARGS_DICT[model])
+    auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
 
-    kill_all_servers()
+    kill_all_servers("ui_copilot_tgi_server")
+
+    # kill_all_servers()

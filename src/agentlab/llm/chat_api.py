@@ -201,6 +201,7 @@ class ToolkitModelArgs(ChatModelArgs):
     vision_support: bool = False
     shard_support: bool = True
     extra_tgi_args: dict = None
+    tgi_image: str = None
     info: dict = None
 
     def __post_init__(self):
