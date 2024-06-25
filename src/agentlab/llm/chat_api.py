@@ -17,7 +17,7 @@ import os
 import time
 
 from langchain_community.llms import HuggingFaceHub, HuggingFacePipeline
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain.schema import BaseMessage
 from langchain.chat_models.base import SimpleChatModel
 from langchain.callbacks.manager import CallbackManagerForLLMRun
@@ -139,12 +139,23 @@ class OpenAIChatModelArgs(ChatModelArgs):
     vision_support: bool = False
 
     def make_chat_model(self):
-        model_name = self.model_name.split("/")[-1]
-        return ChatOpenAI(
-            model_name=model_name,
-            temperature=self.temperature,
-            max_tokens=self.max_new_tokens,
-        )
+        base_name = self.model_name.split("/")[0]
+        if base_name == "openai":
+            model_name = self.model_name.split("/")[-1]
+            return ChatOpenAI(
+                model_name=model_name,
+                temperature=self.temperature,
+                max_tokens=self.max_new_tokens,
+            )
+        elif base_name == "azure":
+            model_name = self.model_name.split("/")[1]
+            deployment_name = self.model_name.split("/")[2]
+            return AzureChatOpenAI(
+                model_name=model_name,
+                temperature=self.temperature,
+                max_tokens=self.max_new_tokens,
+                deployment_name=deployment_name,
+            )
 
     def prepare_server(self, registry):
         pass
