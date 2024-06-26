@@ -133,16 +133,12 @@ def tgi_toolkit_test():
     basic_flags = BASIC_FLAGS.copy()
     basic_flags.obs.use_html = False
     basic_flags.obs.use_ax_tree = True
-    env_args_list = tasks.get_benchmark_env_args(
-        "workarena.l1", max_steps=5, n_repeat=2
-    )[:4]
+    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=5, n_repeat=2)[:4]
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
                 # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
-                chat_model_args=CHAT_MODEL_ARGS_DICT[
-                    "microsoft/Phi-3-mini-4k-instruct"
-                ],
+                chat_model_args=CHAT_MODEL_ARGS_DICT["microsoft/Phi-3-mini-4k-instruct"],
                 flags=basic_flags,
             ),
             env_args=args.CrossProd(env_args_list),
@@ -191,9 +187,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.CrossProd(
-                    [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-                ),
+                chat_model_args=args.CrossProd([CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]),
                 flags=flags,
             ),
             env_args=args.CrossProd(env_args_list),
@@ -293,9 +287,7 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
-    env_args_list = tasks.get_benchmark_env_args(
-        benchmark, max_steps=None, n_repeat=None
-    )
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=None, n_repeat=None)
 
     return args.expand_cross_product(
         ExpArgs(
@@ -496,9 +488,7 @@ def demo_maker():
     flags.obs.use_screenshot = True
     flags.action.demo_mode = "all_blue"
 
-    env_args_list = tasks.get_benchmark_env_args(
-        "workarena.l1", max_steps=15, n_repeat=3
-    )
+    env_args_list = tasks.get_benchmark_env_args("workarena.l1", max_steps=15, n_repeat=3)
     for env_args in env_args_list:
         env_args.viewport = {"width": 1280, "height": 720}
         env_args.record_video = True
