@@ -1,6 +1,4 @@
-browsergym-core
-browsergym-workarena
-browsergym-miniwob
+browsergym
 joblib>=1.2.0
 openai>=1.7,<2
 langchain>=0.1,<1

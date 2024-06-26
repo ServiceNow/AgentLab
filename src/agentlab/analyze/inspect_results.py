@@ -20,7 +20,7 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 
 from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
-from browsergym.workarena import TASK_CATEGORY_MAP
+from agentlab.analyze.ICML_2024_results import TASK_CATEGORY_MAP
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 

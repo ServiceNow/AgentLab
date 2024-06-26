@@ -262,7 +262,7 @@ if __name__ == "__main__":
         "--benchmark",
         type=str,
         default="miniwob",
-        choices=["miniwob", "workarena.l1", "workarena.l2", "workarena.l3", "webarena"],
+        choices=["miniwob", "workarena.l1", "webarena"],
         help="Benchmark to launch",
     )
     parser.add_argument(
