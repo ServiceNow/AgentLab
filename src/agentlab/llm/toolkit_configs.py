@@ -65,8 +65,8 @@ def add_to_bashrc(var, value):
                 command = f'echo "export {var}={value}" >> {rc_file}'
                 subprocess.run(command, shell=True)
     else:
-        logging.warning(
-            "Error: Neither ~/.bashrc nor ~/.zshrc file exists. Your environment variables will not be saved."
+        logging.info(
+            "Neither ~/.bashrc nor ~/.zshrc file exists. Your environment variables will not be saved."
         )
 
 
@@ -83,7 +83,7 @@ try:
     ACCOUNT_NAME = yaml.safe_load(result.stdout)["fullName"]
 except:
     logging.error(
-        "Error: Could not get your eai account. You won't be able to automatically lauch OSS LLMs"
+        "Could not get your eai account. You won't be able to automatically lauch OSS LLMs"
     )
 
 
@@ -97,8 +97,8 @@ def set_env_var_if_unset(var_name, value):
     """
     if os.getenv(var_name) is None:
         os.environ[var_name] = value
-        logging.warning(
-            f"Warning: The environment variable '{var_name}' was not set and has been set to '{value}'."
+        logging.info(
+            f"The environment variable '{var_name}' was not set and has been set to '{value}'."
         )
 
 
