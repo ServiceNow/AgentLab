@@ -48,7 +48,9 @@ def main(
     if exp_group_name:
         logging.info(f"Launching experiment group: {exp_group_name}")
         if benchmark or model_name:
-            logging.info(f"Overriding benchmark: {benchmark} and model_name: {model_name}")
+            logging.info(
+                f"Overriding benchmark: {benchmark} and model_name: {model_name}"
+            )
         extra_kwargs = {}
 
     elif benchmark and model_name:
@@ -57,7 +59,12 @@ def main(
         extra_kwargs = {"benchmark": benchmark, "model_name": model_name}
 
     exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
+        exp_root,
+        exp_group_name,
+        exp_args_list,
+        relaunch_mode,
+        auto_accept,
+        extra_kwargs,
     )
 
     if shuffle_jobs:
@@ -101,7 +108,9 @@ def _validate_launch_mode(
                 f"You asked to relaunch an existing experiment but {exp_group_name} does not exist."
             )
 
-        exp_args_list = list(_yield_incomplete_experiments(exp_dir, relaunch_mode=relaunch_mode))
+        exp_args_list = list(
+            _yield_incomplete_experiments(exp_dir, relaunch_mode=relaunch_mode)
+        )
 
         if len(exp_args_list) == 0:
             logging.info(f"No incomplete experiments found in {exp_dir}.")
@@ -129,7 +138,9 @@ def _validate_launch_mode(
             )
 
         # overwriting exp_group_name for the recursive call
-        exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
+        exp_group_name = (
+            f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
+        )
         exp_dir = Path(exp_root) / exp_group_name
         message = (
             f"\nYou are about to launch {len(exp_args_list)} experiments in {exp_dir}.\n"
@@ -152,7 +163,9 @@ def _validate_launch_mode(
 def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
     """Find all incomplete experiments and relaunch them."""
     # TODO(make relanch_mode a callable, for flexibility)
-    for exp_result in yield_all_exp_results(exp_root, progress_fn=None):  # type: ExpArgs
+    for exp_result in yield_all_exp_results(
+        exp_root, progress_fn=None
+    ):  # type: ExpArgs
         try:
             summary_info = exp_result.summary_info
         except FileNotFoundError:
@@ -249,14 +262,14 @@ if __name__ == "__main__":
         "--benchmark",
         type=str,
         default="miniwob",
-        choices=["miniwob", "workarena.l1", "workarena.l2", "workarena.l3"],
+        choices=["miniwob", "workarena.l1", "workarena.l2", "workarena.l3", "webarena"],
         help="Benchmark to launch",
     )
     parser.add_argument(
         "--model_name",
         type=str,
         default="cheat",
-        choices=["gpt-3.5", "gpt-4o", "gpt-4o-vision", "cheat"],
+        choices=["gpt-3.5", "gpt-4o", "gpt-4o-vision"],
         help="Model to launch",
     )
     parser.add_argument(
