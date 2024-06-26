@@ -186,7 +186,7 @@ def get_benchmark_env_args(
 
     if benchmark_name.startswith("workarena"):
         t0 = t.time()
-        from browsergym.workarena import ATOMIC_TASKS, get_all_tasks_agents
+        from browsergym.workarena import ATOMIC_TASKS
 
         dt = t.time() - t0
         print(f"done importing workarena, took {dt:.2f} seconds")
@@ -199,13 +199,14 @@ def get_benchmark_env_args(
             task_names = [task for task in task_names if "sort" in task]
             env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
 
+        elif benchmark_name == "workarena.l1":
+            task_names = [task.get_task_id() for task in ATOMIC_TASKS]
+            env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
+
         else:
-            for task, seed in get_all_tasks_agents(
-                filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_repeat
-            ):
-                task_name = task.get_task_id()
-                env_args_list.append(
-                    EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps)
+            if benchmark_name in ["workarena.l2", "workarena.l3"]:
+                raise ValueError(
+                    f"Benchmark {benchmark_name} not supported yet, please wait for the WorkArena++ release."
                 )
 
     elif benchmark_name == "webarena":
