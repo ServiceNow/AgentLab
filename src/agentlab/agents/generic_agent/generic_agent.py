@@ -118,56 +118,6 @@ class GenericAgent(Agent):
         ans_dict["chat_messages"] = chat_messages
         return ans_dict["action"], ans_dict
 
-    def get_action_post_hoc(self, obs, ans_dict):
-
-        self.obs_history.append(obs)
-        main_prompt = MainPrompt(
-            action_set=self.action_set,
-            obs_history=self.obs_history,
-            actions=self.actions,
-            memories=self.memories,
-            thoughts=self.thoughts,
-            previous_plan=self.plan,
-            step=self.plan_step,
-            flags=self.flags,
-        )
-
-        max_prompt_tokens, max_trunk_itr = self._get_maxes()
-
-        fit_function = partial(
-            dp.fit_tokens,
-            max_prompt_tokens=max_prompt_tokens,
-            model_name=self.chat_model_args.model_name,
-            max_iterations=max_trunk_itr,
-        )
-
-        # TODO: make it work w/ fit_and_retry
-        prompt = fit_function(shrinkable=main_prompt)
-
-        # TODO: make sure the bid is in the prompt
-
-        # TODO: eventually keep the system prompt separate and to properly feed it to torchtune
-        full_prompt = dp.SystemPrompt().prompt + "\n" + prompt
-
-        output = ""
-        # TODO: validate this
-        self.plan = ans_dict.get("plan", self.plan)
-        if ans_dict.get("plan", self.plan) != "No plan yet":
-            output += f"\n<plan>\n{self.plan}\n</plan>"
-        # TODO: plan_step?
-        self.plan_step = ans_dict.get("step", self.plan_step)
-        self.memories.append(ans_dict.get("memory", None))
-        if ans_dict.get("memory", None) is not None:
-            output += f"\n<memory>\n{ans_dict['memory']}\n</memory>"
-        self.thoughts.append(ans_dict.get("think", None))
-        if ans_dict.get("think", None) is not None:
-            output += f"\n<think>\n{ans_dict['think']}\n</think>"
-        self.actions.append(ans_dict["action"])
-        if ans_dict["action"] is not None:
-            output += f"\n<action>\n{ans_dict['action']}\n</action>"
-
-        return full_prompt, output
-
     def reset(self, seed=None):
         self.seed = seed
         self.plan = "No plan yet"
@@ -210,3 +160,79 @@ does not support vision. Disabling use_screenshot."""
             else 20  # dangerous to change the default value here?
         )
         return max_prompt_tokens, max_trunk_itr
+
+
+from functools import partial
+
+
+def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
+    """
+    Get the action post-hoc for the agent.
+
+    This function is used to get the action after the agent has already been run.
+    Its goal is to recreate the prompt and the output of the agent a posteriori.
+    The purpose is to build datasets for training the agents.
+
+    Parameters:
+    - agent (GenericAgent): The agent for which the action is being determined.
+    - obs (dict): The observation dictionary to append to the agent's history.
+    - ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
+
+    Returns:
+    - full_prompt (str): The complete prompt used for the agent.
+    - output (str): The reconstructed output based on the answer dictionary.
+    """
+    agent.obs_history.append(obs)
+
+    main_prompt = MainPrompt(
+        action_set=agent.action_set,
+        obs_history=agent.obs_history,
+        actions=agent.actions,
+        memories=agent.memories,
+        thoughts=agent.thoughts,
+        previous_plan=agent.plan,
+        step=agent.plan_step,
+        flags=agent.flags,
+    )
+
+    max_prompt_tokens, max_trunk_itr = agent._get_maxes()
+
+    fit_function = partial(
+        dp.fit_tokens,
+        max_prompt_tokens=max_prompt_tokens,
+        model_name=agent.chat_model_args.model_name,
+        max_iterations=max_trunk_itr,
+    )
+
+    prompt = fit_function(shrinkable=main_prompt)
+
+    # TODO: make sure the bid is in the prompt
+    # TODO: eventually keep the system prompt separate and to properly feed it to torchtune
+    full_prompt = dp.SystemPrompt().prompt + "\n" + prompt
+
+    output = ""
+
+    # TODO: validate this
+    agent.plan = ans_dict.get("plan", agent.plan)
+    if agent.plan != "No plan yet":
+        output += f"\n<plan>\n{agent.plan}\n</plan>\n"
+
+    # TODO: is plan_step something that the agent's outputs?
+    agent.plan_step = ans_dict.get("step", agent.plan_step)
+
+    memory = ans_dict.get("memory", None)
+    agent.memories.append(memory)
+    if memory is not None:
+        output += f"\n<memory>\n{memory}\n</memory>\n"
+
+    thought = ans_dict.get("think", None)
+    agent.thoughts.append(thought)
+    if thought is not None:
+        output += f"\n<think>\n{thought}\n</think>\n"
+
+    action = ans_dict["action"]
+    agent.actions.append(action)
+    if action is not None:
+        output += f"\n<action>\n{action}\n</action>"
+
+    return full_prompt, output
