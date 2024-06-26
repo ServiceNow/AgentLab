@@ -20,7 +20,10 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 
 from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
-from browsergym.workarena import TASK_CATEGORY_MAP
+
+# TODO find a more portable way to code set_task_category_as_index at least
+# handle dynamic imports. We don't want to always import workarena
+# from browsergym.workarena import TASK_CATEGORY_MAP
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -143,7 +146,7 @@ def load_result_df(
     return df
 
 
-def reduce_episodes(result_df: pd.DataFrame):
+def reduce_episodes(result_df: pd.DataFrame) -> pd.DataFrame:
     """Reduce the dataframe to a single row per episode and summarize some of
     the columns.
     """
@@ -213,7 +216,7 @@ def summarize(sub_df):
         record = dict(
             avg_reward=np.nan,
             uncertainty_reward=np.nan,
-            avg_raw_reward=np.nan,
+            # avg_raw_reward=np.nan,
             avg_steps=np.nan,
             n_completed=f"0/{len(sub_df)}",
             n_err=0,
@@ -232,7 +235,7 @@ def summarize(sub_df):
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
             uncertainty_reward=std_reward.round(3),
-            avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
+            # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
             n_err=err.sum(skipna=True),
@@ -722,15 +725,15 @@ def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
     return df_dict
 
 
-def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
-    """Create task_category index from task_name if needed and re-assign index
-    from variables using task_category."""
-    # rested index task_name (level 0)
-    new_df = result_df.reset_index(inplace=False)
-    if not "task_category" in new_df.columns:
-        new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
-    set_index_from_variables(new_df, task_key="task_category")
-    return new_df
+# def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
+#     """Create task_category index from task_name if needed and re-assign index
+#     from variables using task_category."""
+#     # rested index task_name (level 0)
+#     new_df = result_df.reset_index(inplace=False)
+#     if not "task_category" in new_df.columns:
+#         new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
+#     set_index_from_variables(new_df, task_key="task_category")
+#     return new_df
 
 
 def get_all_task_messages(exp_dir, max_n_exp=None):
