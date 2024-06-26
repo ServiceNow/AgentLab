@@ -26,7 +26,7 @@ with the following flags:
                         Name of the experiment group to launch as defined in exp_configs.py
   --benchmark {miniwob,workarena.l1,workarena.l2,workarena.l3}
                         Benchmark to launch
-  --model_name {gpt-3.5,gpt-4o,gpt-4o-vision,cheat,custom}
+  --model_name {gpt-3.5,gpt-4o,gpt-4o-vision,custom}
                         Model to launch
   --relaunch_mode {None,incomplete_only,all_errors,server_errors}
                         Find all incomplete experiments and relaunch them.
@@ -42,8 +42,6 @@ As an example, to launch our agent with GPT-4o on the miniwob benchmark, with ma
         --model_name=gpt-4o \
         --n_jobs=-1
 ```
-
-The `cheat` model uses regular expressions to solve miniwob click tasks. It is useful for debugging.
 
 In `exp_configs.py`, you can modify `FLAGS_CUSTOM` and `AGENT_CUSTOM` to test out your own flags and models, and then launch them with `--model_name=custom`.
 
@@ -64,8 +62,7 @@ If you launch via VSCode in debug mode, debugging will be enabled and errors wil
 instead of being logged, unless you set `enable_debug = False` in `ExpArgs`. This
 will bring a breakpoint on the error.
 
-To make sure you get a breakpoint at the origin of the error, use the flag
-`use_threads_instead_of_processes=True` in `main()` from `launch_exp.py` (or set `n_jobs=1`).
+To make sure you get a breakpoint at the origin of the error, we recommend to set `n_jobs=1` in `main()` from `launch_exp.py`.
 
 
 ### `joblib`'s parallel jobs
