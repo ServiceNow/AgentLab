@@ -118,6 +118,56 @@ class GenericAgent(Agent):
         ans_dict["chat_messages"] = chat_messages
         return ans_dict["action"], ans_dict
 
+    def get_action_post_hoc(self, obs, ans_dict):
+
+        self.obs_history.append(obs)
+        main_prompt = MainPrompt(
+            action_set=self.action_set,
+            obs_history=self.obs_history,
+            actions=self.actions,
+            memories=self.memories,
+            thoughts=self.thoughts,
+            previous_plan=self.plan,
+            step=self.plan_step,
+            flags=self.flags,
+        )
+
+        max_prompt_tokens, max_trunk_itr = self._get_maxes()
+
+        fit_function = partial(
+            dp.fit_tokens,
+            max_prompt_tokens=max_prompt_tokens,
+            model_name=self.chat_model_args.model_name,
+            max_iterations=max_trunk_itr,
+        )
+
+        # TODO: make it work w/ fit_and_retry
+        prompt = fit_function(shrinkable=main_prompt)
+
+        # TODO: make sure the bid is in the prompt
+
+        # TODO: eventually keep the system prompt separate and to properly feed it to torchtune
+        full_prompt = dp.SystemPrompt().prompt + "\n" + prompt
+
+        output = ""
+        # TODO: validate this
+        self.plan = ans_dict.get("plan", self.plan)
+        if ans_dict.get("plan", self.plan) != "No plan yet":
+            output += f"\n<plan>\n{self.plan}\n</plan>"
+        # TODO: plan_step?
+        self.plan_step = ans_dict.get("step", self.plan_step)
+        self.memories.append(ans_dict.get("memory", None))
+        if ans_dict.get("memory", None) is not None:
+            output += f"\n<memory>\n{ans_dict['memory']}\n</memory>"
+        self.thoughts.append(ans_dict.get("think", None))
+        if ans_dict.get("think", None) is not None:
+            output += f"\n<think>\n{ans_dict['think']}\n</think>"
+        self.actions.append(ans_dict["action"])
+        if ans_dict["action"] is not None:
+            output += f"\n<action>\n{ans_dict['action']}\n</action>"
+
+        return full_prompt, output
+
     def reset(self, seed=None):
         self.seed = seed
         self.plan = "No plan yet"
