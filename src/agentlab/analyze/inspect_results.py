@@ -215,7 +215,7 @@ def summarize(sub_df):
     if not "cum_reward" in sub_df:
         record = dict(
             avg_reward=np.nan,
-            uncertainty_reward=np.nan,
+            std_err=np.nan,
             # avg_raw_reward=np.nan,
             avg_steps=np.nan,
             n_completed=f"0/{len(sub_df)}",
@@ -234,7 +234,7 @@ def summarize(sub_df):
 
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-            uncertainty_reward=std_reward.round(3),
+            std_err=std_reward.round(3),
             # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
