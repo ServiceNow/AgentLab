@@ -600,15 +600,12 @@ def finetuning_eval(
     # dataset_name: str = "AllMenuTask_240603",
     # benchmark: str = "miniwob.click-menu-2",
     # dataset_name: str = "miniwob_overfit_240523",
-    benchmark: str = "workarena.l1",
-    dataset_name: str = "ATOMIC_TASKS_240604",
+    # benchmark: str = "workarena.l1",
+    # dataset_name: str = "ATOMIC_TASKS_240604",
+    benchmark: str = "miniwob",
+    dataset_name: str = "traces_test",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
-
-    assert len(model_name_list) == 1, "Only one model is supported for finetuning eval"
-    assert model_name_list[0].startswith(
-        "finetuning/"
-    ), "Only finetuning models are supported for finetuning eval"
 
     flags = fix_flags(
         benchmark,
@@ -616,7 +613,11 @@ def finetuning_eval(
     )
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
 
-    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+    # chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
+
+    # TODO: un-hardcode this
+    model_name = "finetuning/Meta-Llama-3-8B-Instruct"
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[model_name]]
     if overwrite_chat_model_args_dict:
         chat_model_args_list = overwrite_chat_model_arg(
             chat_model_args_list, overwrite_chat_model_args_dict
@@ -631,9 +632,7 @@ def finetuning_eval(
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=args.CrossProd(
-                    get_ckpt_list(CHAT_MODEL_ARGS_DICT[model_name_list[0]])
-                ),
+                chat_model_args=args.CrossProd(get_ckpt_list(chat_model_args_list[0])),
                 flags=flags,
             ),
             env_args=args.CrossProd(env_args_list),
