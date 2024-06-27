@@ -86,7 +86,6 @@ FLAGS_70B = GenericPromptFlags(
     be_cautious=True,
     extra_instructions=None,
     add_missparsed_messages=True,
-    use_retry_and_fit=True,
 )
 
 AGENT_70B = GenericAgentArgs(
@@ -131,7 +130,6 @@ FLAGS_8B = GenericPromptFlags(
     be_cautious=True,
     extra_instructions=None,
     add_missparsed_messages=True,
-    use_retry_and_fit=True,
 )
 
 AGENT_8B = GenericAgentArgs(
