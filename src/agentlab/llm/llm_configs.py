@@ -47,6 +47,24 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
+    "azure/gpt-35-turbo/gpt-35-turbo": OpenAIChatModelArgs(
+        model_name="azure/gpt-35-turbo/gpt-35-turbo",
+        max_total_tokens=16_384,
+        # max_input_tokens=15_000,
+        max_new_tokens=1_000,
+    ),
+    "azure/gpt-4/gpt-4": OpenAIChatModelArgs(
+        model_name="azure/gpt-4/gpt-4",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
+    ),
+    "azure/gpt-4o/gpt-4o": OpenAIChatModelArgs(
+        model_name="azure/gpt-4o/gpt-4o",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
+    ),
     # "reka/reka-core": ChatModelArgs(
     #     model_name="reka/reka-core",
     #     max_total_tokens=128_000,
