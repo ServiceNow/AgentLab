@@ -183,6 +183,8 @@ def get_tokenizer(model_name="openai/gpt-4"):
         return tiktoken.encoding_for_model("gpt-4")
     if model_name.startswith("openai"):
         return tiktoken.encoding_for_model(model_name.split("/")[-1])
+    if model_name.startswith("azure"):
+        return tiktoken.encoding_for_model(model_name.split("/")[1])
     if model_name.startswith("reka"):
         logging.warning(
             "Reka models don't have a tokenizer implemented yet. Using the default one."
