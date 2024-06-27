@@ -1,20 +1,22 @@
+import traceback
 from copy import deepcopy
+from io import BytesIO
 from logging import warning
-from math import e
-from agentlab.experiments.exp_utils import RESULTS_DIR
-from attr import dataclass
-import gradio as gr
-from browsergym.experiments.loop import ExpResult, StepInfo
 from pathlib import Path
 
-from agentlab.analyze import inspect_results
-from matplotlib import pyplot as plt
+import gradio as gr
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from io import BytesIO
+from attr import dataclass
+from browsergym.experiments.loop import ExpResult, StepInfo
 from PIL import Image
+
+from agentlab.analyze import inspect_results
+from agentlab.experiments.exp_utils import RESULTS_DIR
+
+select_dir_instructions = "Select Experiment Direcotory"
 
 
 class ClickMapper:
@@ -122,41 +124,83 @@ def run_gradio(results_dir: Path):
         task_name = gr.State(value=None)
         step_id = gr.State(value=None)
 
-        with gr.Accordion("Select your experiment by choosing a (task, seed, agent) triplet."):
-            with gr.Row():
+        with gr.Accordion("Help", open=False):
+            gr.Markdown(
+                """\
+# Agent X-Ray
 
-                exp_dir_choice = gr.Dropdown(
-                    choices=get_directory_contents(results_dir),
-                    label="Experiment Directory",
-                    show_label=False,
-                    scale=10,
-                    container=False,
-                )
-                refresh_button = gr.Button("↺", scale=0, size="sm")
+1. **Select your experiment directory**. You may refresh the list of directories by
+clicking the refresh button.
 
-            task_table_gr = gr.DataFrame(
-                height=300, label="Task selector", show_label=False, interactive=False
+2. **Select your episode**: Chose a triplet (agent, task, seed).
+
+    1. **Select Agent**: Not implemented yet.
+
+    2. **Select Task**: Select the task you want to analyze, this will trigger
+       an update of the available seeds.
+       **IMPORTANT NOTE**: Due to a gradio bug, if you sort the columns of the table, the task
+       selection will not correspond to the right one.
+
+    3. **Select the Seed**: You might have multiple repetition for a given task,
+       you will be able to select the seed you want to analyze.
+
+3. **Select the step**: Once your episode is selected, you can select the step
+   by clicking on the profiling image. This will trigger the update of the the
+   information on the corresponding step.
+
+4. **Select a tab**: You can select different visualization by clicking on the tabs.
+"""
             )
+        with gr.Row():
 
-            with gr.Row():
-                seed_gr = gr.Dropdown(
-                    label="Seed selector", show_label=True, container=False, interactive=True
-                )
-                agent_gr = gr.Dropdown(
-                    choices=["Single Agent"],
-                    value="Single Agent",
-                    label="Agent selector",
-                    show_label=False,
-                    container=False,
-                    interactive=True,
-                )
-
-            refresh_button.click(
-                fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice
+            exp_dir_choice = gr.Dropdown(
+                choices=get_directory_contents(results_dir),
+                value=select_dir_instructions,
+                label="Experiment Directory",
+                show_label=False,
+                scale=6,
+                container=False,
             )
+            refresh_button = gr.Button("↺", scale=0, size="sm")
 
-            # plot = gr.Plot(value=generate_profiling, label="Profiling",
-            # show_label=False)
+        with gr.Tabs(selected="Select Task") as exp_tabs:
+            with gr.Tab("Select Agent"):
+                gr.Text("Not implemented yet", show_label=False, container=False)
+
+            with gr.Tab("Select Task and Seed", id="Select Task"):
+                with gr.Row():
+                    task_table_gr = gr.DataFrame(
+                        height=300,
+                        label="Task selector",
+                        show_label=False,
+                        interactive=False,
+                        scale=4,
+                    )
+
+                    seed_gr = gr.DataFrame(
+                        height=300,
+                        label="Seed selector",
+                        show_label=False,
+                        interactive=False,
+                        scale=2,
+                    )
+
+            with gr.Tab("Constants and Variables"):
+                with gr.Row():
+                    constants = gr.DataFrame(
+                        height=300,
+                        label="Constants",
+                        show_label=True,
+                        interactive=False,
+                        scale=2,
+                    )
+                    variables = gr.DataFrame(
+                        height=300,
+                        label="Variables",
+                        show_label=True,
+                        interactive=False,
+                        scale=2,
+                    )
 
         with gr.Row():
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
@@ -228,13 +272,23 @@ def run_gradio(results_dir: Path):
             with gr.Tab("Chat Messages") as tab_chat:
                 chat_messages = gr.Markdown()
 
+        # Handle Events #
+        # ===============#
+
+        refresh_button.click(
+            fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice
+        )
+
         exp_dir_choice.change(
-            fn=new_exp_dir, inputs=exp_dir_choice, outputs=[task_table_gr, task_name]
+            fn=new_exp_dir,
+            inputs=exp_dir_choice,
+            outputs=[task_table_gr, task_name, constants, variables],
         )
 
         task_table_gr.select(fn=on_select_task, inputs=task_table_gr, outputs=[task_name])
-        task_name.change(fn=update_seeds, inputs=[task_name], outputs=[seed_gr])
-        seed_gr.change(fn=on_select_seed, inputs=[seed_gr, task_name], outputs=[episode_id])
+        task_name.change(fn=update_seeds, inputs=[task_name], outputs=[seed_gr, episode_id])
+        # seed_gr.change(fn=on_select_seed, inputs=[seed_gr, task_name], outputs=[episode_id])
+        seed_gr.select(on_select_seed, inputs=[seed_gr, task_name], outputs=episode_id)
 
         episode_id.change(fn=new_episode, inputs=[episode_id], outputs=[profiling_gr, step_id])
 
@@ -378,16 +432,21 @@ def code(txt):
 
 
 def get_episode_info(info: Info):
-    env_args = info.exp_result.exp_args.env_args
-    steps_info = info.exp_result.steps_info
-    step_info = steps_info[info.step]
-    goal = step_info.obs["goal"]
-    cum_reward = info.exp_result.summary_info["cum_reward"]
-    exp_dir = info.exp_result.exp_dir
-    exp_dir_str = f"{exp_dir.parent.name}/{exp_dir.name}"
+    try:
+        env_args = info.exp_result.exp_args.env_args
+        steps_info = info.exp_result.steps_info
+        step_info = steps_info[info.step]
+        goal = step_info.obs["goal"]
+        try:
+            cum_reward = info.exp_result.summary_info["cum_reward"]
+        except FileNotFoundError:
+            cum_reward = np.nan
 
-    info = f"""\
-### {env_args.task_name}
+        exp_dir = info.exp_result.exp_dir
+        exp_dir_str = f"{exp_dir.parent.name}/{exp_dir.name}"
+
+        info = f"""\
+### {env_args.task_name} (seed: {env_args.task_seed})
 ### Step {info.step} / {len(steps_info)-1} (Reward: {cum_reward:.1f})
 
 **Goal:**
@@ -401,6 +460,10 @@ def get_episode_info(info: Info):
 **exp_dir:**
 
 <small style="line-height: 1; margin: 0; padding: 0;">{code(exp_dir_str)}</small>"""
+    except Exception as e:
+        info = f"""\
+**Error while getting episod info**
+{code(traceback.format_exc())}"""
     return info
 
 
@@ -449,24 +512,37 @@ def get_seeds(result_df: pd.DataFrame, task_name: str):
     return str_list, seed_list
 
 
+def get_seeds_df(result_df: pd.DataFrame, task_name: str):
+    result_df = result_df.reset_index(inplace=False)
+    result_df = result_df[result_df["env_args.task_name"] == task_name]
+
+    def extract_columns(row: pd.Series):
+        return pd.Series(
+            {
+                "seed": row["env_args.task_seed"],
+                "reward": row.get("cum_reward", None),
+                "err": bool(row.get("err_msg", None)),
+                "n_steps": row.get("n_steps", None),
+            }
+        )
+
+    return result_df.apply(extract_columns, axis=1)
+
+
 def on_select_task(evt: gr.SelectData, df: pd.DataFrame):
     return df.iloc[evt.index[0]]["env_args.task_name"]
 
 
 def update_seeds(task_name):
     global info
-    seed_strings, seeds = get_seeds(info.result_df, task_name)
-    return gr.Dropdown(
-        choices=list(zip(seed_strings, seeds)),
-        value=seeds[0],
-        label=None,
-        show_label=False,
-        container=False,
-    )
+    seed_df = get_seeds_df(info.result_df, task_name)
+    first_seed = seed_df.iloc[0]["seed"]
+    return seed_df, EpisodeId(task_name=task_name, seed=first_seed)
 
 
-def on_select_seed(seed, taks_name):
-    return EpisodeId(task_name=taks_name, seed=seed)
+def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, task_name):
+    seed = df.iloc[evt.index[0]]["seed"]
+    return EpisodeId(task_name=task_name, seed=seed)
 
 
 def new_episode(episode_id: EpisodeId, progress=gr.Progress()):
@@ -482,30 +558,81 @@ def fig_to_pil(fig):
     buf.seek(0)
     img_pil = Image.open(buf)
     plt.close(fig)
-    img_pil.save("profiling.png")
     return img_pil
 
 
+def format_constant_and_variables():
+    global info
+    df = info.result_df
+    constants, variables, _ = inspect_results.get_constants_and_variables(df)
+
+    # map constants, a dict to a 2 column data frame with name and value
+    constants = pd.DataFrame(constants.items(), columns=["name", "value"])
+    records = []
+    for var in variables:
+        if var == "stack_trace":
+            continue
+
+        # get unique with count and sort by count descending
+        unique_counts = df[var].value_counts().sort_values(ascending=False)
+
+        for i, (val, count) in enumerate(unique_counts.items()):
+            record = {
+                "Name": var,
+                "n unique": len(unique_counts),
+                "i": i,
+                "count": f"{count}/{len(df)}",
+                "value": val,
+            }
+
+            records.append(record)
+            if i >= 2:
+                break
+
+        if len(unique_counts) > 3:
+            records.append(
+                {
+                    "Name": var,
+                    "n unique": len(unique_counts),
+                    "i": "...",
+                    "count": "...",
+                    "value": "...",
+                }
+            )
+        records.append({"Name": ""})
+    return constants, pd.DataFrame(records)
+
+
 def new_exp_dir(exp_dir, progress=gr.Progress()):
+
+    if exp_dir == select_dir_instructions:
+        return None, None
+
     global info
 
     if len(exp_dir) == 0:
         info.exp_list_dir = None
-        return
+        return None, None
 
     info.exp_list_dir = info.results_dir / exp_dir
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
 
     info.tasks_df = inspect_results.reduce_episodes(info.result_df).reset_index()
 
+    info.tasks_df = info.tasks_df.drop(columns=["std_err"])
+
     # task name of first element
     task_name = info.tasks_df.iloc[0]["env_args.task_name"]
 
-    return info.tasks_df, task_name
+    constants, variables = format_constant_and_variables()
+    return info.tasks_df, task_name, constants, variables
 
 
 def get_directory_contents(results_dir: Path):
-    return sorted([str(file.name) for file in results_dir.iterdir() if file.is_dir()], reverse=True)
+    directories = sorted(
+        [str(file.name) for file in results_dir.iterdir() if file.is_dir()], reverse=True
+    )
+    return [select_dir_instructions] + directories
 
 
 def most_recent_folder(results_dir: Path):
@@ -526,9 +653,12 @@ def generate_profiling(progress_fn):
         return None
 
     fig, ax = plt.subplots(figsize=(20, 3))
-    step_times = plot_profiling(
-        ax, info.exp_result.steps_info, info.exp_result.summary_info, progress_fn
-    )
+
+    try:
+        summary_info = info.exp_result.summary_info
+    except FileNotFoundError:
+        summary_info = {}
+    step_times = plot_profiling(ax, info.exp_result.steps_info, summary_info, progress_fn)
     fig.tight_layout()
     info.click_mapper = ClickMapper(ax, step_times=step_times)
 
@@ -556,6 +686,10 @@ def add_patch(ax, start, stop, color, label, edge=False):
 
 
 def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progress_fn):
+
+    if len(step_info_list) == 0:
+        warning("No step info to plot")
+        return None
 
     # this allows to pop labels to make sure we don't use more than 1 for the legend
     labels = ["reset", "env", "agent", "exec action", "action error"]
@@ -588,7 +722,12 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             label = labels.pop("exec action", None)
             add_patch(ax, prof.action_exec_start, prof.action_exec_stop, colors[3], label)
 
-            if i + 1 < len(step_info_list) and step_info_list[i + 1].obs["last_action_error"]:
+            try:
+                next_step_error = step_info_list[i + 1].obs["last_action_error"]
+            except (IndexError, KeyError, TypeError):
+                next_step_error = ""
+
+            if next_step_error:
                 # add a hollow rectangle for error
                 label = labels.pop("action error", None)
                 add_patch(
@@ -622,14 +761,14 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             if step_info.truncated:
                 color = "black"
             elif step_info.terminated:
-                if summary_info["cum_reward"] > 0:
+                if summary_info.get("cum_reward", 0) > 0:
                     color = "limegreen"
                 else:
                     color = "black"
 
             ax.axvline(prof.env_stop, color=color, linewidth=4, linestyle=":")
 
-            text = f"R:{summary_info['cum_reward']:.1f}"
+            text = f"R:{summary_info.get('cum_reward', np.nan):.1f}"
 
             if summary_info["err_msg"]:
                 text = "Err"
