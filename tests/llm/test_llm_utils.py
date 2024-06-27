@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import pytest
 
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain.schema import SystemMessage
 from openai import RateLimitError
 from agentlab.llm import llm_utils
@@ -96,7 +96,9 @@ hola
 
 @pytest.mark.pricy
 def test_retry_parallel():
-    chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2, n=3)
+    chat = AzureChatOpenAI(
+        model_name="gpt-35-turbo", azure_deployment="gpt-35-turbo", temperature=0.2, n=3
+    )
     prompt = """List primes from 1 to 10."""
     messages = [
         SystemMessage(content=prompt),
