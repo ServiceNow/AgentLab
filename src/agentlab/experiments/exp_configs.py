@@ -9,8 +9,6 @@ from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
 from agentlab.agents.generic_agent.generic_agent_prompt import (
     GenericPromptFlags,
-    BASIC_FLAGS,
-    ADVANCED_FLAGS,
 )
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.agents.generic_agent.configs import (
@@ -100,8 +98,8 @@ def generic_agent_test():
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
-                chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-0125"],
-                flags=BASIC_FLAGS,
+                chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"],
+                flags=AGENT_3_5.flags,
             ),
             env_args=EnvArgs(
                 max_steps=5,
@@ -169,7 +167,7 @@ overwrite_chat_model_args_dict = {
 # test GenericAgent with different LLMs
 def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
-    flags = ADVANCED_FLAGS.copy()
+    flags = AGENT_4o.flags
     flags.obs.extract_visible_tag = True
     flags.obs.extract_clickable_tag = False
     flags.obs.use_think_history = False
@@ -577,7 +575,7 @@ def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
 
 def demo_maker():
     """Runs in demo mode with video turned on"""
-    flags = ADVANCED_FLAGS.copy()
+    flags = AGENT_4o.flags
     flags.obs.use_screenshot = True
     flags.action.demo_mode = "all_blue"
 
