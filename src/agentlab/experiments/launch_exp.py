@@ -8,7 +8,6 @@ from agentlab.analyze import error_categorization
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
-import agentlab
 import argparse
 
 
@@ -268,8 +267,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="cheat",
-        choices=["gpt-3.5", "gpt-4o", "gpt-4o-vision"],
+        default="gpt-4o",
+        choices=["gpt-3.5", "gpt-4o", "gpt-4o-vision", "custom"],
         help="Model to launch",
     )
     parser.add_argument(

@@ -19,6 +19,50 @@ from agentlab.agents.generic_agent.configs import (
 )
 
 
+FLAGS_CUSTOM = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=False,
+        use_ax_tree=True,
+        use_focused_element=True,
+        use_error_logs=True,
+        use_history=True,
+        use_past_error_logs=False,
+        use_action_history=True,
+        use_think_history=False,
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=True,
+        extract_clickable_tag=False,
+        extract_coords="False",
+        filter_visible_elements_only=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=False,
+        action_set="bid",
+        long_description=False,
+        individual_examples=True,
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=True,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=True,
+    enable_chat=False,
+    max_prompt_tokens=None,
+    be_cautious=True,
+    extra_instructions=None,
+)
+
+AGENT_CUSTOM = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    flags=FLAGS_CUSTOM,
+)
+
+
 def get_exp_args_list(func_name: str, *a, **kw):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
@@ -238,6 +282,8 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
         agent = AGENT_4o_VISION
     elif model_name.lower() in ["cheat"]:
         agent = AGENT_CHEAT_MINIWOB
+    elif model_name.lower() in ["custom"]:
+        agent = AGENT_CUSTOM
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 

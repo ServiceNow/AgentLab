@@ -4,12 +4,14 @@ from agentlab.experiments import exp_configs
 def test_all_configs():
     exp_name_list = [
         "generic_agent_test",
-        "tgi_toolkit_test",
+        # "tgi_toolkit_test",
         "generic_agent_eval_llm",
-        "random_search",
         "progression_study",
         "ablation_study",
         "demo_maker",
+        "final_run",
+        "ablation_study_GPT_3_5",
+        "ablation_study_GPT_4",
     ]
 
     for exp_name in exp_name_list:
