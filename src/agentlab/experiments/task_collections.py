@@ -1,7 +1,5 @@
-from logging import warning
 from pathlib import Path
-from browsergym.workarena.tasks.compositional import AGENT_CURRICULUM_L2, AGENT_CURRICULUM_L3
-from browsergym.workarena.tasks.compositional.utils.curriculum import AGENT_CURRICULUM
+
 import numpy as np
 import pandas as pd
 import time as t
