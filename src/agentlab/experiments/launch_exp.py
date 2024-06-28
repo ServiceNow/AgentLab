@@ -179,6 +179,8 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
 if __name__ == "__main__":
     from agentlab.experiments.exp_utils import RESULTS_DIR
 
+    logging.getLogger().setLevel(logging.INFO)
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--exp_root",
@@ -207,8 +209,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="llama3-70b",
-        choices=["gpt-3.5", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
+        default="llama3-8b",
+        choices=["gpt-3.5", "llama3-8b", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
         help="Model to launch",
     )
     parser.add_argument(

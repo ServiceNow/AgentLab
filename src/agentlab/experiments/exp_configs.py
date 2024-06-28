@@ -332,6 +332,8 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
         agent = AGENT_4o_VISION
     elif model_name.lower() in ["llama3-70b"]:
         agent = AGENT_70B
+    elif model_name.lower() in ["llama3-8b"]:
+        agent = AGENT_8B
 
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
