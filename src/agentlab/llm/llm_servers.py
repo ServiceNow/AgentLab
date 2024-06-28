@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 import os
 
-from agentlab.llm.chat_api import ChatModelArgs
+from agentlab.llm.chat_api import BaseChatModelArgs, ServerChatModelArgs
 from agentlab.llm.llm_configs import (
     CHAT_MODEL_ARGS_DICT,
     CONTEXT_WINDOW_EXTRA_GPU,
@@ -32,7 +32,7 @@ class LLMServers:
             kill_server(job_id)
 
     def start_all_servers(self, exp_args_list):
-        # type: (List[ChatModelArgs]) -> None
+        # type: (List[ServerChatModelArgs]) -> None
         """Launch the unique set of required servers for all experiments in exp_args_list."""
         for exp_args in exp_args_list:
             self.start_llm_servers_for_agent(exp_args.agent_args)
@@ -43,10 +43,10 @@ class LLMServers:
         # list of all chat models, instead of doing introspection.
         for arg in fields(agent_args):
             arg = getattr(agent_args, arg.name)
-            if isinstance(arg, ChatModelArgs):
+            if isinstance(arg, ServerChatModelArgs):
                 self.get_url(arg)
 
-    def get_url(self, chat_model_args: ChatModelArgs):
+    def get_url(self, chat_model_args: ServerChatModelArgs):
         """Get the url of the server with the given kwargs. If it doesn't exist, launch a new server."""
         if chat_model_args.model_url is not None:
             return
@@ -194,7 +194,7 @@ def launch_toolkit_tgi_server(
     return job_id, model_url
 
 
-def auto_launch_server(chat_model_args: ChatModelArgs, job_name="auto_tgi_server") -> str:
+def auto_launch_server(chat_model_args: ServerChatModelArgs, job_name="auto_tgi_server") -> str:
     """Launch a server with the given kwargs. Return the url of the server.
 
     Parameters

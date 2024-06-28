@@ -57,38 +57,44 @@ class CheatMiniWoBLLM:
         return self.invoke(messages)
 
 
-class PostInitMeta(ABCMeta):
-    def __call__(cls, *args, **kwargs):
-        instance = super().__call__(*args, **kwargs)
-        for base in cls.__mro__[1:]:
-            if hasattr(base, "__post_init__"):
-                base.__post_init__(instance)
-        return instance
+# class PostInitMeta(ABCMeta):
+#     def __call__(cls, *args, **kwargs):
+#         instance = super().__call__(*args, **kwargs)
+#         for base in cls.__mro__[1:]:
+#             if hasattr(base, "__post_init__"):
+#                 base.__post_init__(instance)
+#         return instance
 
 
 @dataclass
-class ChatModelArgs(ABC, metaclass=PostInitMeta):
+class BaseChatModelArgs(ABC):
     model_name: str
     max_total_tokens: int = None
     max_input_tokens: int = None
     max_new_tokens: int = None
-    max_trunk_itr: int = None
+    max_trunk_itr: int = None  # TODO move to gener_c agent
     temperature: float = 0.1
+
+    @abstractmethod
+    def make_chat_model(self):
+        pass
+
+
+@dataclass
+class ServerChatModelArgs(BaseChatModelArgs):
     model_url: str = None
 
     def __post_init__(self):
         if self.max_total_tokens is None:
             self.max_total_tokens = 4096
 
+        # TODO move this to tgi servers
         if self.max_new_tokens is None and self.max_input_tokens is not None:
             self.max_new_tokens = self.max_total_tokens - self.max_input_tokens
         elif self.max_new_tokens is not None and self.max_input_tokens is None:
             self.max_input_tokens = self.max_total_tokens - self.max_new_tokens
         elif self.max_new_tokens is None and self.max_input_tokens is None:
             raise ValueError("max_new_tokens or max_input_tokens must be specified")
-
-    @abstractmethod
-    def make_chat_model(self):
         pass
 
     @abstractmethod
@@ -98,11 +104,6 @@ class ChatModelArgs(ABC, metaclass=PostInitMeta):
     @abstractmethod
     def close_server(self, registry):
         pass
-
-    def cleanup(self):
-        if self.model_url:
-            self.close_server()
-            self.model_url = None
 
     def key(self):
         return json.dumps(
@@ -135,7 +136,7 @@ class CheatMiniWoBLLMArgs:
 
 
 @dataclass
-class OpenAIChatModelArgs(ChatModelArgs):
+class OpenAIChatModelArgs(BaseChatModelArgs):
     vision_support: bool = False
 
     def make_chat_model(self):
@@ -157,15 +158,9 @@ class OpenAIChatModelArgs(ChatModelArgs):
                 deployment_name=deployment_name,
             )
 
-    def prepare_server(self, registry):
-        pass
-
-    def close_server(self, registry):
-        pass
-
 
 @dataclass
-class ToolkitModelArgs(ChatModelArgs):
+class ToolkitModelArgs(ServerChatModelArgs):
     """Serializable object for instantiating a generic chat model.
 
     Attributes
