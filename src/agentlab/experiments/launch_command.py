@@ -12,8 +12,7 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 # set basic config of loggig to debug
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
+logging.getLogger().setLevel(logging.INFO)
 
 exp_args_list = None
 
