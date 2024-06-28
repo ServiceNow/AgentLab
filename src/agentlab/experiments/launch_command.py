@@ -18,13 +18,12 @@ exp_args_list = None
 
 ## select your experiment group here from exp_configs.py
 # exp_group_name = "generic_agent_test"  ## this will make a very quick test
-exp_group_name = "generic_agent_eval_llm"
+exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
+# exp_group_name = "generic_agent_eval_llm"
 # exp_group_name = "random_search"
 # exp_group_name = "ablation_study_GPT_3_5"
+# exp_group_name = "finetuning_eval"
 
-## or from exp_configs_OSS.py
-# exp_group_name = "tgi_toolkit_test"  ## this will make a very quick test
-# exp_group_name = "OSS_random_search"
 
 ## you can also specify the experiment group name directly here to relaunch it
 # exp_group_name = "2024-01-22_23-46-25_random_search_prompt_OSS_LLMs"

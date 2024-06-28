@@ -20,7 +20,10 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 
 from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
-from browsergym.workarena import TASK_CATEGORY_MAP
+
+# TODO find a more portable way to code set_task_category_as_index at least
+# handle dynamic imports. We don't want to always import workarena
+# from browsergym.workarena import TASK_CATEGORY_MAP
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -142,7 +145,7 @@ def load_result_df(
     return df
 
 
-def reduce_episodes(result_df: pd.DataFrame):
+def reduce_episodes(result_df: pd.DataFrame) -> pd.DataFrame:
     """Reduce the dataframe to a single row per episode and summarize some of
     the columns.
     """
@@ -223,8 +226,8 @@ def summarize(sub_df, use_bootstrap=False):
     if not "cum_reward" in sub_df:
         record = dict(
             avg_reward=np.nan,
-            uncertainty_reward=np.nan,
-            avg_raw_reward=np.nan,
+            std_err=np.nan,
+            # avg_raw_reward=np.nan,
             avg_steps=np.nan,
             n_completed=f"0/{len(sub_df)}",
             n_err=0,
@@ -246,8 +249,8 @@ def summarize(sub_df, use_bootstrap=False):
 
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-            uncertainty_reward=std_reward.round(3),
-            avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
+            std_err=std_reward.round(3),
+            # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
             n_err=err.sum(skipna=True),
@@ -278,37 +281,6 @@ def summarize_stats(sub_df):
                 record[key_] = sub_df[key].max(skipna=True).round(3)
             else:
                 raise ValueError(f"Unknown stats operation: {op}")
-    return pd.Series(record)
-
-
-# NOTE: decprecated but I might want to use it again
-def summarize_tgi(sub_df):
-    err = sub_df["err_msg"].notnull()
-
-    n_server_errors = (
-        sub_df["stack_trace"]
-        .apply(
-            is_server_error,
-        )
-        .sum()
-    )
-
-    n_completed = (err | sub_df["truncated"] | sub_df["terminated"]).sum()
-
-    record = dict(
-        avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-        avg_reward_server_corr=(
-            sub_df["cum_reward"].mean(skipna=True) * n_completed / (n_completed - n_server_errors)
-        ).round(3),
-        avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
-        avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
-        n_completed=f"{n_completed}/{len(sub_df)}",
-        n_err=err.sum(skipna=True),
-        n_server_errors=n_server_errors,
-        # total_cost=sub_df["total_cost"].sum(skipna=True).round(3),
-        # exp_dir=",".join([str(path).split("/")[-1] for path in sub_df["exp_dir"]]),
-    )
-
     return pd.Series(record)
 
 
@@ -526,6 +498,7 @@ def display_report(
     apply_shrink_columns: bool = True,
     copy_to_clipboard: bool = True,
     rename_bool_flags: bool = True,
+    print_only: str = None,
 ):
     """Display the report in a nicer-ish format.
 
@@ -539,6 +512,7 @@ def display_report(
             underscores with newlines
         copy_to_clipboard: Copy the report to the clipboard
         rename_bool_flags: Rename the boolean flags to be more compact and readable
+        print_only: Print only the given column
     """
     report = report.copy()
 
@@ -551,7 +525,13 @@ def display_report(
     if copy_to_clipboard:
         to_clipboard(report)
 
+    columns = list(report.columns)
+
     report.reset_index(inplace=True)
+
+    if print_only:
+        columns = [print_only] + columns
+        report = report[columns]
 
     styled_report = set_wrap_style(report)
 
@@ -760,15 +740,15 @@ def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
     return df_dict
 
 
-def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
-    """Create task_category index from task_name if needed and re-assign index
-    from variables using task_category."""
-    # rested index task_name (level 0)
-    new_df = result_df.reset_index(inplace=False)
-    if not "task_category" in new_df.columns:
-        new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
-    set_index_from_variables(new_df, task_key="task_category")
-    return new_df
+# def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
+#     """Create task_category index from task_name if needed and re-assign index
+#     from variables using task_category."""
+#     # rested index task_name (level 0)
+#     new_df = result_df.reset_index(inplace=False)
+#     if not "task_category" in new_df.columns:
+#         new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
+#     set_index_from_variables(new_df, task_key="task_category")
+#     return new_df
 
 
 def get_all_task_messages(exp_dir, max_n_exp=None):
