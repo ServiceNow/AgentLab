@@ -175,6 +175,13 @@ def _sample_single(obj):
     return obj
 
 
+class Toggle:
+    pass
+
+
+TOGGLE = Toggle()
+
+
 def _change_value(obj, path, value):
     """Set the value to the given path in the nested objects.
 
@@ -186,14 +193,24 @@ def _change_value(obj, path, value):
             continue
         obj = getattr(obj, key)
     # if dataclass, then set the value only if the field exists
+
+    def _set(obj, key, value):
+        if isinstance(value, Toggle):
+            previous_value = getattr(obj, key)
+            if not isinstance(previous_value, bool):
+                raise ValueError(f"Toggle object {obj} attribute {key} is not a boolean")
+            setattr(obj, key, not previous_value)
+        else:
+            setattr(obj, key_list[-1], value)
+
     if is_dataclass(obj):
         field_names = [field.name for field in fields(obj)]
         if key_list[-1] in field_names:
-            setattr(obj, key_list[-1], value)
+            _set(obj, key_list[-1], value)
         else:
             raise ValueError(f"field {key_list[-1]} not found in {obj}")
     else:
-        setattr(obj, key_list[-1], value)
+        _set(obj, key_list[-1], value)
 
 
 def _apply_change(params, change):

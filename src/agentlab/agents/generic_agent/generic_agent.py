@@ -87,6 +87,7 @@ class GenericAgent(Agent):
                 return None, False, str(e)
             return ans_dict, True, ""
 
+        stats = {}
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
@@ -97,18 +98,13 @@ class GenericAgent(Agent):
             ]
             ans_dict = retry(self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser)
             # inferring the number of retries, TODO: make this less hacky
-            ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
+            stats["n_retry"] = (len(chat_messages) - 3) / 2
+            stats["busted_retry"] = 0
         except RetryError as e:
-            # Likely due to maximum retry. We catch it here to be able to return
-            # the list of messages for further analysis
             ans_dict = {"action": None}
+            stats["busted_retry"] = 1
 
-            # TODO Debatable, it shouldn't be reported as some error, since we don't
-            # want to re-launch those failure.
-
-            # ans_dict["err_msg"] = str(e)
-            # ans_dict["stack_trace"] = traceback.format_exc()
-            ans_dict["n_retry"] = self.max_retry + 1
+            stats["n_retry"] = self.max_retry + 1
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
         self.actions.append(ans_dict["action"])
@@ -116,6 +112,7 @@ class GenericAgent(Agent):
         self.thoughts.append(ans_dict.get("think", None))
         ans_dict["chat_model_args"] = asdict(self.chat_model_args)
         ans_dict["chat_messages"] = chat_messages
+        ans_dict["stats"] = stats
         return ans_dict["action"], ans_dict
 
     def reset(self, seed=None):

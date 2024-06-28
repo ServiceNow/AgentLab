@@ -176,7 +176,8 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     flags.action.long_description = False
 
     flags = miniwob_add_html(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=20)
+
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=10)
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
     if overwrite_chat_model_args_dict:
@@ -324,17 +325,26 @@ def final_run():
 
     # agent = AGENT_3_5
     # agent = AGENT_70B
-    agent = AGENT_8B
+    # agent = AGENT_8B
     # agent = AGENT_4o
     # agent = AGENT_4o_VISION
 
-    agent.flags = miniwob_add_html(benchmark, agent.flags)
+    agents = [AGENT_3_5, AGENT_4o, AGENT_4o_VISION]
+    # agents = [AGENT_3_5]
+    # agents = [AGENT_4o]
+    # agents = [AGENT_4o_VISION]
+    # agents = [AGENT_70B]
 
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=None, n_repeat=None)
+    for agent in agents:
+        agent.flags = miniwob_add_html(benchmark, agent.flags)
+
+    env_args_list = tasks.get_benchmark_env_args(
+        benchmark, meta_seed=43, max_steps=None, n_repeat=None, is_agent_curriculum=False
+    )
 
     return args.expand_cross_product(
         ExpArgs(
-            agent_args=agent,
+            agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
             logging_level=logging.DEBUG,
@@ -386,9 +396,7 @@ def ablation_study(
     )
 
     flags = miniwob_add_html(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(
-        benchmark,
-    )
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
     if overwrite_chat_model_args_dict:
@@ -438,7 +446,7 @@ def ablation_study(
 def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
 
     flags = miniwob_add_html(benchmark, FLAGS_GPT_3_5)
-    env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
+    env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     return order(
         args.expand_cross_product(
@@ -448,30 +456,27 @@ def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
-                            # (".action.multi_actions", True),
-                            # (".obs.filter_visible_elements_only", True),
-                            (".action.long_description", True),
-                            (".action.individual_examples", False),
-                            # [
-                            #     (".action.action_set", "bid+coord"),
-                            #     (".obs.extract_coords", "center"),
-                            # ],
-                            # [
-                            #     (".action.action_set", "bid+coord"),
-                            #     (".obs.extract_coords", "box"),
-                            # ],
+                            (".action.multi_actions", args.TOGGLE),
+                            (".obs.filter_visible_elements_only", args.TOGGLE),
+                            (".action.long_description", args.TOGGLE),
+                            (".action.individual_examples", args.TOGGLE),
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "center"),
+                            ],
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "box"),
+                            ],
                             # obs flags
-                            (".obs.use_think_history", True),
-                            (".obs.use_past_error_logs", True),
-                            (".obs.use_action_history", False),
-                            (".obs.extract_visible_tag", False),
-                            (".obs.extract_clickable_tag", True),
-                            # [
-                            #     (".obs.use_screenshot", True),
-                            #     (".obs.use_som", True),
-                            # ],
+                            (".obs.use_focused_element", args.TOGGLE),
+                            (".obs.use_think_history", args.TOGGLE),
+                            (".obs.use_past_error_logs", args.TOGGLE),
+                            (".obs.use_action_history", args.TOGGLE),
+                            (".obs.extract_visible_tag", args.TOGGLE),
+                            (".obs.extract_clickable_tag", args.TOGGLE),
                             # agent features
-                            # (".use_thinking", False),
+                            (".use_thinking", args.TOGGLE),
                         ],
                     ),
                 ),
@@ -523,10 +528,17 @@ def ablation_study_OSS(
     )
 
 
-def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
+def ablation_study_GPT_4(benchmark: str = "workarena.l3"):
 
-    flags = miniwob_add_html(benchmark, FLAGS_GPT_4o)
+    flags = miniwob_add_html(benchmark, FLAGS_GPT_4o_L3)
     env_args_list = tasks.get_benchmark_env_args(benchmark, n_repeat=5)
+
+    if benchmark.startswith("workarena"):
+        env_args_list = [
+            env_args
+            for env_args in env_args_list
+            if ".navigate-and" in env_args.task_name or "infeasible" in env_args.task_name
+        ]
 
     return order(
         args.expand_cross_product(
@@ -536,30 +548,30 @@ def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
                     flags=args.make_ablation_study(
                         start_point=flags,
                         changes=[
-                            (".action.multi_actions", True),
+                            (".action.multi_actions", args.TOGGLE),
                             # (".obs.filter_visible_elements_only", True),
-                            (".action.long_description", False),
-                            (".action.individual_examples", False),
+                            (".action.long_description", args.TOGGLE),
+                            (".action.individual_examples", args.TOGGLE),
                             # [
                             #     (".action.action_set", "bid+coord"),
                             #     (".obs.extract_coords", "center"),
                             # ],
-                            # [
-                            #     (".action.action_set", "bid+coord"),
-                            #     (".obs.extract_coords", "box"),
-                            # ],
+                            [
+                                (".action.action_set", "bid+coord"),
+                                (".obs.extract_coords", "box"),
+                            ],
                             # obs flags
-                            (".obs.use_think_history", True),
-                            (".obs.use_past_error_logs", True),
-                            # (".obs.use_action_history", False),
-                            (".obs.extract_visible_tag", False),
-                            (".obs.extract_clickable_tag", False),
+                            (".obs.use_think_history", args.TOGGLE),
+                            (".obs.use_past_error_logs", args.TOGGLE),
+                            # (".obs.use_action_history", args.TOGGLE),
+                            (".obs.extract_visible_tag", args.TOGGLE),
+                            # (".obs.extract_clickable_tag", args.TOGGLE),
                             # [
-                            #     (".obs.use_screenshot", True),
-                            #     (".obs.use_som", True),
+                            #     (".obs.use_screenshot", args.TOGGLE),
+                            #     (".obs.use_som", args.TOGGLE),
                             # ],
                             # agent features
-                            # (".use_thinking", False),
+                            # (".use_thinking", args.TOGGLE),
                         ],
                     ),
                 ),
@@ -820,36 +832,36 @@ FINETUNING_FLAGS = GenericPromptFlags(
 
 FLAGS_GPT_3_5 = GenericPromptFlags(
     obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
+        use_html=False,  # too big for most benchmark except miniwob
+        use_ax_tree=True,  # very useful
+        use_focused_element=False,  # detrimental on minowob according to ablation study
         use_error_logs=True,
         use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
+        use_past_error_logs=False,  # very detrimental on L1 and miniwob
+        use_action_history=True,  # helpful on miniwob
+        use_think_history=False,  # detrimental on L1 and miniwob
         use_diff=False,
         html_type="pruned_html",
         use_screenshot=False,
         use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=False,
+        extract_visible_tag=True,  # doesn't change much
+        extract_clickable_tag=False,  # doesn't change much
         extract_coords="False",
         filter_visible_elements_only=False,
     ),
     action=dp.ActionFlags(
-        multi_actions=False,
+        multi_actions=False,  # often detrimental
         action_set="bid",
-        long_description=False,
-        individual_examples=True,
+        long_description=False,  # detrimental on L1, not influential on miniwob
+        individual_examples=True,  # useful on miniwob
     ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
+    use_plan=False,  # usually detrimental
+    use_criticise=False,  # usually detrimental
+    use_thinking=True,  # very usefu
     use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
+    use_concrete_example=True,  # useful
+    use_abstract_example=True,  # useful
+    use_hints=True,  # useful
     enable_chat=False,
     max_prompt_tokens=None,
     be_cautious=True,
@@ -939,7 +951,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
-        use_focused_element=True,
+        use_focused_element=False,
         use_error_logs=True,
         use_history=True,
         use_past_error_logs=False,
@@ -957,8 +969,8 @@ FLAGS_GPT_4o = GenericPromptFlags(
     action=dp.ActionFlags(
         multi_actions=False,
         action_set="bid",
-        long_description=True,
-        individual_examples=True,
+        long_description=False,
+        individual_examples=False,
     ),
     use_plan=False,
     use_criticise=False,
@@ -980,12 +992,14 @@ FLAGS_GPT_4o_VISION.obs.use_som = True
 
 AGENT_3_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
-    flags=FLAGS_GPT_3_5,
+    flags=FLAGS_GPT_3_5.copy(),
+    agent_name="agent_gpt-3.5",
 )
 
 AGENT_70B = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
     flags=FLAGS_70B,
+    agent_name="agent_LLAMA_70B",
 )
 
 AGENT_8B = GenericAgentArgs(
@@ -995,11 +1009,71 @@ AGENT_8B = GenericAgentArgs(
 
 AGENT_4o = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
-    flags=FLAGS_GPT_4o,
+    flags=FLAGS_GPT_4o.copy(),
+    agent_name="agent_gpt-4o",
 )
-
 
 AGENT_4o_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
-    flags=FLAGS_GPT_4o_VISION,
+    flags=FLAGS_GPT_4o_VISION.copy(),
+    agent_name="agent_gpt-4o_vision",
+)
+
+
+FLAGS_GPT_4o_L3 = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=False,
+        use_ax_tree=True,
+        use_focused_element=False,
+        use_error_logs=True,
+        use_history=True,
+        use_past_error_logs=False,
+        use_action_history=True,
+        use_think_history=True,
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=True,
+        extract_clickable_tag=True,
+        extract_coords="False",
+        filter_visible_elements_only=False,
+    ),
+    action=dp.ActionFlags(
+        multi_actions=False,
+        action_set="bid",
+        long_description=False,
+        individual_examples=False,
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=True,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=True,
+    enable_chat=False,
+    max_prompt_tokens=None,
+    be_cautious=True,
+    extra_instructions="""
+Your task may be assigned to you in a form. If this is the case, you will need
+to read and remember your task before you can start working on it. Use your
+<think> space as a memory it will be presented to you on future steps. 
+""",
+)
+
+FLAGS_GPT_4o_L3_VISION = FLAGS_GPT_4o_L3.copy()
+FLAGS_GPT_4o_L3_VISION.obs.use_screenshot = True
+FLAGS_GPT_4o_L3_VISION.obs.use_som = True
+
+AGENT_4o_L3 = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=FLAGS_GPT_4o_L3.copy(),
+    agent_name="agent_gpt-4o_L3",
+)
+
+AGENT_4o_L3_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=FLAGS_GPT_4o_L3_VISION.copy(),
+    agent_name="agent_gpt-4o_L3_vision",
 )

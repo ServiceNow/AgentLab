@@ -20,42 +20,19 @@ def select_single_agent(result_df: pd.DataFrame, agent_index) -> pd.DataFrame:
     return agent_result_df
 
 
-MODEL_NAME_MAP = {
+NAME_MAP = {
     "openai/gpt-4-1106-preview": "gpt-4",
     "openai/gpt-4-vision-preview": "gpt-4-v",
     "openai/gpt-3.5-turbo-1106": "gpt-3.5",
-}
-
-TASK_CATEGORY_MAP = {
-    "workarena.servicenow.all-menu": "menu",
-    "workarena.servicenow.create-change-request": "form",
-    "workarena.servicenow.create-hardware-asset": "form",
-    "workarena.servicenow.create-incident": "form",
-    "workarena.servicenow.create-problem": "form",
-    "workarena.servicenow.create-user": "form",
-    "workarena.servicenow.filter-asset-list": "list-filter",
-    "workarena.servicenow.filter-change-request-list": "list-filter",
-    "workarena.servicenow.filter-hardware-list": "list-filter",
-    "workarena.servicenow.filter-incident-list": "list-filter",
-    "workarena.servicenow.filter-service-catalog-item-list": "list-filter",
-    "workarena.servicenow.filter-user-list": "list-filter",
-    "workarena.servicenow.impersonation": "menu",
-    "workarena.servicenow.knowledge-base-search": "knowledge",
-    "workarena.servicenow.order-apple-mac-book-pro15": "service catalog",
-    "workarena.servicenow.order-apple-watch": "service catalog",
-    "workarena.servicenow.order-developer-laptop": "service catalog",
-    "workarena.servicenow.order-development-laptop-p-c": "service catalog",
-    "workarena.servicenow.order-ipad-mini": "service catalog",
-    "workarena.servicenow.order-ipad-pro": "service catalog",
-    "workarena.servicenow.order-loaner-laptop": "service catalog",
-    "workarena.servicenow.order-sales-laptop": "service catalog",
-    "workarena.servicenow.order-standard-laptop": "service catalog",
-    "workarena.servicenow.sort-asset-list": "list-sort",
-    "workarena.servicenow.sort-change-request-list": "list-sort",
-    "workarena.servicenow.sort-hardware-list": "list-sort",
-    "workarena.servicenow.sort-incident-list": "list-sort",
-    "workarena.servicenow.sort-service-catalog-item-list": "list-sort",
-    "workarena.servicenow.sort-user-list": "list-sort",
+    "agent_gpt-3.5": "gpt-3.5",
+    "agent_gpt-4o": "gpt-4o",
+    "agent_gpt-4o_vision": "gpt-4o-v",
+    "agent_llama3": "Llama3",
+    "GenericAgent": "Llama3",
+    "miniwob": "MiniWoB++",
+    "workarna": "WorkArena",
+    "agent_gpt-4o_L3": "gpt-4o",
+    "agent_gpt-4o_L3_vision": "gpt-4o-v",
     "webarena.0": "information-seeking",
     "webarena.1": "information-seeking",
     "webarena.2": "information-seeking",
@@ -876,25 +853,14 @@ def make_joint_ablation_study(result_dict):
     col_dict = {}
     for model_name, result_df in result_dict.items():
         report = inspect_results.ablation_report(result_df)
-        short_model_name = MODEL_NAME_MAP.get(model_name, model_name)
+        short_model_name = NAME_MAP.get(model_name, model_name)
         col_dict[short_model_name] = 100 * report["avg_reward"]
         col_dict[f"±{short_model_name}"] = 100 * report["uncertainty_reward"]
 
     return pd.DataFrame(col_dict)
 
 
-# def set_task_category_as_index(result_df, TASK_CATEGORY_MAP):
-#     """Create task_category index from task_name if needed and re-assign index
-#     from variables using task_category."""
-#     # rested index task_name (level 0)
-#     new_df = result_df.reset_index(inplace=False)
-#     if not "task_category" in new_df.columns:
-#         new_df["task_category"] = new_df["task_name"].map(TASK_CATEGORY_MAP)
-#     inspect_results.set_index_from_variables(new_df, task_key="task_category")
-#     return new_df
-
-
-def make_joint_report(result_dict, agent_index_dict, use_category=True):
+def make_joint_report(result_dict, agent_index_dict=None, use_category=True):
     """Select a specific agent and generate a report for all models.
 
     Args:
@@ -910,24 +876,54 @@ def make_joint_report(result_dict, agent_index_dict, use_category=True):
     """
     col_dict = {}
     for model_name, result_df in result_dict.items():
-        if isinstance(agent_index_dict, dict):
-            agent_index = agent_index_dict[model_name]
+        if agent_index_dict is not None:
+            if isinstance(agent_index_dict, dict):
+                agent_index = agent_index_dict[model_name]
+            else:
+                agent_index = agent_index_dict
+            agent_result_df = select_single_agent(result_df, agent_index)
         else:
-            agent_index = agent_index_dict
-        agent_result_df = select_single_agent(result_df, agent_index)
+            agent_result_df = result_df
         if use_category:
-            agent_result_df = set_task_category_as_index(agent_result_df)
+            agent_result_df = inspect_results.set_task_category_as_index(agent_result_df)
         report = inspect_results.global_report(agent_result_df, rename_index=None)
-        short_model_name = MODEL_NAME_MAP.get(model_name, model_name)
+        short_model_name = NAME_MAP.get(model_name, model_name)
         col_dict[short_model_name] = 100 * report["avg_reward"]
         col_dict[f"±{short_model_name}"] = 100 * report["uncertainty_reward"]
 
     return pd.DataFrame(col_dict)
 
 
+def make_joint_ablation(result_dict):
+    """Select a specific agent and generate a report for all models.
+
+    Args:
+        result_dict (dict): a dictionary of dataframes for each benchmark
+        agent_index_dict (dict): a dictionary of agent index. If a single index
+            is used, it will be used for all benchmarks
+        use_category (bool): if True, use the task category as index. Otherwise,
+            will return the report for all tasks.
+
+    Returns:
+        pd.DataFrame: a dataframe with the average reward and uncertainty for
+            each model.
+    """
+    col_dict = {}
+    for name, result_df in result_dict.items():
+
+        report = inspect_results.ablation_report(result_df)
+        short_name = NAME_MAP.get(name, name)
+        col_dict[short_name] = 100 * report["avg_reward"]
+        col_dict[f"±{short_name}"] = 100 * report["uncertainty_reward"]
+
+    return pd.DataFrame(col_dict)
+
+
 def add_web_gum_subset(result_df):
     """Add the webgum subset to the result_df"""
-    webgum_df = result_df[result_df.index.get_level_values("task_name").isin(webgum_tasks)].copy()
+    webgum_df = result_df[
+        result_df.index.get_level_values("env_args.task_name").isin(webgum_tasks)
+    ].copy()
 
     webgum_df["task_category"] = "webgum"
     result_df["task_category"] = "all"
@@ -1007,40 +1003,50 @@ def get_all_action_count(exp_dir: str | Path, filter_func=filter_multi_action_an
     return pd.DataFrame(info)
 
 
-###########
+##########
 # These are prompt to help generating the latex tables for the paper. Just
 # update the results in the prompt and ask GPT to generate the latex table.
 
-_prompt_for_main_table = """
+_prompt_for_main_table = r"""
 
-Here is my current table:
+Here is my current table,
 
 ---------------
+
 % Define a command for the smaller, gray-scale text
-\newcommand{\gpm}[1]{\textcolor{gray}{\small$\pm#1$}}
+\newcommand{\gpm}[1]{\textcolor{gray}{\tiny$\pm$#1}}
 
 % New column types for left and right alignment
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \newcolumntype{R}{>{\raggedleft\arraybackslash}X}
 
+\newcommand{\warning}{\textcolor{orange}{\faExclamationTriangle{}}}
+\newcommand{\warningNote}{\warning\; \textcolor{blue}{WorkArena has changed on GitHub and those results are obtained using an older version. Reproducible results will be published in an updated version of the paper.}\;\warning}
+
 \begin{table}[t] % Use table for single column
-\caption{Success rate\gpm{Standard Error} of all agents on MiniWoB++ and WorkArena. Bolded numbers represent the average success rate over the entire corresponding benchmark. \maxime{I think we are missing an info here: how many episodes/instances per category? How many episodes/instances total?}}
+\caption{Success rate\gpm{Standard error} (SR \gpm{SE}) of all agents on MiniWoB, WorkArena, and WebArena. Bolded numbers represent the average success rate over the entire corresponding benchmark.}
 \noindent\resizebox{\columnwidth}{!}{ % Adjust to column width
-\begin{tabular}{l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l}
+\begin{tabular}{l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l}
 \toprule
-\textbf{Task Category} & \multicolumn{2}{c}{\textbf{GPT-4}} & \multicolumn{2}{c}{\textbf{GPT-3.5}} & \multicolumn{2}{c}{\textbf{CodeLlama}} \\
- & \textbf{Suc \%} & \gpm{SE} & \textbf{Suc \%} & \gpm{SE} & \textbf{Suc \%} & \gpm{SE} \\
+\textbf{Task Category} & \multicolumn{2}{c}{\textbf{GPT-4o}} & \multicolumn{2}{c}{\textbf{GPT-4o-v}} & \multicolumn{2}{c}{\textbf{GPT-3.5}} & \multicolumn{2}{c}{\textbf{Llama3}} \\
+ & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} \\
 \midrule
-\textbf{WorkArena} & \textbf{51.0} & \gpm{1.9} & \textbf{14.5} & \gpm{1.5} & \textbf{0} & \gpm{0} \\
-\quad Form            & 50.0 & \gpm{5.0} & 2.0  & \gpm{2.6} & 0 & \gpm{0} \\
-\quad Knowledge       & 50.0 & \gpm{15.2} & 0.0 & \gpm{4.1} & 0 & \gpm{0} \\
-\quad List-filter     & 0.0  & \gpm{1.6} & 0.0  & \gpm{1.6} & 0 & \gpm{0} \\
-\quad List-sort       & 53.3 & \gpm{5.7} & 35.0 & \gpm{5.7} & 0 & \gpm{0} \\
-\quad Menu            & 85.0 & \gpm{7.9} & 30.0 & \gpm{8.8} & 0 & \gpm{0} \\
-\quad Service catalog & 76.7 & \gpm{3.8} & 15.6 & \gpm{2.5} & 0 & \gpm{0} \\
+\textbf{WorkArena} & \textbf{42.7} & \gpm{1.7} & \textbf{41.8} & \gpm{1.8} & \textbf{18.6} & \gpm{2.2} & \textbf{0} & \gpm{0} \\
+\quad Dashboard & 62.5 & \gpm{7.2} & 72.5 & \gpm{6.4} & 20.0 & \gpm{5.8} & 0 & \gpm{0} \\
+\quad Form & 40.0 & \gpm{6.2} & 34.0 & \gpm{4.9} & 2.0 & \gpm{2.3} & 0 & \gpm{0} \\
+\quad Knowledge & 80.0 & \gpm{12.4} & 70.0 & \gpm{14.1} & 0.0 & \gpm{4.3} & 0 & \gpm{0} \\
+\quad List-filter & 0.0 & \gpm{1.9} & 0.0 & \gpm{1.5} & 0.0 & \gpm{1.6} & 0 & \gpm{0} \\
+\quad List-sort & 10.0 & \gpm{3.4} & 13.3 & \gpm{3.9} & 8.3 & \gpm{3.6} & 0 & \gpm{0} \\
+\quad Menu & 60.0 & \gpm{7.9} & 90.0 & \gpm{6.0} & 5.0 & \gpm{4.4} & 0 & \gpm{0} \\
+\quad Service catalog & 77.8 & \gpm{3.0} & 65.6 & \gpm{4.2} & 5.6 & \gpm{2.5} & 0 & \gpm{0} \\
 \midrule
-\textbf{MiniWoB} {\tiny(125 tasks)}     & \textbf{71.7} & \gpm{1.0} & \textbf{43.6} & \gpm{0.9} & \textbf{25.5} & \gpm{1.4} \\
-\quad WebGum Subset {\tiny(56 tasks)}   & 87.6 & \gpm{1.0} & 59.8 & \gpm{1.5} & 32.4 & \gpm{2.1} \\
+\textbf{MiniWoB} {\tiny(125 tasks)} & \textbf{66.1} & \gpm{1.0} & \textbf{67.7} & \gpm{1.0} & \textbf{38.9} & \gpm{1.0} & \textbf{25.5} & \gpm{1.3} \\
+\quad WebGum Subset {\tiny(56 tasks)} & 82.9 & \gpm{1.3} & 83.2 & \gpm{1.3} & 53.6 & \gpm{1.6} & 32.4 & \gpm{2.1} \\
+\midrule
+\textbf{WebArena} {\tiny(812 tasks)} & \textbf{24.0} & \gpm{0.7} & \textbf{23.5} & \gpm{0.6} & \textbf{13.1} & \gpm{0.6} & \textbf{0} & \gpm{0} \\
+\quad Content-and-config {\tiny(411 tasks)} & 26.8 & \gpm{0.9} & 25.8 & \gpm{0.8} & 8.8 & \gpm{0.8} & 0 & \gpm{0} \\
+\quad Information-seeking {\tiny(325 tasks)} & 22.5 & \gpm{1.1} & 22.5 & \gpm{1.0} & 4.3 & \gpm{0.9} & 0 & \gpm{0} \\
+\quad Navigation {\tiny(76 tasks)} & 15.8 & \gpm{1.7} & 15.8 & \gpm{2.1} & 5.3 & \gpm{1.9} & 0 & \gpm{0} \\
 \bottomrule
 \end{tabular}
 }
@@ -1048,34 +1054,44 @@ Here is my current table:
 \end{table}
 -----------
 
-make sure to keep the 0 of CodeLlama.
 I need to update with new results:
+Only the following values are the good ones. The previous values are just
+placeholders. If there are missing values put N/A. [ALL TASKS] corresponds to
+the main results for the benchmark. 
 
 MiniWob:
+	Llama3	±Llama3	gpt-3.5	±gpt-3.5	gpt-4o	±gpt-4o	gpt-4o-v	±gpt-4o-v
+task_category								
+all	62.6	0.6	38.9	1.1	66.1	1.0	67.7	1.0
+webgum	80.5	1.0	53.6	1.4	82.9	1.5	83.2	1.5
 
-gpt-4    ±gpt-4    gpt-3.5    ±gpt-3.5    CodeLlama    ±CodeLlama
-task_category
-all    71.70    1.00    43.60    1.00    25.50    1.30
-webgum    87.60    1.20    59.80    1.70    32.40    2.10
+WorkArena Results:
+gpt-3.5	±gpt-3.5	gpt-4o	±gpt-4o	gpt-4o-v	±gpt-4o-v	Llama3	±Llama3
+task_category								
+dashboard	20.0	4.8	62.5	6.8	72.5	6.0	37.5	6.0
+form	2.0	2.5	40.0	5.9	34.0	4.8	32.0	4.6
+knowledge	0.0	4.3	80.0	12.2	70.0	13.9	30.0	12.3
+list-filter	0.0	1.6	0.0	1.6	0.0	1.7	0.0	1.8
+list-sort	8.3	3.7	10.0	3.8	13.3	4.0	1.7	2.5
+menu	5.0	4.7	60.0	8.0	90.0	6.0	0.0	2.9
+service catalog	5.6	2.3	77.8	3.2	65.6	3.6	26.7	3.4
+[ALL TASKS]	6.1	1.3	42.7	1.5	41.8	1.7	17.9	1.5
 
-Work Arena Results:
-
-    gpt-4    ±gpt-4    gpt-3.5    ±gpt-3.5
-task_category
-form    58.00    4.80    16.00    4.00
-knowledge    50.00    14.80    0.00    4.30
-list-filter    0.00    1.70    0.00    2.00
-list-sort    58.30    5.50    38.30    6.10
-menu    95.00    4.80    25.00    8.70
-service catalog    78.90    3.70    20.00    3.30
-[ALL TASKS]    54.80    2.10    18.60    2.20
-
+WebArena Results:
+gpt-3.5	±gpt-3.5	gpt-4o	±gpt-4o	gpt-4o-v	±gpt-4o-v	Llama3	±Llama3
+task_category								
+content-and-config	8.8	0.8	26.8	0.9	25.8	1.0	12.7	0.9
+information-seeking	4.3	0.9	22.5	0.9	22.5	1.0	9.8	1.1
+navigation	5.3	1.9	15.8	1.8	15.8	2.2	6.6	1.9
+[ALL TASKS]	6.7	0.6	24.0	0.6	23.5	0.7	11.0	0.6
 --------
 
 """
 
 
-_prompt_for_ablation_table = """
+_prompt_for_ablation_table = r"""
+
+
 Getting inspiration from this table,
 
 
@@ -1083,38 +1099,190 @@ Getting inspiration from this table,
 \newcommand{\gpm}[1]{\textcolor{gray}{\small$\pm#1$}}
 
 \begin{table}[ht]
-\caption{MiniWoB++\drouin{todo}}
+\caption{Ablation study on \textbf{MiniWoB++} and \textbf{workarena}. Success rate\gpm{Standard error} (SR \gpm{SE}) of all configurations. Each row modifies the initial configuration.}
 \noindent\resizebox{\columnwidth}{!}{
 \begin{tabular}{l r@{\hspace{2pt}}l r@{\hspace{2pt}}l}
 \toprule
-\multicolumn{1}{l}{\textbf{Configuration}} & \multicolumn{2}{c}{\textbf{GPT-4}} & \multicolumn{2}{c}{\textbf{GPT-3.5}} \\
+\multicolumn{1}{l}{\textbf{Configuration}} & \multicolumn{2}{c}{\textbf{MiniWoB++}} & \multicolumn{2}{c}{\textbf{workarena}} \\
  & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} \\
 \midrule
-Initial Configuration & 65.1 & \gpm{0.9} & 29.7 & \gpm{0.9} \\
-$\hookrightarrow$ use\_error\_logs=True & 66.6 & \gpm{1.0} & 32.2 & \gpm{1.0} \\
-$\hookrightarrow$ use\_ax\_tree=True & 66.1 & \gpm{1.0} & 38.2 & \gpm{1.0} \\
-$\hookrightarrow$ multi\_actions=True & 67.9 & \gpm{1.0} & 42.0 & \gpm{1.1} \\
-$\hookrightarrow$ extract\_coords=center & 70.4 & \gpm{0.8} & 43.6 & \gpm{1.0} \\
-$\hookrightarrow$ action\_space=bid+coord & 68.4 & \gpm{1.0} & 41.6 & \gpm{1.1} \\
-$\hookrightarrow$ extract\_coords=box & 71.7 & \gpm{1.0} & 39.1 & \gpm{1.1} \\
-$\hookrightarrow$ extract\_visible\_tag=True & 66.9 & \gpm{1.1} & 39.8 & \gpm{1.1} \\
+Initial Configuration & 68.2 & \gpm{1.0} & 45.5 & \gpm{2.2} \\
++multi\_actions & 68.5 & \gpm{1.0} & 40.6 & \gpm{2.0} \\
++long\_description & 67.8 & \gpm{1.0} & 45.5 & \gpm{2.3} \\
++individual\_examples & 67.0 & \gpm{1.0} & 43.0 & \gpm{2.0} \\
+action\_set← bid+coord with box & 72.6 & \gpm{1.0} & 41.2 & \gpm{1.8} \\
++use\_think\_history & 66.7 & \gpm{0.9} & 42.4 & \gpm{2.3} \\
++use\_past\_error\_logs & 67.2 & \gpm{0.9} & 43.6 & \gpm{2.1} \\
+-extract\_visible\_tag & 68.8 & \gpm{1.0} & 43.0 & \gpm{2.2} \\
 \bottomrule
 \end{tabular}
 }
-\label{tab:bgym-ablation-mw}
+\label{tab:ablation-mw-workarena}
 \end{table}
+
 -------------
 
-Format these results in latex:
+Create a latex table with those new results by getting the template of the
+previous table.
+Remove redundant "obs." and "action." prefixes from the configuration names.
+use N/A instead of NaN
 
-gpt-4    ±gpt-4    gpt-3.5    ±gpt-3.5
-change
-Initial Configuration    65.10    0.90    29.70    1.00
-↳ use_error_logs=True    66.60    0.90    32.20    1.00
-↳ use_ax_tree=True    66.10    0.90    38.20    1.00
-↳ multi_actions=True    67.90    0.80    42.00    1.00
-↳ extract_coords=center    70.40    0.90    43.60    1.10
-↳ action_space=bid+coord    68.40    1.00    41.60    1.20
-↳ extract_coords=box    71.70    1.00    39.10    1.10
-↳ extract_visible_tag=True    66.90    1.10    39.80    1.00
+MiniWoB++	±MiniWoB++	workarena	±workarena
+change				
++action.long_description	55.5	1.0	17.6	2.0
++action.multi_actions	63.0	1.0	17.6	2.1
++obs.use_error_logs	60.2	1.1	19.4	1.8
++use_plan	59.4	0.9	NaN	NaN
+-obs.extract_visible_tag	61.3	0.9	15.8	2.0
+-obs.use_action_history	49.9	1.1	8.5	1.7
+-obs.use_think_history	52.2	1.1	18.8	2.1
+-use_abstract_example	59.4	1.1	NaN	NaN
+-use_concrete_example	59.4	1.1	NaN	NaN
+-use_thinking	48.6	1.1	8.5	1.7
+Initial Configuration	59.8	1.0	20.0	2.3
+"""
+
+
+main_table_neurips = r"""
+
+
+get inspiration from the format of the original table and write a new latex
+tables contaiing the new results. Make sure to copy only the value of the new
+results and put values in the appropriate column order for each sub table. 
+rows starting with [name] are main categories and should be bold. Other rows are
+sub categories and should start with \quad
+
+Here is my old table,
+
+---------------
+
+% Define a command for the smaller, gray-scale text
+\newcommand{\gpm}[1]{\textcolor{gray}{\tiny$\pm$#1}}
+
+% New column types for left and right alignment
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+
+\begin{table}[t] % Use table for single column
+\caption{Success rate\gpm{Standard error} (SR \gpm{SE}) of all agents on MiniWoB, WorkArena, and WebArena. Bolded numbers represent the average success rate over the entire corresponding benchmark.}
+\noindent\resizebox{\columnwidth}{!}{ % Adjust to column width
+\begin{tabular}{l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l}
+\toprule
+\textbf{Task Category} & \multicolumn{2}{c}{\textbf{GPT-4o}} & \multicolumn{2}{c}{\textbf{GPT-4o-v}} & \multicolumn{2}{c}{\textbf{GPT-3.5}} & \multicolumn{2}{c}{\textbf{Llama3}} \\
+ & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} \\
+\midrule
+\textbf{WorkArena L3} & \textbf{0.0} & \gpm{0.0} & \textbf{0.0} & \gpm{0.0} & \textbf{0.0} & \gpm{0.0} & \textbf{0.0} & \gpm{0.0} \\
+\quad Infeasible tasks & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Logical and mathematical reasoning & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Planning, decision making, and problem solving & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Retrieval & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Sophisticated memory & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\midrule
+\textbf{WorkArena L2} & \textbf{3.0} & \gpm{1.1} & \textbf{3.8} & \gpm{1.3} & \textbf{0.0} & \gpm{0.0} & \textbf{0.0} & \gpm{0.0} \\
+\quad Infeasible tasks & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Logical and mathematical reasoning & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Planning, decision making, and problem solving & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Retrieval & 0.0 & \gpm{0.0} & 3.6 & \gpm{2.5} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\quad Sophisticated memory & 14.6 & \gpm{5.1} & 14.6 & \gpm{5.1} & 0.0 & \gpm{0.0} & 0.0 & \gpm{0.0} \\
+\midrule
+\textbf{WorkArena L1} & \textbf{42.7} & \gpm{2.7} & \textbf{41.8} & \gpm{2.7} & \textbf{17.9} & \gpm{2.1} & \textbf{6.1} & \gpm{1.3} \\
+\midrule
+\textbf{MiniWoB} & \textbf{71.3} & \gpm{1.5} & \textbf{72.5} & \gpm{1.5} & \textbf{68.2} & \gpm{1.2} & \textbf{43.4} & \gpm{1.6} \\
+\midrule
+\textbf{WebArena} & \textbf{24.0} & \gpm{1.5} & \textbf{23.5} & \gpm{1.5} & \textbf{11.0} & \gpm{1.1} & \textbf{6.7} & \gpm{0.9} \\
+\bottomrule
+\end{tabular}
+}
+\label{tab:acc-summary}
+\end{table}
+
+-----------
+
+
+Llama3	±Llama3	gpt-3.5	±gpt-3.5	gpt-4o	±gpt-4o	gpt-4o-v	±gpt-4o-v	mixtral	±mixtral
+[WorkArena L3]	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+infeasible_tasks	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+logical_and_mathematical_reasoning	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+planning_decision_making_and_problem_solving	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+retrieval	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+sophisticated_memory	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+[WorkArena L2]	0.0	0.0	0.0	0.0	3.0	1.1	3.8	1.3	0.0	0.0
+infeasible_tasks	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+logical_and_mathematical_reasoning	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+planning_decision_making_and_problem_solving	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+retrieval	0.0	0.0	0.0	0.0	0.0	0.0	3.6	2.5	0.0	0.0
+sophisticated_memory	0.0	0.0	0.0	0.0	14.6	5.1	14.6	5.1	0.0	0.0
+[WorkArena L1]	17.9	2.1	6.1	1.3	42.7	2.7	41.8	2.7	12.4	1.8
+[MiniWob]	68.2	1.2	43.4	1.6	71.3	1.5	72.5	1.5	62.4	1.6
+[WebArena]	11.0	1.1	6.7	0.9	24.0	1.5	23.5	1.5	NaN	NaN
+-------------
+
+
+"""
+
+
+human_eval = r"""
+
+convert the data below into a latex table. the "se" columns are for standard
+error. use the \gpm command to display the standard deviation in gray color
+in the same column as the value. Level 2 and Level 3 represents grouped columns
+headers. All tasks should be in bold and other categories should be preceded by \quad
+
+here is another table for the style:
+
+% Define a command for the smaller, gray-scale text
+\newcommand{\gpm}[1]{\textcolor{gray}{\tiny$\pm$#1}}
+
+% New column types for left and right alignment
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+
+\newcommand{\warning}{\textcolor{orange}{\faExclamationTriangle{}}}
+\newcommand{\warningNote}{\warning\; \textcolor{blue}{WorkArena has changed on GitHub and those results are obtained using an older version. Reproducible results will be published in an updated version of the paper.}\;\warning}
+
+\begin{table}[t] % Use table for single column
+\caption{Success rate\gpm{Standard error} (SR \gpm{SE}) of all agents on MiniWoB, WorkArena, and WebArena. Bolded numbers represent the average success rate over the entire corresponding benchmark.}
+\noindent\resizebox{\columnwidth}{!}{ % Adjust to column width
+\begin{tabular}{l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l r@{\hspace{2pt}}l}
+\toprule
+\textbf{Task Category} & \multicolumn{2}{c}{\textbf{GPT-4o}} & \multicolumn{2}{c}{\textbf{GPT-4o-v}} & \multicolumn{2}{c}{\textbf{GPT-3.5}} & \multicolumn{2}{c}{\textbf{Llama3}} \\
+ & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} & \textbf{SR \%} & \gpm{SE} \\
+\midrule
+\textbf{WorkArena} & \textbf{42.7} & \gpm{1.7} & \textbf{41.8} & \gpm{1.8} & \textbf{18.6} & \gpm{2.2} & \textbf{0} & \gpm{0} \\
+\quad Dashboard & 62.5 & \gpm{7.2} & 72.5 & \gpm{6.4} & 20.0 & \gpm{5.8} & 0 & \gpm{0} \\
+\quad Form & 40.0 & \gpm{6.2} & 34.0 & \gpm{4.9} & 2.0 & \gpm{2.3} & 0 & \gpm{0} \\
+\quad Knowledge & 80.0 & \gpm{12.4} & 70.0 & \gpm{14.1} & 0.0 & \gpm{4.3} & 0 & \gpm{0} \\
+\quad List-filter & 0.0 & \gpm{1.9} & 0.0 & \gpm{1.5} & 0.0 & \gpm{1.6} & 0 & \gpm{0} \\
+\quad List-sort & 10.0 & \gpm{3.4} & 13.3 & \gpm{3.9} & 8.3 & \gpm{3.6} & 0 & \gpm{0} \\
+\quad Menu & 60.0 & \gpm{7.9} & 90.0 & \gpm{6.0} & 5.0 & \gpm{4.4} & 0 & \gpm{0} \\
+\quad Service catalog & 77.8 & \gpm{3.0} & 65.6 & \gpm{4.2} & 5.6 & \gpm{2.5} & 0 & \gpm{0} \\
+\midrule
+\textbf{MiniWoB} {\tiny(125 tasks)} & \textbf{66.1} & \gpm{1.0} & \textbf{67.7} & \gpm{1.0} & \textbf{38.9} & \gpm{1.0} & \textbf{25.5} & \gpm{1.3} \\
+\quad WebGum Subset {\tiny(56 tasks)} & 82.9 & \gpm{1.3} & 83.2 & \gpm{1.3} & 53.6 & \gpm{1.6} & 32.4 & \gpm{2.1} \\
+\midrule
+\textbf{WebArena} {\tiny(812 tasks)} & \textbf{24.0} & \gpm{0.7} & \textbf{23.5} & \gpm{0.6} & \textbf{13.1} & \gpm{0.6} & \textbf{0} & \gpm{0} \\
+\quad Content-and-config {\tiny(411 tasks)} & 26.8 & \gpm{0.9} & 25.8 & \gpm{0.8} & 8.8 & \gpm{0.8} & 0 & \gpm{0} \\
+\quad Information-seeking {\tiny(325 tasks)} & 22.5 & \gpm{1.1} & 22.5 & \gpm{1.0} & 4.3 & \gpm{0.9} & 0 & \gpm{0} \\
+\quad Navigation {\tiny(76 tasks)} & 15.8 & \gpm{1.7} & 15.8 & \gpm{2.1} & 5.3 & \gpm{1.9} & 0 & \gpm{0} \\
+\bottomrule
+\end{tabular}
+}
+\label{tab:acc-summary}
+\end{table}
+-----------
+
+
+data:
+---------------
+		GPT 	se	human	se	GPT	se	human	se												
+all		2.1	2	93.9	3.42	0	0	93.9	3.42												
+Planning and decision making		0	0	100	0	0	0	87.5	11.69												
+Information retrieval		0	0	100	0	0	0	100	0												
+Data-driven decision making		0	0	84.6	10.01	0	0	100	0												
+Sophisticated memory		8.3	8	91.7	7.96	0	0	91.7	7.96												
+Contextual reasoning		0	0	100	0	0	0	87.5	11.69												
+---------------
+
+
+
 """
