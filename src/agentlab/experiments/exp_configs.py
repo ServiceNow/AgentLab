@@ -1,4 +1,5 @@
 import logging
+from typing import List
 from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
 from browsergym.experiments.loop import EnvArgs
 import random
@@ -56,28 +57,17 @@ def order(exp_args_list):
     return exp_args_list
 
 
-def fix_flags(benchmark: str, mode: str = None, flags: GenericPromptFlags = None):
-    if not mode:
-        mode = "single_eval"
-        logging.warning(f"Mode not specified, defaulting to {mode}")
-    if mode not in ["single_eval", "rs", "OSS_eval", "OSS_rs", "finetuning_eval"]:
-        raise ValueError(f"Unknown mode: {mode}")
+def fix_flags(benchmark: str, flags: List[GenericPromptFlags] = None):
 
-    if mode == "single_eval":
-        if benchmark == "miniwob":
-            flags.obs.use_html = True
+    # TODO: adapt such that flags can be a list
+    # Also, always pass the flags and remove the logic
 
-    if mode == "OSS_rs":
-        if "miniwob" in benchmark:
-            flags = MINIWOB_RS_OSS_FLAGS
-        else:
-            flags = RS_OSS_FLAGS
+    if flags is List:
+        pass
 
-    if mode == "finetuning_eval":
-        if "miniwob" in benchmark:
-            flags = FINETUNING_MINIWOB_FLAGS
-        else:
-            flags = FINETUNING_FLAGS
+    if benchmark.startswith("miniwob"):
+        for flag in flags:
+            flag.obs.use_html = True
 
     return flags
 
@@ -201,7 +191,6 @@ def random_search(
     # benchmark: str = "workarena.servicenow.all-menu",
     # benchmark: str = "miniwob.click-menu-2",
     benchmark: str = "workarena.l1",
-    mode="OSS_rs",
 ):
     """Example of random search. Modify this at will, but don't push your
     changes.
@@ -211,8 +200,7 @@ def random_search(
     analyze the  results with caution and don't actually draw final conclusions
     from these experiments.
     """
-    flags = fix_flags(benchmark, mode=mode, flags=DEFAULT_RS_FLAGS)
-    # flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
+    flags = fix_flags(benchmark, flags=DEFAULT_RS_FLAGS)
 
     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
@@ -596,20 +584,14 @@ def demo_maker():
 
 
 def finetuning_eval(
-    # benchmark: str = "workarena.servicenow.all-menu",
-    # dataset_name: str = "AllMenuTask_240603",
-    # benchmark: str = "miniwob.click-menu-2",
-    # dataset_name: str = "miniwob_overfit_240523",
-    # benchmark: str = "workarena.l1",
-    # dataset_name: str = "ATOMIC_TASKS_240604",
-    benchmark: str = "miniwob",
+    benchmark: str = "miniwob.test",
     dataset_name: str = "traces_test",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
 
-    flags = fix_flags(
+    flags_list = fix_flags(
         benchmark,
-        mode="finetuning_eval",
+        flags=[BASIC_FINETUNING_FLAGS, FLAGS_8B, FLAGS_GPT_4o],
     )
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
 
@@ -633,7 +615,7 @@ def finetuning_eval(
         ExpArgs(
             agent_args=GenericAgentArgs(
                 chat_model_args=args.CrossProd(get_ckpt_list(chat_model_args_list[0])),
-                flags=flags,
+                flags=args.CrossProd(flags_list),
             ),
             env_args=args.CrossProd(env_args_list),
             # enable_debug=True,
@@ -683,46 +665,6 @@ DEFAULT_RS_FLAGS = GenericPromptFlags(
 )
 
 
-MINIWOB_RS_OSS_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=args.Choice([True, False], p=[0.75, 0.25]),
-        use_ax_tree=args.Choice([True, False], p=[0.75, 0.25]),
-        use_focused_element=False,
-        use_error_logs=args.Choice([True, False], p=[0.8, 0.2]),
-        use_history=args.Choice([True, False], p=[0.8, 0.2]),
-        use_past_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
-        use_action_history=args.Choice([True, False], p=[0.8, 0.2]),
-        use_think_history=args.Choice([True, False], p=[0.5, 0.5]),
-        use_diff=args.Choice([True, False], p=[0.5, 0.5]),
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=False,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=args.Choice([True, False], p=[0.5, 0.5]),
-        action_set=args.Choice(["bid", "python"]),
-        # action_set=args.Choice(["python", "bid", "coord",
-        # "bid+coord"]),
-    ),
-    # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
-    use_plan=args.Choice([True, False], p=[0.25, 0.75]),
-    use_criticise=args.Choice([True, False], p=[0.25, 0.75]),
-    use_thinking=args.Choice([True, False], p=[0.5, 0.5]),
-    use_memory=args.Choice([True, False], p=[0.25, 0.75]),
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=args.Choice([True, False], p=[0.25, 0.75]),
-    be_cautious=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    extra_instructions=None,
-)
-
-
 RS_OSS_FLAGS = GenericPromptFlags(
     obs=dp.ObsFlags(
         # use_html=args.Choice([True, False], p=[0.75, 0.25]),
@@ -764,34 +706,8 @@ RS_OSS_FLAGS = GenericPromptFlags(
     extra_instructions=None,
 )
 
-FINETUNING_MINIWOB_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=True,
-        use_ax_tree=False,
-        use_think_history=False,
-        use_error_logs=False,
-        use_past_error_logs=False,
-        use_history=True,
-        use_action_history=True,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=False,
-        action_set="bid",
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=False,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=False,
-)
 
-
-FINETUNING_FLAGS = GenericPromptFlags(
+BASIC_FINETUNING_FLAGS = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
