@@ -16,7 +16,7 @@ from PIL import Image
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
-select_dir_instructions = "Select Experiment Direcotory"
+select_dir_instructions = "Select Experiment Directory"
 
 
 class ClickMapper:
@@ -35,9 +35,9 @@ class ClickMapper:
 
 @dataclass
 class EpisodeId:
+    agent_id: str = None
     task_name: str = None
     seed: int = None
-    agent: str = None
 
 
 @dataclass
@@ -48,14 +48,16 @@ class StepId:
 
 @dataclass
 class Info:
-    results_dir: Path = None
-    exp_list_dir: Path = None
-    result_df: pd.DataFrame = None
-    tasks_df: pd.DataFrame = None
-    exp_result: ExpResult = None
-    click_mapper: ClickMapper = None
-    step: int = None
-    active_tab: str = "Screenshot"
+    results_dir: Path = None  # to root directory of all experiments
+    exp_list_dir: Path = None  # the path of the currently selected experiment
+    result_df: pd.DataFrame = None  # the raw loaded df
+    agent_df: pd.DataFrame = None  # the df filtered for selected agent
+    tasks_df: pd.DataFrame = None  # the unique tasks for selected agent
+    exp_result: ExpResult = None  # the selected episode
+    click_mapper: ClickMapper = None  # mapping from profiler click to step
+    step: int = None  # currently selected step
+    active_tab: str = "Screenshot"  # currently selected observation tab
+    agent_id_keys: list[str] = None  # the list of columns identifying an agent
 
     def update_exp_result(self, episode_id: EpisodeId):
         if self.result_df is None or episode_id.task_name is None or episode_id.seed is None:
@@ -82,6 +84,23 @@ class Info:
         print(exp_dir)
         self.exp_result = ExpResult(exp_dir)
         self.step = 0
+
+    def get_agent_id(self, row: pd.Series):
+        agent_id = []
+        for key in self.agent_id_keys:
+            agent_id.append((key, row[key]))
+        return agent_id
+
+    def filter_agent_id(self, agent_id: list[tuple]):
+        # query_str = " & ".join([f"`{col}` == {repr(val)}" for col, val in agent_id])
+        # agent_df = info.result_df.query(query_str)
+
+        agent_df = self.result_df.reset_index(inplace=False)
+        agent_df.set_index("env_args.task_name", inplace=True)
+
+        for col, val in agent_id:
+            agent_df = agent_df[agent_df[col] == val]
+        self.agent_df = agent_df
 
 
 info = Info()
@@ -120,8 +139,9 @@ def run_gradio(results_dir: Path):
     info.results_dir = results_dir
 
     with gr.Blocks(theme=gr.themes.Soft(), css=css) as demo:
+        agent_id = gr.State(value=None)
         episode_id = gr.State(value=EpisodeId())
-        task_name = gr.State(value=None)
+        agent_task_id = gr.State(value=None)
         step_id = gr.State(value=None)
 
         with gr.Accordion("Help", open=False):
@@ -134,7 +154,7 @@ clicking the refresh button.
 
 2. **Select your episode**: Chose a triplet (agent, task, seed).
 
-    1. **Select Agent**: Not implemented yet.
+    1. **Select Agent**: Click on a row of the table to select your agent
 
     2. **Select Task**: Select the task you want to analyze, this will trigger
        an update of the available seeds.
@@ -163,9 +183,15 @@ clicking the refresh button.
             )
             refresh_button = gr.Button("↺", scale=0, size="sm")
 
-        with gr.Tabs(selected="Select Task") as exp_tabs:
+        with gr.Tabs() as exp_tabs:
             with gr.Tab("Select Agent"):
-                gr.Text("Not implemented yet", show_label=False, container=False)
+                agent_table = gr.DataFrame(
+                    height=300,
+                    label="Agent Selector",
+                    show_label=False,
+                    interactive=False,
+                )
+                # gr.Text("Not implemented yet", show_label=False, container=False)
 
             with gr.Tab("Select Task and Seed", id="Select Task"):
                 with gr.Row():
@@ -272,6 +298,9 @@ clicking the refresh button.
             with gr.Tab("Chat Messages") as tab_chat:
                 chat_messages = gr.Markdown()
 
+            with gr.Tab("Task Error") as tab_error:
+                task_error = gr.Markdown()
+
         # Handle Events #
         # ===============#
 
@@ -282,18 +311,20 @@ clicking the refresh button.
         exp_dir_choice.change(
             fn=new_exp_dir,
             inputs=exp_dir_choice,
-            outputs=[task_table_gr, task_name, constants, variables],
+            outputs=[agent_table, agent_id, constants, variables],
         )
 
-        task_table_gr.select(fn=on_select_task, inputs=task_table_gr, outputs=[task_name])
-        task_name.change(fn=update_seeds, inputs=[task_name], outputs=[seed_gr, episode_id])
+        agent_table.select(fn=on_select_agent, inputs=agent_table, outputs=[agent_id])
+        task_table_gr.select(
+            fn=on_select_task, inputs=[task_table_gr, agent_id], outputs=agent_task_id
+        )
+
+        agent_id.change(fn=new_agent_id, inputs=agent_id, outputs=[task_table_gr, agent_task_id])
+        agent_task_id.change(fn=update_seeds, inputs=agent_task_id, outputs=[seed_gr, episode_id])
         # seed_gr.change(fn=on_select_seed, inputs=[seed_gr, task_name], outputs=[episode_id])
-        seed_gr.select(on_select_seed, inputs=[seed_gr, task_name], outputs=episode_id)
-
+        seed_gr.select(on_select_seed, inputs=[seed_gr, agent_task_id], outputs=episode_id)
         episode_id.change(fn=new_episode, inputs=[episode_id], outputs=[profiling_gr, step_id])
-
         profiling_gr.select(select_step, inputs=[episode_id], outputs=step_id)
-
         step_id.change(fn=update_step_info, outputs=[episode_info, action_info, state_error])
 
         # Update all tabs on step change, but only actually update the active
@@ -314,6 +345,7 @@ clicking the refresh button.
         )
         step_id.change(fn=if_active("AXTree")(update_axtree), outputs=axtree_code)
         step_id.change(fn=if_active("Chat Messages")(update_chat_messages), outputs=chat_messages)
+        step_id.change(fn=if_active("Task Error")(update_task_error), outputs=task_error)
 
         # In order to handel tabs that were not visible when step was changed,
         # we need to update them individually when the tab is selected
@@ -325,6 +357,7 @@ clicking the refresh button.
         tab_pruned_html.select(fn=update_pruned_html, outputs=pruned_html_code)
         tab_axtree.select(fn=update_axtree, outputs=axtree_code)
         tab_chat.select(fn=update_chat_messages, outputs=chat_messages)
+        tab_error.select(fn=update_task_error, outputs=task_error)
 
         som_or_not.change(fn=update_screenshot, inputs=som_or_not, outputs=screenshot)
 
@@ -401,6 +434,19 @@ def update_chat_messages():
     for i, m in enumerate(chat_messages):
         messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
     return "\n".join(messages)
+
+
+def update_task_error():
+    global info
+    try:
+        stack_trace = info.exp_result.summary_info.get("stack_trace", None)
+    except FileNotFoundError:
+        stack_trace = None
+
+    if stack_trace:
+        return f"""{code(stack_trace)}"""
+    else:
+        return "No Task Error"
 
 
 def select_step(episode_id: EpisodeId, evt: gr.SelectData):
@@ -487,7 +533,7 @@ def get_state_error(state: Info):
     try:
         step_info = state.exp_result.steps_info[state.step + 1]
         err_msg = step_info.obs.get("last_action_error", None)
-    except IndexError:
+    except (IndexError, AttributeError):
         err_msg = None
 
     if err_msg is None or len(err_msg) == 0:
@@ -498,18 +544,6 @@ def get_state_error(state: Info):
 {code(err_msg)}"""
 
 
-def get_seeds(result_df: pd.DataFrame, task_name: str):
-    str_list = []
-    seed_list = []
-    result_df = result_df.reset_index(inplace=False)
-    for index, row in result_df[result_df["env_args.task_name"] == task_name].iterrows():
-        seed = row["env_args.task_seed"]
-        reward = row["cum_reward"]
-        has_err = "(Task Error)" if row["err_msg"] is not None else ""
-        n_step = row["n_steps"]
-        str_list.append(f"seed: {seed}, reward: {reward} in {n_step} steps. {has_err}")
-        seed_list.append(seed)
-    return str_list, seed_list
 
 
 def get_seeds_df(result_df: pd.DataFrame, task_name: str):
@@ -529,20 +563,27 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
     return result_df.apply(extract_columns, axis=1)
 
 
-def on_select_task(evt: gr.SelectData, df: pd.DataFrame):
-    return df.iloc[evt.index[0]]["env_args.task_name"]
-
-
-def update_seeds(task_name):
+def on_select_agent(evt: gr.SelectData, df: pd.DataFrame):
     global info
-    seed_df = get_seeds_df(info.result_df, task_name)
+    return info.get_agent_id(df.iloc[evt.index[0]])
+
+
+def on_select_task(evt: gr.SelectData, df: pd.DataFrame, agent_id: list[tuple]):
+    return (agent_id, df.iloc[evt.index[0]]["env_args.task_name"])
+
+
+def update_seeds(agent_task_id: tuple):
+    agent_id, task_name = agent_task_id
+    global info
+    seed_df = get_seeds_df(info.agent_df, task_name)
     first_seed = seed_df.iloc[0]["seed"]
-    return seed_df, EpisodeId(task_name=task_name, seed=first_seed)
+    return seed_df, EpisodeId(agent_id=agent_id, task_name=task_name, seed=first_seed)
 
 
-def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, task_name):
+def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, agent_task_id: tuple):
+    agent_id, task_name = agent_task_id
     seed = df.iloc[evt.index[0]]["seed"]
-    return EpisodeId(task_name=task_name, seed=seed)
+    return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed)
 
 
 def new_episode(episode_id: EpisodeId, progress=gr.Progress()):
@@ -603,6 +644,24 @@ def format_constant_and_variables():
     return constants, pd.DataFrame(records)
 
 
+def get_agent_report(result_df: pd.DataFrame):
+    levels = list(range(result_df.index.nlevels))
+
+    if len(levels) == 1:
+        df = pd.DataFrame([{"agent_args.agent_name": result_df["agent_args.agent_name"].iloc[0]}])
+        df.set_index("agent_args.agent_name", inplace=True)
+        return df
+
+    report = result_df.groupby(level=levels[1:]).apply(inspect_results.summarize)
+
+    # def rename_index(name: str):
+    #     return name.replace("agent_args.flags.", "")
+
+    # index_names = [rename_index(name) for name in report.index.names]
+    # report = report.rename_axis(index=index_names)
+    return report
+
+
 def new_exp_dir(exp_dir, progress=gr.Progress()):
 
     if exp_dir == select_dir_instructions:
@@ -617,15 +676,26 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
     info.exp_list_dir = info.results_dir / exp_dir
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
 
-    info.tasks_df = inspect_results.reduce_episodes(info.result_df).reset_index()
+    agent_report = get_agent_report(info.result_df)
+    info.agent_id_keys = agent_report.index.names
+    agent_report.reset_index(inplace=True)
+    agent_id = info.get_agent_id(agent_report.iloc[0])
 
+    constants, variables = format_constant_and_variables()
+    return agent_report, agent_id, constants, variables
+
+
+def new_agent_id(agent_id: list[tuple]):
+    global info
+    print("New agent id: ", agent_id)
+    info.filter_agent_id(agent_id=agent_id)
+
+    info.tasks_df = inspect_results.reduce_episodes(info.agent_df).reset_index()
     info.tasks_df = info.tasks_df.drop(columns=["std_err"])
 
     # task name of first element
     task_name = info.tasks_df.iloc[0]["env_args.task_name"]
-
-    constants, variables = format_constant_and_variables()
-    return info.tasks_df, task_name, constants, variables
+    return info.tasks_df, (agent_id, task_name)
 
 
 def get_directory_contents(results_dir: Path):
@@ -676,7 +746,7 @@ def add_patch(ax, start, stop, color, label, edge=False):
                 alpha=1,
                 label=label,
                 fill=False,
-                linewidth=1,
+                linewidth=3,
             )
         )
     else:
@@ -700,7 +770,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     t0 = step_info_list[0].profiling.env_start
     all_times = []
     step_times = []
-    for i, step_info in progress_fn(enumerate(step_info_list)):
+    for i, step_info in progress_fn(enumerate(step_info_list), total=len(step_info_list)):
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
@@ -730,9 +800,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             if next_step_error:
                 # add a hollow rectangle for error
                 label = labels.pop("action error", None)
-                add_patch(
-                    ax, prof.action_exec_start, prof.action_exec_stop, "red", label, edge=True
-                )
+                add_patch(ax, prof.env_start, prof.env_stop, "red", label, edge=True)
 
         if step_info.action is not None:
             # Blue rectangle for agent_start to agent_stop
