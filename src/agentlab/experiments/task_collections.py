@@ -1,5 +1,5 @@
-from logging import warning
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import time as t
@@ -176,7 +176,7 @@ MINIWOB_TRAIN, MINIWOB_VALIDATION, MINIWOB_TEST = split_list(MINIWOB_ALL, seed=4
 
 
 def get_benchmark_env_args(
-    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None
+    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None, is_agent_curriculum=True
 ) -> list[EnvArgs]:
     """
     Returns a list of EnvArgs for the given benchmark_name.
@@ -199,8 +199,8 @@ def get_benchmark_env_args(
 
     max_steps_default = {
         "workarena.l1": 15,
-        "workarena.l2": 30,
-        "workarena.l3": 30,
+        "workarena.l2": 50,
+        "workarena.l3": 50,
         "webarena": 15,
         "miniwob": 10,
     }
@@ -236,7 +236,10 @@ def get_benchmark_env_args(
 
         else:
             for task, seed in get_all_tasks_agents(
-                filter=".".join(filters[1:]), meta_seed=meta_seed, n_seed_l1=n_repeat
+                filter=".".join(filters[1:]),
+                meta_seed=meta_seed,
+                n_seed_l1=n_repeat,
+                is_agent_curriculum=is_agent_curriculum,
             ):
                 task_name = task.get_task_id()
                 env_args_list.append(
@@ -270,7 +273,8 @@ def _make_env_args(task_list, max_steps, n_seeds_default, rng):
 
 
 if __name__ == "__main__":
-    env_args_list = get_benchmark_env_args("workarena.l1.sort")
+    env_args_list = get_benchmark_env_args("workarena.l2")
     print(f"Number of tasks: {len(env_args_list)}")
     for env_args in env_args_list:
-        print(env_args.task_seed, env_args.task_name)
+        if "infeasible" in env_args.task_name:
+            print(env_args.task_seed, env_args.task_name)
