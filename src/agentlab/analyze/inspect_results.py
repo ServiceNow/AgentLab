@@ -58,7 +58,7 @@ def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
 def set_index_from_variables(
     df: pd.DataFrame,
     index_white_list=("agent_args.*",),
-    index_black_list=("*model_url*",),
+    index_black_list=("*model_url*", "*extra*"),
     task_key="env_args.task_name",
     force_at_leaste_one_variable=False,
 ):
@@ -97,7 +97,6 @@ def set_index_from_variables(
     if len(index_variables) == 0 and force_at_leaste_one_variable:
         if "agent_args.agent_name" in constants:
             index_variables = ["agent_args.agent_name"]
-
     # agent_variables = [var for var in variables if var.startswith("agent_args.")]
     df.set_index([task_key] + index_variables, inplace=True)
     df.sort_index(inplace=True)
@@ -109,7 +108,7 @@ def load_result_df(
     set_index=True,
     result_df=None,
     index_white_list=("agent_args.*",),
-    index_black_list=("*model_url*",),
+    index_black_list=("*model_url*", "*extra*"),
 ):
     """Load the result dataframe.
 
@@ -211,11 +210,23 @@ def get_bootstrap(
     return np.nanmean(bootstrapped_values), np.nanstd(bootstrapped_values)
 
 
-def summarize(sub_df):
+def get_std_err(df, metric):
+    """Get the standard error for a binary metric."""
+    # extract non missing values
+    data = df[metric].dropna().values
+
+    # asser either 0 or 1
+    assert np.all(np.isin(data, [0, 1]))
+    mean = np.mean(data)
+    std_err = np.sqrt(mean * (1 - mean) / len(data))
+    return mean, std_err
+
+
+def summarize(sub_df, use_bootstrap=False):
     if not "cum_reward" in sub_df:
         record = dict(
             avg_reward=np.nan,
-            uncertainty_reward=np.nan,
+            std_err=np.nan,
             # avg_raw_reward=np.nan,
             avg_steps=np.nan,
             n_completed=f"0/{len(sub_df)}",
@@ -227,14 +238,18 @@ def summarize(sub_df):
 
         if n_completed == 0:
             return None
-        _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+
+        if use_bootstrap:
+            _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+        else:
+            _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
 
         # sanity check, if there is an error the reward should be zero
         assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
 
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-            uncertainty_reward=std_reward.round(3),
+            std_err=std_reward.round(3),
             # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
@@ -417,9 +432,9 @@ def to_clipboard(df: pd.DataFrame):
             pyperclip.copy(csv_string)
         except Exception as e:
             warn(f"Failed to copy to clipboard: {e}")
-    else:
-        print("pyperclip is not installed, cannot copy to clipboard.")
-    return df
+    # else:
+    #     print("pyperclip is not installed, cannot copy to clipboard.")
+    # return df
 
 
 def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: int = 2):
