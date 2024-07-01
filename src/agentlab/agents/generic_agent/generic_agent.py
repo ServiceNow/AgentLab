@@ -66,7 +66,7 @@ class GenericAgent(Agent):
             flags=self.flags,
         )
 
-        max_prompt_tokens, max_trunk_itr = self._get_maxes()
+        max_prompt_tokens, max_trunc_itr = self._get_maxes()
 
         system_prompt = dp.SystemPrompt().prompt
 
@@ -74,7 +74,7 @@ class GenericAgent(Agent):
             shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
             model_name=self.chat_model_args.model_name,
-            max_iterations=max_trunk_itr,
+            max_iterations=max_trunc_itr,
             additional_prompts=system_prompt,
         )
 
@@ -151,12 +151,12 @@ does not support vision. Disabling use_screenshot."""
         )
         maxes = [m for m in maxes if m is not None]
         max_prompt_tokens = min(maxes) if maxes else None
-        max_trunk_itr = (
-            self.chat_model_args.max_trunk_itr
-            if self.chat_model_args.max_trunk_itr
+        max_trunc_itr = (
+            self.flags.max_trunc_itr
+            if self.flags.max_trunc_itr
             else 20  # dangerous to change the default value here?
         )
-        return max_prompt_tokens, max_trunk_itr
+        return max_prompt_tokens, max_trunc_itr
 
 
 from functools import partial
@@ -192,13 +192,13 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
         flags=agent.flags,
     )
 
-    max_prompt_tokens, max_trunk_itr = agent._get_maxes()
+    max_prompt_tokens, max_trunc_itr = agent._get_maxes()
 
     fit_function = partial(
         dp.fit_tokens,
         max_prompt_tokens=max_prompt_tokens,
         model_name=agent.chat_model_args.model_name,
-        max_iterations=max_trunk_itr,
+        max_iterations=max_trunc_itr,
     )
 
     prompt = fit_function(shrinkable=main_prompt)

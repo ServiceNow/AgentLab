@@ -39,6 +39,7 @@ class GenericPromptFlags(dp.Flags):
     be_cautious: bool = True
     extra_instructions: str | None = None
     add_missparsed_messages: bool = True
+    max_trunc_itr: int = 20
 
 
 class MainPrompt(dp.Shrinkable):
