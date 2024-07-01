@@ -3,7 +3,6 @@ from agentlab.llm import toolkit_configs
 
 default_oss_llms_args = {
     "infer_tokens_length": True,
-    "max_trunk_itr": int(1e6),
     "max_new_tokens": 512,
     "temperature": 0.01,
 }
