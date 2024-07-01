@@ -17,6 +17,29 @@ from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 select_dir_instructions = "Select Experiment Directory"
+AGENT_NAME_KEY = "agent.agent_name"
+TASK_NAME_KEY = "env.task_name"
+TASK_SEED_KEY = "env.task_seed"
+
+
+def display_table(df: pd.DataFrame):
+    df = df.copy()
+    df.columns = clean_column_names(df.columns)
+    df.index.names = clean_column_names(df.index.names)
+    return df
+
+
+def remove_args_frcom_col(df: pd.DataFrame):
+    df.columns = [col.replace("_args", "") for col in df.columns]
+    df.index.names = [col.replace("_args", "") for col in df.index.names]
+    return df
+
+
+def clean_column_names(col_list):
+    # col_list = [col.replace("_args", "") for col in col_list]
+    col_list = [col.replace(".", ".\n") for col in col_list]  # adding space for word wrap
+    # col_list = [col.replace("_", " ") for col in col_list]
+    return col_list
 
 
 class ClickMapper:
@@ -66,8 +89,8 @@ class Info:
         # find unique row for task_name and seed
         result_df = self.result_df.reset_index(inplace=False)
         sub_df = result_df[
-            (result_df["env_args.task_name"] == episode_id.task_name)
-            & (result_df["env_args.task_seed"] == episode_id.seed)
+            (result_df[TASK_NAME_KEY] == episode_id.task_name)
+            & (result_df[TASK_SEED_KEY] == episode_id.seed)
         ]
         if len(sub_df) == 0:
             self.exp_result = None
@@ -96,9 +119,10 @@ class Info:
         # agent_df = info.result_df.query(query_str)
 
         agent_df = self.result_df.reset_index(inplace=False)
-        agent_df.set_index("env_args.task_name", inplace=True)
+        agent_df.set_index(TASK_NAME_KEY, inplace=True)
 
         for col, val in agent_id:
+            col = col.replace(".\n", ".")
             agent_df = agent_df[agent_df[col] == val]
         self.agent_df = agent_df
 
@@ -118,15 +142,10 @@ css = """
 code {
     white-space: pre-wrap;
 }
-"""
-
-css_code = """
-<style>
-    .code-container {
-        height: 700px;  /* Set the desired height */
-        overflow: auto;  /* Enable scrolling */
-    }
-</style>
+th {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+}
 """
 
 
@@ -183,50 +202,61 @@ clicking the refresh button.
             )
             refresh_button = gr.Button("↺", scale=0, size="sm")
 
-        with gr.Tabs() as exp_tabs:
+        with gr.Tabs():
             with gr.Tab("Select Agent"):
-                agent_table = gr.DataFrame(
-                    height=300,
-                    label="Agent Selector",
-                    show_label=False,
-                    interactive=False,
-                )
-                # gr.Text("Not implemented yet", show_label=False, container=False)
-
+                with gr.Accordion("Agent Selector (click for help)", open=False):
+                    gr.Markdown(
+                        """\
+    Click on a row to select an agent. It will trigger the update of other
+    fields.
+    
+    **GRADIO BUG**: If you sort the columns the click will not match the
+    content."""
+                    )
+                agent_table = gr.DataFrame(height=500, show_label=False, interactive=False)
             with gr.Tab("Select Task and Seed", id="Select Task"):
                 with gr.Row():
-                    task_table_gr = gr.DataFrame(
-                        height=300,
-                        label="Task selector",
-                        show_label=False,
-                        interactive=False,
-                        scale=4,
-                    )
+                    with gr.Column(scale=4):
+                        with gr.Accordion("Task Selector (click for help)", open=False):
+                            gr.Markdown(
+                                """\
+    Click on a row to select a task. It will trigger the update of other fields.
+                                        
+    **GRADIO BUG**: If you sort the columns the click will not match the content."""
+                            )
+                        task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
 
-                    seed_gr = gr.DataFrame(
-                        height=300,
-                        label="Seed selector",
-                        show_label=False,
-                        interactive=False,
-                        scale=2,
-                    )
+                    with gr.Column(scale=2):
+                        with gr.Accordion("Seed Selector (click for help)", open=False):
+                            gr.Markdown(
+                                """\
+    Click on a row to select a seed. It will trigger the update of other fields.
+                                        
+    **GRADIO BUG**: If you sort the columns the click will not match the content."""
+                            )
+
+                        seed_table = gr.DataFrame(height=500, show_label=False, interactive=False)
 
             with gr.Tab("Constants and Variables"):
                 with gr.Row():
-                    constants = gr.DataFrame(
-                        height=300,
-                        label="Constants",
-                        show_label=True,
-                        interactive=False,
-                        scale=2,
-                    )
-                    variables = gr.DataFrame(
-                        height=300,
-                        label="Variables",
-                        show_label=True,
-                        interactive=False,
-                        scale=2,
-                    )
+                    with gr.Column(scale=2):
+                        with gr.Accordion("Constants", open=False):
+                            gr.Markdown(
+                                """\
+    Constants are the parameters that are the same for **all** episodes of
+    **all** agents. They are displayed as a table with the name and value of the
+    constant."""
+                            )
+                        constants = gr.DataFrame(height=500, show_label=False, interactive=False)
+                    with gr.Column(scale=2):
+                        with gr.Accordion("Variables", open=False):
+                            gr.Markdown(
+                                """\
+    Variables are the parameters that can change between episodes of an agent.
+    They are displayed as a table with the name, value and count of unique
+    values. A maximum of 3 different values are displayed."""
+                            )
+                        variables = gr.DataFrame(height=500, show_label=False, interactive=False)
 
         with gr.Row():
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
@@ -237,9 +267,18 @@ clicking the refresh button.
             label="Profiling", show_label=False, interactive=False, show_download_button=False
         )
 
-        gr.HTML(css_code)
+        gr.HTML(
+            """
+<style>
+    .code-container {
+        height: 700px;  /* Set the desired height */
+        overflow: auto;  /* Enable scrolling */
+    }
+</style>
+"""
+        )
         with gr.Tabs() as tabs:
-
+            code_args = dict(interactive=False, elem_classes=["code-container"], show_label=False)
             with gr.Tab("Screenshot") as tab_screenshot:
                 som_or_not = gr.Dropdown(
                     choices=["Raw Screenshots", "SOM Screenshots"],
@@ -262,44 +301,29 @@ clicking the refresh button.
                     screenshot2 = gr.Image(
                         show_label=False, interactive=False, show_download_button=False
                     )
+            with gr.Tab("Screenshot Caroussel") as tab_screenshot_caroussel:
+                screenshot_caroussel = gr.Gallery()
 
             with gr.Tab("DOM HTML") as tab_html:
-                html_code = gr.Code(
-                    lines=50,
-                    interactive=False,
-                    language="html",
-                    show_label=False,
-                    elem_classes=["code-container"],
-                    visible=True,
-                )
+                html_code = gr.Code(language="html", **code_args)
 
-            # 8. Render the Pruned HTML
             with gr.Tab("Pruned DOM HTML") as tab_pruned_html:
-                pruned_html_code = gr.Code(
-                    lines=50,
-                    interactive=False,
-                    language="html",
-                    show_label=False,
-                    elem_classes=["code-container"],
-                    visible=True,
-                )
+                pruned_html_code = gr.Code(language="html", **code_args)
 
-            # 9. Render the Accessibility Tree
             with gr.Tab("AXTree") as tab_axtree:
-                axtree_code = gr.Code(
-                    lines=50,
-                    interactive=False,
-                    language=None,
-                    show_label=False,
-                    elem_classes=["code-container"],
-                    visible=True,
-                )
+                axtree_code = gr.Code(language=None, **code_args)
 
             with gr.Tab("Chat Messages") as tab_chat:
                 chat_messages = gr.Markdown()
 
             with gr.Tab("Task Error") as tab_error:
                 task_error = gr.Markdown()
+
+            with gr.Tab("Logs") as tab_logs:
+                logs = gr.Code(language=None, **code_args)
+
+            with gr.Tab("Stats") as tab_stats:
+                stats = gr.DataFrame(height=500, show_label=False, interactive=False)
 
         # Handle Events #
         # ===============#
@@ -315,17 +339,17 @@ clicking the refresh button.
         )
 
         agent_table.select(fn=on_select_agent, inputs=agent_table, outputs=[agent_id])
-        task_table_gr.select(
-            fn=on_select_task, inputs=[task_table_gr, agent_id], outputs=agent_task_id
-        )
+        task_table.select(fn=on_select_task, inputs=[task_table, agent_id], outputs=agent_task_id)
 
-        agent_id.change(fn=new_agent_id, inputs=agent_id, outputs=[task_table_gr, agent_task_id])
-        agent_task_id.change(fn=update_seeds, inputs=agent_task_id, outputs=[seed_gr, episode_id])
+        agent_id.change(fn=new_agent_id, inputs=agent_id, outputs=[task_table, agent_task_id])
+        agent_task_id.change(
+            fn=update_seeds, inputs=agent_task_id, outputs=[seed_table, episode_id]
+        )
         # seed_gr.change(fn=on_select_seed, inputs=[seed_gr, task_name], outputs=[episode_id])
-        seed_gr.select(on_select_seed, inputs=[seed_gr, agent_task_id], outputs=episode_id)
+        seed_table.select(on_select_seed, inputs=[seed_table, agent_task_id], outputs=episode_id)
+        step_id.change(fn=update_step_info, outputs=[episode_info, action_info, state_error])
         episode_id.change(fn=new_episode, inputs=[episode_id], outputs=[profiling_gr, step_id])
         profiling_gr.select(select_step, inputs=[episode_id], outputs=step_id)
-        step_id.change(fn=update_step_info, outputs=[episode_info, action_info, state_error])
 
         # Update all tabs on step change, but only actually update the active
         # tab. This helps keeping the UI responsive when selecting a new step.
@@ -346,6 +370,8 @@ clicking the refresh button.
         step_id.change(fn=if_active("AXTree")(update_axtree), outputs=axtree_code)
         step_id.change(fn=if_active("Chat Messages")(update_chat_messages), outputs=chat_messages)
         step_id.change(fn=if_active("Task Error")(update_task_error), outputs=task_error)
+        step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
+        step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
 
         # In order to handel tabs that were not visible when step was changed,
         # we need to update them individually when the tab is selected
@@ -358,6 +384,8 @@ clicking the refresh button.
         tab_axtree.select(fn=update_axtree, outputs=axtree_code)
         tab_chat.select(fn=update_chat_messages, outputs=chat_messages)
         tab_error.select(fn=update_task_error, outputs=task_error)
+        tab_logs.select(fn=update_logs, outputs=logs)
+        tab_stats.select(fn=update_stats, outputs=stats)
 
         som_or_not.change(fn=update_screenshot, inputs=som_or_not, outputs=screenshot)
 
@@ -440,13 +468,26 @@ def update_task_error():
     global info
     try:
         stack_trace = info.exp_result.summary_info.get("stack_trace", None)
-    except FileNotFoundError:
-        stack_trace = None
-
-    if stack_trace:
         return f"""{code(stack_trace)}"""
-    else:
+    except FileNotFoundError:
         return "No Task Error"
+
+
+def update_logs():
+    global info
+    try:
+        return f"""{info.exp_result.logs}"""
+    except FileNotFoundError:
+        return f"""No Logs"""
+
+
+def update_stats():
+    global info
+    try:
+        stats = info.exp_result.steps_info[info.step].stats
+        return pd.DataFrame(stats.items(), columns=["name", "value"])
+    except (FileNotFoundError, IndexError):
+        return None
 
 
 def select_step(episode_id: EpisodeId, evt: gr.SelectData):
@@ -513,8 +554,14 @@ def get_episode_info(info: Info):
     return info
 
 
-def get_action_info(state: Info):
-    step_info = state.exp_result.steps_info[state.step]
+def get_action_info(info: Info):
+    steps_info = info.exp_result.steps_info
+    if len(steps_info) == 0:
+        return "No steps were taken"
+    if len(steps_info) <= info.step:
+        return f"Step {info.step} is out of bounds. The episode has {len(steps_info)} steps."
+
+    step_info = steps_info[info.step]
     action_info = f"""\
 **Action:**
 
@@ -544,16 +591,14 @@ def get_state_error(state: Info):
 {code(err_msg)}"""
 
 
-
-
 def get_seeds_df(result_df: pd.DataFrame, task_name: str):
     result_df = result_df.reset_index(inplace=False)
-    result_df = result_df[result_df["env_args.task_name"] == task_name]
+    result_df = result_df[result_df[TASK_NAME_KEY] == task_name]
 
     def extract_columns(row: pd.Series):
         return pd.Series(
             {
-                "seed": row["env_args.task_seed"],
+                "seed": row[TASK_SEED_KEY],
                 "reward": row.get("cum_reward", None),
                 "err": bool(row.get("err_msg", None)),
                 "n_steps": row.get("n_steps", None),
@@ -569,7 +614,7 @@ def on_select_agent(evt: gr.SelectData, df: pd.DataFrame):
 
 
 def on_select_task(evt: gr.SelectData, df: pd.DataFrame, agent_id: list[tuple]):
-    return (agent_id, df.iloc[evt.index[0]]["env_args.task_name"])
+    return (agent_id, df.iloc[evt.index[0]][TASK_NAME_KEY])
 
 
 def update_seeds(agent_task_id: tuple):
@@ -648,8 +693,8 @@ def get_agent_report(result_df: pd.DataFrame):
     levels = list(range(result_df.index.nlevels))
 
     if len(levels) == 1:
-        df = pd.DataFrame([{"agent_args.agent_name": result_df["agent_args.agent_name"].iloc[0]}])
-        df.set_index("agent_args.agent_name", inplace=True)
+        df = pd.DataFrame([{AGENT_NAME_KEY: result_df[AGENT_NAME_KEY].iloc[0]}])
+        df.set_index(AGENT_NAME_KEY, inplace=True)
         return df
 
     report = result_df.groupby(level=levels[1:]).apply(inspect_results.summarize)
@@ -675,8 +720,11 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
 
     info.exp_list_dir = info.results_dir / exp_dir
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
+    info.result_df = remove_args_frcom_col(info.result_df)
+    # info.result_df.columns = clean_column_names(info.result_df.columns)
+    # info.result_df.index.names = clean_column_names(info.result_df.index.names)
 
-    agent_report = get_agent_report(info.result_df)
+    agent_report = display_table(get_agent_report(info.result_df))
     info.agent_id_keys = agent_report.index.names
     agent_report.reset_index(inplace=True)
     agent_id = info.get_agent_id(agent_report.iloc[0])
@@ -694,7 +742,7 @@ def new_agent_id(agent_id: list[tuple]):
     info.tasks_df = info.tasks_df.drop(columns=["std_err"])
 
     # task name of first element
-    task_name = info.tasks_df.iloc[0]["env_args.task_name"]
+    task_name = info.tasks_df.iloc[0][TASK_NAME_KEY]
     return info.tasks_df, (agent_id, task_name)
 
 
@@ -728,7 +776,12 @@ def generate_profiling(progress_fn):
         summary_info = info.exp_result.summary_info
     except FileNotFoundError:
         summary_info = {}
-    step_times = plot_profiling(ax, info.exp_result.steps_info, summary_info, progress_fn)
+
+    info.exp_result.progress_fn = progress_fn
+    steps_info = info.exp_result.steps_info
+    info.exp_result.progress_fn = None
+
+    step_times = plot_profiling(ax, steps_info, summary_info, progress_fn)
     fig.tight_layout()
     info.click_mapper = ClickMapper(ax, step_times=step_times)
 
@@ -770,7 +823,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     t0 = step_info_list[0].profiling.env_start
     all_times = []
     step_times = []
-    for i, step_info in progress_fn(enumerate(step_info_list), total=len(step_info_list)):
+    for i, step_info in progress_fn(list(enumerate(step_info_list)), desc="Building plot."):
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
