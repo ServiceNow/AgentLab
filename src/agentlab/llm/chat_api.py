@@ -61,7 +61,6 @@ class BaseChatModelArgs(ABC):
     max_total_tokens: int = None
     max_input_tokens: int = None
     max_new_tokens: int = None
-    max_trunk_itr: int = None  # TODO move to gener_c agent
     temperature: float = 0.1
 
     @abstractmethod
@@ -112,7 +111,6 @@ class CheatMiniWoBLLMArgs:
     max_total_tokens = 1024
     max_input_tokens = 1024 - 128
     max_new_tokens = 128
-    max_trunk_itr = 10
 
     def make_chat_model(self):
         return CheatMiniWoBLLM()
@@ -192,7 +190,6 @@ class ToolkitModelArgs(ServerChatModelArgs):
     sliding_window: bool = False
     n_retry_server: int = 4
     infer_tokens_length: bool = False
-    max_trunk_itr: bool = None
     vision_support: bool = False
     shard_support: bool = True
     extra_tgi_args: dict = None
