@@ -211,7 +211,8 @@ clicking the refresh button.
     fields.
     
     **GRADIO BUG**: If you sort the columns the click will not match the
-    content."""
+    content. You have to sort back with the Idx column to align the click with
+    the order."""
                     )
                 agent_table = gr.DataFrame(height=500, show_label=False, interactive=False)
             with gr.Tab("Select Task and Seed", id="Select Task"):
@@ -222,7 +223,9 @@ clicking the refresh button.
                                 """\
     Click on a row to select a task. It will trigger the update of other fields.
                                         
-    **GRADIO BUG**: If you sort the columns the click will not match the content."""
+    **GRADIO BUG**: If you sort the columns the click will not match the
+    content. You have to sort back with the Idx column to align the click with
+    the order."""
                             )
                         task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
 
@@ -232,7 +235,9 @@ clicking the refresh button.
                                 """\
     Click on a row to select a seed. It will trigger the update of other fields.
                                         
-    **GRADIO BUG**: If you sort the columns the click will not match the content."""
+    **GRADIO BUG**: If you sort the columns the click will not match the
+    content. You have to sort back with the Idx column to align the click with
+    the order."""
                             )
 
                         seed_table = gr.DataFrame(height=500, show_label=False, interactive=False)
@@ -607,7 +612,9 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
             }
         )
 
-    return result_df.apply(extract_columns, axis=1)
+    seed_df = result_df.apply(extract_columns, axis=1)
+    seed_df['Idx'] = seed_df.index
+    return seed_df
 
 
 def on_select_agent(evt: gr.SelectData, df: pd.DataFrame):
@@ -734,6 +741,8 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
     agent_report = display_table(get_agent_report(info.result_df))
     info.agent_id_keys = agent_report.index.names
     agent_report.reset_index(inplace=True)
+    agent_report["Idx"] = agent_report.index
+
     agent_id = info.get_agent_id(agent_report.iloc[0])
 
     constants, variables = format_constant_and_variables()
@@ -742,12 +751,11 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
 
 def new_agent_id(agent_id: list[tuple]):
     global info
-    print("New agent id: ", agent_id)
     info.filter_agent_id(agent_id=agent_id)
 
     info.tasks_df = inspect_results.reduce_episodes(info.agent_df).reset_index()
     info.tasks_df = info.tasks_df.drop(columns=["std_err"])
-    info.tasks_df.rename(columns={"index": "Idx"}, inplace=True)
+    info.tasks_df["Idx"] = info.tasks_df.index
 
     # task name of first element
     task_name = info.tasks_df.iloc[0][TASK_NAME_KEY]
