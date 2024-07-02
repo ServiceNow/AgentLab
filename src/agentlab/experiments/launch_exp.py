@@ -16,7 +16,7 @@ def main(
     exp_group_name=None,
     benchmark: str = None,
     model_name: str = None,
-    exp_args_list=None,  # is this ever used ?
+    exp_args_list=None,
     shuffle_jobs=False,
     auto_accept=False,
     use_threads_instead_of_processes=False,
@@ -65,7 +65,7 @@ def main(
 
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
-        exp_args.agent_args.chat_model_args.prepare_server(registry)
+        exp_args.agent_args.prepare(registry)
         exp_args.prepare(exp_root=exp_dir)
 
     try:
@@ -79,7 +79,7 @@ def main(
         # TODO: it would be convinient to have a way to close servers in that case.
         logging.info("Closing all LLM servers...")
         for exp_args in exp_args_list:
-            exp_args.agent_args.chat_model_args.close_server(registry)
+            exp_args.agent_args.chat_model_args.close_server(registry)  # TODO: get rid of that
         logging.info("LLM servers closed.")
 
     return exp_group_name
