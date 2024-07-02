@@ -257,6 +257,8 @@ clicking the refresh button.
     values. A maximum of 3 different values are displayed."""
                             )
                         variables = gr.DataFrame(height=500, show_label=False, interactive=False)
+            with gr.Tab("Global Stats"):
+                global_stats = gr.DataFrame(height=500, show_label=False, interactive=False)
 
         with gr.Row():
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
@@ -335,7 +337,7 @@ clicking the refresh button.
         exp_dir_choice.change(
             fn=new_exp_dir,
             inputs=exp_dir_choice,
-            outputs=[agent_table, agent_id, constants, variables],
+            outputs=[agent_table, agent_id, constants, variables, global_stats],
         )
 
         agent_table.select(fn=on_select_agent, inputs=agent_table, outputs=[agent_id])
@@ -707,6 +709,13 @@ def get_agent_report(result_df: pd.DataFrame):
     return report
 
 
+def update_global_stats():
+    global info
+    stats = inspect_results.global_report(info.result_df, reduce_fn=inspect_results.summarize_stats)
+    stats.reset_index(inplace=True)
+    return stats
+
+
 def new_exp_dir(exp_dir, progress=gr.Progress()):
 
     if exp_dir == select_dir_instructions:
@@ -721,8 +730,6 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
     info.exp_list_dir = info.results_dir / exp_dir
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
     info.result_df = remove_args_frcom_col(info.result_df)
-    # info.result_df.columns = clean_column_names(info.result_df.columns)
-    # info.result_df.index.names = clean_column_names(info.result_df.index.names)
 
     agent_report = display_table(get_agent_report(info.result_df))
     info.agent_id_keys = agent_report.index.names
@@ -730,7 +737,7 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
     agent_id = info.get_agent_id(agent_report.iloc[0])
 
     constants, variables = format_constant_and_variables()
-    return agent_report, agent_id, constants, variables
+    return agent_report, agent_id, constants, variables, update_global_stats()
 
 
 def new_agent_id(agent_id: list[tuple]):
@@ -740,6 +747,7 @@ def new_agent_id(agent_id: list[tuple]):
 
     info.tasks_df = inspect_results.reduce_episodes(info.agent_df).reset_index()
     info.tasks_df = info.tasks_df.drop(columns=["std_err"])
+    info.tasks_df.rename(columns={"index": "Idx"}, inplace=True)
 
     # task name of first element
     task_name = info.tasks_df.iloc[0][TASK_NAME_KEY]
