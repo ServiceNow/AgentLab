@@ -7,41 +7,42 @@ from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 # GPT-3.5 default config
 FLAGS_GPT_3_5 = GenericPromptFlags(
     obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
+        use_html=False,  # too big for most benchmark except miniwob
+        use_ax_tree=True,  # very useful
+        use_focused_element=True,  # detrimental on minowob according to ablation study
         use_error_logs=True,
         use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
+        use_past_error_logs=False,  # very detrimental on L1 and miniwob
+        use_action_history=True,  # helpful on miniwob
+        use_think_history=False,  # detrimental on L1 and miniwob
         use_diff=False,
         html_type="pruned_html",
         use_screenshot=False,
         use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=False,
+        extract_visible_tag=True,  # doesn't change much
+        extract_clickable_tag=False,  # doesn't change much
         extract_coords="False",
         filter_visible_elements_only=False,
     ),
     action=dp.ActionFlags(
-        multi_actions=False,
+        multi_actions=False,  # often detrimental
         action_set="bid",
         long_description=False,
         individual_examples=True,
     ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
+    use_plan=False,  # usually detrimental
+    use_criticise=False,  # usually detrimental
+    use_thinking=True,  # very useful
     use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
+    use_concrete_example=True,  # useful
+    use_abstract_example=True,  # useful
+    use_hints=True,  # useful
     enable_chat=False,
     max_prompt_tokens=None,
     be_cautious=True,
     extra_instructions=None,
 )
+
 
 AGENT_3_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
