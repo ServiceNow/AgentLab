@@ -56,7 +56,24 @@ class CheatMiniWoBLLM:
 
 
 @dataclass
-class BaseChatModelArgs(ABC):
+class CheatMiniWoBLLMArgs:
+    model_name = "test/cheat_miniwob_click_test"
+    max_total_tokens = 1024
+    max_input_tokens = 1024 - 128
+    max_new_tokens = 128
+
+    def make_chat_model(self):
+        return CheatMiniWoBLLM()
+
+    def prepare_server(self, registry):
+        pass
+
+    def close_server(self, registry):
+        pass
+
+
+@dataclass
+class BaseModelArgs(ABC):
     model_name: str
     max_total_tokens: int = None
     max_input_tokens: int = None
@@ -64,12 +81,12 @@ class BaseChatModelArgs(ABC):
     temperature: float = 0.1
 
     @abstractmethod
-    def make_chat_model(self):
+    def make_model(self):
         pass
 
 
 @dataclass
-class ServerChatModelArgs(BaseChatModelArgs):
+class ServerChatModelArgs(BaseModelArgs):
     model_url: str = None
 
     def __post_init__(self):
@@ -106,27 +123,10 @@ class ServerChatModelArgs(BaseChatModelArgs):
 
 
 @dataclass
-class CheatMiniWoBLLMArgs:
-    model_name = "test/cheat_miniwob_click_test"
-    max_total_tokens = 1024
-    max_input_tokens = 1024 - 128
-    max_new_tokens = 128
-
-    def make_chat_model(self):
-        return CheatMiniWoBLLM()
-
-    def prepare_server(self, registry):
-        pass
-
-    def close_server(self, registry):
-        pass
-
-
-@dataclass
-class OpenAIChatModelArgs(BaseChatModelArgs):
+class OpenAIChatModelArgs(BaseModelArgs):
     vision_support: bool = False
 
-    def make_chat_model(self):
+    def make_model(self):
         base_name = self.model_name.split("/")[0]
         if base_name == "openai":
             model_name = self.model_name.split("/")[-1]
@@ -144,6 +144,24 @@ class OpenAIChatModelArgs(BaseChatModelArgs):
                 max_tokens=self.max_new_tokens,
                 deployment_name=deployment_name,
             )
+
+
+@dataclass
+class APIModelArgs(BaseModelArgs):
+    model_url: str = None
+    token: str = None
+    backend: str = "huggingface"
+
+    def make_model(self):
+        if self.backend == "huggingface":
+            client = InferenceClient(model=self.model_url, token=self.token)
+            return partial(
+                client.text_generation,
+                temperature=self.temperature,
+                max_new_tokens=self.max_new_tokens,
+            )
+        else:
+            raise ValueError(f"Backend {self.backend} is not supported")
 
 
 @dataclass
@@ -200,7 +218,7 @@ class ToolkitModelArgs(ServerChatModelArgs):
         if self.model_url is not None and self.hf_hosted:
             raise ValueError("model_url cannot be specified when hf_hosted is True")
 
-    def make_chat_model(self):
+    def make_model(self):
         # TODO: eventually check if the path is either a valid repo_id or a valid local checkpoint on DGX
         self.model_name = self.model_path if self.model_path else self.model_name
         return HuggingFaceChatModel(

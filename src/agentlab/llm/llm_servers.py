@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 import os
 
-from agentlab.llm.chat_api import BaseChatModelArgs, ServerChatModelArgs
+from agentlab.llm.chat_api import BaseModelArgs, ServerChatModelArgs
 from agentlab.llm.llm_configs import (
     CHAT_MODEL_ARGS_DICT,
     CONTEXT_WINDOW_EXTRA_GPU,
