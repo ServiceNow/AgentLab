@@ -10,7 +10,7 @@ from langchain.schema import HumanMessage, SystemMessage
 from browsergym.experiments.agent import Agent
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
-from agentlab.llm.chat_api import BaseChatModelArgs, ServerChatModelArgs
+from agentlab.llm.chat_api import BaseModelArgs, ServerChatModelArgs
 from agentlab.llm.llm_utils import ParseError, RetryError, retry
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
@@ -18,7 +18,7 @@ from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 @dataclass
 class GenericAgentArgs(AbstractAgentArgs):
     agent_name: str = "GenericAgent"
-    chat_model_args: BaseChatModelArgs = None
+    chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
 
@@ -36,12 +36,12 @@ class GenericAgent(Agent):
 
     def __init__(
         self,
-        chat_model_args: BaseChatModelArgs,
+        chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
     ):
 
-        self.chat_llm = chat_model_args.make_chat_model()
+        self.chat_llm = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
         self.max_retry = max_retry
 
