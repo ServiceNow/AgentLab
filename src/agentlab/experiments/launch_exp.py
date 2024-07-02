@@ -79,7 +79,7 @@ def main(
         # TODO: it would be convinient to have a way to close servers in that case.
         logging.info("Closing all LLM servers...")
         for exp_args in exp_args_list:
-            exp_args.agent_args.chat_model_args.close_server(registry)  # TODO: get rid of that
+            exp_args.agent_args.close(registry)  # TODO: get rid of that
         logging.info("LLM servers closed.")
 
     return exp_group_name

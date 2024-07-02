@@ -155,6 +155,7 @@ class APIModelArgs(BaseModelArgs):
     model_url: str = None
     token: str = None
     backend: str = "huggingface"
+    n_retry_server: int = 4
 
     def make_model(self):
         if self.backend == "huggingface":
@@ -163,11 +164,12 @@ class APIModelArgs(BaseModelArgs):
             if self.token is None:
                 raise ValueError("token must be specified for huggingface backend")
             return HuggingFaceChatModel(
-                model_name=self.model_url,
+                model_name=self.model_name,
                 hf_hosted=False,
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
                 max_total_tokens=self.max_total_tokens,
+                max_input_tokens=self.max_input_tokens,
                 model_url=self.model_url,
                 n_retry_server=self.n_retry_server,
             )
@@ -404,7 +406,7 @@ class HuggingFaceChatModel(SimpleChatModel):
             logging.warning(
                 f"max_new_tokens is not specified. Setting it to {max_new_tokens} (max_total_tokens - max_input_tokens)."
             )
-
+        print(f"model_name: {model_name}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         if isinstance(self.tokenizer, GPT2TokenizerFast):
             # TODO: make this less hacky once tokenizer.apply_chat_template is more mature

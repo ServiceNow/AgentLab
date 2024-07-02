@@ -87,9 +87,10 @@ CHAT_MODEL_ARGS_DICT = {
     # ---------------- OSS LLMs ----------------#
     ## API Models
     "api/llama-3-8b": APIModelArgs(
-        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
+        model_name="meta-llama/Meta-Llama-3-8B-Instruct",  # NOTE: important to use the right model name to fetch the right tokenizer
         max_total_tokens=8_192,
         max_new_tokens=512,
+        max_input_tokens=8_192 - 512,
         temperature=0.01,
         model_url=os.environ.get("AGENTLAB_API_MODEL_URL", None),
         token=os.environ.get("AGENTLAB_API_MODEL_TOKEN", None),

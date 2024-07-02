@@ -24,7 +24,11 @@ class GenericAgentArgs(AbstractAgentArgs):
 
     def prepare(self, *args, **kwargs):
         if isinstance(self.chat_model_args, ServerModelArgs):
-            self.chat_model_args.prepare_server(*args, **kwargs)
+            return self.chat_model_args.prepare_server(*args, **kwargs)
+
+    def close(self, *args, **kwargs):
+        if isinstance(self.chat_model_args, ServerModelArgs):
+            return self.chat_model_args.close_server(*args, **kwargs)
 
     def make_agent(self):
         return GenericAgent(
