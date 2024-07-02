@@ -1,4 +1,6 @@
-from agentlab.llm.chat_api import OpenAIChatModelArgs, ToolkitModelArgs
+import os
+
+from agentlab.llm.chat_api import OpenAIChatModelArgs, ToolkitModelArgs, APIModelArgs
 from agentlab.llm import toolkit_configs
 
 default_oss_llms_args = {
@@ -83,6 +85,15 @@ CHAT_MODEL_ARGS_DICT = {
     #     **default_oss_llms_args,
     # ),
     # ---------------- OSS LLMs ----------------#
+    ## API Models
+    "api/llama-3-8b": APIModelArgs(
+        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
+        max_total_tokens=8_192,
+        max_new_tokens=512,
+        temperature=0.01,
+        model_url=os.environ.get("AGENTLAB_API_MODEL_URL", None),
+        token=os.environ.get("AGENTLAB_API_MODEL_TOKEN", None),
+    ),
     ## SOTA
     "finetuning/Meta-Llama-3-8B-Instruct": ToolkitModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
