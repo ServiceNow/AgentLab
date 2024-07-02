@@ -27,7 +27,7 @@ classifiers = [
 dynamic = ["dependencies"]
 
 [project.urls]
-"Homepage" = "https://github.com/ServiceNow/ui-copilot"
+"Homepage" = "https://github.com/ServiceNow/AgentLab"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
