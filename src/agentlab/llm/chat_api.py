@@ -74,6 +74,8 @@ class CheatMiniWoBLLMArgs:
 
 @dataclass
 class BaseModelArgs(ABC):
+    """Base class for all model arguments."""
+
     model_name: str
     max_total_tokens: int = None
     max_input_tokens: int = None
@@ -86,7 +88,9 @@ class BaseModelArgs(ABC):
 
 
 @dataclass
-class ServerChatModelArgs(BaseModelArgs):
+class ServerModelArgs(BaseModelArgs):
+    """Abstract class for server-based models, with methods for preparing and closing the server."""
+
     model_url: str = None
 
     def __post_init__(self):
@@ -154,18 +158,25 @@ class APIModelArgs(BaseModelArgs):
 
     def make_model(self):
         if self.backend == "huggingface":
-            client = InferenceClient(model=self.model_url, token=self.token)
-            return partial(
-                client.text_generation,
+            if self.model_url is None:
+                raise ValueError("model_url must be specified for huggingface backend")
+            if self.token is None:
+                raise ValueError("token must be specified for huggingface backend")
+            return HuggingFaceChatModel(
+                model_name=self.model_url,
+                hf_hosted=False,
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
+                max_total_tokens=self.max_total_tokens,
+                model_url=self.model_url,
+                n_retry_server=self.n_retry_server,
             )
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
 
 
 @dataclass
-class ToolkitModelArgs(ServerChatModelArgs):
+class ToolkitModelArgs(ServerModelArgs):
     """Serializable object for instantiating a generic chat model.
 
     Attributes
