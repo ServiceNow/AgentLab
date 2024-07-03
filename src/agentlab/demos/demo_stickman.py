@@ -1,14 +1,14 @@
 from agentlab.agents.dynamic_prompting import Flags
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from browsergym.experiments.loop import ExpArgs
-from agentlab.llm.chat_api import OpenAIChatModelArgs
+from agentlab.llm.chat_api import APIChatModelArgs
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 start_url = "https://miro.com/online-whiteboard/"
 
 exp_args = ExpArgs(
     agent_args=GenericAgentArgs(
-        chat_model_args=OpenAIChatModelArgs(
+        chat_model_args=APIChatModelArgs(
             model_name="openai/gpt-4-vision-preview",
             max_total_tokens=128_000,
             max_input_tokens=40_000,  # make sure we don't bust budget

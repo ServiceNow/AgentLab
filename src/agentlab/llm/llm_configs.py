@@ -1,6 +1,6 @@
 import os
 
-from agentlab.llm.chat_api import OpenAIChatModelArgs, ToolkitModelArgs, APIModelArgs
+from agentlab.llm.chat_api import APIChatModelArgs, ToolkitModelArgs, HostedModelArgs
 from agentlab.llm import toolkit_configs
 
 default_oss_llms_args = {
@@ -16,51 +16,51 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
-    "openai/gpt-4-1106-preview": OpenAIChatModelArgs(
+    "openai/gpt-4-1106-preview": APIChatModelArgs(
         model_name="openai/gpt-4-1106-preview",
         max_total_tokens=128_000,
         max_input_tokens=40_000,  # make sure we don't bust budget
         max_new_tokens=4000,
     ),
-    "openai/gpt-4-vision-preview": OpenAIChatModelArgs(
+    "openai/gpt-4-vision-preview": APIChatModelArgs(
         model_name="openai/gpt-4-vision-preview",
         max_total_tokens=128_000,
         max_input_tokens=40_000,  # make sure we don't bust budget
         max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
-    "openai/gpt-4o-2024-05-13": OpenAIChatModelArgs(
+    "openai/gpt-4o-2024-05-13": APIChatModelArgs(
         model_name="openai/gpt-4o-2024-05-13",
         max_total_tokens=128_000,
         max_input_tokens=40_000,  # make sure we don't bust budget
         max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
-    "openai/gpt-3.5-turbo-0125": OpenAIChatModelArgs(
+    "openai/gpt-3.5-turbo-0125": APIChatModelArgs(
         model_name="openai/gpt-3.5-turbo-0125",
         max_total_tokens=16_384,
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
-    "openai/gpt-3.5-turbo-1106": OpenAIChatModelArgs(
+    "openai/gpt-3.5-turbo-1106": APIChatModelArgs(
         model_name="openai/gpt-3.5-turbo-1106",
         max_total_tokens=16_384,
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
-    "azure/gpt-35-turbo/gpt-35-turbo": OpenAIChatModelArgs(
+    "azure/gpt-35-turbo/gpt-35-turbo": APIChatModelArgs(
         model_name="azure/gpt-35-turbo/gpt-35-turbo",
         max_total_tokens=16_384,
         # max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
-    "azure/gpt-4/gpt-4": OpenAIChatModelArgs(
+    "azure/gpt-4/gpt-4": APIChatModelArgs(
         model_name="azure/gpt-4/gpt-4",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4_000,
     ),
-    "azure/gpt-4o/gpt-4o": OpenAIChatModelArgs(
+    "azure/gpt-4o/gpt-4o": APIChatModelArgs(
         model_name="azure/gpt-4o/gpt-4o",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
@@ -86,7 +86,7 @@ CHAT_MODEL_ARGS_DICT = {
     # ),
     # ---------------- OSS LLMs ----------------#
     ## API Models
-    "api/llama-3-8b": APIModelArgs(
+    "api/llama-3-8b": HostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",  # NOTE: important to use the right model name to fetch the right tokenizer
         max_total_tokens=8_192,
         max_new_tokens=512,
