@@ -74,6 +74,12 @@ class BaseModelArgs(ABC):
     def make_model(self):
         pass
 
+    def prepare_server(self):
+        pass
+
+    def close_server(self):
+        pass
+
 
 @dataclass
 class ServerModelArgs(BaseModelArgs):
@@ -139,7 +145,7 @@ class APIChatModelArgs(BaseModelArgs):
 
 
 @dataclass
-class HostedModelArgs(BaseModelArgs):
+class SelfHostedModelArgs(BaseModelArgs):
     model_url: str = None
     token: str = None
     backend: str = "huggingface"
