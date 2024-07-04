@@ -14,13 +14,12 @@ def main(
     exp_root,
     n_jobs,
     exp_group_name=None,
-    benchmark: str = None,
-    model_name: str = None,
     exp_args_list=None,
     shuffle_jobs=False,
     auto_accept=False,
     use_threads_instead_of_processes=False,
     relaunch_mode=None,
+    extra_kwargs={},
 ):
     """Launch a group of experiments.
 
@@ -37,21 +36,10 @@ def main(
             joblib, useful for debugging.
         relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
     """
-    if exp_group_name:
-        logging.info(f"Launching experiment group: {exp_group_name}")
-        extra_kwargs = {}
-        if benchmark:
-            extra_kwargs["benchmark"] = benchmark
-        if model_name:
-            extra_kwargs["model_name"] = model_name
-        logging.info(f"Using extra_kwargs: {extra_kwargs}")
-
-    elif benchmark and model_name:
-        logging.info(f"Launching benchmark: {benchmark} with model: {model_name}")
-        exp_group_name = "final_run"
-        extra_kwargs = {"benchmark": benchmark, "model_name": model_name}
-    else:
-        raise ValueError("At least one of exp_group_name or benchmark and model_name must be provided.")
+    if not exp_group_name:
+        raise ValueError("exp_group_name must be provided.")
+    logging.info(f"Launching experiment group: {exp_group_name}")
+    logging.info(f"Using extra_kwargs: {extra_kwargs}")
 
     exp_args_list, exp_dir = _validate_launch_mode(
         exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
@@ -201,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp_group_name",
         type=str,
-        default=None,
+        default="final_run",
         help="Name of the experiment group to launch as defined in exp_configs.py",
     )
     parser.add_argument(
@@ -227,11 +215,17 @@ if __name__ == "__main__":
     )
 
     args, unknown = parser.parse_known_args()
+
+    extra_kwargs = {}
+    if args.benchmark:
+        extra_kwargs["benchmark"] = args.benchmark
+    if args.model_name:
+        extra_kwargs["model_name"] = args.model_name
+
     main(
         exp_root=args.exp_root,
         n_jobs=args.n_jobs,
         exp_group_name=args.exp_group_name,
-        benchmark=args.benchmark,
-        model_name=args.model_name,
         relaunch_mode=args.relaunch_mode,
+        extra_kwargs=extra_kwargs,
     )
