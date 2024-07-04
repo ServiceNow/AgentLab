@@ -1,6 +1,6 @@
 import os
 
-from agentlab.llm.chat_api import APIChatModelArgs, ToolkitModelArgs, HostedModelArgs
+from agentlab.llm.chat_api import APIChatModelArgs, ToolkitModelArgs, SelfHostedModelArgs
 from agentlab.llm import toolkit_configs
 
 default_oss_llms_args = {
@@ -86,7 +86,7 @@ CHAT_MODEL_ARGS_DICT = {
     # ),
     # ---------------- OSS LLMs ----------------#
     ## API Models
-    "api/llama-3-8b": HostedModelArgs(
+    "api/llama-3-8b": SelfHostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",  # NOTE: important to use the right model name to fetch the right tokenizer
         max_total_tokens=8_192,
         max_new_tokens=512,
