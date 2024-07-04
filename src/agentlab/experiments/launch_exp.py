@@ -39,14 +39,19 @@ def main(
     """
     if exp_group_name:
         logging.info(f"Launching experiment group: {exp_group_name}")
-        if benchmark or model_name:
-            logging.info(f"Overriding benchmark: {benchmark} and model_name: {model_name}")
         extra_kwargs = {}
+        if benchmark:
+            extra_kwargs["benchmark"] = benchmark
+        if model_name:
+            extra_kwargs["model_name"] = model_name
+        logging.info(f"Using extra_kwargs: {extra_kwargs}")
 
     elif benchmark and model_name:
         logging.info(f"Launching benchmark: {benchmark} with model: {model_name}")
         exp_group_name = "final_run"
         extra_kwargs = {"benchmark": benchmark, "model_name": model_name}
+    else:
+        raise ValueError("At least one of exp_group_name or benchmark and model_name must be provided.")
 
     exp_args_list, exp_dir = _validate_launch_mode(
         exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
@@ -120,7 +125,7 @@ def _validate_launch_mode(
             from agentlab.experiments import exp_configs
 
             exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
-                exp_group_name, **extra_kwargs
+                exp_group_name, extra_kwargs
             )
 
         # overwriting exp_group_name for the recursive call
@@ -202,14 +207,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--benchmark",
         type=str,
-        default="miniwob",
+        default=None,
         choices=["miniwob", "workarena.l1", "workarena.l2", "workarena.l3"],
         help="Benchmark to launch",
     )
     parser.add_argument(
         "--model_name",
         type=str,
-        default="llama3-8b",
+        default=None,
         choices=["gpt-3.5", "llama3-8b", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
         help="Model to launch",
     )

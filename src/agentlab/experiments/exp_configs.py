@@ -20,11 +20,11 @@ from agentlab.agents.generic_agent.configs import (
 )
 
 
-def get_exp_args_list(func_name: str, *a, **kw):
+def get_exp_args_list(func_name: str, extra_kwargs: dict = {}):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
 
-    exp_args_list = func(*a, **kw)  # type: list[ExpArgs]
+    exp_args_list = func(**extra_kwargs)  # type: list[ExpArgs]
 
     not_filter_task = []
     filter_task = []
