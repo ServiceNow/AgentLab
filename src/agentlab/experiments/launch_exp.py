@@ -116,7 +116,9 @@ def _validate_launch_mode(
         if exp_args_list is None:
             from agentlab.experiments import exp_configs
 
-            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(exp_group_name, extra_kwargs)
+            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
+                exp_group_name, extra_kwargs
+            )
 
         # overwriting exp_group_name for the recursive call
         exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
