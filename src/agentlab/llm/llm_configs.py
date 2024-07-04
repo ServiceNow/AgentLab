@@ -1,6 +1,6 @@
 import os
 
-from agentlab.llm.chat_api import APIChatModelArgs, ToolkitModelArgs, SelfHostedModelArgs
+from agentlab.llm.chat_api import APIModelArgs, ToolkitModelArgs, SelfHostedModelArgs
 from agentlab.llm import toolkit_configs
 
 default_oss_llms_args = {
@@ -16,51 +16,51 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
-    "openai/gpt-4-1106-preview": APIChatModelArgs(
+    "openai/gpt-4-1106-preview": APIModelArgs(
         model_name="openai/gpt-4-1106-preview",
         max_total_tokens=128_000,
         max_input_tokens=40_000,  # make sure we don't bust budget
         max_new_tokens=4000,
     ),
-    "openai/gpt-4-vision-preview": APIChatModelArgs(
+    "openai/gpt-4-vision-preview": APIModelArgs(
         model_name="openai/gpt-4-vision-preview",
         max_total_tokens=128_000,
         max_input_tokens=40_000,  # make sure we don't bust budget
         max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
-    "openai/gpt-4o-2024-05-13": APIChatModelArgs(
+    "openai/gpt-4o-2024-05-13": APIModelArgs(
         model_name="openai/gpt-4o-2024-05-13",
         max_total_tokens=128_000,
         max_input_tokens=40_000,  # make sure we don't bust budget
         max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
-    "openai/gpt-3.5-turbo-0125": APIChatModelArgs(
+    "openai/gpt-3.5-turbo-0125": APIModelArgs(
         model_name="openai/gpt-3.5-turbo-0125",
         max_total_tokens=16_384,
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
-    "openai/gpt-3.5-turbo-1106": APIChatModelArgs(
+    "openai/gpt-3.5-turbo-1106": APIModelArgs(
         model_name="openai/gpt-3.5-turbo-1106",
         max_total_tokens=16_384,
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
-    "azure/gpt-35-turbo/gpt-35-turbo": APIChatModelArgs(
+    "azure/gpt-35-turbo/gpt-35-turbo": APIModelArgs(
         model_name="azure/gpt-35-turbo/gpt-35-turbo",
         max_total_tokens=16_384,
         # max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
-    "azure/gpt-4/gpt-4": APIChatModelArgs(
+    "azure/gpt-4/gpt-4": APIModelArgs(
         model_name="azure/gpt-4/gpt-4",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4_000,
     ),
-    "azure/gpt-4o/gpt-4o": APIChatModelArgs(
+    "azure/gpt-4o/gpt-4o": APIModelArgs(
         model_name="azure/gpt-4o/gpt-4o",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
