@@ -1,14 +1,14 @@
 from agentlab.agents.dynamic_prompting import Flags
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from browsergym.experiments.loop import ExpArgs
-from agentlab.llm.chat_api import APIChatModelArgs
+from agentlab.llm.chat_api import APIModelArgs
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 start_url = "https://www.google.com"
 
 exp_args = ExpArgs(
     agent_args=GenericAgentArgs(
-        chat_model_args=APIChatModelArgs(
+        chat_model_args=APIModelArgs(
             model_name="openai/gpt-4-vision-preview",
             max_total_tokens=128_000,
             max_input_tokens=40_000,  # make sure we don't bust budget

@@ -121,7 +121,7 @@ class ServerModelArgs(BaseModelArgs):
 
 
 @dataclass
-class APIChatModelArgs(BaseModelArgs):
+class APIModelArgs(BaseModelArgs):
     vision_support: bool = False
 
     def make_model(self):

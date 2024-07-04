@@ -2,7 +2,7 @@ from browsergym.experiments.loop import ExpArgs, EnvArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import GenericPromptFlags
 from agentlab.agents.dynamic_prompting import ActionFlags, ObsFlags
-from agentlab.llm.chat_api import APIChatModelArgs
+from agentlab.llm.chat_api import APIModelArgs
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 start_url = "https://www.google.com"
@@ -10,7 +10,7 @@ start_url = "https://www.google.com"
 exp_args = ExpArgs(
     agent_args=GenericAgentArgs(
         agent_name="DemoAgent",
-        chat_model_args=APIChatModelArgs(
+        chat_model_args=APIModelArgs(
             model_name="openai/gpt-4o-2024-05-13",
             # model_name="openai/gpt-4-vision-preview",
             max_total_tokens=128_000,
