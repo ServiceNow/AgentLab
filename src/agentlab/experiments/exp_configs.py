@@ -612,9 +612,11 @@ def demo_maker():
 def finetuning_eval(
     benchmark: str = "miniwob.test",
     dataset_name: str = "traces_test",
-    model_name: str = "finetuning/Meta-Llama-3-8B-Instruct",
+    model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
+
+    model_name = f"finetuning/{model_name}"
 
     flags_list = fix_flags(
         benchmark,

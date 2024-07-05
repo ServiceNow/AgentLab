@@ -65,7 +65,7 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     # ---------------- OSS LLMs ----------------#
     ## SOTA
-    "finetuning/Meta-Llama-3-8B-Instruct": ChatModelArgs(
+    "finetuning/meta-llama/Meta-Llama-3-8B-Instruct": ChatModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
         model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/",
         training_total_tokens=8_192,
