@@ -597,7 +597,8 @@ def demo_maker():
 
 def finetuning_eval(
     benchmark: str = "miniwob.test",
-    dataset_name: str = "traces_test",
+    # dataset_name: str = "traces_test",
+    dataset_name: str = "miniwob_v1",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
 
@@ -638,6 +639,7 @@ def finetuning_eval(
 
 
 DEFAULT_RS_FLAGS = GenericPromptFlags(
+    flag_group="default_rs",
     obs=dp.ObsFlags(
         use_html=True,
         use_ax_tree=args.Choice([True, False]),
@@ -678,6 +680,7 @@ DEFAULT_RS_FLAGS = GenericPromptFlags(
 
 
 RS_OSS_FLAGS = GenericPromptFlags(
+    flag_group="rs_oss",
     obs=dp.ObsFlags(
         # use_html=args.Choice([True, False], p=[0.75, 0.25]),
         # use_ax_tree=args.Choice([True, False], p=[0.75, 0.25]),
@@ -720,6 +723,7 @@ RS_OSS_FLAGS = GenericPromptFlags(
 
 
 BASIC_FINETUNING_FLAGS = GenericPromptFlags(
+    flag_group="basic_finetuning",
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
@@ -747,6 +751,7 @@ BASIC_FINETUNING_FLAGS = GenericPromptFlags(
 )
 
 FLAGS_GPT_3_5 = GenericPromptFlags(
+    flag_group="gpt_3_5",
     obs=dp.ObsFlags(
         use_html=False,  # too big for most benchmark except miniwob
         use_ax_tree=True,  # very useful
@@ -785,6 +790,7 @@ FLAGS_GPT_3_5 = GenericPromptFlags(
 )
 
 FLAGS_8B = GenericPromptFlags(
+    flag_group="8b",
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
@@ -824,6 +830,7 @@ FLAGS_8B = GenericPromptFlags(
 )
 
 FLAGS_70B = GenericPromptFlags(
+    flag_group="70b",
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
@@ -864,6 +871,7 @@ FLAGS_70B = GenericPromptFlags(
 
 
 FLAGS_GPT_4o = GenericPromptFlags(
+    flag_group="gpt_4o",
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
