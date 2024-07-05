@@ -11,6 +11,14 @@ from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
 import agentlab
 import argparse
+import json
+
+
+def str2dict(arg):
+    try:
+        return json.loads(arg)
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid dictionary format: {e}")
 
 
 def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers):
@@ -240,6 +248,18 @@ if __name__ == "__main__":
         choices=[None, "incomplete_only", "all_errors", "server_errors"],
         help="Find all incomplete experiments and relaunch them.",
     )
+    parser.add_argument(
+        "--extra_kwargs",
+        default="{}",
+        type=str2dict,
+        help="Extra arguments to pass to the experiment group.",
+    )
 
     args, unknown = parser.parse_known_args()
-    main(args.exp_root, args.exp_group_name, args.n_jobs, relaunch_mode=args.relaunch_mode)
+    main(
+        args.exp_root,
+        args.exp_group_name,
+        args.n_jobs,
+        relaunch_mode=args.relaunch_mode,
+        extra_kwargs=args.extra_kwargs,
+    )
