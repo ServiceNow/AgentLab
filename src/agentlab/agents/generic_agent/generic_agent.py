@@ -179,6 +179,8 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     - full_prompt (str): The complete prompt used for the agent.
     - output (str): The reconstructed output based on the answer dictionary.
     """
+    system_prompt = dp.SystemPrompt().prompt
+
     agent.obs_history.append(obs)
 
     main_prompt = MainPrompt(
@@ -201,11 +203,13 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
         max_iterations=max_trunk_itr,
     )
 
-    prompt = fit_function(shrinkable=main_prompt)
+    instruction_prompt = fit_function(shrinkable=main_prompt)
+
+    if isinstance(instruction_prompt, list):
+        # NOTE: this is when we have images
+        instruction_prompt = instruction_prompt[0]["text"]
 
     # TODO: make sure the bid is in the prompt
-    # TODO: eventually keep the system prompt separate and to properly feed it to torchtune
-    full_prompt = dp.SystemPrompt().prompt + "\n" + prompt
 
     output = ""
 
@@ -232,4 +236,4 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     if action is not None:
         output += f"\n<action>\n{action}\n</action>"
 
-    return full_prompt, output
+    return system_prompt, instruction_prompt, output
