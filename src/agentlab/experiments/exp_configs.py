@@ -194,12 +194,26 @@ def random_search(
     benchmark: str = "workarena.l1",
 ):
     """Example of random search. Modify this at will, but don't push your
-    changes.
+        changes.
 
-    The variance will usually be relatively high and the search space is soo big
-    that the false discovery rate will be particularly high. Make sure to
-    analyze the  results with caution and don't actually draw final conclusions
-    from these experiments.
+        The variance will usually be relatively high and the search space is soo big
+        that the false discovery rate will be particularly high. Make sure to
+        analyze the  results with caution and don't actuall
+    ## you can also specify the experiment group name directly here to relaunch it
+    # exp_group_name = "2024-01-22_23-46-25_random_search_prompt_OSS_LLMs"
+
+    # WorkArena Ablation Study for ICML
+    # exp_group_name = "2024-02-01_03-20-14_ablation_study_browsergym_workarena"
+
+    # MiniWob Ablation Study for ICML
+    # exp_group_name = "2024-02-01_03-24-01_ablation_study_browsergym_miniwob"
+
+
+    # exp_group_name = get_most_recent_folder(RESULTS_DIR).name
+
+    # relaunch_mode = "incomplete_only"
+    # relaunch_mode = "all_errors"y draw final conclusions
+        from these experiments.
     """
     flags = fix_flags(benchmark, flags=DEFAULT_RS_FLAGS)
 
@@ -597,8 +611,8 @@ def demo_maker():
 
 def finetuning_eval(
     benchmark: str = "miniwob.test",
-    # dataset_name: str = "traces_test",
-    dataset_name: str = "miniwob_v1",
+    dataset_name: str = "traces_test",
+    model_name: str = "finetuning/Meta-Llama-3-8B-Instruct",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
 
@@ -608,10 +622,6 @@ def finetuning_eval(
     )
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
 
-    # chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-
-    # TODO: un-hardcode this
-    model_name = "finetuning/Meta-Llama-3-8B-Instruct"
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[model_name]]
     if overwrite_chat_model_args_dict:
         chat_model_args_list = overwrite_chat_model_arg(
