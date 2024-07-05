@@ -308,8 +308,14 @@ clicking the refresh button.
                     screenshot2 = gr.Image(
                         show_label=False, interactive=False, show_download_button=False
                     )
-            with gr.Tab("Screenshot Caroussel") as tab_screenshot_caroussel:
-                screenshot_caroussel = gr.Gallery()
+            with gr.Tab("Screenshot Gallery") as tab_screenshot_gallery:
+                screenshot_gallery = gr.Gallery(
+                    columns=2,
+                    show_download_button=False,
+                    show_label=False,
+                    object_fit="contain",
+                    preview=True,
+                )
 
             with gr.Tab("DOM HTML") as tab_html:
                 html_code = gr.Code(language="html", **code_args)
@@ -370,6 +376,12 @@ clicking the refresh button.
             inputs=som_or_not,
             outputs=[screenshot1, screenshot2],
         )
+        step_id.change(
+            fn=if_active("Screenshot Gallery")(update_screenshot_gallery),
+            inputs=som_or_not,
+            outputs=[screenshot_gallery],
+        )
+        screenshot_gallery.select(fn=gallery_step_change, inputs=episode_id, outputs=step_id)
         step_id.change(fn=if_active("DOM HTML")(update_html), outputs=html_code)
         step_id.change(
             fn=if_active("Pruned DOM HTML")(update_pruned_html), outputs=pruned_html_code
@@ -386,6 +398,9 @@ clicking the refresh button.
         tab_screenshot_pair.select(
             fn=update_screenshot_pair, inputs=som_or_not, outputs=[screenshot1, screenshot2]
         )
+        tab_screenshot_gallery.select(
+            fn=update_screenshot_gallery, inputs=som_or_not, outputs=[screenshot_gallery]
+        )
         tab_html.select(fn=update_html, outputs=html_code)
         tab_pruned_html.select(fn=update_pruned_html, outputs=pruned_html_code)
         tab_axtree.select(fn=update_axtree, outputs=axtree_code)
@@ -400,7 +415,7 @@ clicking the refresh button.
         tabs.select(tab_select)
 
     demo.queue()
-    demo.launch(server_port=7889)
+    demo.launch(server_port=7888)
 
 
 def tab_select(evt: gr.SelectData):
@@ -447,6 +462,28 @@ def update_screenshot_pair(som_or_not: str):
     s1 = get_screenshot(info, info.step, som_or_not)
     s2 = get_screenshot(info, info.step + 1, som_or_not)
     return s1, s2
+
+
+def update_screenshot_gallery(som_or_not: str):
+    global info
+    screenshots = info.exp_result.get_screenshots(som=som_or_not == "SOM Screenshots")
+    screenshots_and_label = [(s, f"Step {i}") for i, s in enumerate(screenshots)]
+    gallery = gr.Gallery(
+        value=screenshots_and_label,
+        columns=2,
+        show_download_button=False,
+        show_label=False,
+        object_fit="contain",
+        preview=True,
+        selected_index=info.step,
+    )
+    return gallery
+
+
+def gallery_step_change(evt: gr.SelectData, episode_id: EpisodeId):
+    global info
+    info.step = evt.index
+    return StepId(episode_id=episode_id, step=evt.index)
 
 
 def update_html():
@@ -613,7 +650,7 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
         )
 
     seed_df = result_df.apply(extract_columns, axis=1)
-    seed_df['Idx'] = seed_df.index
+    seed_df["Idx"] = seed_df.index
     return seed_df
 
 
