@@ -31,6 +31,7 @@ def main(
     use_threads_instead_of_processes=False,
     relaunch_mode=None,
     server_error_flag=None,
+    extra_kwargs={},
 ):
     """Launch a group of experiments.
 
@@ -48,7 +49,7 @@ def main(
         relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
     """
     exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
     )
 
     if shuffle_jobs:
@@ -82,7 +83,7 @@ def main(
 
 
 def _validate_launch_mode(
-    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
 ) -> tuple[list[ExpArgs], Path]:
     if relaunch_mode is not None:
         # dig into an existing experiment group and relaunch all incomplete experiments
@@ -115,7 +116,9 @@ def _validate_launch_mode(
         if exp_args_list is None:
             from agentlab.experiments import exp_configs
 
-            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(exp_group_name)
+            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
+                exp_group_name, extra_kwargs
+            )
 
         # overwriting exp_group_name for the recursive call
         exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"

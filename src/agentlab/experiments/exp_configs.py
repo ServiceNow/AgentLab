@@ -15,11 +15,11 @@ from agentlab.agents.generic_agent.generic_agent_prompt import (
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 
-def get_exp_args_list(func_name: str):
+def get_exp_args_list(func_name: str, extra_kwargs: dict = {}):
     """Run func_name and return exp_arg_list"""
     func = globals()[func_name]
 
-    exp_args_list = func()  # type: list[ExpArgs]
+    exp_args_list = func(**extra_kwargs)  # type: list[ExpArgs]
 
     not_filter_task = []
     filter_task = []
