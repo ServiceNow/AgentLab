@@ -146,6 +146,34 @@ webgum_tasks = [
     "miniwob.use-spinner",
 ]
 
+import numpy as np
+
+
+def split_list(input_list, seed=42):
+    # Convert the list to a numpy array
+    input_array = np.array(input_list)
+
+    # Set the random seed for reproducibility
+    np.random.seed(seed)
+
+    # Shuffle the array
+    np.random.shuffle(input_array)
+
+    # Compute split indices
+    n = len(input_array)
+    train_end = int(0.6 * n)
+    val_end = int(0.8 * n)
+
+    # Split the array
+    train_array = input_array[:train_end]
+    val_array = input_array[train_end:val_end]
+    test_array = input_array[val_end:]
+
+    return train_array, val_array, test_array
+
+
+MINIWOB_TRAIN, MINIWOB_VALIDATION, MINIWOB_TEST = split_list(MINIWOB_ALL, seed=42)
+
 
 def get_benchmark_env_args(
     benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None, is_agent_curriculum=True
@@ -220,8 +248,16 @@ def get_benchmark_env_args(
 
     elif benchmark_name == "webarena":
         env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
-    elif benchmark_name == "miniwob":
-        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_repeat, rng)
+    elif benchmark_name.startswith("miniwob"):
+        miniwob_benchmarks_map = {
+            "miniwob": MINIWOB_ALL,
+            "miniwob.train": MINIWOB_TRAIN,
+            "miniwob.dev": MINIWOB_VALIDATION,
+            "miniwob.test": MINIWOB_TEST,
+        }
+        env_args_list = _make_env_args(
+            miniwob_benchmarks_map[benchmark_name], max_steps, n_repeat, rng
+        )
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
