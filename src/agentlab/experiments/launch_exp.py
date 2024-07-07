@@ -11,6 +11,14 @@ from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
 import agentlab
 import argparse
+import json
+
+
+def str2dict(arg):
+    try:
+        return json.loads(arg)
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid dictionary format: {e}")
 
 
 def run_exp(exp_args: ExpArgs, server_error_flag: bool, llm_servers: LLMServers):
@@ -31,6 +39,7 @@ def main(
     use_threads_instead_of_processes=False,
     relaunch_mode=None,
     server_error_flag=None,
+    extra_kwargs={},
 ):
     """Launch a group of experiments.
 
@@ -48,7 +57,7 @@ def main(
         relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
     """
     exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
     )
 
     if shuffle_jobs:
@@ -82,7 +91,7 @@ def main(
 
 
 def _validate_launch_mode(
-    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept
+    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
 ) -> tuple[list[ExpArgs], Path]:
     if relaunch_mode is not None:
         # dig into an existing experiment group and relaunch all incomplete experiments
@@ -115,7 +124,9 @@ def _validate_launch_mode(
         if exp_args_list is None:
             from agentlab.experiments import exp_configs
 
-            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(exp_group_name)
+            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
+                exp_group_name, extra_kwargs
+            )
 
         # overwriting exp_group_name for the recursive call
         exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
@@ -237,6 +248,18 @@ if __name__ == "__main__":
         choices=[None, "incomplete_only", "all_errors", "server_errors"],
         help="Find all incomplete experiments and relaunch them.",
     )
+    parser.add_argument(
+        "--extra_kwargs",
+        default="{}",
+        type=str2dict,
+        help="Extra arguments to pass to the experiment group.",
+    )
 
     args, unknown = parser.parse_known_args()
-    main(args.exp_root, args.exp_group_name, args.n_jobs, relaunch_mode=args.relaunch_mode)
+    main(
+        args.exp_root,
+        args.exp_group_name,
+        args.n_jobs,
+        relaunch_mode=args.relaunch_mode,
+        extra_kwargs=args.extra_kwargs,
+    )
