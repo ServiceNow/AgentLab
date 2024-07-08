@@ -93,13 +93,13 @@ def miniwob_add_html(benchmark: str, flags: GenericPromptFlags):
     return flags
 
 
-def generic_agent_test():
+def generic_agent_test(agent=AGENT_3_5, benchmark="miniwob"):
     """Minimalistic experiment to test the system."""
     return args.expand_cross_product(
         ExpArgs(
             agent_args=GenericAgentArgs(
                 chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"],
-                flags=AGENT_3_5.flags,
+                flags=agent.flags,
             ),
             env_args=EnvArgs(
                 max_steps=5,
@@ -111,10 +111,9 @@ def generic_agent_test():
     )
 
 
-def tgi_toolkit_test():
+def tgi_toolkit_test(agent=AGENT_70B, benchmark="miniwob"):
     """Minimalistic experiment to test the system."""
-    benchmark = "miniwob"
-    flags = AGENT_70B.flags
+    flags = agent.flags
     flags = miniwob_add_html(benchmark, flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=5, n_repeat=2)[:4]
 
@@ -165,7 +164,7 @@ overwrite_chat_model_args_dict = {
 
 
 # test GenericAgent with different LLMs
-def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
+def generic_agent_eval_llm(agent, benchmark="workarena.l1"):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
     flags = AGENT_4o.flags
     flags.obs.extract_visible_tag = True
@@ -207,6 +206,7 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
 def random_search(
     # benchmark: str = "workarena.servicenow.all-menu",
     # benchmark: str = "miniwob.click-menu-2",
+    agent,
     benchmark: str = "workarena.l1",
     mode="OSS_rs",
 ):
@@ -243,6 +243,7 @@ def random_search(
 
 
 def progression_study(
+    agent,
     benchmark: str = "miniwob",
 ):
     """Example of a progression study. Modify this at will, but don't push your
@@ -323,23 +324,9 @@ def progression_study(
     )
 
 
-def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
+def final_run(agent=AGENT_3_5, benchmark: str = "miniwob"):
 
-    agents = []
-
-    if model_name.lower() in ["gpt-3.5"]:
-        agents.append(AGENT_3_5)
-    elif model_name.lower() in ["gpt-4o"]:
-        agents.append(AGENT_4o)
-    elif model_name.lower() in ["gpt-4o-vision"]:
-        agents.append(AGENT_4o_VISION)
-    elif model_name.lower() in ["llama3-70b"]:
-        agents.append(AGENT_70B)
-    elif model_name.lower() in ["llama3-8b"]:
-        agents.append(AGENT_8B)
-
-    for agent in agents:
-        agent.flags = miniwob_add_html(benchmark, agent.flags)
+    agent.flags = miniwob_add_html(benchmark, agent.flags)
 
     env_args_list = tasks.get_benchmark_env_args(
         benchmark, meta_seed=43, max_steps=None, n_repeat=None, is_agent_curriculum=False
@@ -347,7 +334,7 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
 
     return args.expand_cross_product(
         ExpArgs(
-            agent_args=args.CrossProd(agents),
+            agent_args=args.CrossProd([agent]),
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
             logging_level=logging.DEBUG,
@@ -356,6 +343,7 @@ def final_run(benchmark: str = "miniwob", model_name: str = "gpt-3.5"):
 
 
 def ablation_study(
+    agent=AGENT_3_5,
     benchmark: str = "workarena.l1",
     # benchmark: str = "miniwob",
 ):
@@ -446,7 +434,7 @@ def ablation_study(
     )
 
 
-def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
+def ablation_study_GPT_3_5(agent=AGENT_3_5, benchmark: str = "workarena.l1"):
     chat_model_args = AGENT_3_5.chat_model_args
     flags = AGENT_3_5.flags
     flags = miniwob_add_html(benchmark, flags)
@@ -491,7 +479,7 @@ def ablation_study_GPT_3_5(benchmark: str = "workarena.l1"):
     )
 
 
-def ablation_study_OSS(benchmark: str = "workarena.l1"):
+def ablation_study_OSS(agent=AGENT_70B, benchmark: str = "workarena.l1"):
     chat_model_args = AGENT_70B.chat_model_args
     flags = AGENT_70B.flags
 
