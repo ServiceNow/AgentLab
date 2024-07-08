@@ -8,44 +8,55 @@ from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
 import argparse
+from importlib import import_module
+
+
+def split_path(path: str):
+    if "/" in path:
+        path = path.replace("/", ".")
+    module_name, obj_name = path.rsplit(".", 1)
+    return module_name, obj_name
+
+
+def import_object(path: str):
+    module_name, obj_name = split_path(path)
+    try:
+        module = import_module(module_name)
+        obj = getattr(module, obj_name)
+    except (ImportError, AttributeError) as e:
+        raise ImportError(f"Error importing {path}: {e}")
+    return obj
 
 
 def main(
-    exp_root,
-    n_jobs,
-    exp_group_name=None,
-    exp_args_list=None,
-    shuffle_jobs=False,
-    auto_accept=False,
-    use_threads_instead_of_processes=False,
-    relaunch_mode=None,
-    extra_kwargs={},
+    exp_config: str,
+    agent_config: str,
+    benchmark: str,
+    exp_root: str,
+    n_jobs: int = 1,
+    auto_accept: bool = False,
+    relaunch_mode: str = None,
+    shuffle_jobs: bool = False,
 ):
     """Launch a group of experiments.
 
     Args:
-        exp_group_name: name of the experiment group to launch as defined in
+        exp_config: name of the experiment group to launch as defined in your
             exp_configs.EXP_GROUPS
+        agent_config: path to the agent config
+        benchmark: name of the benchmark to launch
         exp_root: folder where experiments will be saved
         n_jobs: number of parallel jobs in joblib
-        exp_args_list: list of ExpArgs to launch. If None, will use the list
-            from exp_configs.EXP_GROUPS[exp_group_name]
-        shuffle_jobs: shuffle the order of the experiments
         auto_accept: skip the prompt to accept the experiment
-        use_threads_instead_of_processes: prefer threads over processes in
-            joblib, useful for debugging.
         relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
     """
-    if not exp_group_name:
-        raise ValueError("exp_group_name must be provided.")
-    logging.info(f"Launching experiment group: {exp_group_name}")
-    logging.info(f"Using extra_kwargs: {extra_kwargs}")
+    logging.info(f"Launching experiment group: {exp_config}")
 
     exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
+        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept
     )
-
     if shuffle_jobs:
+        logging.info("Shuffling jobs")
         random.shuffle(exp_args_list)
 
     # if webarena, check if the server is running
@@ -62,7 +73,7 @@ def main(
         exp_args.prepare(exp_root=exp_dir)
 
     try:
-        prefer = "threads" if use_threads_instead_of_processes else "processes"
+        prefer = "processes"
         Parallel(n_jobs=n_jobs, prefer=prefer)(
             delayed(exp_args.run)() for exp_args in exp_args_list
         )
@@ -75,14 +86,15 @@ def main(
             exp_args.agent_args.close(registry)  # TODO: get rid of that
         logging.info("LLM servers closed.")
 
-    return exp_group_name
+    return
 
 
 def _validate_launch_mode(
-    exp_root, exp_group_name, exp_args_list, relaunch_mode, auto_accept, extra_kwargs
+    exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept
 ) -> tuple[list[ExpArgs], Path]:
     if relaunch_mode is not None:
         # dig into an existing experiment group and relaunch all incomplete experiments
+        _, exp_group_name = split_path(exp_config)
         exp_dir = Path(exp_root) / exp_group_name
         if not exp_dir.exists():
             raise ValueError(
@@ -109,12 +121,11 @@ def _validate_launch_mode(
             ].model_url
 
     else:
-        if exp_args_list is None:
-            from agentlab.experiments import exp_configs
+        exp_obj = import_object(exp_config)
+        agent_obj = import_object(agent_config)
 
-            exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
-                exp_group_name, extra_kwargs
-            )
+        exp_args_list = exp_obj(agent=agent_obj, benchmark=benchmark)
+        exp_group_name = exp_obj.__name__
 
         # overwriting exp_group_name for the recursive call
         exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
@@ -187,7 +198,7 @@ if __name__ == "__main__":
         help="number of parallel jobs",
     )
     parser.add_argument(
-        "--exp_group_name",
+        "--exp_config",
         type=str,
         default="final_run",
         help="Name of the experiment group to launch as defined in exp_configs.py",
@@ -200,10 +211,9 @@ if __name__ == "__main__":
         help="Benchmark to launch",
     )
     parser.add_argument(
-        "--model_name",
+        "--agent_config",
         type=str,
         default=None,
-        choices=["gpt-3.5", "llama3-8b", "llama3-70b", "gpt-4o", "gpt-4o-vision"],
         help="Model to launch",
     )
     parser.add_argument(
@@ -216,16 +226,11 @@ if __name__ == "__main__":
 
     args, unknown = parser.parse_known_args()
 
-    extra_kwargs = {}
-    if args.benchmark:
-        extra_kwargs["benchmark"] = args.benchmark
-    if args.model_name:
-        extra_kwargs["model_name"] = args.model_name
-
     main(
+        exp_config=args.exp_config,
+        agent_config=args.agent_config,
+        benchmark=args.benchmark,
         exp_root=args.exp_root,
         n_jobs=args.n_jobs,
-        exp_group_name=args.exp_group_name,
         relaunch_mode=args.relaunch_mode,
-        extra_kwargs=extra_kwargs,
     )
