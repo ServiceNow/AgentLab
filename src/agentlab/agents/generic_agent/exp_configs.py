@@ -204,7 +204,8 @@ def random_search(
 
         The variance will usually be relatively high and the search space is soo big
         that the false discovery rate will be particularly high. Make sure to
-        analyze the  results with caution and don't actuall
+        analyze the  results with caution and don't actually draw final conclusions
+        from these experiments.
     ## you can also specify the experiment group name directly here to relaunch it
     # exp_group_name = "2024-01-22_23-46-25_random_search_prompt_OSS_LLMs"
 
@@ -218,8 +219,7 @@ def random_search(
     # exp_group_name = get_most_recent_folder(RESULTS_DIR).name
 
     # relaunch_mode = "incomplete_only"
-    # relaunch_mode = "all_errors"y draw final conclusions
-        from these experiments.
+    # relaunch_mode = "all_errors"
     """
     flags = fix_flags(benchmark, flags=DEFAULT_RS_FLAGS)
 
