@@ -9,6 +9,14 @@ from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
 import argparse
 from importlib import import_module
+import json
+
+
+def str2dict(arg):
+    try:
+        return json.loads(arg)
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid dictionary format: {e}")
 
 
 def split_path(path: str):
@@ -222,6 +230,12 @@ if __name__ == "__main__":
         type=str,
         choices=[None, "incomplete_only", "all_errors", "server_errors"],
         help="Find all incomplete experiments and relaunch them.",
+    )
+    parser.add_argument(
+        "--extra_kwargs",
+        default="{}",
+        type=str2dict,
+        help="Extra arguments to pass to the experiment group.",
     )
 
     args, unknown = parser.parse_known_args()

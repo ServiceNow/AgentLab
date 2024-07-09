@@ -232,7 +232,10 @@ def auto_launch_server(chat_model_args: ServerModelArgs, job_name="auto_tgi_serv
         n_shard = 1
 
     if not chat_model_args.tgi_image:
-        tgi_image = toolkit_configs.TGI_IMAGE_LATEST
+        ## NOTE: you can play w/ latest but you expose yourself to breaking changes
+        ## seems bugged as of 2024-07-04
+        # tgi_image = toolkit_configs.TGI_IMAGE_LATEST
+        tgi_image = toolkit_configs.TGI_IMAGE_OFFICIAL
     else:
         tgi_image = chat_model_args.tgi_image
 
@@ -359,6 +362,8 @@ def kill_all_servers(job_name="auto_tgi_server"):
 
 if __name__ == "__main__":
 
+    logging.getLogger().setLevel(logging.INFO)
+
     ## launching a TGI server on Toolkit
 
     # model = "meta-llama/Meta-Llama-3-70B-Instruct"
@@ -367,8 +372,8 @@ if __name__ == "__main__":
     # model = "microsoft/Phi-3-mini-4k-instruct"
     model = "bigcode/starcoder2-15b"
 
-    auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
+    # auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
 
-    kill_all_servers("ui_copilot_tgi_server")
+    # kill_all_servers("ui_copilot_tgi_server")
 
-    # kill_all_servers()
+    kill_all_servers()

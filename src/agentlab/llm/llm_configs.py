@@ -96,7 +96,7 @@ CHAT_MODEL_ARGS_DICT = {
         token=os.environ.get("AGENTLAB_API_MODEL_TOKEN", None),
     ),
     ## SOTA
-    "finetuning/Meta-Llama-3-8B-Instruct": ToolkitModelArgs(
+    "finetuning/meta-llama/Meta-Llama-3-8B-Instruct": ToolkitModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
         model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/",
         training_total_tokens=8_192,

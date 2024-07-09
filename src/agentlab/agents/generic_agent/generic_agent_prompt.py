@@ -23,6 +23,7 @@ class GenericPromptFlags(dp.Flags):
         be_cautious (bool): Instruct the agent to be cautious about its actions.
         extra_instructions (Optional[str]): Extra instructions to provide to the agent.
         add_missparsed_messages (bool): When retrying, add the missparsed messages to the prompt.
+        flag_group (Optional[str]): Group of flags used.
     """
 
     obs: dp.ObsFlags
@@ -40,6 +41,7 @@ class GenericPromptFlags(dp.Flags):
     extra_instructions: str | None = None
     add_missparsed_messages: bool = True
     max_trunc_itr: int = 20
+    flag_group: str = None
 
 
 class MainPrompt(dp.Shrinkable):
