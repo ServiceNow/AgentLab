@@ -1,4 +1,4 @@
-from agentlab.experiments import exp_configs
+from agentlab.agents.generic_agent import exp_configs
 
 
 def test_all_configs():

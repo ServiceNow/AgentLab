@@ -12,7 +12,7 @@ from agentlab.agents.generic_agent.generic_agent_prompt import (
     GenericPromptFlags,
 )
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from agentlab.agents.generic_agent.configs import (
+from agentlab.agents.generic_agent.agent_configs import (
     AGENT_3_5,
     AGENT_70B,
     AGENT_8B,
@@ -573,7 +573,7 @@ def ablation_study_GPT_4(benchmark: str = "workarena.l1"):
     )
 
 
-def demo_maker():
+def demo_maker(*a, **kw):
     """Runs in demo mode with video turned on"""
     flags = AGENT_4o.flags
     flags.obs.use_screenshot = True
@@ -609,7 +609,7 @@ def finetuning_eval(
 
     flags_list = fix_flags(
         benchmark,
-        flags=[BASIC_FINETUNING_FLAGS, FLAGS_8B, FLAGS_GPT_4o],
+        flags=[BASIC_FINETUNING_FLAGS, AGENT_8B.flags, AGENT_4o.flags],
     )
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
 

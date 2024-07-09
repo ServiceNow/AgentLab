@@ -1,6 +1,6 @@
 import tempfile
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from agentlab.agents.generic_agent.configs import FLAGS_GPT_3_5
+from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments import launch_exp
