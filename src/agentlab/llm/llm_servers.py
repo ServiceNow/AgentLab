@@ -3,11 +3,8 @@ from datetime import datetime
 import json
 import os
 
-from agentlab.llm.chat_api import BaseModelArgs, ServerModelArgs
+from agentlab.llm.chat_api import ServerModelArgs
 from agentlab.llm.llm_configs import (
-    CHAT_MODEL_ARGS_DICT,
-    CONTEXT_WINDOW_EXTRA_GPU,
-    INFRA_HPARAMS_DICT_BASE,
     CLOSED_SOURCE_APIS,
 )
 from typing import List
@@ -19,6 +16,38 @@ from huggingface_hub import InferenceClient
 import yaml
 
 from agentlab.llm import toolkit_configs
+
+
+# TODO: the base infra hparams could be infered from total params
+# NOTE: optimizing for a 8-16k context window
+INFRA_HPARAMS_DICT_BASE = {
+    1: {"gpu": 1, "gpu_mem": 16, "cpu": 6, "mem": 64},  # NOTE: for tests
+    4: {"gpu": 1, "cpu": 6, "mem": 64},  # NOTE: for tests
+    8: {"gpu": 1, "cpu": 6, "mem": 64},
+    22: {"gpu": 2, "cpu": 8, "mem": 128},
+    41: {"gpu": 2, "cpu": 8, "mem": 128},
+    56: {"gpu": 2, "cpu": 8, "mem": 256},
+    72: {"gpu": 4, "cpu": 12, "mem": 256},
+    200: {
+        "gpu": 4,
+        "cpu": 12,
+        "mem": 512,
+    },
+    300: {
+        "gpu": 5,
+        "cpu": 12,
+        "mem": 512,
+    },
+}
+
+# TODO: definetely needs improvement
+CONTEXT_WINDOW_EXTRA_GPU = {
+    8_096: 0,
+    16_384: 0,
+    32_768: 1,
+    64_000: 2,
+    128_000: 3,
+}
 
 
 class LLMServers:

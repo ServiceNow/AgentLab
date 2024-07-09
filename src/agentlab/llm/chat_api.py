@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from langchain.schema import AIMessage
 
-from agentlab.llm.langchain_utils import HuggingFaceChatModel
+from agentlab.llm.langchain_utils import HuggingFaceChatModel, RekaChatModel
 
 
 class CheatMiniWoBLLM:
@@ -128,6 +128,7 @@ class APIModelArgs(BaseModelArgs):
         base_name = self.model_name.split("/")[0]
         if base_name == "openai":
             model_name = self.model_name.split("/")[-1]
+
             return ChatOpenAI(
                 model_name=model_name,
                 temperature=self.temperature,
@@ -141,6 +142,11 @@ class APIModelArgs(BaseModelArgs):
                 temperature=self.temperature,
                 max_tokens=self.max_new_tokens,
                 deployment_name=deployment_name,
+            )
+        if base_name == "reka":
+            model_name = self.model_name.split("/")[-1]
+            return RekaChatModel(
+                model_name=model_name,
             )
 
 
