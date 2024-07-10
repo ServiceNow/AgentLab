@@ -46,17 +46,17 @@ class CheatMiniWoBLLM:
 @dataclass
 class CheatMiniWoBLLMArgs:
     model_name = "test/cheat_miniwob_click_test"
-    max_total_tokens = 1024
-    max_input_tokens = 1024 - 128
+    max_total_tokens = 10240
+    max_input_tokens = 8000
     max_new_tokens = 128
 
-    def make_chat_model(self):
+    def make_model(self):
         return CheatMiniWoBLLM()
 
-    def prepare_server(self, registry):
+    def prepare_server(self):
         pass
 
-    def close_server(self, registry):
+    def close_server(self):
         pass
 
 

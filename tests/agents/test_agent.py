@@ -5,6 +5,7 @@ from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments import launch_exp
 from agentlab.analyze import inspect_results
+from pathlib import Path
 
 
 def test_generic_agent():
@@ -18,15 +19,7 @@ def test_generic_agent():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
 
-        launch_exp.main(
-            exp_root=tmp_dir,
-            exp_group_name="generic_agent_test",
-            exp_args_list=[exp_args],
-            n_jobs=1,
-            relaunch_mode=None,
-            shuffle_jobs=True,
-            auto_accept=True,
-        )
+        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
 
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 

@@ -48,6 +48,12 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
+    "azure/gpt-35-turbo/gpt-35-turbo": APIModelArgs(
+        model_name="azure/gpt-35-turbo/gpt-35-turbo",
+        max_total_tokens=16_384,
+        # max_input_tokens=15_000,
+        max_new_tokens=1_000,
+    ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": ToolkitModelArgs(
         model_name="meta-llama/Meta-Llama-3-70B-Instruct",
