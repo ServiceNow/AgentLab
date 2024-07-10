@@ -60,13 +60,16 @@ def main(
     """
     logging.info(f"Launching experiment group: {exp_config}")
 
-    exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept
+    exp_args_list, exp_dir = get_exp_args_list(
+        exp_config, agent_config, benchmark, exp_root, auto_accept, relaunch_mode, shuffle_jobs
     )
-    if shuffle_jobs:
-        logging.info("Shuffling jobs")
-        random.shuffle(exp_args_list)
 
+    run_experiments(n_jobs, exp_args_list, exp_dir)
+
+    return
+
+
+def run_experiments(n_jobs, exp_args_list, exp_dir):
     # if webarena, check if the server is running
     if any("webarena" in exp_args.env_args.task_name for exp_args in exp_args_list):
         logging.info("Checking webarena servers...")
@@ -94,7 +97,17 @@ def main(
             exp_args.agent_args.close(registry)  # TODO: get rid of that
         logging.info("LLM servers closed.")
 
-    return
+
+def get_exp_args_list(
+    exp_config, agent_config, benchmark, exp_root, auto_accept, relaunch_mode, shuffle_jobs
+):
+    exp_args_list, exp_dir = _validate_launch_mode(
+        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept
+    )
+    if shuffle_jobs:
+        logging.info("Shuffling jobs")
+        random.shuffle(exp_args_list)
+    return exp_args_list, exp_dir
 
 
 def _validate_launch_mode(

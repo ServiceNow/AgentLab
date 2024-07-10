@@ -22,10 +22,10 @@ class GenericAgentArgs(AbstractAgentArgs):
     flags: GenericPromptFlags = None
     max_retry: int = 4
 
-    def prepare(self):
+    def prepare(self, *a):
         return self.chat_model_args.prepare_server()
 
-    def close(self):
+    def close(self, *a):
         return self.chat_model_args.close_server()
 
     def make_agent(self):
