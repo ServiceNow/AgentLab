@@ -10,7 +10,7 @@ from langchain.schema import HumanMessage, SystemMessage
 from browsergym.experiments.agent import Agent
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
-from agentlab.llm.chat_api import BaseModelArgs, ServerModelArgs
+from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import ParseError, RetryError, retry
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
