@@ -56,7 +56,6 @@ CHAT_MODEL_ARGS_DICT = {
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-70B-Instruct",
-        training_total_tokens=8_192,
         max_total_tokens=8_192,
         max_input_tokens=8_192 - 512,
         max_new_tokens=512,
@@ -65,7 +64,6 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "meta-llama/Meta-Llama-3-8B-Instruct": SelfHostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
-        training_total_tokens=8_192,
         max_total_tokens=16_384,
         max_input_tokens=16_384 - 512,
         max_new_tokens=512,
@@ -74,7 +72,6 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "mistralai/Mixtral-8x22B-Instruct-v0.1": SelfHostedModelArgs(
         model_name="mistralai/Mixtral-8x22B-Instruct-v0.1",
-        training_total_tokens=64_000,
         max_total_tokens=32_000,
         max_input_tokens=30_000,
         max_new_tokens=2_000,
