@@ -80,7 +80,7 @@ def run_experiments(n_jobs, exp_args_list, exp_dir):
 
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
-        exp_args.agent_args.prepare(registry)
+        exp_args.agent_args.prepare()
         exp_args.prepare(exp_root=exp_dir)
 
     try:
@@ -94,7 +94,7 @@ def run_experiments(n_jobs, exp_args_list, exp_dir):
         # TODO: it would be convinient to have a way to close servers in that case.
         logging.info("Closing all LLM servers...")
         for exp_args in exp_args_list:
-            exp_args.agent_args.close(registry)  # TODO: get rid of that
+            exp_args.agent_args.close()  # TODO: get rid of that
         logging.info("LLM servers closed.")
 
 
