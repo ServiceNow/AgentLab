@@ -1,15 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import json
 import re
+import os
 
-from agentlab.llm.toolkit_servers import (
-    auto_launch_server,
-    kill_server,
-    check_server_status,
-)
 from langchain.schema import AIMessage
-import time
 
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from dataclasses import dataclass
@@ -126,9 +120,9 @@ class SelfHostedModelArgs(BaseModelArgs):
         if self.backend == "huggingface":
             # currently only huggingface tgi servers are supported
             if self.model_url is None:
-                raise ValueError("model_url must be specified for huggingface backend")
+                self.model_url = os.environ["AGENTLAB_MODEL_URL"]
             if self.token is None:
-                raise ValueError("token must be specified for huggingface backend")
+                self.token = os.environ["AGENTLAB_MODEL_TOKEN"]
             # client = InferenceClient(model=self.model_url, token=self.token)
             # llm = HuggingFaceEndpoint(
             #     name=self.model_name,
