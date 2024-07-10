@@ -1,11 +1,10 @@
 import os
 
-from agentlab.llm.chat_api import APIModelArgs, ToolkitModelArgs, SelfHostedModelArgs
-from agentlab.llm import toolkit_configs
+from agentlab.llm.chat_api import APIModelArgs, SelfHostedModelArgs
+
 
 default_oss_llms_args = {
-    "infer_tokens_length": True,
-    "max_new_tokens": 512,
+    "n_retry_server": 4,
     "temperature": 0.01,
 }
 
@@ -55,29 +54,37 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=1_000,
     ),
     # ---------------- OSS LLMs ----------------#
-    "meta-llama/Meta-Llama-3-70B-Instruct": ToolkitModelArgs(
+    "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-70B-Instruct",
         training_total_tokens=8_192,
         max_total_tokens=8_192,
-        model_size=70,
-        is_model_operational=True,
+        max_input_tokens=8_192 - 512,
+        max_new_tokens=512,
+        model_url=os.environ.get("AGENTLAB_MODEL_URL", None),
+        token=os.environ.get("AGENTLAB_MODEL_TOKEN", None),
+        backend="huggingface",
         **default_oss_llms_args,
     ),
-    "meta-llama/Meta-Llama-3-8B-Instruct": ToolkitModelArgs(
+    "meta-llama/Meta-Llama-3-8B-Instruct": SelfHostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
         training_total_tokens=8_192,
         max_total_tokens=16_384,
-        model_size=8,
-        is_model_operational=True,
+        max_input_tokens=16_384 - 512,
+        max_new_tokens=512,
+        model_url=os.environ.get("AGENTLAB_MODEL_URL", None),
+        token=os.environ.get("AGENTLAB_MODEL_TOKEN", None),
+        backend="huggingface",
         **default_oss_llms_args,
     ),
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": ToolkitModelArgs(
+    "mistralai/Mixtral-8x22B-Instruct-v0.1": SelfHostedModelArgs(
         model_name="mistralai/Mixtral-8x22B-Instruct-v0.1",
         training_total_tokens=64_000,
         max_total_tokens=32_000,
-        model_size=176,  # 4x44b
-        is_model_operational=False,
+        max_input_tokens=30_000,
+        max_new_tokens=2_000,
+        model_url=os.environ.get("AGENTLAB_MODEL_URL", None),
+        token=os.environ.get("AGENTLAB_MODEL_TOKEN", None),
+        backend="huggingface",
         **default_oss_llms_args,
-        info="it can fit into 8 GPUs, but there's still a TGI bug. Looks like a layer is not supported by TGI?",
     ),
 }
