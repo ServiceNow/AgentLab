@@ -2,6 +2,7 @@ import logging
 import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
+from agentlab.agents.step_agent.step_agent import BrowserGymStepAgentArgs
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
@@ -57,9 +58,14 @@ FLAGS_CUSTOM = GenericPromptFlags(
     extra_instructions=None,
 )
 
-AGENT_CUSTOM = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
-    flags=FLAGS_CUSTOM,
+# AGENT_CUSTOM = GenericAgentArgs(
+#     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+#     flags=FLAGS_CUSTOM,
+# )
+
+AGENT_CUSTOM = BrowserGymStepAgentArgs(
+    max_actions=10,
+    model=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
 )
 
 
@@ -110,14 +116,28 @@ def miniwob_add_html(benchmark: str, flags: GenericPromptFlags):
     return flags
 
 
+# def generic_agent_test():
+#     """Minimalistic experiment to test the system."""
+#     return args.expand_cross_product(
+#         ExpArgs(
+#             agent_args=GenericAgentArgs(
+#                 chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-0125"],
+#                 flags=BASIC_FLAGS,
+#             ),
+#             env_args=EnvArgs(
+#                 max_steps=5,
+#                 task_seed=args.CrossProd([None] * 2),
+#                 task_name=args.CrossProd(tasks.miniwob_tiny_test),
+#             ),
+#             enable_debug=True,
+#         )
+#     )
+
 def generic_agent_test():
     """Minimalistic experiment to test the system."""
     return args.expand_cross_product(
         ExpArgs(
-            agent_args=GenericAgentArgs(
-                chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-0125"],
-                flags=BASIC_FLAGS,
-            ),
+            agent_args=AGENT_CUSTOM,
             env_args=EnvArgs(
                 max_steps=5,
                 task_seed=args.CrossProd([None] * 2),

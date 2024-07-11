@@ -1,0 +1,22 @@
+dataset: "miniwob"
+logging: True
+verbose: 1
+debug: False
+logdir: "data/miniwob/eval"
+agent:
+  type: "step" #"flat_fewshot"
+  root_action: 'miniwob_agent'
+  low_level_action_list: ['click', 'type', 'stop']
+  model_name: "gpt-4-turbo-preview"
+  model_host: "openai"
+  prompt_mode: "chat"
+  max_target_len: 100
+env:
+  max_env_steps: 30
+  max_browser_rows: 150
+  headless: False
+  start_seed: 50
+  end_seed: 51
+  num_samples_per_task: 0
+  tasks: ['book-flight']
+  # tasks: ['click-link', 'click-option', 'focus-text', 'click-button', 'click-button-sequence', 'click-dialog', 'click-dialog-2', 'click-tab', 'click-test', 'click-test-2', 'enter-text', 'focus-text-2', 'enter-text-dynamic', 'enter-password', 'login-user', 'click-pie', 'enter-date', 'grid-coordinate', 'click-widget', 'multi-orderings', 'choose-date', 'click-collapsible-2', 'simple-arithmetic', 'click-tab-2', 'click-tab-2-hard', 'multi-layouts', 'copy-paste', 'click-collapsible', 'choose-date-easy', 'copy-paste-2', 'simple-algebra', 'click-checkboxes', 'click-checkboxes-transfer', 'login-user-popup', 'click-checkboxes-soft', 'enter-text-2', 'email-inbox-forward-nl', 'search-engine', 'find-word', 'choose-date-medium', 'click-checkboxes-large', 'book-flight', 'email-inbox-nl-turk', 'email-inbox-forward-nl-turk', 'email-inbox']
