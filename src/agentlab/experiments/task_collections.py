@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import time as t
 import logging
+import numpy as np
 
 t0 = t.time()
 from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
@@ -146,33 +147,52 @@ webgum_tasks = [
     "miniwob.use-spinner",
 ]
 
-import numpy as np
+
+def split_miniwob() -> tuple[list[str], list[str], list[str]]:
+    """
+    Splits MINIWOB tasks into training, validation, and test sets based on a CSV file.
+
+    The CSV file should have columns "Task Name" and "split" where "split" indicates
+    whether the task is part of the training, validation, or test set.
+
+    Returns:
+        tuple: Three lists containing the task names for the training, validation,
+               and test sets, respectively.
+    """
+    miniwob_train, miniwob_val, miniwob_test = [], [], []
+
+    # Load the task split CSV
+    csv_path = Path(__file__).parent / "miniwob_tasks_split.csv"
+    miniwob_tasks_split = pd.read_csv(csv_path)
+
+    miniwob_tasks_split["Task Name"] = "miniwob." + miniwob_tasks_split["Task Name"].astype(str)
+
+    for _, row in miniwob_tasks_split.iterrows():
+        task_name = row["Task Name"]
+        split = row["split"]
+
+        if task_name not in MINIWOB_ALL:
+            logging.debug(f"Task {task_name} not in MINIWOB_ALL")
+            continue
+
+        if split == "train":
+            miniwob_train.append(task_name)
+        elif split == "val":
+            miniwob_val.append(task_name)
+        elif split == "test":
+            miniwob_test.append(task_name)
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
+    missing_tasks = set(MINIWOB_ALL) - set(miniwob_train + miniwob_val + miniwob_test)
+    if missing_tasks:
+        logging.debug("Missing tasks in miniwob split. Adding to train set: %s", missing_tasks)
+        miniwob_train.extend(missing_tasks)
+
+    return miniwob_train, miniwob_val, miniwob_test
 
 
-def split_list(input_list, seed=42):
-    # Convert the list to a numpy array
-    input_array = np.array(input_list)
-
-    # Set the random seed for reproducibility
-    np.random.seed(seed)
-
-    # Shuffle the array
-    np.random.shuffle(input_array)
-
-    # Compute split indices
-    n = len(input_array)
-    train_end = int(0.6 * n)
-    val_end = int(0.8 * n)
-
-    # Split the array
-    train_array = input_array[:train_end]
-    val_array = input_array[train_end:val_end]
-    test_array = input_array[val_end:]
-
-    return train_array, val_array, test_array
-
-
-MINIWOB_TRAIN, MINIWOB_VALIDATION, MINIWOB_TEST = split_list(MINIWOB_ALL, seed=42)
+MINIWOB_TRAIN, MINIWOB_VALIDATION, MINIWOB_TEST = split_miniwob()
 
 
 def get_benchmark_env_args(
