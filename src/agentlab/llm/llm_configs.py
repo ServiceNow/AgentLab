@@ -50,7 +50,7 @@ CHAT_MODEL_ARGS_DICT = {
     "azure/gpt-35-turbo/gpt-35-turbo": APIModelArgs(
         model_name="azure/gpt-35-turbo/gpt-35-turbo",
         max_total_tokens=16_384,
-        # max_input_tokens=15_000,
+        max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
     # ---------------- OSS LLMs ----------------#
