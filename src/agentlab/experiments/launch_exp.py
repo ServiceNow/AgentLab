@@ -61,16 +61,12 @@ def main(
     """
     logging.info(f"Launching experiment group: {exp_config}")
 
-    exp_args_list, exp_dir = get_exp_args_list(
-        exp_config,
-        agent_config,
-        benchmark,
-        exp_root,
-        auto_accept,
-        relaunch_mode,
-        shuffle_jobs,
-        extra_kwargs,
+    exp_args_list, exp_dir = _validate_launch_mode(
+        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept, extra_kwargs
     )
+    if shuffle_jobs:
+        logging.info("Shuffling jobs")
+        random.shuffle(exp_args_list)
 
     run_experiments(n_jobs, exp_args_list, exp_dir)
 
@@ -101,25 +97,6 @@ def run_experiments(n_jobs, exp_args_list, exp_dir):
         for exp_args in exp_args_list:
             exp_args.agent_args.close()  # TODO: get rid of that
         logging.info("LLM servers closed.")
-
-
-def get_exp_args_list(
-    exp_config,
-    agent_config,
-    benchmark,
-    exp_root,
-    auto_accept,
-    relaunch_mode,
-    shuffle_jobs,
-    extra_kwargs,
-):
-    exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept, extra_kwargs
-    )
-    if shuffle_jobs:
-        logging.info("Shuffling jobs")
-        random.shuffle(exp_args_list)
-    return exp_args_list, exp_dir
 
 
 def _validate_launch_mode(
