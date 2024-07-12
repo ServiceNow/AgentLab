@@ -45,6 +45,7 @@ def main(
     auto_accept: bool = False,
     relaunch_mode: str = None,
     shuffle_jobs: bool = False,
+    extra_kwargs: dict = {},
 ):
     """Launch a group of experiments.
 
@@ -61,7 +62,14 @@ def main(
     logging.info(f"Launching experiment group: {exp_config}")
 
     exp_args_list, exp_dir = get_exp_args_list(
-        exp_config, agent_config, benchmark, exp_root, auto_accept, relaunch_mode, shuffle_jobs
+        exp_config,
+        agent_config,
+        benchmark,
+        exp_root,
+        auto_accept,
+        relaunch_mode,
+        shuffle_jobs,
+        extra_kwargs,
     )
 
     run_experiments(n_jobs, exp_args_list, exp_dir)
@@ -74,9 +82,6 @@ def run_experiments(n_jobs, exp_args_list, exp_dir):
     if any("webarena" in exp_args.env_args.task_name for exp_args in exp_args_list):
         logging.info("Checking webarena servers...")
         check_webarena_servers()
-
-    # launch servers if needed
-    registry = {}
 
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
@@ -99,10 +104,17 @@ def run_experiments(n_jobs, exp_args_list, exp_dir):
 
 
 def get_exp_args_list(
-    exp_config, agent_config, benchmark, exp_root, auto_accept, relaunch_mode, shuffle_jobs
+    exp_config,
+    agent_config,
+    benchmark,
+    exp_root,
+    auto_accept,
+    relaunch_mode,
+    shuffle_jobs,
+    extra_kwargs,
 ):
     exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept
+        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept, extra_kwargs
     )
     if shuffle_jobs:
         logging.info("Shuffling jobs")
@@ -111,7 +123,7 @@ def get_exp_args_list(
 
 
 def _validate_launch_mode(
-    exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept
+    exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept, extra_kwargs
 ) -> tuple[list[ExpArgs], Path]:
     if relaunch_mode is not None:
         # dig into an existing experiment group and relaunch all incomplete experiments
@@ -145,7 +157,7 @@ def _validate_launch_mode(
         exp_obj = import_object(exp_config)
         agent_obj = import_object(agent_config)
 
-        exp_args_list = exp_obj(agent=agent_obj, benchmark=benchmark)
+        exp_args_list = exp_obj(agent=agent_obj, benchmark=benchmark, **extra_kwargs)
         exp_group_name = exp_obj.__name__
 
         # overwriting exp_group_name for the recursive call
@@ -222,7 +234,7 @@ if __name__ == "__main__":
         "--exp_config",
         type=str,
         default="final_run",
-        help="Name of the experiment group to launch as defined in exp_configs.py",
+        help="Python path to the experiment function to launch",
     )
     parser.add_argument(
         "--benchmark",
@@ -235,7 +247,7 @@ if __name__ == "__main__":
         "--agent_config",
         type=str,
         default=None,
-        help="Model to launch",
+        help="Python path to the agent config",
     )
     parser.add_argument(
         "--relaunch_mode",
@@ -260,4 +272,5 @@ if __name__ == "__main__":
         exp_root=args.exp_root,
         n_jobs=args.n_jobs,
         relaunch_mode=args.relaunch_mode,
+        extra_kwargs=args.extra_kwargs,
     )
