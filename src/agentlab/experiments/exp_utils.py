@@ -72,7 +72,7 @@ def get_ckpt_list(
         args_list.append(args)
 
     if add_base_model:
-        base_model_dir = str(Path(chat_model_args.model_path).parent.parent)
+        base_model_dir = chat_model_args.model_path.split("finetuning_output/")[0]
         args = copy.deepcopy(chat_model_args)
         args.model_path = base_model_dir
         args_list.append(args)
