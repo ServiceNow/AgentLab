@@ -1,29 +1,19 @@
-from datetime import datetime
+from abc import ABC, abstractmethod
+import argparse
+import json
 import logging
-from pathlib import Path
 import random
+from datetime import datetime
+from importlib import import_module
+from pathlib import Path
+
+from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
+from cv2 import add
 from joblib import Parallel, delayed
+
 from agentlab.analyze import error_categorization
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
-import argparse
-from importlib import import_module
-import json
-
-
-def str2dict(arg):
-    try:
-        return json.loads(arg)
-    except json.JSONDecodeError as e:
-        raise argparse.ArgumentTypeError(f"Invalid dictionary format: {e}")
-
-
-def split_path(path: str):
-    if "/" in path:
-        path = path.replace("/", ".")
-    module_name, obj_name = path.rsplit(".", 1)
-    return module_name, obj_name
 
 
 def import_object(path: str):
@@ -70,10 +60,8 @@ def main(
 
     run_experiments(n_jobs, exp_args_list, exp_dir)
 
-    return
 
-
-def run_experiments(n_jobs, exp_args_list, exp_dir):
+def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
     # if webarena, check if the server is running
     if any("webarena" in exp_args.env_args.task_name for exp_args in exp_args_list):
         logging.info("Checking webarena servers...")
@@ -97,6 +85,43 @@ def run_experiments(n_jobs, exp_args_list, exp_dir):
         for exp_args in exp_args_list:
             exp_args.agent_args.close()  # TODO: get rid of that
         logging.info("LLM servers closed.")
+
+
+class Study(ABC):
+
+    @property
+    @abstractmethod
+    def name(self):
+        """Name of the study."""
+        pass
+
+    @abstractmethod
+    def gen_experiments(self):
+        """Generate a list of experiments."""
+        pass
+
+
+def _make_study_dir(exp_root, study_name, add_date=True):
+    if add_date:
+        study_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{study_name}"
+    return Path(exp_root) / study_name
+
+
+def study_agent_on_benchmark(study_func, agent, benchmark):
+    exp_args_list = study_func(agent, benchmark)
+    study_name = f"{study_func.__name__}_{agent.__name__}_on_{benchmark}"
+    return exp_args_list, _make_study_dir(study_name)
+
+
+def make_study(study_func):
+    exp_args_list = study_func()
+    return exp_args_list, _make_study_dir(f"{study_func.__name__}")
+
+
+def relaunch_study(study_dir, relaunch_mode="incomplete_only"):
+    """Return exp_args_list and study_dir"""
+    exp_args_list = list(_yield_incomplete_experiments(study_dir, relaunch_mode=relaunch_mode))
+    return exp_args_list, Path(study_dir)
 
 
 def _validate_launch_mode(
@@ -137,7 +162,6 @@ def _validate_launch_mode(
         exp_args_list = exp_obj(agent=agent_obj, benchmark=benchmark, **extra_kwargs)
         exp_group_name = exp_obj.__name__
 
-        # overwriting exp_group_name for the recursive call
         exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
         exp_dir = Path(exp_root) / exp_group_name
         message = (
@@ -188,6 +212,21 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
                     yield exp_result.exp_args
             else:
                 raise ValueError(f"Unknown relaunch_mode: {relaunch_mode}")
+
+
+def str2dict(arg):
+    try:
+        return json.loads(arg)
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid dictionary format: {e}")
+
+
+def split_path(path: str):
+    """Split a path into a module name and an object name."""
+    if "/" in path:
+        path = path.replace("/", ".")
+    module_name, obj_name = path.rsplit(".", 1)
+    return module_name, obj_name
 
 
 if __name__ == "__main__":
