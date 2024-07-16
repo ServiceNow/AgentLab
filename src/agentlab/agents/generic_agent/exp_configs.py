@@ -116,8 +116,14 @@ DEFAULT_RS_FLAGS = GenericPromptFlags(
 )
 
 
+RANDOM_SEARCH_AGENT = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=DEFAULT_RS_FLAGS,
+)
+
+
 def random_search(
-    agent=AGENT_3_5,
+    agent=RANDOM_SEARCH_AGENT,
     benchmark: str = "workarena.l1",
 ):
     """Example of random search. Modify this at will, but don't push your
@@ -142,15 +148,12 @@ def random_search(
     # relaunch_mode = "incomplete_only"
     # relaunch_mode = "all_errors"
     """
-    flags = miniwob_add_html(benchmark, DEFAULT_RS_FLAGS)
+    agent.flags = miniwob_add_html(benchmark, agent.flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
-            agent_args=GenericAgentArgs(
-                chat_model_args=args.Choice([agent.chat_model_args]),
-                flags=flags,
-            ),
+            agent_args=agent,
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
         ),
