@@ -8,7 +8,6 @@ from importlib import import_module
 from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
-from cv2 import add
 from joblib import Parallel, delayed
 
 from agentlab.analyze import error_categorization
@@ -107,14 +106,14 @@ def _make_study_dir(exp_root, study_name, add_date=True):
     return Path(exp_root) / study_name
 
 
-def study_agent_on_benchmark(study_func, agent, benchmark):
-    exp_args_list = study_func(agent, benchmark)
+def study_agent_on_benchmark(study_func, agent, benchmark, extra_kwargs={}):
+    exp_args_list = study_func(agent, benchmark, **extra_kwargs)
     study_name = f"{study_func.__name__}_{agent.__name__}_on_{benchmark}"
     return exp_args_list, _make_study_dir(study_name)
 
 
-def make_study(study_func):
-    exp_args_list = study_func()
+def make_study(study_func, extra_kwargs={}):
+    exp_args_list = study_func(**extra_kwargs)
     return exp_args_list, _make_study_dir(f"{study_func.__name__}")
 
 
@@ -255,7 +254,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--benchmark",
         type=str,
-        default=None,
+        default="miniwob",
         choices=["miniwob", "workarena.l1", "workarena.l2", "workarena.l3"],
         help="Benchmark to launch",
     )
@@ -281,12 +280,20 @@ if __name__ == "__main__":
 
     args, unknown = parser.parse_known_args()
 
-    main(
-        exp_config=args.exp_config,
-        agent_config=args.agent_config,
-        benchmark=args.benchmark,
-        exp_root=args.exp_root,
-        n_jobs=args.n_jobs,
-        relaunch_mode=args.relaunch_mode,
-        extra_kwargs=args.extra_kwargs,
-    )
+    # if relaunch_mode is not None, we will relaunch the experiments
+    if args.relaunch_mode is not None:
+        assert args.exp_root is not None, "You must specify an exp_root to relaunch experiments."
+        exp_args_list, exp_dir = relaunch_study(args.exp_config, args.relaunch_mode)
+    else:
+        # we launch an experiment using the exp_config
+        assert args.exp_config is not None, "You must specify an exp_config."
+        study_func = import_object(args.exp_config)
+        if args.agent_config is not None:
+            agent = import_object(args.agent_config)
+            exp_args_list, exp_dir = study_agent_on_benchmark(
+                study_func, agent, args.benchmark, args.extra_kwargs
+            )
+        else:
+            exp_args_list, exp_dir = make_study(study_func, args.extra_kwargs)
+
+    run_experiments(args.n_jobs, exp_args_list, exp_dir)
