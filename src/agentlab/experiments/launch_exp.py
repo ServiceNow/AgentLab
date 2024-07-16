@@ -117,9 +117,19 @@ def make_study(study_func, extra_kwargs={}):
     return exp_args_list, _make_study_dir(f"{study_func.__name__}")
 
 
-def relaunch_study(study_dir, relaunch_mode="incomplete_only"):
+def relaunch_study(study_dir: Path, relaunch_mode="incomplete_only"):
     """Return exp_args_list and study_dir"""
+
+    if not study_dir.exists():
+        raise ValueError(
+            f"You asked to relaunch an existing experiment but {study_dir} does not exist."
+        )
     exp_args_list = list(_yield_incomplete_experiments(study_dir, relaunch_mode=relaunch_mode))
+
+    if len(exp_args_list) == 0:
+        logging.info(f"No incomplete experiments found in {exp_dir}.")
+        return
+
     return exp_args_list, Path(study_dir)
 
 
@@ -186,7 +196,9 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
     # TODO(make relanch_mode a callable, for flexibility)
     for exp_result in yield_all_exp_results(exp_root, progress_fn=None):  # type: ExpArgs
         try:
-            summary_info = exp_result.summary_info
+            summary_info = (
+                exp_result.summary_info
+            )  # TODO  implement has_finished instead of dealing with FileNotFoundError
         except FileNotFoundError:
             yield exp_result.exp_args
             continue
@@ -195,20 +207,10 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
             continue
 
         err_msg = summary_info.get("err_msg", None)
-        stack_trace = summary_info.get("stack_trace", None)
 
         if err_msg is not None:
-            if relaunch_mode == "all_errors":
+            if relaunch_mode == "incomplete_or_error":
                 yield exp_result.exp_args
-            elif relaunch_mode == "server_errors":
-                critical_server_error = error_categorization.is_critical_server_error(
-                    err_msg, stack_trace
-                )
-                minor_server_error = error_categorization.is_minor_server_error(
-                    err_msg, stack_trace
-                )
-                if critical_server_error or minor_server_error:
-                    yield exp_result.exp_args
             else:
                 raise ValueError(f"Unknown relaunch_mode: {relaunch_mode}")
 
