@@ -81,9 +81,15 @@ def get_ckpt_list(
 
 
 def overwrite_chat_model_arg(chat_model_args, overwrite_dict):
+    if not isinstance(chat_model_args, list):
+        chat_model_args = [chat_model_args]
+        was_list = False
+    else:
+        was_list = True
 
     for chat_model_arg in chat_model_args:
         for key, value in overwrite_dict.items():
             setattr(chat_model_arg, key, value)
 
-    return chat_model_args
+    # Return appropriately based on the original type
+    return chat_model_args if was_list else chat_model_args[0]

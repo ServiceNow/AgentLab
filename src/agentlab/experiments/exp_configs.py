@@ -1,6 +1,10 @@
+import copy
 import logging
+from pathlib import Path
+import re
 from typing import List
 from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
+from agentlab.llm import toolkit_configs
 from browsergym.experiments.loop import EnvArgs
 import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
@@ -609,13 +613,75 @@ def demo_maker():
     )
 
 
-def finetuning_eval(
+def finetuning_ablation_eval(
+    benchmark: str = None,
+    dataset_name: str = None,
+    model_name: str = None,
+    ablation_var: str = None,
+):
+    """Evaluate GenericAgent with different LLMs on a selected benchmark."""
+
+    flags_list = fix_flags(
+        benchmark,
+        flags=[BASIC_FINETUNING_FLAGS, FLAGS_8B, FLAGS_GPT_4o],
+    )
+    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
+
+    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[model_name]]
+    if overwrite_chat_model_args_dict:
+        chat_model_args_list = overwrite_chat_model_arg(
+            chat_model_args_list, overwrite_chat_model_args_dict
+        )
+
+    base_model_dir = Path(toolkit_configs.FINETUNING_CKPT_PATH) / model_name
+
+    ckpt_dir = base_model_dir / "finetuning_output" / dataset_name / ablation_var
+
+    assert ckpt_dir.exists()
+
+    # add base model
+    overwrite_chat_model_arg(chat_model_args_list, {"model_path": str(base_model_dir)})
+
+    def find_highest_ckpt_folder(abl_ckpt_dir):
+        ckpt_pattern = re.compile(r"ckpt_itr_(\d+)")
+        ckpt_folders = [
+            (int(match.group(1)), folder_name)
+            for folder_name in abl_ckpt_dir.iterdir()
+            if folder_name.is_dir() and (match := ckpt_pattern.match(folder_name.name))
+        ]
+        highest_ckpt_folder = max(ckpt_folders, default=(None, None))[1]
+        return highest_ckpt_folder
+
+    # add all the ablation variants
+    for ablation_var_value in ckpt_dir.iterdir():
+
+        ablation_ckpt_dir = ckpt_dir / ablation_var_value
+        highest_ckpt_folder = find_highest_ckpt_folder(ablation_ckpt_dir)
+        chat_model_args_list.append(copy.deepcopy(chat_model_args_list[0]))
+        overwrite_chat_model_arg(chat_model_args_list[-1], {"model_path": str(highest_ckpt_folder)})
+
+    return args.expand_cross_product(
+        ExpArgs(
+            agent_args=GenericAgentArgs(
+                chat_model_args=args.CrossProd(chat_model_args_list),
+                flags=args.CrossProd(flags_list),
+            ),
+            env_args=args.CrossProd(env_args_list),
+            # enable_debug=True,
+            enable_debug=False,
+            logging_level=logging.INFO,
+        )
+    )
+
+
+def finetuning_single_eval(
     benchmark: str = "miniwob.test",
     dataset_name: str = "traces_test",
     model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct",
 ):
     """Evaluate GenericAgent with different LLMs on a selected benchmark."""
 
+    raise NotImplementedError("need to fix the finetuning llm_config thing")
     model_name = f"finetuning/{model_name}"
 
     flags_list = fix_flags(
