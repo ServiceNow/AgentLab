@@ -2,7 +2,7 @@ import logging
 import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from agentlab.agents.step_agent.browergym_step_agent import BrowserGymStepAgentArgs
+from agentlab.agents.step_agent.browsergym_step_agent import BrowserGymStepAgentArgs
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
