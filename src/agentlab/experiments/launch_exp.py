@@ -47,6 +47,9 @@ def main(
         n_jobs: number of parallel jobs in joblib
         auto_accept: skip the prompt to accept the experiment
         relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
+            'incomplete_or_error'
+        shuffle_jobs: shuffle the jobs
+        extra_kwargs: extra arguments to pass to the experiment group
     """
     logging.info(f"Launching experiment group: {exp_config}")
 

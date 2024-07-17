@@ -1,17 +1,17 @@
 import traceback
 from dataclasses import asdict, dataclass
-from warnings import warn
 from functools import partial
+from warnings import warn
 
+from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
 from langchain.schema import HumanMessage, SystemMessage
 
-
-from browsergym.experiments.agent import Agent
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import ParseError, RetryError, retry
+
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
 
@@ -176,14 +176,13 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     Its goal is to recreate the prompt and the output of the agent a posteriori.
     The purpose is to build datasets for training the agents.
 
-    Parameters:
-    - agent (GenericAgent): The agent for which the action is being determined.
-    - obs (dict): The observation dictionary to append to the agent's history.
-    - ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
+    Args:
+        agent (GenericAgent): The agent for which the action is being determined.
+        obs (dict): The observation dictionary to append to the agent's history.
+        ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
 
     Returns:
-    - full_prompt (str): The complete prompt used for the agent.
-    - output (str): The reconstructed output based on the answer dictionary.
+        Tuple[str, str]: The complete prompt used for the agent and the reconstructed output based on the answer dictionary.
     """
     system_prompt = dp.SystemPrompt().prompt
 

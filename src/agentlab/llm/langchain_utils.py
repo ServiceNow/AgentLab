@@ -106,25 +106,26 @@ class HuggingFaceChatModel(SimpleChatModel):
     def __init__(
         self,
         model_name: str,
-        hf_hosted: bool,
-        temperature: float,
-        max_new_tokens: int,
-        max_total_tokens: int,
-        max_input_tokens: int,
-        model_url: str,
-        n_retry_server: int,
+        model_url: Optional[str] = None,
+        hf_hosted: Optional[int] = False,
+        temperature: Optional[int] = 1e-1,
+        max_total_tokens: Optional[int] = 4096,
+        max_new_tokens: Optional[int] = 512,
+        max_input_tokens: Optional[int] = 3584,
+        n_retry_server: Optional[int] = 4,
     ):
         """
         Initializes the CustomLLMChatbot with the specified configurations.
 
         Args:
             model_name (str): The path to the model checkpoint.
-            prompt_template (PromptTemplate, optional): A string template for structuring the prompt.
+            model_url (str, optional): The url of the model to use. If None, then model_name or model_name will be used. Defaults to None.
             hf_hosted (bool, optional): Whether the model is hosted on HuggingFace Hub. Defaults to False.
             temperature (float, optional): Sampling temperature. Defaults to 0.1.
-            max_new_tokens (int, optional): Maximum length for the response. Defaults to 64.
-            model_url (str, optional): The url of the model to use. If None, then model_name or model_name will be used. Defaults to None.
-            tgi_token (str, optional): The token to use for authentication on Toolkit. Defaults to None.
+            max_total_tokens (int, optional): Maximum length for the response. Defaults to 4096.
+            max_new_tokens (int, optional): Maximum length for the response. Defaults to 512.
+            max_input_tokens (int, optional): Maximum length for the input sequence. Defaults to 3584.
+            n_retry_server (int, optional): The number of times to retry the server if it fails to respond. Defaults to 4.
         """
         super().__init__()
 
@@ -234,6 +235,7 @@ def _convert_messages_to_dict(messages, column_remap={}):
 
     Args:
         messages (list): A list of message objects.
+        column_remap (dict): A dictionary that maps the column names to the desired output format.
 
     Returns:
         list: A list of dictionaries where each dictionary represents a message and contains 'role' and 'content' keys.
