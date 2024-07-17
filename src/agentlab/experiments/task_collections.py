@@ -1,9 +1,9 @@
+import logging
+import time as t
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import time as t
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,14 @@ def get_benchmark_env_args(
             if None, it will use the default value for the benchmark.
         n_repeat: None or int. The number of seeds for each task.
             if None, it will use the default value for the benchmark.
+        is_agent_curriculum: wether to use the agent curriculum or the human curriculum.
+
+    Returns:
+        A list of EnvArgs.
+
+    Raises:
+        ValueError: If the benchmark_name is not recognized, or if the benchmark_name is not
+            followed by a subcategory for workarena.
     """
     env_args_list = []
     rng = np.random.RandomState(meta_seed)

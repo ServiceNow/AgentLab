@@ -104,7 +104,7 @@ RANDOM_SEARCH_AGENT = GenericAgentArgs(
 
 def random_search(
     agent=RANDOM_SEARCH_AGENT,
-    benchmark: str = "workarena.l1",
+    benchmark: str = "miniwob",
 ):
     """Example of random search. Modify this at will, but don't push your
         changes.
@@ -127,6 +127,16 @@ def random_search(
 
     # relaunch_mode = "incomplete_only"
     # relaunch_mode = "all_errors"
+
+    Args:
+        agent: GenericAgentArgs
+            The agent configuration, with some flags defined as args.Choice.
+        benchmark: str
+            The benchmark to use.
+
+    Returns:
+        List[ExpArgs]
+            A list of experiments to run.
     """
     agent.flags = miniwob_add_html(benchmark, agent.flags)
     env_args_list = tasks.get_benchmark_env_args(benchmark)
@@ -151,6 +161,16 @@ def progression_study(
     Progression study are similar to ablation study. They start with a base
     configuration and a sequence of changes are applied to the base
     configuration progressively.
+
+    Args:
+        agent: GenericAgentArgs
+            The agent configuration, with some flags defined as args.Choice.
+        benchmark: str
+            The benchmark to use.
+
+    Returns:
+        List[ExpArgs]
+            A list of experiments to run.
     """
     flags = agent.flags
 
@@ -184,7 +204,6 @@ def progression_study(
 
 
 def final_run(agent=AGENT_3_5, benchmark: str = "miniwob"):
-
     agent.flags = miniwob_add_html(benchmark, agent.flags)
 
     env_args_list = tasks.get_benchmark_env_args(

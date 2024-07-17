@@ -1,16 +1,16 @@
+from pathlib import Path
 from typing import List
+
 import joblib
 import numpy as np
-from matplotlib import pyplot as plt
 import pandas as pd
-from pathlib import Path
 import seaborn as sns
-from agentlab.utils.bootstrap import bootstrap_all_benchmarks
+from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
-
-
 from matplotlib.ticker import FormatStrFormatter
 from scipy.stats import trim_mean
+
+from agentlab.utils.bootstrap import bootstrap_all_benchmarks
 
 sns.set_style("dark", {"grid.color": "0.98", "axes.facecolor": "(0.95, 0.95, 0.97)"})
 
@@ -20,6 +20,13 @@ def load_benchmark_masks(csv_path: Path | str, benchmark_names=list[str]):
 
     To create the csv file simply use file/download/"...csv" from google
     spreadsheet.
+
+    Args:
+        csv_path (Path | str): The path to the csv file.
+        benchmark_names (list[str]): The names of the benchmarks to be loaded.
+
+    Returns:
+        pd.DataFrame: The benchmark masks.
     """
     mask_df = pd.read_csv(csv_path)  # type: pd.DataFrame
 
@@ -125,6 +132,12 @@ def get_violin_centers(ax: plt.Axes) -> list[float]:
 
     This is a hacky way to get the center of the violin patches.
     It works by averaging the x coordinates of the vertices of PolyCollection
+
+    Args:
+        ax (plt.Axes): The axes containing the violin plot.
+
+    Returns:
+        list[float]: The x coordinates of the centers of the violins.
     """
     violin_centers = []
     for child in ax.get_children():
@@ -229,33 +242,32 @@ def plot_per_benchmark(
 ):
     """Violin plots for each benchmarks and each agents.
 
-    Parameters:
-    ----------
-    df: pd.DataFrame
-        The input DataFrame.
-    agent_order: List[str]
-        The order of the agents in the plot.
-    model_axis: str
-        The column containing the agent names.
-    benchmark_order: List[str], optional
-        The order of the benchmarks in the plot. Defaults to alhpabetical order.
-    metric: str, optional
-        The column containing the metric to which the function will be applied.
-    aggregated_name: str, optional
-        The name of the "special" benchmark. It will be placed first and
-        highlighted in pale blue
-    sharey: bool, optional
-        Whether to share the y axis between plots.
-    inner: str, optional
-        The type of inner display inside of the violins. See seaborn.violinplot
-    fig_size: tuple, optional
-        The size of the figure. see matplotlib.pyplot.figure
-    n_legend_rows: int, optional
-        The number of rows in the legend.
-    agent_colors: dict[str, tuple], optional
-        A dictionary mapping agent names to colors. Defaults to seaborn's colorblind palette.
-    agent_markers: dict[str, str], optional
-        A dictionary mapping agent names to markers. Defaults to no markers.
+    Args:
+        df: pd.DataFrame
+            The input DataFrame.
+        agent_order: List[str]
+            The order of the agents in the plot.
+        model_axis: str
+            The column containing the agent names.
+        benchmark_order: List[str], optional
+            The order of the benchmarks in the plot. Defaults to alhpabetical order.
+        metric: str, optional
+            The column containing the metric to which the function will be applied.
+        aggregated_name: str, optional
+            The name of the "special" benchmark. It will be placed first and
+            highlighted in pale blue
+        sharey: bool, optional
+            Whether to share the y axis between plots.
+        inner: str, optional
+            The type of inner display inside of the violins. See seaborn.violinplot
+        fig_size: tuple, optional
+            The size of the figure. see matplotlib.pyplot.figure
+        n_legend_rows: int, optional
+            The number of rows in the legend.
+        agent_colors: dict[str, tuple], optional
+            A dictionary mapping agent names to colors. Defaults to seaborn's colorblind palette.
+        agent_markers: dict[str, str], optional
+            A dictionary mapping agent names to markers. Defaults to no markers.
     """
     if benchmark_order is None:
         benchmark_order = sorted(df["benchmark"].unique())
@@ -322,10 +334,7 @@ def plot_per_benchmark(
 
 @memory.cache
 def modify_names(df):
-    """Generate names that are paper-friendly.
-
-    and fix model_name and agent_name for the different formats.
-    """
+    """Generate names that are paper-friendly, and fix model_name and agent_name for the different formats."""
 
     def process_row(row):
         model_name = row.get("model_name", np.nan)
