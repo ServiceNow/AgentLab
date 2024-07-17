@@ -12,7 +12,7 @@ from .prompts.miniwob import step_fewshot_template
 
 
 class StepAgent(Agent):
-    def __init__(self, max_actions: int = 10, verbose: bool = False, logging: bool = False,
+    def __init__(self, max_actions: int = 10, verbose: int = 0, logging: bool = False,
                  debug: bool = False,
                  root_action: str = None,
                  action_to_prompt_dict: Dict = None,
@@ -32,20 +32,23 @@ class StepAgent(Agent):
         self.prompt_mode = prompt_mode
         self.stack = Stack()
 
-    def is_done(self, action):
+    def is_done(self, action: str) -> bool:
         if "stop" in action:
             return True
         return False
 
-    def is_low_level_action(self, action):
-        action_type = action.split()[0]
+    def is_low_level_action(self, action: str) -> bool:
+        if "stop" in action:
+            action_type = action.split()[0]
+        else:
+            action_type = action.split("(")[0]
         return (action_type in self.low_level_action_list)
 
-    def is_high_level_action(self, action):
+    def is_high_level_action(self, action: str) -> bool:
         action_type = action.split()[0]
         return (action_type in self.action_to_prompt_dict)
 
-    def init_root_agent(self, objective):
+    def init_root_agent(self, objective: str) -> Element:
         root_prompt_template = self.action_to_prompt_dict[self.root_action]
         agent = PromptAgent(
             prompt_template=root_prompt_template,
@@ -61,7 +64,7 @@ class StepAgent(Agent):
         )
         return Element(agent=agent, objective=objective)
 
-    def init_agent(self, action):
+    def init_agent(self, action: str)-> Element:
         pattern = r'(\w+)\s+\[(.*?)\]'
         matches = re.findall(pattern, action)
         action_type, _ = matches[0]
@@ -81,9 +84,7 @@ class StepAgent(Agent):
         )
         return Element(agent=agent, objective=objective)
 
-    def predict_action(self, objective: str, observation: str, url: str = None) -> tuple[str, dict]:
-        print(type(observation), observation)
-        
+    def predict_action(self, objective: str, observation: str, url: str = None) -> tuple[str, dict]:       
         if self.stack.is_empty():
             new_element = self.init_root_agent(objective=objective)
             self.stack.push(new_element)
@@ -119,7 +120,7 @@ class StepAgent(Agent):
 class BrowserGymStepAgentArgs(AbstractAgentArgs):
     agent_name: str = "StepAgent"
     max_actions: int = 10
-    verbose: bool = False
+    verbose: int = 0
     logging: bool = False
     debug: bool = False
     root_action: str = None
@@ -145,7 +146,7 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
 
 
 class BrowserGymStepAgent(BrowserGymAgent):
-    def __init__(self, max_actions: int = 10, verbose: bool = False, logging: bool = False,
+    def __init__(self, max_actions: int = 10, verbose: int = 0, logging: bool = False,
                  debug: bool = False,
                  root_action: str = None,
                  action_to_prompt_dict: Dict = None,
@@ -171,5 +172,8 @@ class BrowserGymStepAgent(BrowserGymAgent):
     def get_action(self, obs: dict) -> tuple[str, dict]:
         url = obs["url"] if "url" in obs else None
         objective = obs["goal"] if "goal" in obs else None
-        observation = obs["axtree_object"] if "axtree_object" in obs else None
-        return self.agent.predict_action(objective=objective, observation=observation, url=url)
+        # TODO: use DOM with miniwob, else use axtree_txt
+        # observation = obs["axtree_txt"] if "axtree_txt" in obs else None
+        observation = obs["pruned_html"] if "pruned_html" in obs else None
+        action, _ = self.agent.predict_action(objective=objective, observation=observation, url=url)
+        return action

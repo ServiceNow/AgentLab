@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Union
 import copy
 # import torch
 # from transformers import (
@@ -40,18 +41,17 @@ output_token_cost_usd_by_model = {
     "ada-v2": 0.0001 / 1000,
 }
 
-def fill_prompt_template(prompt_template, objective, observation, url, previous_history):
+def fill_prompt_template(prompt_template: dict[str, str], objective: str, observation: str, url: str, previous_history: str) -> dict[str, str]:
     prompt = copy.deepcopy(prompt_template)
-    print(observation, type(observation))
     prompt["input"] = prompt["input"].replace("{objective}", objective)
     prompt["input"] = prompt["input"].replace("{observation}", observation)
     prompt["input"] = prompt["input"].replace("{url}", url)   
     prompt["input"] = prompt["input"].replace("{previous_actions}", previous_history)   
     return prompt
 
-def filter_quotes_if_matches_template(action):
+def filter_quotes_if_matches_template(action: Union[str, None]) -> str:
     if action is None:
-        return None
+        return
 
     # Regex pattern to match the entire 'type [X] ["Y"]' template, allowing for Y to be digits as well
     pattern = r'^type \[\d+\] \["([^"\[\]]+)"\]$'
@@ -67,7 +67,7 @@ def filter_quotes_if_matches_template(action):
         # Return the original action if it doesn't match the template
         return action
 
-def parse_action_reason(model_response):
+def parse_action_reason(model_response: str) -> tuple[str, str]:
     reason_match = re.search(r'REASON:\s*(.*?)\s*(?=\n[A-Z]|$)', model_response, re.DOTALL) 
     reason = reason_match.group(1) if reason_match else None
 
@@ -77,35 +77,9 @@ def parse_action_reason(model_response):
     action = filter_quotes_if_matches_template(action)
     
     return action, reason
-
-# def construct_llm_message_hf(prompt, prompt_mode, model_type="llama2"):
-#     if model_type == "llama2":
-#         instruction = "<s>[INST] " + prompt["instruction"]
-#     else:
-#         instruction = prompt["instruction"]
-    
-#     messages = [{"role": "system", "content": instruction}]
-    
-#     if prompt["examples"]:
-#         messages.append({"role": "system", "content": "Here are a few examples:"})
-#         for example in prompt["examples"]:
-#             messages.append({"role": "system", "content": f"\n### Input:\n{example['input']}\n\n### Response:\n{example['response']}"})
-    
-#     if model_type == "llama2":
-#         query = f"\nHere is the current Input. Please respond with REASON and ACTION.\n### Input:\n{prompt['input']}\n[/INST]\n"
-#     else:
-#         query = f"\nHere is the current Input. Please respond with REASON and ACTION.\n### Input:\n{prompt['input']}\n\n### Response:"
-    
-#     messages.append({"role": "user", "content": query})
-#     if prompt_mode == "chat":
-#         return messages
-#     elif prompt_mode == "completion":
-#         all_content = ''.join(message['content'] for message in messages)
-#         messages_completion = [{"role": "user", "content": all_content}]
-#         return messages_completion
     
 
-def construct_llm_message_openai(prompt, prompt_mode):
+def construct_llm_message_openai(prompt: str, prompt_mode: str):
     messages = [{"role": "system", "content": prompt["instruction"]}]
         
     if prompt["examples"]:
@@ -121,7 +95,7 @@ def construct_llm_message_openai(prompt, prompt_mode):
         messages_completion = [{"role": "user", "content": all_content}]
         return messages_completion
 
-def call_openai_llm(messages, model="gpt-3.5-turbo", **model_kwargs):
+def call_openai_llm(messages: list[dict[str, str]], model: str="gpt-3.5-turbo", **model_kwargs) -> str:
     """
     Sends a request with a chat conversation to OpenAI's chat API and returns a response.
 
@@ -167,15 +141,15 @@ def call_openai_llm(messages, model="gpt-3.5-turbo", **model_kwargs):
                 n=n
             )
             return response.choices[0].message.content.strip()
-        except openai.error.AuthenticationError as e:
+        except openai.AuthenticationError as e:
             print(e)
             return None
-        except openai.error.RateLimitError as e:
+        except openai.RateLimitError as e:
             print(e)
             print("Sleeping for 10 seconds...")
             sleep(10)
             num_attempts += 1
-        except openai.error.ServiceUnavailableError as e:
+        except openai.APIStatusError as e:
             print(e)
             print("Sleeping for 10 seconds...")
             sleep(10)

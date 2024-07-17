@@ -18,7 +18,8 @@ logging.basicConfig(level=logging.DEBUG)
 exp_args_list = None
 
 ## select your experiment group here from exp_configs.py
-exp_group_name = "generic_agent_test"  ## this will make a very quick test
+# exp_group_name = "generic_agent_test"  ## this will make a very quick test
+exp_group_name = "step_agent_test"
 # exp_group_name = "generic_agent_eval_llm"
 # exp_group_name = "random_search"
 # exp_group_name = "ablation_study_GPT_3_5"

@@ -31,7 +31,7 @@ class PromptAgent(Agent):
 
         return previous_history
 
-    def predict_action(self, objective, observation, url=None):
+    def predict_action(self, objective: str, observation: str, url=None) -> tuple[str, str]:
         prompt = fill_prompt_template(prompt_template=self.prompt_template, objective=objective,
                                       observation=observation, url=url,
                                       previous_history=self.previous_history())
@@ -39,7 +39,7 @@ class PromptAgent(Agent):
             prompt=prompt, prompt_mode=self.prompt_mode)
         model_response = call_openai_llm(messages=messages, model=self.model)
         action, reason = parse_action_reason(model_response)
-
+        
         if self.logging:
             self.data_to_log['prompt'] = messages
 

@@ -65,7 +65,11 @@ FLAGS_CUSTOM = GenericPromptFlags(
 
 AGENT_CUSTOM = BrowserGymStepAgentArgs(
     max_actions=10,
-    model=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    model="gpt-4-vision-preview",
+    verbose=1,
+    debug=False,
+    logging=True,
+    low_level_action_list=["click", "fill", "stop"],
 )
 
 
@@ -116,24 +120,24 @@ def miniwob_add_html(benchmark: str, flags: GenericPromptFlags):
     return flags
 
 
-# def generic_agent_test():
-#     """Minimalistic experiment to test the system."""
-#     return args.expand_cross_product(
-#         ExpArgs(
-#             agent_args=GenericAgentArgs(
-#                 chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-0125"],
-#                 flags=BASIC_FLAGS,
-#             ),
-#             env_args=EnvArgs(
-#                 max_steps=5,
-#                 task_seed=args.CrossProd([None] * 2),
-#                 task_name=args.CrossProd(tasks.miniwob_tiny_test),
-#             ),
-#             enable_debug=True,
-#         )
-#     )
-
 def generic_agent_test():
+    """Minimalistic experiment to test the system."""
+    return args.expand_cross_product(
+        ExpArgs(
+            agent_args=GenericAgentArgs(
+                chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-0125"],
+                flags=BASIC_FLAGS,
+            ),
+            env_args=EnvArgs(
+                max_steps=5,
+                task_seed=args.CrossProd([None] * 2),
+                task_name=args.CrossProd(tasks.miniwob_tiny_test),
+            ),
+            enable_debug=True,
+        )
+    )
+
+def step_agent_test():
     """Minimalistic experiment to test the system."""
     return args.expand_cross_product(
         ExpArgs(
