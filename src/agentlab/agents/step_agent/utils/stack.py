@@ -22,12 +22,12 @@ class Stack:
     def push(self, item: Element):
         self.items.append(item)
     
-    def pop(self):
+    def pop(self) -> Element:
         if self.is_empty():
             raise IndexError("pop from empty stack")
         return self.items.pop()
 
-    def peek(self):
+    def peek(self) -> Element:
         if self.is_empty():
             raise IndexError("peek from empty stack")
         return self.items[-1]

@@ -65,7 +65,7 @@ AGENT_CUSTOM = GenericAgentArgs(
 
 STEP_AGENT = BrowserGymStepAgentArgs(
     max_actions=10,
-    model=CHAT_MODEL_ARGS_DICT["azure/gpt-4-1106-preview"],
+    model=CHAT_MODEL_ARGS_DICT["azure/gpt-3.5-turbo-1106"], # ["azure/gpt-4-1106-preview"],
     verbose=1,
     logging=True,
     low_level_action_list=["click", "fill", "stop"],

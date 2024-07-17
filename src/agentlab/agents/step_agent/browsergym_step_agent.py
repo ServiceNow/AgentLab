@@ -4,11 +4,10 @@ from typing import Union, Dict, List
 
 from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
-from langchain_openai import ChatOpenAI, AzureChatOpenAI
 
 from agentlab.llm.chat_api import ChatModelArgs
 from .step_agent import StepAgent
-from .prompts.miniwob import step_fewshot_template
+
 
 @dataclass
 class BrowserGymStepAgentArgs(AbstractAgentArgs):
@@ -23,6 +22,8 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
     prompt_mode: str = "chat"
     previous_actions: List = None
     use_dom: bool = False  # or AXTree
+    benchmark: str = "miniwob"
+    website_name: str = None  # To use with WorkArena only
 
     def make_agent(self):
         return BrowserGymStepAgent(
@@ -35,12 +36,22 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
             model=self.model,
             prompt_mode=self.prompt_mode,
             previous_actions=self.previous_actions,
-            use_dom=self.use_dom
+            use_dom=self.use_dom,
+            benchmark=self.benchmark,
+            website_name=self.website_name
         )
 
 
 class BrowserGymStepAgent(Agent):
-    def __init__(self, 
+    WEBARENA_AGENTS = {
+        "gitlab": "github_agent",
+        "reddit": "reddit_agent",
+        "shopping": "shopping_agent",
+        "shopping_admin": "shopping_admin_agent",
+        "maps": "maps_agent",
+    }
+
+    def __init__(self,
                  model: ChatModelArgs,
                  max_actions: int = 10, verbose: int = 0, logging: bool = False,
                  root_action: str = None,
@@ -48,21 +59,32 @@ class BrowserGymStepAgent(Agent):
                  low_level_action_list: List = None,
                  prompt_mode: str = "chat",
                  previous_actions: List = None,
-                 use_dom: bool = False
+                 use_dom: bool = False,
+                 benchmark: str = "miniwob",
+                 website_name: str = None
                  ):
+        match benchmark:
+            case "miniwob":
+                from .prompts.miniwob import step_fewshot_template
+                root_action = "miniwob_agent"
+            case "webarena":
+                from .prompts.webarena import step_fewshot_template
+                root_action = self.WEBARENA_AGENTS[website_name] if website_name in self.WEBARENA_AGENTS else None
+
         action_to_prompt_dict = {
             k: v for k, v in step_fewshot_template.__dict__.items() if isinstance(v, dict)}
-        root_action = "miniwob_agent"
+
         self.model = model.make_chat_model()
+        self.use_dom = use_dom
         self.agent = StepAgent(
-            model=self.model, 
+            model=self.model,
             max_actions=max_actions, verbose=verbose, logging=logging,
             root_action=root_action,
             action_to_prompt_dict=action_to_prompt_dict,
             low_level_action_list=low_level_action_list,
             prompt_mode=prompt_mode,
-            previous_actions=previous_actions)
-        self.use_dom = use_dom
+            previous_actions=previous_actions
+        )
         super().__init__()
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
@@ -88,7 +110,7 @@ class BrowserGymStepAgent(Agent):
             bid = type_match.group(1) if type_match else None
             text = type_match.group(2) if type_match else None
             enter = type_match.group(3) if type_match else None
-            # TODO: need to handle "enter" opetion: returns 2 actions instead of one
+            # TODO: need to handle "enter" option: returns 2 actions instead of one
             return f"fill(\"{bid}\", \"{text}\")"
 
         if "scroll" in action:
