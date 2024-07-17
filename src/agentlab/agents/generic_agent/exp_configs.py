@@ -1,25 +1,24 @@
 import logging
-from typing import List
-from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
-from browsergym.experiments.loop import EnvArgs
 import random
+from typing import List
+
 from browsergym.experiments.loop import EnvArgs, ExpArgs
-from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
+
 from agentlab.agents import dynamic_prompting as dp
-from agentlab.experiments import args
-from agentlab.experiments import task_collections as tasks
-from agentlab.agents.generic_agent.generic_agent_prompt import (
-    GenericPromptFlags,
-)
-from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.agents.generic_agent.agent_configs import (
-    AGENT_CUSTOM,
     AGENT_3_5,
-    AGENT_70B,
     AGENT_8B,
+    AGENT_70B,
+    AGENT_CUSTOM,
     AGENT_4o,
     AGENT_4o_VISION,
 )
+from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
+from agentlab.agents.generic_agent.generic_agent_prompt import GenericPromptFlags
+from agentlab.experiments import args
+from agentlab.experiments import task_collections as tasks
+from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
+from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 
 def make_seeds(n, offset=42):
@@ -51,25 +50,6 @@ def generic_agent_test(agent=AGENT_3_5, benchmark="miniwob"):
                 task_seed=args.CrossProd([None] * 2),
                 task_name=args.CrossProd(tasks.miniwob_tiny_test),
             ),
-            enable_debug=True,
-        )
-    )
-
-
-def tgi_toolkit_test(agent=AGENT_70B, benchmark="miniwob"):
-    """Minimalistic experiment to test the system."""
-    flags = agent.flags
-    flags = miniwob_add_html(benchmark, flags)
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=5, n_repeat=2)[:4]
-
-    return args.expand_cross_product(
-        ExpArgs(
-            agent_args=GenericAgentArgs(
-                # NOTE: this model ask for a 12GB GPU - sporadically, it might crash because the CUDA version is not compatible
-                chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-8B-Instruct"],
-                flags=flags,
-            ),
-            env_args=args.CrossProd(env_args_list),
             enable_debug=True,
         )
     )
