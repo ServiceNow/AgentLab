@@ -134,6 +134,56 @@ webgum_tasks = [
     "miniwob.use-spinner",
 ]
 
+step_tasks = [
+    'miniwob.book-flight',
+    'miniwob.click-link',
+    'miniwob.click-option',
+    'miniwob.focus-text',
+    'miniwob.click-button',
+    'miniwob.click-button-sequence',
+    'miniwob.click-dialog',
+    'miniwob.click-dialog-2',
+    'miniwob.click-tab',
+    'miniwob.click-test',
+    'miniwob.click-test-2',
+    'miniwob.enter-text',
+    'miniwob.focus-text-2',
+    'miniwob.enter-text-dynamic',
+    'miniwob.enter-password',
+    'miniwob.login-user',
+    'miniwob.click-pie',
+    'miniwob.enter-date',
+    'miniwob.grid-coordinate',
+    'miniwob.click-widget',
+    'miniwob.multi-orderings',
+    'miniwob.choose-date',
+    'miniwob.click-collapsible-2',
+    'miniwob.simple-arithmetic',
+    'miniwob.click-tab-2',
+    'miniwob.click-tab-2-hard',
+    'miniwob.multi-layouts',
+    'miniwob.copy-paste',
+    'miniwob.click-collapsible',
+    'miniwob.choose-date-easy',
+    'miniwob.copy-paste-2',
+    'miniwob.simple-algebra',
+    'miniwob.click-checkboxes',
+    'miniwob.click-checkboxes-transfer',
+    'miniwob.login-user-popup',
+    'miniwob.click-checkboxes-soft',
+    'miniwob.enter-text-2',
+    'miniwob.email-inbox-forward-nl',
+    'miniwob.search-engine',
+    'miniwob.find-word',
+    'miniwob.choose-date-medium',
+    'miniwob.click-checkboxes-large',
+    'miniwob.book-flight',
+    'miniwob.email-inbox-nl-turk',
+    'miniwob.email-inbox-forward-nl-turk',
+    'miniwob.email-inbox'
+]
+
+
 
 def get_benchmark_env_args(
     benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None

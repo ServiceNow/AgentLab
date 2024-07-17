@@ -143,9 +143,9 @@ def step_agent_test():
         ExpArgs(
             agent_args=STEP_AGENT,
             env_args=EnvArgs(
-                max_steps=5,
+                max_steps=10,
                 task_seed=args.CrossProd([None] * 2),
-                task_name=args.CrossProd(tasks.miniwob_tiny_test),
+                task_name=args.CrossProd(tasks.step_tasks),
             ),
             enable_debug=True,
         )
