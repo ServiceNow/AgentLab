@@ -1,8 +1,8 @@
-from abc import ABC, abstractmethod
 import argparse
 import json
 import logging
 import random
+from abc import ABC, abstractmethod
 from datetime import datetime
 from importlib import import_module
 from pathlib import Path
@@ -129,6 +129,11 @@ def relaunch_study(study_dir: Path, relaunch_mode="incomplete_only"):
     if len(exp_args_list) == 0:
         logging.info(f"No incomplete experiments found in {exp_dir}.")
         return
+
+    message = f"Make sure the processes that were running are all stopped. Otherwise, "
+    f"there will be concurrent writing in the same directories.\n"
+
+    logging.info(message)
 
     return exp_args_list, Path(study_dir)
 
@@ -280,6 +285,10 @@ if __name__ == "__main__":
         help="Extra arguments to pass to the experiment group.",
     )
 
+    parser.add_argument(
+        "-y", "--auto_accept", action="store_true", help="Skip the prompt to accept the experiment"
+    )
+
     args, unknown = parser.parse_known_args()
 
     # if relaunch_mode is not None, we will relaunch the experiments
@@ -297,5 +306,13 @@ if __name__ == "__main__":
             )
         else:
             exp_args_list, exp_dir = make_study(study_func, args.extra_kwargs)
+
+    message = f"\nYou are about to launch {len(exp_args_list)} experiments in {exp_dir}.\nPress Y to continue.\n"
+
+    logging.info(message)
+    answer = input(message)
+
+    if answer.lower() != "y" or args.auto_accept:
+        logging.info("Aborting.")
 
     run_experiments(args.n_jobs, exp_args_list, exp_dir)
