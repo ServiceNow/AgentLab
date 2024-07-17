@@ -2,7 +2,7 @@ import logging
 import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from agentlab.agents.step_agent.step_agent import BrowserGymStepAgentArgs
+from agentlab.agents.step_agent.browergym_step_agent import BrowserGymStepAgentArgs
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
@@ -58,18 +58,18 @@ FLAGS_CUSTOM = GenericPromptFlags(
     extra_instructions=None,
 )
 
-# AGENT_CUSTOM = GenericAgentArgs(
-#     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
-#     flags=FLAGS_CUSTOM,
-# )
+AGENT_CUSTOM = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    flags=FLAGS_CUSTOM,
+)
 
-AGENT_CUSTOM = BrowserGymStepAgentArgs(
+STEP_AGENT = BrowserGymStepAgentArgs(
     max_actions=10,
-    model="gpt-4-vision-preview",
+    model=CHAT_MODEL_ARGS_DICT["azure/gpt-4-1106-preview"],
     verbose=1,
-    debug=False,
     logging=True,
     low_level_action_list=["click", "fill", "stop"],
+    use_dom=True,
 )
 
 
@@ -141,7 +141,7 @@ def step_agent_test():
     """Minimalistic experiment to test the system."""
     return args.expand_cross_product(
         ExpArgs(
-            agent_args=AGENT_CUSTOM,
+            agent_args=STEP_AGENT,
             env_args=EnvArgs(
                 max_steps=5,
                 task_seed=args.CrossProd([None] * 2),

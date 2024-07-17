@@ -1,16 +1,19 @@
-from typing import List
+from typing import List, Union
+
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 
 from .agent import Agent
-from .utils.llm import fill_prompt_template, construct_llm_message_openai, call_openai_llm, parse_action_reason, calculate_cost_openai
+from .utils.llm import fill_prompt_template, construct_llm_message_openai, call_openai_llm, parse_action_reason
 
 
 class PromptAgent(Agent):
-    def __init__(self, max_actions: int = 10, verbose: bool = False, logging: bool = False,
-                 debug: bool = False, prompt_template: str = None, model: str = "gpt-3.5-turbo",
+    def __init__(self, 
+                 model: Union[ChatOpenAI, AzureChatOpenAI], 
+                 max_actions: int = 10, verbose: bool = False, logging: bool = False,
+                 prompt_template: str = None, 
                  prompt_mode: str = "chat", previous_actions: List = None, previous_reasons: List = None, previous_responses: List = None):
         super().__init__(max_actions=max_actions, verbose=verbose, logging=logging,
                          previous_actions=previous_actions, previous_reasons=previous_reasons, previous_responses=previous_responses)
-        self.debug = debug
         self.prompt_template = prompt_template
         self.model = model
         self.prompt_mode = prompt_mode
@@ -52,12 +55,6 @@ class PromptAgent(Agent):
             print(f"\n PREVIOUS HISTORY: {self.previous_history()}")
             print(f"\n REASON: {reason}")
             print(f"\n ACTION: {action}")
-
-        if self.debug:
-            human_input = input()
-            if human_input != "c":
-                action = human_input
-                reason = "None"
 
         self.update_history(action=action, reason=reason)
         return action, reason

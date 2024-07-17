@@ -7,9 +7,9 @@ class Agent:
         max_actions,
         verbose=0,
         logging=False,
-        previous_actions: List = None,
-        previous_reasons: List = None,
-        previous_responses: List = None,
+        previous_actions: List[str] = None,
+        previous_reasons: List[str] = None,
+        previous_responses: List[str] = None,
     ):
         self.previous_actions = [] if previous_actions is None else previous_actions 
         self.previous_reasons = [] if previous_reasons is None else previous_reasons
@@ -27,70 +27,22 @@ class Agent:
         self.trajectory = []
         self.data_to_log = {}
 
-    def get_trajectory(self):
+    def get_trajectory(self) -> list[str]:
         return self.trajectory
     
-    def update_history(self, action, reason):
+    def update_history(self, action: str, reason: str):
         if action:
             self.previous_actions += [action]
         if reason:
             self.previous_reasons += [reason]    
 
-    def predict_action(self, objective, observation, url=None):
+    def predict_action(self, objective: str, observation: str, url: str=None):
         pass
 
-    def receive_response(self, response):
+    def receive_response(self, response: str):
         self.previous_responses += [response]
 
-    # def act(self, objective, env):
-    #     while not env.done():
-    #         observation = env.observation()
-    #         action, reason = self.predict_action(
-    #             objective=objective, observation=observation, url=env.get_url()
-    #         )
-    #         status = env.step(action)
-
-    #         if self.logging:
-    #             self.log_step(
-    #                 objective=objective,
-    #                 url=env.get_url(),
-    #                 observation=observation,
-    #                 action=action,
-    #                 reason=reason,
-    #                 status=status,
-    #             )
-
-    #         if len(self.previous_actions) >= self.max_actions:
-    #             print(f"Agent exceeded max actions: {self.max_actions}")
-    #             break
-
-    #     return status
-
-    # async def async_act(self, objective, env):
-    #     while not env.done():
-    #         observation = await env.observation()
-    #         action, reason = self.predict_action(
-    #             objective=objective, observation=observation, url=env.get_url()
-    #         )
-    #         status = await env.step(action)
-
-    #         if self.logging:
-    #             self.log_step(
-    #                 objective=objective,
-    #                 url=env.get_url(),
-    #                 observation=observation,
-    #                 action=action,
-    #                 reason=reason,
-    #                 status=status,
-    #             )
-
-    #         if len(self.previous_actions) >= self.max_actions:
-    #             print(f"Agent exceeded max actions: {self.max_actions}")
-    #             break
-
-    #     return status
-
-    def log_step(self, objective, url, observation, action, reason, status):
+    def log_step(self, objective: str, url: str, observation: str, action: str, reason: str, status: str):
         self.data_to_log['objective'] = objective
         self.data_to_log['url'] = url
         self.data_to_log['observation'] = observation

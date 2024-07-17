@@ -39,4 +39,11 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=15_000,
         max_new_tokens=1_000,
     ),
+    "azure/gpt-4-1106-preview": OpenAIChatModelArgs(
+        model_name="azure/gpt-4-1106-preview/GPT-4-Vision-preview",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        vision_support=True,
+    ),
 }
