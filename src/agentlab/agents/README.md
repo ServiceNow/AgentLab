@@ -17,12 +17,15 @@ To create a custom agent, you need to subclass the `Agent` class and implement t
 from browsergym.experiment.loop import AbstractActionSet, DEFAULT_ACTION_SET
 from browsergym.experiment.agent import Agent
 
+
 class CustomAgent(Agent):
-    def __init__(self, action_set: AbstractActionSet = DEFAULT_ACTION_SET):
-        self.action_set = action_set
+    def __init__(self):
+        # define which action set your agent will be using
+        self.action_set = DEFAULT_ACTION_SET
 
     def obs_preprocessor(self, obs: dict) -> Any:
         # Optionally override this method to customize observation preprocessing
+        # The output of this method will be fed to the get_action method and also saved on disk.
         return super().obs_preprocessor(obs)
 
     def get_action(self, obs: Any) -> tuple[str, dict]:
@@ -34,22 +37,28 @@ class CustomAgent(Agent):
 
 ### Step 2: Implementing the `get_action` Method
 
-The `get_action` method updates the agent with the current observation and returns the next action along with optional additional information.
+The `get_action` method updates the agent with the current observation and
+returns the next action along with optional additional information i.e. all the
+behavior of your agent goes here.
 
 ```python
-def get_action(self, obs: Any) -> tuple[str, dict]:
+def get_action(self, obs: dict) -> tuple[str, dict]:
     # Example implementation
-    output = self.LLM(obs)
-    action = output["action"]
+    prompt = self.make_my_prompt_obs(obs)
+    answer = self.llm(prompt)
+    action, chain_of_thought = self.extract_action(answer)
     info = {
-        "think": output["think"],
-        "messages": output["messages"],
-        "stats": output["stats"]
+        "think": chain_of_thought,
+        "messages": [prompt, answer],
+        "stats": {"prompt_length": len(prompt), "answer_length": len(answer)},
+        "some_other_info": "webagents are great",
     }
     return action, info
 ```
 
-The info dictionnary is saved in the logs of the experiment. It can be used to store any information you want to keep track of during the experiment.
+The info dictionnary is saved in the logs of the experiment. It can be used to
+store any information you want to keep track of during the experiment. The keys
+`"think"`, `"messages"`, and `"stats"` are reserved and will be displayed in AgentXray.
 
 ### Step 3: Customizing the `obs_preprocessor` Method (Optional)
 
@@ -81,18 +90,24 @@ class CustomActionSet(AbstractActionSet):
 
 ### Step 5: Defining Agent Arguments
 
-Define a class that inherits from `AbstractAgentArgs` to specify the arguments required to instantiate your agent.
+Define a class that inherits from `AbstractAgentArgs` to specify the arguments
+required to instantiate your agent. This factory isolates all hyperparameters of
+your agent and facilitate the expriment pipeline. Make sure it is a dataclass to
+be compatible with the experiment pipeline. *As a requirement for dataclass, you
+have to specify the type of each field (You can use Any if it is unknown)*
 
 ```python
 from dataclasses import dataclass
 from browsergym.experiment.agent import AbstractAgentArgs, Agent
 
+
 @dataclass
 class CustomAgentArgs(AbstractAgentArgs):
-    custom_params: dict
+    temperature: float = 0.5
+    custom_param: str = "default_value"
 
     def make_agent(self) -> Agent:
-        return CustomAgent(self.custom_params)
+        return CustomAgent(self.custom_param, self.temperature)
 ```
 
 ### Step 6: Running Experiments with Your Agent
@@ -107,7 +122,7 @@ exp_args = ExpArgs(
     env_args=env_args,
     exp_dir="./experiments",
     exp_name="custom_experiment",
-    enable_debug=True
+    enable_debug=True,
 )
 
 # Run the experiment
