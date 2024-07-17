@@ -1,14 +1,10 @@
+import os
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import re
-import os
 
 from langchain.schema import AIMessage
-
-from langchain_openai import ChatOpenAI, AzureChatOpenAI
-from dataclasses import dataclass
-
-from langchain.schema import AIMessage
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
 from agentlab.llm.langchain_utils import HuggingFaceChatModel, RekaChatModel
 
@@ -100,11 +96,24 @@ class APIModelArgs(BaseModelArgs):
                 max_tokens=self.max_new_tokens,
                 deployment_name=deployment_name,
             )
-        if base_name == "reka":
+        elif base_name == "reka":
             model_name = self.model_name.split("/")[-1]
             return RekaChatModel(
                 model_name=model_name,
             )
+        elif base_name == "huggingface":
+            return HuggingFaceChatModel(
+                model_name=self.model_name.split("/", 1)[1],
+                hf_hosted=True,
+                temperature=self.temperature,
+                max_new_tokens=self.max_new_tokens,
+                max_total_tokens=self.max_total_tokens,
+                max_input_tokens=self.max_input_tokens,
+                model_url=None,
+                n_retry_server=4,
+            )
+        else:
+            raise ValueError(f"Backend {base_name} is not supported")
 
 
 @dataclass
