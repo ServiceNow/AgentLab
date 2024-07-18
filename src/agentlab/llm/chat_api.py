@@ -2,11 +2,15 @@ import os
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from langchain.schema import AIMessage
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
 from agentlab.llm.langchain_utils import HuggingFaceChatModel, RekaChatModel
+
+if TYPE_CHECKING:
+    from langchain_core.language_models.chat_models import BaseChatModel
 
 
 class CheatMiniWoBLLM:
@@ -61,7 +65,7 @@ class BaseModelArgs(ABC):
     temperature: float = 0.1
 
     @abstractmethod
-    def make_model(self):
+    def make_model(self) -> "BaseChatModel":
         pass
 
     def prepare_server(self):

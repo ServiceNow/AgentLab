@@ -109,10 +109,10 @@ def _make_study_dir(exp_root, study_name, add_date=True):
     return Path(exp_root) / study_name
 
 
-def study_agent_on_benchmark(study_func, agent, benchmark, extra_kwargs={}):
+def study_agent_on_benchmark(exp_root, study_func, agent, benchmark, extra_kwargs={}):
     exp_args_list = study_func(agent, benchmark, **extra_kwargs)
-    study_name = f"{study_func.__name__}_{agent.__name__}_on_{benchmark}"
-    return exp_args_list, _make_study_dir(study_name)
+    study_name = f"{study_func.__name__}_{agent.__class__.__name__}_on_{benchmark}"
+    return exp_args_list, _make_study_dir(exp_root, study_name)
 
 
 def make_study(study_func, extra_kwargs={}):
@@ -305,17 +305,20 @@ if __name__ == "__main__":
         if args.agent_config is not None:
             agent = import_object(args.agent_config)
             exp_args_list, exp_dir = study_agent_on_benchmark(
-                study_func, agent, args.benchmark, args.extra_kwargs
+                args.exp_root, study_func, agent, args.benchmark, args.extra_kwargs
             )
         else:
             exp_args_list, exp_dir = make_study(study_func, args.extra_kwargs)
 
     message = f"\nYou are about to launch {len(exp_args_list)} experiments in {exp_dir}.\nPress Y to continue.\n"
 
-    logging.info(message)
-    answer = input(message)
+    if args.auto_accept:
+        logging.info(message)
+        answer = "y"
+    else:
+        answer = input(message)
 
-    if answer.lower() != "y" or args.auto_accept:
+    if answer.lower() != "y":
         logging.info("Aborting.")
-
-    run_experiments(args.n_jobs, exp_args_list, exp_dir)
+    else:
+        run_experiments(args.n_jobs, exp_args_list, exp_dir)
