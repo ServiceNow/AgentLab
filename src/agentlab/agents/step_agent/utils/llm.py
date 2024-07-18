@@ -51,19 +51,19 @@ def parse_action_reason(model_response: str) -> tuple[str, str]:
     
 
 def construct_llm_message_openai(prompt: str, prompt_mode: str):
-    messages = [{"role": "system", "content": prompt["instruction"]}]
+    messages = [("system", prompt["instruction"])]
         
     if prompt["examples"]:
-        messages.append({"role": "system", "content": "Here are a few examples:"})
+        messages.append(("system", "Here are a few examples:"))
         for example in prompt["examples"]:
-            messages.append({"role": "system", "content": f"\n### Input:\n{example['input']}\n\n### Response:\n{example['response']}"})
+            messages.append(("system", f"\n### Input:\n{example['input']}\n\n### Response:\n{example['response']}"))
     
-    messages.append({"role": "user", "content": f"Here is the current Input. Please respond with REASON and ACTION.\n### Input:\n{prompt['input']}\n\n### Response:"})
+    messages.append(("human", f"Here is the current Input. Please respond with REASON and ACTION.\n### Input:\n{prompt['input']}\n\n### Response:"))
     if prompt_mode == "chat":
         return messages
     elif prompt_mode == "completion":
         all_content = ''.join(message['content'] for message in messages)
-        messages_completion = [{"role": "user", "content": all_content}]
+        messages_completion = [("human",  all_content)]
         return messages_completion
 
 def call_openai_llm(messages: list[dict[str, str]], model: Union[ChatOpenAI, AzureChatOpenAI], **model_kwargs) -> str:

@@ -47,7 +47,7 @@ CHAT_MODEL_ARGS_DICT = {
         vision_support=True,
     ),
     "azure/gpt-3.5-turbo-1106": OpenAIChatModelArgs(
-        model_name="openai/gpt-3.5-turbo-1106/gpt-35-turbo",
+        model_name="azure/gpt-3.5-turbo-1106/gpt-35-turbo",
         max_total_tokens=16_384,
         max_input_tokens=15_000,
         max_new_tokens=1_000,

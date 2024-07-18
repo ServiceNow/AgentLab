@@ -106,15 +106,16 @@ class BrowserGymStepAgent(Agent):
             return f"click(\"{bid}\")"
 
         if "type" in action:
-            type_match = re.search(r'type\s*\[(\d+)\]\s*\[(.*?)\]\s*\[(0|1)\]')
+            type_match = re.search(r'type\s*\[(\d+)\]\s*\[(.*?)\](\s*\[(0|1)\])?', action, re.DOTALL)
             bid = type_match.group(1) if type_match else None
             text = type_match.group(2) if type_match else None
-            enter = type_match.group(3) if type_match else None
-            # TODO: need to handle "enter" option: returns 2 actions instead of one
+            has_enter_option = type_match.group(3) if type_match else None
+            press_enter = type_match.group(4) if has_enter_option else None
+            # TODO: need to handle "press_enter" option: returns 2 actions instead of one
             return f"fill(\"{bid}\", \"{text}\")"
 
         if "scroll" in action:
-            scroll_match = re.search(r'scroll\s*\[(.*?)\]')
+            scroll_match = re.search(r'scroll\s*\[(.*?)\]', action, re.DOTALL)
             direction = scroll_match.group(1) if scroll_match else None
             # TODO: Better handling of scroll
             if direction == "up":
@@ -125,12 +126,12 @@ class BrowserGymStepAgent(Agent):
                 return f"scroll(\"{dy}\")"
 
         if "goto" in action:
-            goto_match = re.search(r'goto\s*\[(.*?)\]')
+            goto_match = re.search(r'goto\s*\[(.*?)\]', action, re.DOTALL)
             url = goto_match.group(1) if goto_match else None
             return f"goto(\"{url}\")"
 
         if "hover" in action:
-            hover_match = re.search(r'hover\s*\[(\d+)\]')
+            hover_match = re.search(r'hover\s*\[(\d+)\]', action, re.DOTALL)
             bid = hover_match.group(1) if hover_match else None
             return f"hover(\"{bid}\")"
 
@@ -138,7 +139,7 @@ class BrowserGymStepAgent(Agent):
             return "go_back()"
 
         if "note" in action:
-            note_match = re.search(r'note\s*\[(.*?)\]')
+            note_match = re.search(r'note\s*\[(.*?)\]', action, re.DOTALL)
             note = note_match.group(1) if note_match else None
             # Save note to previous actions history
             self.agent.update_history(action=note, reason=None)

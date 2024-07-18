@@ -68,7 +68,7 @@ STEP_AGENT = BrowserGymStepAgentArgs(
     model=CHAT_MODEL_ARGS_DICT["azure/gpt-3.5-turbo-1106"], # ["azure/gpt-4-1106-preview"],
     verbose=1,
     logging=True,
-    low_level_action_list=["click", "fill", "stop"],
+    low_level_action_list=["click", "type", "stop"],
     use_dom=True,
 )
 
