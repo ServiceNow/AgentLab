@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
+from langchain.schema import BaseMessage
 from PIL import Image
 
 from agentlab.analyze import inspect_results
@@ -504,6 +505,10 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
     for i, m in enumerate(chat_messages):
+        if isinstance(m, BaseMessage):
+            m = m.content
+        elif isinstance(m, dict):
+            m = m.get("content", "No Content")
         messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
     return "\n".join(messages)
 
