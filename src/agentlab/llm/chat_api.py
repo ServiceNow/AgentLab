@@ -59,6 +59,7 @@ class BaseModelArgs(ABC):
     max_input_tokens: int = None
     max_new_tokens: int = None
     temperature: float = 0.1
+    vision_support: bool = False
 
     @abstractmethod
     def make_model(self):
@@ -70,12 +71,21 @@ class BaseModelArgs(ABC):
     def close_server(self):
         pass
 
+    @property
+    def short_model_name(self):
+        if "/" in self.model_name:
+            return self.model_name.split("/", 1)[1]
+        else:
+            return self.model_name
+
+    @property
+    def base_model_name(self):
+        return self.model_name.split("/")[0]
+
 
 @dataclass
 class APIModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an API."""
-
-    vision_support: bool = False
 
     def make_model(self):
         base_name = self.model_name.split("/")[0]
@@ -114,6 +124,38 @@ class APIModelArgs(BaseModelArgs):
             )
         else:
             raise ValueError(f"Backend {base_name} is not supported")
+
+
+@dataclass
+class OpenAiModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenAI
+    model."""
+
+    def make_model(self):
+        if self.base_model_name != "openai":
+            raise ValueError(f"Model {self.model_name} is not an OpenAI model")
+
+        return ChatOpenAI(
+            model_name=self.short_model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
+
+
+class HuggingFaceModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with a HuggingFace model."""
+
+    def make_model(self):
+        return HuggingFaceChatModel(
+            model_name=self.model_name,
+            hf_hosted=True,
+            temperature=self.temperature,
+            max_new_tokens=self.max_new_tokens,
+            max_total_tokens=self.max_total_tokens,
+            max_input_tokens=self.max_input_tokens,
+            model_url=None,
+            n_retry_server=4,
+        )
 
 
 @dataclass
