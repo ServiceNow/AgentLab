@@ -115,9 +115,9 @@ def study_agent_on_benchmark(exp_root, study_func, agent, benchmark, extra_kwarg
     return exp_args_list, _make_study_dir(exp_root, study_name)
 
 
-def make_study(study_func, extra_kwargs={}):
+def make_study(exp_root, study_func, extra_kwargs={}):
     exp_args_list = study_func(**extra_kwargs)
-    return exp_args_list, _make_study_dir(f"{study_func.__name__}")
+    return exp_args_list, _make_study_dir(exp_root, f"{study_func.__name__}")
 
 
 def relaunch_study(study_dir: Path, relaunch_mode="incomplete_only"):
@@ -308,7 +308,7 @@ if __name__ == "__main__":
                 args.exp_root, study_func, agent, args.benchmark, args.extra_kwargs
             )
         else:
-            exp_args_list, exp_dir = make_study(study_func, args.extra_kwargs)
+            exp_args_list, exp_dir = make_study(args.exp_root, study_func, args.extra_kwargs)
 
     message = f"\nYou are about to launch {len(exp_args_list)} experiments in {exp_dir}.\nPress Y to continue.\n"
 
