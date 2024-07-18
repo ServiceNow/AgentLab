@@ -1,14 +1,15 @@
 import logging
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.experiments.agent import Agent
-from browsergym.experiments.loop import AbstractAgentArgs
+from browsergym.experiments.agent import Agent, AgentInfo
+from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
+from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
 
 if TYPE_CHECKING:
@@ -29,6 +30,12 @@ class BasicAgentArgs(AbstractAgentArgs):
             chat_model_args=self.chat_model_args,
         )
 
+    def prepare(self):
+        return self.chat_model_args.prepare_server()
+
+    def close(self):
+        return self.chat_model_args.close_server()
+
 
 class BasicAgent(Agent):
     def __init__(
@@ -37,6 +44,7 @@ class BasicAgent(Agent):
         self.temperature = temperature
         self.use_chain_of_thought = use_chain_of_thought
         self.chat = chat_model_args.make_model()
+        self.chat_model_args = chat_model_args
 
         self.action_set = HighLevelActionSet(["bid"], multiaction=False)
 
@@ -99,45 +107,30 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
                 # put any stats that you care about as long as it is a number or a dict of numbers
                 stats={"prompt_length": len(prompt), "response_length": len(thought)},
                 markup_page="Add any txt information here, including base 64 images, to display in xray",
+                extra_info={"chat_model_args": asdict(self.chat_model_args)},
             ),
         )
 
 
-@dataclass
-class AgentInfo:
-    think: str = None
-    chat_messages: list[str] = None
-    stats: dict = None
-    markup_page: str = None
-    extra_info: dict = None
+env_args = EnvArgs(
+    task_name="miniwob.click-menu",
+    task_seed=0,
+    max_steps=10,
+    headless=True,
+)
 
-    def __getitem__(self, key):
-        return getattr(self, key)
+chat_model_args = CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"]
 
-    def to_dict(self):
-        return {
-            "think": self.think,
-            "chat_messages": self.chat_messages,
-            "stats": self.stats,
-            "markup_page": self.markup_page,
-        }
+exp_args = ExpArgs(
+    agent_args=BasicAgentArgs(
+        temperature=0.1,
+        use_chain_of_thought=True,
+        chat_model_args=chat_model_args,
+    ),
+    env_args=env_args,
+    logging_level=logging.INFO,
+)
 
 
-if __name__ == "__main__":
-    from browsergym.experiments.loop import EnvArgs, ExpArgs
-
-    env_args = EnvArgs(
-        task_name="miniwob.click-menu",
-        task_seed=0,
-        max_steps=10,
-        headless=True,
-    )
-
-    exp_args = ExpArgs(
-        agent_args=BasicAgentArgs(temperature=0.1, use_chain_of_thought=True),
-        env_args=env_args,
-        logging_level=logging.INFO,
-    )
-
-    exp_args.prepare("exp/basic_agent")
-    exp_args.run()
+def aled():
+    return [exp_args]
