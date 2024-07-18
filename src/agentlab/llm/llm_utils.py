@@ -15,7 +15,7 @@ import numpy as np
 import tiktoken
 import yaml
 from joblib import Memory
-from langchain.schema import HumanMessage, SystemMessage
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from openai import BadRequestError, RateLimitError
 from PIL import Image
@@ -106,6 +106,76 @@ def retry(
             msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
             logging.info(msg)
         messages.append(HumanMessage(content=retry_message))
+
+    raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
+
+
+def retry_raise(
+    chat: "BaseChatModel",
+    messages: list[BaseMessage],
+    n_retry,
+    parser,
+    log=True,
+    min_retry_wait_time=60,
+    rate_limit_max_wait_time=60 * 30,
+):
+    """Retry querying the chat models with the response from the parser until it
+    returns a valid value.
+
+    If the answer is not valid, it will retry and append to the chat the  retry
+    message.  It will stop after `n_retry`.
+
+    Note, each retry has to resend the whole prompt to the API. This can be slow
+    and expensive.
+
+    Args:
+        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
+            returning a list of answers.
+        messages (list): the list of messages so far. This list will be modified with
+            the new messages and the retry messages.
+        n_retry (int): the maximum number of sequential retries.
+        parser (function): a function taking a message and retruning a parsed value,
+            or raising a ParseError
+        log (bool): whether to log the retry messages.
+        min_retry_wait_time (float): the minimum wait time in seconds
+            after RateLimtError. will try to parse the wait time from the error
+            message.
+        rate_limit_max_wait_time (int): the maximum wait time in seconds
+
+    Returns:
+        dict: the parsed value, with a string at key "action".
+
+    Raises:
+        RetryError: if the parser could not parse a valid value after n_retry retries.
+        RateLimitError: if the requests exceed the rate limit.
+    """
+    tries = 0
+    rate_limit_total_delay = 0
+    while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
+        try:
+            answer = chat.invoke(messages)
+        except RateLimitError as e:
+            wait_time = _extract_wait_time(e.args[0], min_retry_wait_time)
+            logging.warning(f"RateLimitError, waiting {wait_time}s before retrying.")
+            time.sleep(wait_time)
+            rate_limit_total_delay += wait_time
+            if rate_limit_total_delay >= rate_limit_max_wait_time:
+                logging.warning(
+                    f"Total wait time for rate limit exceeded. Waited {rate_limit_total_delay}s > {rate_limit_max_wait_time}s."
+                )
+                raise
+            continue
+
+        messages.append(answer)
+
+        try:
+            return parser(answer.content)
+        except ParseError as parsing_error:
+            tries += 1
+            if log:
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{parsing_error}"
+                logging.info(msg)
+            messages.append(HumanMessage(content=parsing_error))
 
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
