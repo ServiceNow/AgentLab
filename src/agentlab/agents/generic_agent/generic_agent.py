@@ -10,7 +10,7 @@ from langchain.schema import HumanMessage, SystemMessage
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
-from agentlab.llm.llm_utils import ParseError, RetryError, retry
+from agentlab.llm.llm_utils import ParseError, RetryError, retry_raise
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
@@ -102,7 +102,12 @@ class GenericAgent(Agent):
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=prompt),
             ]
-            ans_dict = retry(self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser)
+            ans_dict = retry_raise(
+                self.chat_llm,
+                chat_messages,
+                n_retry=self.max_retry,
+                parser=main_prompt._parse_answer,
+            )
             # inferring the number of retries, TODO: make this less hacky
             stats["n_retry"] = (len(chat_messages) - 3) / 2
             stats["busted_retry"] = 0
