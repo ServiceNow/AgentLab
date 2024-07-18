@@ -18,7 +18,6 @@ from transformers import AutoTokenizer, GPT2TokenizerFast, pipeline
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
 
 
-# TODO maybe move outside of agentlab
 class RekaChatModel(SimpleChatModel):
     llm: Any = Field(description="The Reka chat instance")
     column_remap: dict = Field(description="The column remapping for the messages")
