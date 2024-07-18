@@ -98,7 +98,8 @@ have to specify the type of each field (You can use Any if it is unknown)*
 
 ```python
 from dataclasses import dataclass
-from browsergym.experiment.agent import AbstractAgentArgs, Agent
+from browsergym.experiment.agent import Agent
+from browsergym.experiment.loop import AbstractAgentArgs
 
 
 @dataclass
