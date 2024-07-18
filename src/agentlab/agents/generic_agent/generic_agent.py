@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
-from browsergym.experiments.agent import Agent
+from browsergym.experiments.agent import Agent, AgentInfo
 from browsergym.experiments.loop import AbstractAgentArgs
 from langchain.schema import HumanMessage, SystemMessage
 
@@ -116,15 +116,14 @@ class GenericAgent(Agent):
             stats["busted_retry"] = 1
 
             stats["n_retry"] = self.max_retry + 1
-        self.plan = ans_dict.get("plan", self.plan)
-        self.plan_step = ans_dict.get("step", self.plan_step)
-        self.actions.append(ans_dict["action"])
-        self.memories.append(ans_dict.get("memory", None))
-        self.thoughts.append(ans_dict.get("think", None))
-        ans_dict["chat_model_args"] = asdict(self.chat_model_args)
-        ans_dict["chat_messages"] = chat_messages
-        ans_dict["stats"] = stats
-        return ans_dict["action"], ans_dict
+
+        agent_info = AgentInfo(
+            think=ans_dict.get("think", None),
+            chat_messages=chat_messages,
+            stats=stats,
+            extra_info={"chat_model_args": asdict(self.chat_model_args)},
+        )
+        return ans_dict["action"], agent_info
 
     def reset(self, seed=None):
         self.seed = seed
