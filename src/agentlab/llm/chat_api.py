@@ -75,17 +75,6 @@ class BaseModelArgs(ABC):
     def close_server(self):
         pass
 
-    @property
-    def short_model_name(self):
-        if "/" in self.model_name:
-            return self.model_name.split("/", 1)[1]
-        else:
-            return self.model_name
-
-    @property
-    def base_model_name(self):
-        return self.model_name.split("/")[0]
-
 
 @dataclass
 class OpenAIModelArgs(BaseModelArgs):
@@ -94,7 +83,7 @@ class OpenAIModelArgs(BaseModelArgs):
 
     def make_model(self):
         return ChatOpenAI(
-            model_name=self.short_model_name,
+            model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
         )
@@ -155,3 +144,36 @@ class SelfHostedModelArgs(BaseModelArgs):
             )
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
+
+
+@dataclass
+class ChatModelArgs(BaseModelArgs):
+    """Object added for backward compatibility with the old ChatModelArgs."""
+
+    model_path: str = None
+    model_url: str = None
+    model_size: str = None
+    training_total_tokens: int = None
+    hf_hosted: bool = False
+    is_model_operational: str = False
+    sliding_window: bool = False
+    n_retry_server: int = 4
+    infer_tokens_length: bool = False
+    vision_support: bool = False
+    shard_support: bool = True
+    extra_tgi_args: dict = None
+    tgi_image: str = None
+    info: dict = None
+
+    def __post_init__(self):
+        import warnings
+
+        warnings.simplefilter("always", DeprecationWarning)
+        warnings.warn(
+            "ChatModelArgs is deprecated and used only for xray. Use one of the specific model args classes instead.",
+            DeprecationWarning,
+        )
+        warnings.simplefilter("default", DeprecationWarning)
+
+    def make_model(self):
+        pass
