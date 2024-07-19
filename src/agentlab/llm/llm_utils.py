@@ -113,11 +113,11 @@ def retry(
 def retry_raise(
     chat: "BaseChatModel",
     messages: list[BaseMessage],
-    n_retry,
-    parser,
-    log=True,
-    min_retry_wait_time=60,
-    rate_limit_max_wait_time=60 * 30,
+    n_retry: int,
+    parser: callable,
+    log: bool = True,
+    min_retry_wait_time: int = 60,
+    rate_limit_max_wait_time: int = 60 * 30,
 ):
     """Retry querying the chat models with the response from the parser until it
     returns a valid value.
@@ -166,7 +166,7 @@ def retry_raise(
                 raise
             continue
 
-        messages.append(answer)
+        messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
 
         try:
             return parser(answer.content)
@@ -254,7 +254,7 @@ def truncate_tokens(text, max_tokens=8000, start=0, model_name="gpt-4"):
 
 
 @cache
-def get_tokenizer(model_name="openai/gpt-4"):
+def get_tokenizer_old(model_name="openai/gpt-4"):
     if model_name.startswith("test"):
         return tiktoken.encoding_for_model("gpt-4")
     if model_name.startswith("openai"):
@@ -268,6 +268,19 @@ def get_tokenizer(model_name="openai/gpt-4"):
         return tiktoken.encoding_for_model("gpt-4")
     else:
         return AutoTokenizer.from_pretrained(model_name)
+
+
+@cache
+def get_tokenizer(model_name="gpt-4"):
+    try:
+        return tiktoken.encoding_for_model(model_name)
+    except KeyError:
+        logging.info(f"Could not find a tokenizer for model {model_name}. Trying HuggingFace.")
+    try:
+        return AutoTokenizer.from_pretrained(model_name)
+    except OSError:
+        logging.info(f"Could not find a tokenizer for model {model_name}. Defaulting to gpt-4.")
+    return tiktoken.encoding_for_model("gpt-4")
 
 
 def count_tokens(text, model="openai/gpt-4"):
