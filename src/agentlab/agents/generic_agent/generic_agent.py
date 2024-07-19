@@ -117,6 +117,12 @@ class GenericAgent(Agent):
 
             stats["n_retry"] = self.max_retry + 1
 
+        self.plan = ans_dict.get("plan", self.plan)
+        self.plan_step = ans_dict.get("step", self.plan_step)
+        self.actions.append(ans_dict["action"])
+        self.memories.append(ans_dict.get("memory", None))
+        self.thoughts.append(ans_dict.get("think", None))
+
         agent_info = AgentInfo(
             think=ans_dict.get("think", None),
             chat_messages=chat_messages,
