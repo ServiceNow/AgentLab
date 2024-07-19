@@ -97,13 +97,11 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
         action = ans_dict.get("action", None)
         thought = ans_dict.get("think", None)
 
-        messages.append(AIMessage(content=thought))
-
         return (
             action,
             AgentInfo(
                 think=thought,
-                chat_messages=messages,  # TODO put lanchgchain objects
+                chat_messages=messages,
                 # put any stats that you care about as long as it is a number or a dict of numbers
                 stats={"prompt_length": len(prompt), "response_length": len(thought)},
                 markup_page="Add any txt information here, including base 64 images, to display in xray",
@@ -113,7 +111,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
 
 
 env_args = EnvArgs(
-    task_name="miniwob.click-menu",
+    task_name="miniwob.click-button",
     task_seed=0,
     max_steps=10,
     headless=True,
@@ -121,16 +119,27 @@ env_args = EnvArgs(
 
 chat_model_args = CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"]
 
-exp_args = ExpArgs(
-    agent_args=BasicAgentArgs(
-        temperature=0.1,
-        use_chain_of_thought=True,
-        chat_model_args=chat_model_args,
+exp_args = [
+    ExpArgs(
+        agent_args=BasicAgentArgs(
+            temperature=0.1,
+            use_chain_of_thought=True,
+            chat_model_args=chat_model_args,
+        ),
+        env_args=env_args,
+        logging_level=logging.INFO,
     ),
-    env_args=env_args,
-    logging_level=logging.INFO,
-)
+    ExpArgs(
+        agent_args=BasicAgentArgs(
+            temperature=0.1,
+            use_chain_of_thought=False,
+            chat_model_args=chat_model_args,
+        ),
+        env_args=env_args,
+        logging_level=logging.INFO,
+    ),
+]
 
 
-def aled():
+def experiment_config():
     return [exp_args]
