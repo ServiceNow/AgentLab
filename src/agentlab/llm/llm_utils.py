@@ -173,9 +173,9 @@ def retry_raise(
         except ParseError as parsing_error:
             tries += 1
             if log:
-                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{parsing_error}"
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{str(parsing_error)}"
                 logging.info(msg)
-            messages.append(HumanMessage(content=parsing_error))
+            messages.append(HumanMessage(content=str(parsing_error)))
 
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
