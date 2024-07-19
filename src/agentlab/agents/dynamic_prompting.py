@@ -600,7 +600,7 @@ def make_action_set(action_flags: ActionFlags) -> AbstractActionSet:
         return action_set
 
     action_set = HighLevelActionSet(
-        subsets=list(set(["chat"] + action_flags.action_set.split("+"))),
+        subsets=list(set(["chat"] + ["infeas"] + action_flags.action_set.split("+"))),
         multiaction=action_flags.multi_actions,
         strict=action_flags.is_strict,
         demo_mode=action_flags.demo_mode,
