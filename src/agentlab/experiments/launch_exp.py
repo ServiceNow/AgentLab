@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 from pathlib import Path
 import random
+import sys
 from joblib import Parallel, delayed
 from agentlab.analyze import error_categorization
 from agentlab.llm.llm_servers import LLMServers
@@ -122,7 +123,14 @@ def _validate_launch_mode(
 
     else:
         if exp_args_list is None:
-            from agentlab.experiments import exp_configs
+            if "finetuning" in exp_group_name:
+                # NOTE: this is a temporary hack
+                sys.path.append(
+                    str(Path(__file__).parent.parent.parent.parent.parent)
+                )  # addding finetuning/
+                from finetuning.scripts import eval_configs as exp_configs
+            else:
+                from agentlab.experiments import exp_configs
 
             exp_group_name, exp_args_list = exp_configs.get_exp_args_list(
                 exp_group_name, extra_kwargs
