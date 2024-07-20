@@ -79,9 +79,12 @@ for var, value in variables.items():
 
 ## user specific variables you need to set if you want to use TGI servers
 print("Automatically setting your eai account")
-command = "eai account get --format json"
+command_user = "eai user get --format json"
+command_account = "eai account get --format json"
 try:
-    result = subprocess.run(command, shell=True, capture_output=True)
+    result = subprocess.run(command_user, shell=True, capture_output=True)
+    USER_NAME = yaml.safe_load(result.stdout)["fullName"]
+    result = subprocess.run(command_account, shell=True, capture_output=True)
     ACCOUNT_NAME = yaml.safe_load(result.stdout)["fullName"]
 except:
     logging.error(

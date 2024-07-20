@@ -243,6 +243,7 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=32_000,
         model_size=176,  # 4x44b
         is_model_operational=False,
+        tgi_image="ghcr.io/huggingface/text-generation-inference:2.1.1",
         **default_oss_llms_args,
         info="it can fit into 8 GPUs, but there's still a TGI bug. Looks like a layer is not supported by TGI?",
     ),
