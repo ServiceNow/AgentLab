@@ -113,7 +113,7 @@ def launch_toolkit_tgi_server(
     cpu: int = 4,
     mem: int = 64,
     n_shard: int = 1,
-    max_run_time: int = 172_800,
+    max_run_time: int = 259_200,
     tgi_image: str = None,
     extra_tgi_args: dict = None,
 ):
@@ -370,10 +370,11 @@ if __name__ == "__main__":
     # model = "meta-llama/Meta-Llama-3-8B-Instruct"
     # model = "finetuning/Meta-Llama-3-8B-Instruct"
     # model = "microsoft/Phi-3-mini-4k-instruct"
-    model = "bigcode/starcoder2-15b"
+    # model = "bigcode/starcoder2-15b"
+    model = "mistralai/Mixtral-8x22B-Instruct-v0.1"
+
+    kill_all_servers("ui_copilot_tgi_server")
 
     # auto_launch_server(CHAT_MODEL_ARGS_DICT[model], job_name="ui_copilot_tgi_server")
 
-    # kill_all_servers("ui_copilot_tgi_server")
-
-    kill_all_servers()
+    # kill_all_servers()
