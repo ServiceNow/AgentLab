@@ -1,6 +1,9 @@
+import copy
 import logging
+from pathlib import Path
+import re
 from typing import List
-from agentlab.experiments.exp_utils import get_ckpt_list, overwrite_chat_model_arg
+from agentlab.llm import toolkit_configs
 from browsergym.experiments.loop import EnvArgs
 import random
 from browsergym.experiments.loop import EnvArgs, ExpArgs
@@ -62,12 +65,13 @@ def fix_flags(benchmark: str, flags: List[GenericPromptFlags] = None):
     # TODO: adapt such that flags can be a list
     # Also, always pass the flags and remove the logic
 
-    if flags is List:
-        pass
-
     if benchmark.startswith("miniwob"):
-        for flag in flags:
-            flag.obs.use_html = True
+
+        if flags is List:
+            for flag in flags:
+                flag.obs.use_html = True
+        else:
+            flags.obs.use_html = True
 
     return flags
 
@@ -129,23 +133,17 @@ model_name_list = [
     # "openai/gpt-4-turbo-2024-04-09",
     # "openai/gpt-4o-2024-05-13",
     # ------------------ OSS ------------------------
-    "meta-llama/Meta-Llama-3-8B-Instruct",
+    # "meta-llama/Meta-Llama-3-8B-Instruct",
     # "meta-llama/Meta-Llama-3-70B-Instruct",
     # "microsoft/Phi-3-mini-128k-instruct",
     # "codellama/CodeLlama-34b-Instruct-hf",
     # "Salesforce/xLAM-v0.1-r",
     # "deepseek-ai/deepseek-coder-6.7b-instruct",
-    # "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "mistralai/Mixtral-8x7B-Instruct-v0.1",
     # "microsoft/WizardLM-2-8x22B"
     # "finetuning/Meta-Llama-3-8B-Instruct",
     # "finetuning/debug",
 ]
-
-# set to None or empty dict to keep the default values
-overwrite_chat_model_args_dict = {
-    # "model_url": "https://6be22ad6-b39e-4a6c-9449-c4d67f67e1af.job.console.elementai.com",
-    # "max_total_tokens": 16_384,
-}
 
 
 # test GenericAgent with different LLMs
@@ -170,10 +168,6 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
     env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=20, n_repeat=10)
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-    if overwrite_chat_model_args_dict:
-        chat_model_args_list = overwrite_chat_model_arg(
-            chat_model_args_list, overwrite_chat_model_args_dict
-        )
 
     return args.expand_cross_product(
         ExpArgs(
@@ -191,7 +185,8 @@ def generic_agent_eval_llm(benchmark="workarena.l1.sort"):
 def random_search(
     # benchmark: str = "workarena.servicenow.all-menu",
     # benchmark: str = "miniwob.click-menu-2",
-    benchmark: str = "workarena.l1",
+    # benchmark: str = "workarena.l1",
+    benchmark: str = "miniwob",
 ):
     """Example of random search. Modify this at will, but don't push your
         changes.
@@ -220,10 +215,6 @@ def random_search(
     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-    if overwrite_chat_model_args_dict:
-        chat_model_args_list = overwrite_chat_model_arg(
-            chat_model_args_list, overwrite_chat_model_args_dict
-        )
 
     return args.sample_and_expand_cross_product(
         ExpArgs(
@@ -234,7 +225,7 @@ def random_search(
             env_args=args.CrossProd(env_args_list),
             enable_debug=False,
         ),
-        n_samples=40,  # number of samples
+        n_samples=80,  # number of samples
     )
 
 
@@ -288,10 +279,6 @@ def progression_study(
     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-    if overwrite_chat_model_args_dict:
-        chat_model_args_list = overwrite_chat_model_arg(
-            chat_model_args_list, overwrite_chat_model_args_dict
-        )
 
     return order(
         args.expand_cross_product(
@@ -401,10 +388,6 @@ def ablation_study(
     env_args_list = tasks.get_benchmark_env_args(benchmark)
 
     chat_model_args_list = [CHAT_MODEL_ARGS_DICT[k] for k in model_name_list]
-    if overwrite_chat_model_args_dict:
-        chat_model_args_list = overwrite_chat_model_arg(
-            chat_model_args_list, overwrite_chat_model_args_dict
-        )
 
     return order(
         args.expand_cross_product(
@@ -609,47 +592,6 @@ def demo_maker():
     )
 
 
-def finetuning_eval(
-    benchmark: str = "miniwob.test",
-    dataset_name: str = "traces_test",
-    model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct",
-):
-    """Evaluate GenericAgent with different LLMs on a selected benchmark."""
-
-    model_name = f"finetuning/{model_name}"
-
-    flags_list = fix_flags(
-        benchmark,
-        flags=[BASIC_FINETUNING_FLAGS, FLAGS_8B, FLAGS_GPT_4o],
-    )
-    env_args_list = tasks.get_benchmark_env_args(benchmark, max_steps=15, n_repeat=5)
-
-    chat_model_args_list = [CHAT_MODEL_ARGS_DICT[model_name]]
-    if overwrite_chat_model_args_dict:
-        chat_model_args_list = overwrite_chat_model_arg(
-            chat_model_args_list, overwrite_chat_model_args_dict
-        )
-
-    model_path = chat_model_args_list[0].model_path
-    new_model_path = model_path + f"/{dataset_name}"
-    chat_model_args_list = overwrite_chat_model_arg(
-        chat_model_args_list, {"model_path": new_model_path}
-    )
-
-    return args.expand_cross_product(
-        ExpArgs(
-            agent_args=GenericAgentArgs(
-                chat_model_args=args.CrossProd(get_ckpt_list(chat_model_args_list[0])),
-                flags=args.CrossProd(flags_list),
-            ),
-            env_args=args.CrossProd(env_args_list),
-            # enable_debug=True,
-            enable_debug=False,
-            logging_level=logging.INFO,
-        )
-    )
-
-
 DEFAULT_RS_FLAGS = GenericPromptFlags(
     flag_group="default_rs",
     obs=dp.ObsFlags(
@@ -699,12 +641,12 @@ RS_OSS_FLAGS = GenericPromptFlags(
         use_html=False,
         use_ax_tree=True,
         use_focused_element=False,
-        use_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
-        use_history=args.Choice([True, False], p=[0.8, 0.2]),
+        use_error_logs=args.Choice([True, False], p=[0.25, 0.75]),
+        use_history=args.Choice([True, False], p=[0.5, 0.5]),
         use_past_error_logs=args.Choice([True, False], p=[0.5, 0.5]),
-        use_action_history=args.Choice([True, False], p=[0.8, 0.2]),
+        use_action_history=args.Choice([True, False], p=[0.5, 0.5]),
         use_think_history=args.Choice([True, False], p=[0.5, 0.5]),
-        use_diff=args.Choice([True, False], p=[0.5, 0.5]),
+        use_diff=args.Choice([True, False], p=[0.2, 0.8]),
         html_type="pruned_html",
         use_screenshot=False,
         use_som=False,
@@ -720,13 +662,13 @@ RS_OSS_FLAGS = GenericPromptFlags(
         # "bid+coord"]),
     ),
     # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
-    use_plan=args.Choice([True, False], p=[0.25, 0.75]),
-    use_criticise=args.Choice([True, False], p=[0.25, 0.75]),
+    use_plan=args.Choice([True, False], p=[0.2, 0.8]),
+    use_criticise=args.Choice([True, False], p=[0.2, 0.8]),
     use_thinking=args.Choice([True, False], p=[0.5, 0.5]),
-    use_memory=args.Choice([True, False], p=[0.25, 0.75]),
+    use_memory=args.Choice([True, False], p=[0.2, 0.8]),
     use_concrete_example=True,
     use_abstract_example=True,
-    use_hints=args.Choice([True, False], p=[0.25, 0.75]),
+    use_hints=args.Choice([True, False], p=[0.2, 0.8]),
     be_cautious=True,
     enable_chat=False,
     max_prompt_tokens=None,

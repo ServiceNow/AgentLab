@@ -65,14 +65,6 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     # ---------------- OSS LLMs ----------------#
     ## SOTA
-    "finetuning/meta-llama/Meta-Llama-3-8B-Instruct": ChatModelArgs(
-        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
-        model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/",
-        training_total_tokens=8_192,
-        model_size=8,
-        is_model_operational=True,
-        **default_oss_llms_args,
-    ),
     "finetuning/debug": ChatModelArgs(
         model_name="meta-llama/Meta-Llama-3-8B-Instruct",
         model_path=f"{toolkit_configs.FINETUNING_CKPT_PATH}/meta-llama/Meta-Llama-3-8B-Instruct/finetuning_output/ATOMIC_TASKS_240604/ckpt_itr_0",
@@ -251,6 +243,7 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=32_000,
         model_size=176,  # 4x44b
         is_model_operational=False,
+        tgi_image="ghcr.io/huggingface/text-generation-inference:2.1.1",
         **default_oss_llms_args,
         info="it can fit into 8 GPUs, but there's still a TGI bug. Looks like a layer is not supported by TGI?",
     ),
@@ -344,6 +337,7 @@ CHAT_MODEL_ARGS_DICT = {
         training_total_tokens=4_096,
         model_size=70,
         is_model_operational=False,
+        tgi_image=toolkit_configs.TGI_IMAGE_LATEST,
         **default_oss_llms_args,
     ),
     "codellama/CodeLlama-7b-instruct-hf": ChatModelArgs(
@@ -372,6 +366,7 @@ CHAT_MODEL_ARGS_DICT = {
         training_total_tokens=4_096,
         model_size=70,
         is_model_operational=False,
+        tgi_image=toolkit_configs.TGI_IMAGE_LATEST,
         **default_oss_llms_args,
     ),
     ## Bigcode
