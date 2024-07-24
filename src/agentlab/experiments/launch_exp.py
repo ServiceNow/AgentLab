@@ -89,20 +89,6 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
         logging.info("LLM servers closed.")
 
 
-class Study(ABC):
-
-    @property
-    @abstractmethod
-    def name(self):
-        """Name of the study."""
-        pass
-
-    @abstractmethod
-    def gen_experiments(self):
-        """Generate a list of experiments."""
-        pass
-
-
 def _make_study_dir(exp_root, study_name, add_date=True):
     if add_date:
         study_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{study_name}"
