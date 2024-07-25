@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
-from browsergym.experiments.agent import Agent, AgentInfo
+from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
 from langchain.schema import HumanMessage, SystemMessage
 
@@ -123,7 +123,7 @@ class GenericAgent(Agent):
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
 
-        agent_info = AgentInfo(
+        agent_info = dict(
             think=ans_dict.get("think", None),
             chat_messages=chat_messages,
             stats=stats,

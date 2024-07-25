@@ -142,4 +142,4 @@ exp_args = [
 
 
 def experiment_config():
-    return [exp_args]
+    return exp_args
