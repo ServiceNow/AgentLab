@@ -12,6 +12,8 @@ from agentlab.llm.prompt_templates import STARCHAT_PROMPT_TEMPLATE
 
 if "AGENTLAB_LOCAL_TEST" in os.environ:
     skip_tests = os.environ["AGENTLAB_LOCAL_TEST"] != "1"
+else:
+    skip_tests = False
 
 
 @pytest.mark.pricy
