@@ -1,10 +1,9 @@
+import logging
+import time as t
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import time as t
-import logging
-import numpy as np
 
 t0 = t.time()
 from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
@@ -14,8 +13,8 @@ logger = logging.getLogger(__name__)
 dt = t.time() - t0
 print(f"done importing workarena, took {dt:.2f} seconds")
 
-from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 from browsergym.experiments import EnvArgs
+from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
 # workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
 # workarena_order_tasks = [task for task in workarena_tasks if "order" in task]
@@ -148,53 +147,6 @@ webgum_tasks = [
 ]
 
 
-def split_miniwob() -> tuple[list[str], list[str], list[str]]:
-    """
-    Splits MINIWOB tasks into training, validation, and test sets based on a CSV file.
-
-    The CSV file should have columns "Task Name" and "split" where "split" indicates
-    whether the task is part of the training, validation, or test set.
-
-    Returns:
-        tuple: Three lists containing the task names for the training, validation,
-               and test sets, respectively.
-    """
-    miniwob_train, miniwob_val, miniwob_test = [], [], []
-
-    # Load the task split CSV
-    csv_path = Path(__file__).parent / "miniwob_tasks_split.csv"
-    miniwob_tasks_split = pd.read_csv(csv_path)
-
-    miniwob_tasks_split["Task Name"] = "miniwob." + miniwob_tasks_split["Task Name"].astype(str)
-
-    for _, row in miniwob_tasks_split.iterrows():
-        task_name = row["Task Name"]
-        split = row["split"]
-
-        if task_name not in MINIWOB_ALL:
-            logging.debug(f"Task {task_name} not in MINIWOB_ALL")
-            continue
-
-        if split == "train":
-            miniwob_train.append(task_name)
-        elif split == "val":
-            miniwob_val.append(task_name)
-        elif split == "test":
-            miniwob_test.append(task_name)
-        else:
-            raise ValueError(f"Unknown split: {split}")
-
-    missing_tasks = set(MINIWOB_ALL) - set(miniwob_train + miniwob_val + miniwob_test)
-    if missing_tasks:
-        logging.debug("Missing tasks in miniwob split. Adding to train set: %s", missing_tasks)
-        miniwob_train.extend(missing_tasks)
-
-    return miniwob_train, miniwob_val, miniwob_test
-
-
-MINIWOB_TRAIN, MINIWOB_VALIDATION, MINIWOB_TEST = split_miniwob()
-
-
 def get_benchmark_env_args(
     benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None, is_agent_curriculum=True
 ) -> list[EnvArgs]:
@@ -271,9 +223,6 @@ def get_benchmark_env_args(
     elif benchmark_name.startswith("miniwob"):
         miniwob_benchmarks_map = {
             "miniwob": MINIWOB_ALL,
-            "miniwob.train": MINIWOB_TRAIN,
-            "miniwob.dev": MINIWOB_VALIDATION,
-            "miniwob.test": MINIWOB_TEST,
         }
         env_args_list = _make_env_args(
             miniwob_benchmarks_map[benchmark_name], max_steps, n_repeat, rng
