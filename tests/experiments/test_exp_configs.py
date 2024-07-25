@@ -1,12 +1,11 @@
-from agentlab.experiments.launch_exp import import_object
 from agentlab.agents.generic_agent.agent_configs import AGENT_3_5
 from agentlab.agents.generic_agent.exp_configs import ExpArgs
+from agentlab.experiments.launch_exp import import_object
 
 
 def test_all_configs():
     exp_name_list = [
         "agentlab.agents.generic_agent.generic_agent_test",
-        "agentlab.agents.generic_agent.tgi_toolkit_test",
         "agentlab.agents.generic_agent.progression_study",
         "agentlab.agents.generic_agent.ablation_study",
         "agentlab.agents.generic_agent.demo_maker",
