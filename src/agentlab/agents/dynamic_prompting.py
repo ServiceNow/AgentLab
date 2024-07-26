@@ -3,7 +3,7 @@ import difflib
 import logging
 import platform
 import time
-from copy import deepcopy, copy
+from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
 from textwrap import dedent
 from typing import Literal
@@ -13,12 +13,13 @@ from browsergym.core.action.base import AbstractActionSet
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.core.action.python import PythonActionSet
 from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, overlay_som, prune_html
+
 from agentlab.llm.llm_utils import (
     ParseError,
     count_tokens,
+    extract_code_blocks,
     image_to_jpg_base64_url,
     parse_html_tags_raise,
-    extract_code_blocks,
 )
 
 
@@ -111,12 +112,11 @@ class PromptElement:
     def __init__(self, visible: bool = True) -> None:
         """Prompt element that can be hidden.
 
-        Parameters
-        ----------
-        visible : bool, optional
-            Whether the prompt element should be visible, by default True. Can
-            be a callable that returns a bool. This is useful when a specific
-            flag changes during a shrink iteration.
+        Args:
+            visible : bool, optional
+                Whether the prompt element should be visible, by default True. Can
+                be a callable that returns a bool. This is useful when a specific
+                flag changes during a shrink iteration.
         """
         self._visible = visible
 
@@ -135,6 +135,9 @@ class PromptElement:
         example.
 
         Avoid overriding this method. Override _abstract_ex instead
+
+        Returns:
+            str: The abstract example
         """
         if self.is_visible:
             return self._abstract_ex
@@ -148,6 +151,9 @@ class PromptElement:
         example.
 
         Avoid overriding this method. Override _concrete_ex instead
+
+        Returns:
+            str: The concrete example
         """
         if self.is_visible:
             return self._concrete_ex
@@ -218,22 +224,18 @@ def fit_tokens(
 ):
     """Shrink a prompt element until it fits `max_prompt_tokens`.
 
-    Parameters
-    ----------
-    shrinkable : Shrinkable
-        The prompt element to shrink.
-    max_prompt_tokens : int
-        The maximum number of tokens allowed.
-    max_iterations : int, optional
-        The maximum number of shrink iterations, by default 20.
-    model_name : str, optional
-        The name of the model used when tokenizing.
-    additional_prompts : str or List[str], optional
-        Additional prompts to account for when shrinking, by default [""].
+    Args:
+        shrinkable (Shrinkable): The prompt element to shrink.
+        max_prompt_tokens (int): The maximum number of tokens allowed.
+        max_iterations (int, optional): The maximum number of shrink iterations, by default 20.
+        model_name (str, optional): The name of the model used when tokenizing.
+        additional_prompts (str or List[str], optional): Additional prompts to account for when shrinking, by default [""].
 
-    Returns
-    -------
-    str : the prompt after shrinking.
+    Returns:
+        str: the prompt after shrinking.
+
+    Raises:
+        ValueError: Unrecognized type for prompt
     """
 
     if max_prompt_tokens is None:
@@ -598,7 +600,7 @@ def make_action_set(action_flags: ActionFlags) -> AbstractActionSet:
         return action_set
 
     action_set = HighLevelActionSet(
-        subsets=list(set(["chat"] + action_flags.action_set.split("+"))),
+        subsets=list(set(["chat"] + ["infeas"] + action_flags.action_set.split("+"))),
         multiaction=action_flags.multi_actions,
         strict=action_flags.is_strict,
         demo_mode=action_flags.demo_mode,
