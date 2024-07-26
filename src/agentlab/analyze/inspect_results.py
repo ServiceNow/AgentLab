@@ -1,24 +1,25 @@
-from collections import defaultdict
-from datetime import datetime
 import fnmatch
 import io
-from logging import warn
-from pathlib import Path
 import random
 import re
 import warnings
+from collections import defaultdict
+from datetime import datetime
+from logging import warn
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp_results
+from IPython.display import display
 from tqdm import tqdm
+
 from agentlab.analyze.error_categorization import (
     ERR_CLASS_MAP,
     is_critical_server_error,
     is_minor_server_error,
 )
-from browsergym.experiments.loop import ExpResult, yield_all_exp_results, get_exp_result
 from agentlab.experiments.exp_utils import RESULTS_DIR
-
-from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
 
 # TODO find a more portable way to code set_task_category_as_index at least
@@ -75,6 +76,10 @@ def set_index_from_variables(
             should be included in the index.
         index_black_list: List of wildard patterns to match variables that
             should be excluded from the index.
+        task_key: The key to use as the first level of the index.
+        force_at_leaste_one_variable: If True, force at least one variable in the
+            index. If no variable is found, the index will be set to
+            task_key + "agent_args.agent_name".
     """
     df.reset_index(inplace=True)
     constants, variables, _ = get_constants_and_variables(df)
@@ -126,6 +131,9 @@ def load_result_df(
             should be included in the index.
         index_black_list: List of wildard patterns to match variables that
             should be excluded from the index.
+
+    Returns:
+        pd.DataFrame: The result dataframe
     """
 
     if result_df is not None:
@@ -146,9 +154,7 @@ def load_result_df(
 
 
 def reduce_episodes(result_df: pd.DataFrame) -> pd.DataFrame:
-    """Reduce the dataframe to a single row per episode and summarize some of
-    the columns.
-    """
+    """Reduce the dataframe to a single row per episode and summarize some of the columns."""
 
     levels = list(range(result_df.index.nlevels))
     return result_df.groupby(level=levels).apply(summarize)
@@ -166,6 +172,15 @@ def report_2d(df: pd.DataFrame, reduce_fn: callable = reduce_episodes, n_row_key
     3) Unstack: Produce a 2D table such that the first n_row_keys are used to
        specify how many dimensions are used for the rows. The remaining
        dimensions are used for the columns.
+
+    Args:
+        df: The dataframe to reduce
+        reduce_fn: The function to use to reduce the sub dataframe. By default
+            this is reduce_episodes.
+        n_row_keys: The number of keys to use for the rows.
+
+    Returns:
+        pd.DataFrame: The 2D report
     """
 
     levels = list(range(df.index.nlevels))
@@ -338,6 +353,8 @@ def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize, progression=Fa
         result_df: The result dataframe as returned by load_result_df.
         reduce_fn: The function to use to reduce the sub dataframe. By default
             this is summarize.
+        progression: If True, the change description will be the progression
+
     Returns:
         A dataframe with the change description as index.
     """
@@ -378,15 +395,15 @@ def global_report(
     """Produce a report that summarize all tasks and all episodes for each
     agent.
 
-    Parameters
-    ----------
-    result_df : pd.DataFrame
-        The result dataframe as returned by load_result_df.
-    reduce_fn : callable to summarize sub dataframe
-    rename_index : callable, optional
-        Function to rename the index. By default we remove the prefix
-        "agent_args.flags."
-    apply_shrink_columns: Make the column more compat
+    Args:
+        result_df: The result dataframe as returned by load_result_df.
+        reduce_fn: The function to use to reduce the sub dataframe. By default
+            this is summarize.
+        rename_index: Function to rename the index. By default we remove the prefix
+            "agent_args.flags."
+
+    Returns:
+        pd.DataFrame: The report
     """
 
     levels = list(range(result_df.index.nlevels))

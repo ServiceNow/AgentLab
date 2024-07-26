@@ -1,26 +1,32 @@
 import traceback
 from dataclasses import asdict, dataclass
-from warnings import warn
 from functools import partial
+from warnings import warn
 
+from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
 from langchain.schema import HumanMessage, SystemMessage
 
-
-from browsergym.experiments.agent import Agent
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
-from agentlab.llm.chat_api import ChatModelArgs
-from agentlab.llm.llm_utils import ParseError, RetryError, retry
+from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.llm_utils import ParseError, RetryError, retry_raise
+
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
 
 @dataclass
 class GenericAgentArgs(AbstractAgentArgs):
     agent_name: str = "GenericAgent"
-    chat_model_args: ChatModelArgs = None
+    chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
+
+    def prepare(self):
+        return self.chat_model_args.prepare_server()
+
+    def close(self):
+        return self.chat_model_args.close_server()
 
     def make_agent(self):
         return GenericAgent(
@@ -32,12 +38,12 @@ class GenericAgent(Agent):
 
     def __init__(
         self,
-        chat_model_args: ChatModelArgs,
+        chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
     ):
 
-        self.chat_llm = chat_model_args.make_chat_model()
+        self.chat_llm = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
         self.max_retry = max_retry
 
@@ -66,7 +72,7 @@ class GenericAgent(Agent):
             flags=self.flags,
         )
 
-        max_prompt_tokens, max_trunk_itr = self._get_maxes()
+        max_prompt_tokens, max_trunc_itr = self._get_maxes()
 
         system_prompt = dp.SystemPrompt().prompt
 
@@ -74,7 +80,7 @@ class GenericAgent(Agent):
             shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
             model_name=self.chat_model_args.model_name,
-            max_iterations=max_trunk_itr,
+            max_iterations=max_trunc_itr,
             additional_prompts=system_prompt,
         )
 
@@ -96,7 +102,12 @@ class GenericAgent(Agent):
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=prompt),
             ]
-            ans_dict = retry(self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser)
+            ans_dict = retry_raise(
+                self.chat_llm,
+                chat_messages,
+                n_retry=self.max_retry,
+                parser=main_prompt._parse_answer,
+            )
             # inferring the number of retries, TODO: make this less hacky
             stats["n_retry"] = (len(chat_messages) - 3) / 2
             stats["busted_retry"] = 0
@@ -105,15 +116,20 @@ class GenericAgent(Agent):
             stats["busted_retry"] = 1
 
             stats["n_retry"] = self.max_retry + 1
+
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
         self.actions.append(ans_dict["action"])
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
-        ans_dict["chat_model_args"] = asdict(self.chat_model_args)
-        ans_dict["chat_messages"] = chat_messages
-        ans_dict["stats"] = stats
-        return ans_dict["action"], ans_dict
+
+        agent_info = dict(
+            think=ans_dict.get("think", None),
+            chat_messages=chat_messages,
+            stats=stats,
+            extra_info={"chat_model_args": asdict(self.chat_model_args)},
+        )
+        return ans_dict["action"], agent_info
 
     def reset(self, seed=None):
         self.seed = seed
@@ -151,12 +167,12 @@ does not support vision. Disabling use_screenshot."""
         )
         maxes = [m for m in maxes if m is not None]
         max_prompt_tokens = min(maxes) if maxes else None
-        max_trunk_itr = (
-            self.chat_model_args.max_trunk_itr
-            if self.chat_model_args.max_trunk_itr
+        max_trunc_itr = (
+            self.flags.max_trunc_itr
+            if self.flags.max_trunc_itr
             else 20  # dangerous to change the default value here?
         )
-        return max_prompt_tokens, max_trunk_itr
+        return max_prompt_tokens, max_trunc_itr
 
 
 from functools import partial
@@ -170,14 +186,13 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     Its goal is to recreate the prompt and the output of the agent a posteriori.
     The purpose is to build datasets for training the agents.
 
-    Parameters:
-    - agent (GenericAgent): The agent for which the action is being determined.
-    - obs (dict): The observation dictionary to append to the agent's history.
-    - ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
+    Args:
+        agent (GenericAgent): The agent for which the action is being determined.
+        obs (dict): The observation dictionary to append to the agent's history.
+        ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
 
     Returns:
-    - full_prompt (str): The complete prompt used for the agent.
-    - output (str): The reconstructed output based on the answer dictionary.
+        Tuple[str, str]: The complete prompt used for the agent and the reconstructed output based on the answer dictionary.
     """
     system_prompt = dp.SystemPrompt().prompt
 
@@ -194,13 +209,13 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
         flags=agent.flags,
     )
 
-    max_prompt_tokens, max_trunk_itr = agent._get_maxes()
+    max_prompt_tokens, max_trunc_itr = agent._get_maxes()
 
     fit_function = partial(
         dp.fit_tokens,
         max_prompt_tokens=max_prompt_tokens,
         model_name=agent.chat_model_args.model_name,
-        max_iterations=max_trunk_itr,
+        max_iterations=max_trunc_itr,
     )
 
     instruction_prompt = fit_function(shrinkable=main_prompt)

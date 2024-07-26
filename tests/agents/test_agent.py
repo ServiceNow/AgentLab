@@ -1,32 +1,25 @@
 import tempfile
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from agentlab.agents.generic_agent.generic_agent_prompt import BASIC_FLAGS
-from agentlab.llm.chat_api import ChatModelArgs
+from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
+from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments import launch_exp
 from agentlab.analyze import inspect_results
+from pathlib import Path
 
 
 def test_generic_agent():
     exp_args = ExpArgs(
         agent_args=GenericAgentArgs(
-            chat_model_args=ChatModelArgs(model_name="test/CheatMiniWoBLLM"),
-            flags=BASIC_FLAGS,
+            chat_model_args=CheatMiniWoBLLMArgs(),
+            flags=FLAGS_GPT_3_5,
         ),
         env_args=EnvArgs(task_name="miniwob.click-test", task_seed=42),
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
 
-        launch_exp.main(
-            exp_root=tmp_dir,
-            exp_group_name="generic_agent_test",
-            exp_args_list=[exp_args],
-            n_jobs=1,
-            relaunch_mode=None,
-            shuffle_jobs=True,
-            auto_accept=True,
-        )
+        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
 
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 

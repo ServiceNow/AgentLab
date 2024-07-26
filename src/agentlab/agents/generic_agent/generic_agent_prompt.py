@@ -40,78 +40,8 @@ class GenericPromptFlags(dp.Flags):
     be_cautious: bool = True
     extra_instructions: str | None = None
     add_missparsed_messages: bool = True
+    max_trunc_itr: int = 20
     flag_group: str = None
-
-
-BASIC_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=False,
-        use_error_logs=True,
-        use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=False,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=False,
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=False,
-    use_hints=False,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    be_cautious=False,
-    extra_instructions=None,
-)
-
-ADVANCED_FLAGS = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
-        use_error_logs=True,
-        use_history=True,
-        use_past_error_logs=True,
-        use_action_history=True,
-        use_think_history=True,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=True,
-        use_som=True,
-        extract_visible_tag=True,
-        extract_clickable_tag=True,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        multi_actions=True,
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
-    enable_chat=False,
-    max_prompt_tokens=None,
-    be_cautious=True,
-    extra_instructions=None,
-)
 
 
 class MainPrompt(dp.Shrinkable):

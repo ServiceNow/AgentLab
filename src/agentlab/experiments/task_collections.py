@@ -5,22 +5,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-t0 = t.time()
-from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
-
 logger = logging.getLogger(__name__)
-
-dt = t.time() - t0
-print(f"done importing workarena, took {dt:.2f} seconds")
 
 from browsergym.experiments import EnvArgs
 from browsergym.webarena import ALL_WEBARENA_TASK_IDS
-
-# workarena_dashboard_tasks = [task_class.get_task_id() for task_class in DASHBOARD_TASKS]
-# workarena_order_tasks = [task for task in workarena_tasks if "order" in task]
-# workarena_sort_tasks = [task for task in workarena_tasks if "sort" in task]
-# workarena_filter_tasks = [task for task in workarena_tasks if "filter" in task]
-
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
@@ -37,55 +25,6 @@ assert len(tasks_eval) == 107
 assert len(miniwob_debug) == 12
 assert len(miniwob_tiny_test) == 2
 
-# small set of task that should be a good indicator of the agent's performance
-miniwob_allac_test = [
-    "miniwob.use-slider-2",
-    "miniwob.book-flight",  # long html
-    "miniwob.hot-cold",  # many iterations + memory
-    "miniwob.login-user-popup",  # challenge: it sometimes has a random popup that prevents the agent from logging in. Seed 43 has a popup.
-    "miniwob.guess-number",
-    "miniwob.copy-paste-2",  # requires ctrl+A befor ctrl+C and cmd on mac
-    "miniwob.bisect-angle",  # requires good 2d understanding
-]
-
-suspisous_tasks = [
-    "miniwob.choose-date",
-    "miniwob.copy-paste",
-    "miniwob.copy-paste-2",
-    "miniwob.find-word",
-    "miniwob.resize-textarea",
-    "miniwob.text-transform",
-    "miniwob.use-autocomplete",
-    "miniwob.use-colorwheel",
-    "miniwob.use-colorwheel-2",
-    "miniwob.click-button-sequence",
-    "miniwob.click-checkboxes-large",
-]
-
-# the best agent is able to solve these tasks some of the time but often fails
-edge_tasks = [
-    "miniwob.choose-date",
-    "miniwob.click-scroll-list",
-    "miniwob.count-shape",
-    "miniwob.daily-calendar",
-    "miniwob.drag-cube",
-    "miniwob.drag-shapes",
-    "miniwob.draw-line",
-    "miniwob.email-inbox-forward",
-    "miniwob.email-inbox-forward-nl",
-    "miniwob.email-inbox-forward-nl-turk",
-    "miniwob.form-sequence",
-    "miniwob.form-sequence-2",
-    "miniwob.hot-cold",
-    "miniwob.resize-textarea",
-    "miniwob.right-angle",
-    "miniwob.sign-agreement",
-    "miniwob.text-editor",
-    "miniwob.use-slider-2",
-    "miniwob.bisect-angle",
-    "miniwob.choose-date-medium",
-    "miniwob.choose-date-nodelay",
-]
 
 webgum_tasks = [
     "miniwob.book-flight",
@@ -160,6 +99,14 @@ def get_benchmark_env_args(
             if None, it will use the default value for the benchmark.
         n_repeat: None or int. The number of seeds for each task.
             if None, it will use the default value for the benchmark.
+        is_agent_curriculum: wether to use the agent curriculum or the human curriculum.
+
+    Returns:
+        A list of EnvArgs.
+
+    Raises:
+        ValueError: If the benchmark_name is not recognized, or if the benchmark_name is not
+            followed by a subcategory for workarena.
     """
     env_args_list = []
     rng = np.random.RandomState(meta_seed)
@@ -197,6 +144,11 @@ def get_benchmark_env_args(
             n_repeat = 1
 
     if benchmark_name.startswith("workarena"):
+        t0 = t.time()
+        from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
+
+        dt = t.time() - t0
+        print(f"done importing workarena, took {dt:.2f} seconds")
 
         if len(filters) < 2:
             raise ValueError(f"You must specify the sub set of workarena, e.g.: workarena.l2.")
@@ -219,6 +171,8 @@ def get_benchmark_env_args(
                 )
 
     elif benchmark_name == "webarena":
+        from browsergym.webarena import ALL_WEBARENA_TASK_IDS
+
         env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
     elif benchmark_name.startswith("miniwob"):
         miniwob_benchmarks_map = {

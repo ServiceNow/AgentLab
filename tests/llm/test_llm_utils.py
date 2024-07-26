@@ -1,16 +1,16 @@
+import warnings
 from typing import Literal
 from unittest import mock
 from unittest.mock import Mock
-import warnings
+
+import httpx
 import numpy as np
 import pytest
-
-from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage
+from langchain_openai import AzureChatOpenAI
 from openai import RateLimitError
-from agentlab.llm import llm_utils
-import httpx
 
+from agentlab.llm import llm_utils
 
 yaml_str = """Analysis:
 This is the analysis
@@ -96,7 +96,9 @@ hola
 
 @pytest.mark.pricy
 def test_retry_parallel():
-    chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2, n=3)
+    chat = AzureChatOpenAI(
+        model_name="gpt-35-turbo", azure_deployment="gpt-35-turbo", temperature=0.2, n=3
+    )
     prompt = """List primes from 1 to 10."""
     messages = [
         SystemMessage(content=prompt),
@@ -144,11 +146,11 @@ def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> Rate
     Create a mocked instantiation of RateLimitError with a specified message and status code.
 
     Args:
-    - message (str): The error message.
-    - status_code (Literal[429]): The HTTP status code, default is 429 for rate limiting.
+        message (str): The error message.
+        status_code (Literal[429]): The HTTP status code, default is 429 for rate limiting.
 
     Returns:
-    - RateLimitError: A mocked RateLimitError instance.
+        RateLimitError: A mocked RateLimitError instance.
     """
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = status_code
