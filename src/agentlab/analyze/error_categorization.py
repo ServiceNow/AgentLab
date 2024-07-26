@@ -41,10 +41,15 @@ def is_minor_server_error(err_msg: str, stack_trace: str, return_error_type=Fals
 def is_retry_error(err_msg: str, stack_trace: str):
     """Use regex on the stack trace to detect retry errors.
 
-    The pattern is "ValueError: Could not parse a valid value after \d+
+    The pattern is "ValueError: Could not parse a valid value after d+
     retries."
 
-    returns True if there is a match, False otherwise
+    Args:
+        err_msg (str): The error message
+        stack_trace (str): The stack trace
+
+    Returns:
+        bool: True if the error is a retry error, False otherwise
     """
     if stack_trace is None:
         return False
@@ -58,7 +63,12 @@ def is_input_length_error(err_msg: str, stack_trace: str):
     The patterns are "422 Client Error: Unprocessable Entity"
     and also "Input validation error: `inputs` tokens + `max_new_tokens` must be <="
 
-    Returns True if there is a match, False otherwise.
+    Args:
+        err_msg (str): The error message
+        stack_trace (str): The stack trace
+
+    Returns:
+        bool: True if the error is an input length error, False otherwise
     """
     if stack_trace is None:
         return False

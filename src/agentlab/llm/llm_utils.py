@@ -1,27 +1,28 @@
+import base64
 import collections
+import io
 import json
+import logging
 import os
-from pathlib import Path
 import re
 import time
-from warnings import warn
-import logging
-
 from functools import cache
+from pathlib import Path
+from typing import TYPE_CHECKING
+from warnings import warn
+
 import numpy as np
 import tiktoken
 import yaml
-from langchain_openai import ChatOpenAI
-
-from langchain.schema import SystemMessage, HumanMessage
-from openai import BadRequestError
 from joblib import Memory
-from transformers import AutoModel
-from transformers import AutoTokenizer
-import io
-import base64
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from openai import BadRequestError, RateLimitError
 from PIL import Image
-from openai import RateLimitError
+from transformers import AutoModel, AutoTokenizer
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 
 def _extract_wait_time(error_message, min_retry_wait_time=60):
@@ -37,7 +38,7 @@ class RetryError(ValueError):
 
 
 def retry(
-    chat: ChatOpenAI,
+    chat: "BaseChatModel",
     messages,
     n_retry,
     parser,
@@ -54,25 +55,28 @@ def retry(
     Note, each retry has to resend the whole prompt to the API. This can be slow
     and expensive.
 
-    Parameters:
-    -----------
-        chat (function) : a langchain ChatOpenAI taking a list of messages and
+    Args:
+        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
             returning a list of answers.
-        messages (list) : the list of messages so far.
-        n_retry (int) : the maximum number of sequential retries.
+        messages (list): the list of messages so far.
+        n_retry (int): the maximum number of sequential retries.
         parser (function): a function taking a message and returning a tuple
-        with the following fields:
-            value : the parsed value,
-            valid : a boolean indicating if the value is valid,
-            retry_message : a message to send to the chat if the value is not valid
+            with the following fields:
+                value : the parsed value,
+                valid : a boolean indicating if the value is valid,
+                retry_message : a message to send to the chat if the value is not valid
         log (bool): whether to log the retry messages.
         min_retry_wait_time (float): the minimum wait time in seconds
             after RateLimtError. will try to parse the wait time from the error
             message.
+        rate_limit_max_wait_time (int): the maximum wait time in seconds
 
     Returns:
-    --------
-        value: the parsed value
+        dict: the parsed value, with a string at key "action".
+
+    Raises:
+        RetryError: if the parser could not parse a valid value after n_retry retries.
+        RateLimitError: if the requests exceed the rate limit.
     """
     tries = 0
     rate_limit_total_delay = 0
@@ -106,69 +110,48 @@ def retry(
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
 
-def retry_and_fit(
-    chat: ChatOpenAI,
-    main_prompt,
-    system_prompt: str,
-    n_retry,
-    parser,
-    log=True,
-    min_retry_wait_time=60,
-    rate_limit_max_wait_time=60 * 30,
-    fit_function: callable = lambda shrinkable, *kw: shrinkable,
-    add_missparsed_messages=True,
+def retry_raise(
+    chat: "BaseChatModel",
+    messages: list[BaseMessage],
+    n_retry: int,
+    parser: callable,
+    log: bool = True,
+    min_retry_wait_time: int = 60,
+    rate_limit_max_wait_time: int = 60 * 30,
 ):
     """Retry querying the chat models with the response from the parser until it
-    returns a valid value. The prompt is passed through a fitting function at each
-    retry.
+    returns a valid value.
 
-    If the answer is not valid, it will retry and append to the chat (depending on
-    add_missparsed_messages) the  retry message.  It will stop after `n_retry`.
+    If the answer is not valid, it will retry and append to the chat the  retry
+    message.  It will stop after `n_retry`.
 
     Note, each retry has to resend the whole prompt to the API. This can be slow
     and expensive.
 
-    Parameters:
-    -----------
-        chat (function) : a langchain ChatOpenAI taking a list of messages and
+    Args:
+        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
             returning a list of answers.
-        messages (list) : the list of messages so far.
-        n_retry (int) : the maximum number of sequential retries.
-        parser (function): a function taking a message and returning a tuple
-        with the following fields:
-            value : the parsed value,
-            valid : a boolean indicating if the value is valid,
-            retry_message : a message to send to the chat if the value is not valid
+        messages (list): the list of messages so far. This list will be modified with
+            the new messages and the retry messages.
+        n_retry (int): the maximum number of sequential retries.
+        parser (function): a function taking a message and retruning a parsed value,
+            or raising a ParseError
         log (bool): whether to log the retry messages.
         min_retry_wait_time (float): the minimum wait time in seconds
             after RateLimtError. will try to parse the wait time from the error
             message.
-        rate_limit_max_wait_time (float): the maximum total wait time in seconds
-            for rate limit errors.
-        fit_function (callable): a function to fit the tokens before retrying.
-            takes main_prompt (str) and additional_prompts (List[str]) and returns
-            a new prompt.
-        add_missparsed_messages (bool): whether to add the retry message to the
-            chat.
+        rate_limit_max_wait_time (int): the maximum wait time in seconds
 
     Returns:
-    --------
-        value: the parsed value
+        dict: the parsed value, with a string at key "action".
+
+    Raises:
+        RetryError: if the parser could not parse a valid value after n_retry retries.
+        RateLimitError: if the requests exceed the rate limit.
     """
     tries = 0
     rate_limit_total_delay = 0
-
-    additional_prompts = []
-
     while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
-
-        # fit tokens
-        prompt = fit_function(
-            shrinkable=main_prompt, additional_prompts=[system_prompt] + additional_prompts
-        )
-        messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
-        messages += [HumanMessage(content=content) for content in additional_prompts]
-
         try:
             answer = chat.invoke(messages)
         except RateLimitError as e:
@@ -183,24 +166,21 @@ def retry_and_fit(
                 raise
             continue
 
-        value, valid, retry_message = parser(answer.content)
-        if valid:
-            value["n_retry"] = tries
-            value["chat_messages"] = [m.content for m in messages]
-            return value
+        messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
 
-        tries += 1
-        if log:
-            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
-            logging.info(msg)
-        if add_missparsed_messages:
-            additional_prompts.append(answer.content)
-            additional_prompts.append(retry_message)
+        try:
+            return parser(answer.content)
+        except ParseError as parsing_error:
+            tries += 1
+            if log:
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{str(parsing_error)}"
+                logging.info(msg)
+            messages.append(HumanMessage(content=str(parsing_error)))
 
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
 
-def retry_parallel(chat: ChatOpenAI, messages, n_retry, parser):
+def retry_parallel(chat: "BaseChatModel", messages, n_retry, parser):
     """Retry querying the chat models with the response from the parser until it returns a valid value.
 
     It will stop after `n_retry`. It assuemes that chat will generate n_parallel answers for each message.
@@ -211,21 +191,23 @@ def retry_parallel(chat: ChatOpenAI, messages, n_retry, parser):
     This function is, in principle, more robust than retry. The speed and cost overhead is minimal with
     the prompt is large and the length of the generated message is small.
 
-    Parameters:
-    -----------
-        chat (function) : a langchain ChatOpenAI taking a list of messages and returning a list of answers.
-            The number of parallel generations is specified at the creation of the chat object.
-        messages (list) : the list of messages so far.
-        n_retry (int) : the maximum number of sequential retries.
-        parser (function): a function taking a message and returning a tuple with the following fields:
-            value : the parsed value,
-            valid : a boolean indicating if the value is valid,
-            retry_message : a message to send to the chat if the value is not valid,
-            score : a score to select the best answer from the parallel generations
+    Args:
+        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
+            returning a list of answers.
+        messages (list): the list of messages so far.
+        n_retry (int): the maximum number of sequential retries.
+        parser (function): a function taking a message and returning a tuple
+            with the following fields:
+                value : the parsed value,
+                valid : a boolean indicating if the value is valid,
+                retry_message : a message to send to the chat if the value is not valid
 
     Returns:
-    --------
-        value: the parsed value
+        dict: the parsed value, with a string at key "action".
+
+    Raises:
+        ValueError: if the parser could not parse a valid value after n_retry retries.
+        BadRequestError: if the message is too long
     """
 
     for i in range(n_retry):
@@ -272,12 +254,13 @@ def truncate_tokens(text, max_tokens=8000, start=0, model_name="gpt-4"):
 
 
 @cache
-def get_tokenizer(model_name="openai/gpt-4"):
-    logging.debug(f"Loading tokenizer for model {model_name}")
-    if model_name == "cheat_miniwob_click_test":
+def get_tokenizer_old(model_name="openai/gpt-4"):
+    if model_name.startswith("test"):
         return tiktoken.encoding_for_model("gpt-4")
     if model_name.startswith("openai"):
         return tiktoken.encoding_for_model(model_name.split("/")[-1])
+    if model_name.startswith("azure"):
+        return tiktoken.encoding_for_model(model_name.split("/")[1])
     if model_name.startswith("reka"):
         logging.warning(
             "Reka models don't have a tokenizer implemented yet. Using the default one."
@@ -285,6 +268,19 @@ def get_tokenizer(model_name="openai/gpt-4"):
         return tiktoken.encoding_for_model("gpt-4")
     else:
         return AutoTokenizer.from_pretrained(model_name)
+
+
+@cache
+def get_tokenizer(model_name="gpt-4"):
+    try:
+        return tiktoken.encoding_for_model(model_name)
+    except KeyError:
+        logging.info(f"Could not find a tokenizer for model {model_name}. Trying HuggingFace.")
+    try:
+        return AutoTokenizer.from_pretrained(model_name)
+    except OSError:
+        logging.info(f"Could not find a tokenizer for model {model_name}. Defaulting to gpt-4.")
+    return tiktoken.encoding_for_model("gpt-4")
 
 
 def count_tokens(text, model="openai/gpt-4"):
@@ -374,22 +370,14 @@ def compress_string(text):
 def extract_html_tags(text, keys):
     """Extract the content within HTML tags for a list of keys.
 
-    Parameters
-    ----------
-    text : str
-        The input string containing the HTML tags.
-    keys : list of str
-        The HTML tags to extract the content from.
-
-    Returns
-    -------
-    dict
-        A dictionary mapping each key to a list of subset in `text` that match the key.
-
-    Notes
-    -----
     All text and keys will be converted to lowercase before matching.
 
+    Args:
+        text (str): The input string containing the HTML tags.
+        keys (list[str]): The HTML tags to extract the content from.
+
+    Returns:
+        dict: A dictionary mapping each key to a list of subset in `text` that match the key.
     """
     content_dict = {}
     # text = text.lower()
@@ -426,23 +414,17 @@ def parse_html_tags_raise(text, keys=(), optional_keys=(), merge_multiple=False)
 def parse_html_tags(text, keys=(), optional_keys=(), merge_multiple=False):
     """Satisfy the parse api, extracts 1 match per key and validates that all keys are present
 
-    Parameters
-    ----------
-    text : str
-        The input string containing the HTML tags.
-    keys : list of str
-        The HTML tags to extract the content from.
-    optional_keys : list of str
-        The HTML tags to extract the content from, but are optional.
+    Args:
+        text (str): The input string containing the HTML tags.
+        keys (list[str]): The HTML tags to extract the content from.
+        optional_keys (list[str]): The HTML tags to extract the content from, but are optional.
+        merge_multiple (bool): Whether to merge multiple instances of the same key.
 
-    Returns
-    -------
-    dict
-        A dictionary mapping each key to subset of `text` that match the key.
-    bool
-        Whether the parsing was successful.
-    str
-        A message to be displayed to the agent if the parsing was not successful.
+    Returns:
+        dict: A dictionary mapping each key to a subset of `text` that match the key.
+        bool: Whether the parsing was successful.
+        str: A message to be displayed to the agent if the parsing was not successful.
+
     """
     all_keys = tuple(keys) + tuple(optional_keys)
     content_dict = extract_html_tags(text, all_keys)

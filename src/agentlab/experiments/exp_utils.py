@@ -36,22 +36,3 @@ def hide_some_exp(base_dir, filter: callable, just_test):
                 _move_old_exp(exp.exp_dir)
             filtered_out.append(exp)
     return filtered_out
-
-
-def get_ckpt_list(chat_model_args, add_base_model=True):
-
-    args_list = []
-    ckpt_dir = chat_model_args.model_path
-    ckpt_itr_dirs = [d for d in os.listdir(ckpt_dir) if d.startswith("ckpt_itr_")]
-    for ckpt_itr_dir in ckpt_itr_dirs:
-        args = copy.deepcopy(chat_model_args)
-        args.model_path = os.path.join(ckpt_dir, ckpt_itr_dir)
-        args_list.append(args)
-
-    if add_base_model:
-        base_model_dir = str(Path(chat_model_args.model_path).parent)
-        args = copy.deepcopy(chat_model_args)
-        args.model_path = base_model_dir
-        args_list.append(args)
-
-    return args_list
