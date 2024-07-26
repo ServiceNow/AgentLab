@@ -17,14 +17,14 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class BasicAgentArgs(AbstractAgentArgs):
+class MostBasicAgentArgs(AbstractAgentArgs):
     agent_name: str = "BasicAgent"
     temperature: float = 0.1
     use_chain_of_thought: bool = False
     chat_model_args: "BaseModelArgs" = None
 
     def make_agent(self) -> Agent:
-        return BasicAgent(
+        return MostBasicAgent(
             temperature=self.temperature,
             use_chain_of_thought=self.use_chain_of_thought,
             chat_model_args=self.chat_model_args,
@@ -37,7 +37,7 @@ class BasicAgentArgs(AbstractAgentArgs):
         return self.chat_model_args.close_server()
 
 
-class BasicAgent(Agent):
+class MostBasicAgent(Agent):
     def __init__(
         self, temperature: float, use_chain_of_thought: bool, chat_model_args: "BaseModelArgs"
     ):
@@ -121,7 +121,7 @@ chat_model_args = CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"]
 
 exp_args = [
     ExpArgs(
-        agent_args=BasicAgentArgs(
+        agent_args=MostBasicAgentArgs(
             temperature=0.1,
             use_chain_of_thought=True,
             chat_model_args=chat_model_args,
@@ -130,7 +130,7 @@ exp_args = [
         logging_level=logging.INFO,
     ),
     ExpArgs(
-        agent_args=BasicAgentArgs(
+        agent_args=MostBasicAgentArgs(
             temperature=0.1,
             use_chain_of_thought=False,
             chat_model_args=chat_model_args,
