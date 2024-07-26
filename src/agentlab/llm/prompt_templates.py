@@ -1,8 +1,8 @@
-from typing import List
 import logging
-
-from langchain.schema import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from dataclasses import dataclass
+from typing import List
+
+from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 """
 To use this class, you should have the ``openai`` python package installed, and the
@@ -55,6 +55,9 @@ class PromptTemplate:
 
         Returns:
             str: The constructed prompt.
+
+        Raises:
+            ValueError: If any element in the list is not of type BaseMessage.
         """
         if not all(isinstance(m, BaseMessage) for m in messages):
             raise ValueError("All elements in the list must be of type BaseMessage")

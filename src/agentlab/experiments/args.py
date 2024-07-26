@@ -1,5 +1,5 @@
-from abc import ABC
 import copy
+from abc import ABC
 from dataclasses import fields, is_dataclass
 from itertools import product
 from typing import Any
@@ -35,18 +35,13 @@ class Choice(Distribution):
 def _find_cprod_with_paths(obj, path=None):
     """Find all the CrossProd objects and their paths in the given object.
 
-    Parameters:
-    -----------
-    obj : Any
-        The object to search for CrossProd objects.
-    path : List[str]
-        The path to the current object.
+    Args:
+        obj (Any): The object to search for CrossProd objects.
+        path (List[str]): The path to the current object.
 
     Returns:
-    --------
-    List[Tuple[List[str], CrossProd]]
-        A list of tuples where the first element is the path to the CrossProd
-        object and the second element is the CrossProd object.
+        List[Tuple[List[str], CrossProd]]: A list of tuples where the first element is the path to the CrossProd
+            object and the second element is the CrossProd object.
     """
     if path is None:
         path = []
@@ -87,14 +82,12 @@ def expand_cross_product(obj: Any | list[Any]):
     object and create a list of objects with all combinations of CrossProd. It
     searches through dataclasses and dictionaries.
 
-    Parameters:
-    -----------
-    obj : Any | List[Any]
-        The object to expand.
+    Args:
+        obj: Any | List[Any],
+            The object to expand.
 
     Returns:
-    --------
-    List[Any]
+        List[Any]:
         A list of objects with all combinations of CrossProd objects.
 
     """
@@ -136,12 +129,15 @@ def sample_args(obj: Any | list[Any], n_samples: int):
     the original object with any object of type Distribution replaced by a
     sample from that distribution.
 
-    Parameters:
-    -----------
-        obj: Any or List[Any],
+    Args:
+        obj: Any | List[Any],
             the object to sample
         n_samples: int,
             the number of samples to generate
+
+    Returns:
+        List[Any]:
+        A list of n_samples objects with the given object.
     """
 
     if isinstance(obj, list):
@@ -175,10 +171,25 @@ def _sample_single(obj):
     return obj
 
 
+class Toggle:
+    pass
+
+
+TOGGLE = Toggle()
+
+
 def _change_value(obj, path, value):
     """Set the value to the given path in the nested objects.
 
     Note: This doesn't work with list or dict or tuples. Only works with objects.
+
+    Args:
+        obj: the object to change the value
+        path: the path to the value to change
+        value: the value to change to
+
+    Raises:
+        ValueError: if the field is not found in the object
     """
     key_list = path.split(".")
     for key in key_list[:-1]:
@@ -186,14 +197,24 @@ def _change_value(obj, path, value):
             continue
         obj = getattr(obj, key)
     # if dataclass, then set the value only if the field exists
+
+    def _set(obj, key, value):
+        if isinstance(value, Toggle):
+            previous_value = getattr(obj, key)
+            if not isinstance(previous_value, bool):
+                raise ValueError(f"Toggle object {obj} attribute {key} is not a boolean")
+            setattr(obj, key, not previous_value)
+        else:
+            setattr(obj, key_list[-1], value)
+
     if is_dataclass(obj):
         field_names = [field.name for field in fields(obj)]
         if key_list[-1] in field_names:
-            setattr(obj, key_list[-1], value)
+            _set(obj, key_list[-1], value)
         else:
             raise ValueError(f"field {key_list[-1]} not found in {obj}")
     else:
-        setattr(obj, key_list[-1], value)
+        _set(obj, key_list[-1], value)
 
 
 def _apply_change(params, change):

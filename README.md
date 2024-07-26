@@ -1,3 +1,7 @@
+## Paper
+
+
+
 ## Install agentlab
 
 :warning: skip this section if you've already installed the `agentlab` conda env.
@@ -15,39 +19,52 @@ This will ensure that the `PYTHONPATH` will be set correctly.
 
 ## Launch experiments
 
-We provide default settings to run our agents on a few benchmarks. Those can be ran from `launch_exp.py`,
-with the following flags:
+Experiments can be ran from `launch_exp.py`, with the following options:
 
 ```bash
   -h, --help            show this help message and exit
   --exp_root EXP_ROOT   folder where experiments will be saved
   --n_jobs N_JOBS       number of parallel jobs
-  --exp_group_name EXP_GROUP_NAME
-                        Name of the experiment group to launch as defined in exp_configs.py
+  --exp_config EXP_CONFIG
+                        Python path to the experiment function to launch
   --benchmark {miniwob,workarena.l1,workarena.l2,workarena.l3}
                         Benchmark to launch
-  --model_name {gpt-3.5,gpt-4o,gpt-4o-vision,custom}
-                        Model to launch
+  --agent_config AGENT_CONFIG
+                        Python path to the agent config
   --relaunch_mode {None,incomplete_only,all_errors,server_errors}
                         Find all incomplete experiments and relaunch them.
+  --extra_kwargs EXTRA_KWARGS
+                        Extra arguments to pass to the experiment group.
 ```
 
-`exp_group_name` is the name of the experiment group to launch as defined in `exp_configs.py`. This will override the `benchmark` and `model_name` flags.
+`exp_config` is a python path to the experiment function to launch as defined in `exp_configs.py`. This function must return a list of `ExpArgs` objects, that correspond to running one agent on a task.
+
+`agent_config` is a python path to an agent config.
+
+Our experiment and agent configs are available at `agentlab.agents.generic_agent`
 
 As an example, to launch our agent with GPT-4o on the miniwob benchmark, with maximum jobs, run:
 
 ```bash
     python src/agentlab/experiments/launch_exp.py  \
+        --exp_config=agentlab.agents.generic_agent.final_run \
+        --agent_config=agentlab.agents.generic_agent.AGENT_4o \
         --benchmark=miniwob \
-        --model_name=gpt-4o \
         --n_jobs=-1
 ```
 
-In `exp_configs.py`, you can modify `FLAGS_CUSTOM` and `AGENT_CUSTOM` to test out your own flags and models, and then launch them with `--model_name=custom`.
+Our configs are available in the [agent_config folder](src/agentlab/agents/generic_agent/agent_configs.py). We provide configs for our agent with the following models:
+- `AGENT_3_5`: GPT-3.5
+- `AGENT_4o`: GPT-4o
+- `AGENT_4o_vision`: GPT-4o with vision
+- `AGENT_8B`: Llama3-8B
+- `AGENT_70B`: Llama3-70B
+
+We additionnaly provide an `AGENT_CUSTOM` config that can be used to try out flags.
 
 ### Custom experiments
 
-Alternatively, you can customize your experiments by modifying `exp_configs.py` and `launch_command.py`. They are located in `agentlab/experiments/`.
+Alternatively, you can customize your experiments by modifying `exp_configs.py` and `launch_command.py`. They are located respectively in `agentlab/agents/generic_agent` and `agentlab/experiments/`.
 
 Then launch the experiment with
 
@@ -56,7 +73,7 @@ Then launch the experiment with
 ```
 
 
-### Debugging jobs
+### Debugging
 
 If you launch via VSCode in debug mode, debugging will be enabled and errors will be raised
 instead of being logged, unless you set `enable_debug = False` in `ExpArgs`. This

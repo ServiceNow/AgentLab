@@ -1,5 +1,6 @@
-from typing import Callable, List, Union
 import warnings
+from typing import Callable, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
@@ -10,23 +11,23 @@ def stratified_bootstrap(
     strat: Union[str, List[str]],
     metric: str,
     func: Callable,
-    repeat: int = 100,
+    repeat: Optional[int] = 100,
     rng: np.random.Generator = np.random.default_rng(),
 ) -> pd.DataFrame:
     """
     Perform stratified bootstrapping on a DataFrame.
 
     Parameters:
-    - df (pd.DataFrame): The input DataFrame.
-    - group_by (Union[str, List[str]]): The column(s) by which to group the DataFrame.
-    - strat (str): The column used to define strata within each group.
-    - metric (str): The column containing the metric to which the function will be applied.
-    - func (Callable): The function to apply to the metric within each stratum.
-    - repeat (int, optional): Number of bootstrap iterations. Default is 100.
-    - rng (np.random.Generator, optional): Random number generator. Default is NumPy's random generator.
+        df (pd.DataFrame): The input DataFrame.
+        group_by (Union[str, List[str]]): The column(s) by which to group the DataFrame.
+        strat (str): The column used to define strata within each group.
+        metric (str): The column containing the metric to which the function will be applied.
+        func (Callable): The function to apply to the metric within each stratum.
+        repeat (int, optional): Number of bootstrap iterations. Default is 100.
+        rng (np.random.Generator, optional): Random number generator. Default is NumPy's random generator.
 
     Returns:
-    - pd.DataFrame: A DataFrame containing bootstrapped samples with applied function.
+        pd.DataFrame: A DataFrame containing bootstrapped samples with applied function.
     """
     if group_by is None:
         group_by = []
