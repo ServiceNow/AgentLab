@@ -86,18 +86,37 @@ class BrowserGymStepAgent(Agent):
             prompt_mode=prompt_mode,
             previous_actions=previous_actions
         )
+        self.logging = logging
         super().__init__()
+
+    def reset(self):
+        self.agent.reset()
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
         url = obs["url"] if "url" in obs else None
-        objective = obs["goal"] if "goal" in obs else None
+        objective: str = obs["goal"] if "goal" in obs else None
         if self.use_dom:
-            observation = obs["pruned_html"] if "pruned_html" in obs else None
+            raw_observation: str = obs["pruned_html"] if "pruned_html" in obs else None
+            observation = self.preprocess_dom(
+                raw_observation) if raw_observation else None
         else:
-            observation = obs["axtree_txt"] if "axtree_txt" in obs else None
-        action, _ = self.agent.predict_action(
+            observation: str = obs["axtree_txt"] if "axtree_txt" in obs else None
+        action, reason = self.agent.predict_action(
             objective=objective, observation=observation, url=url)
+        if self.logging:
+            self.agent.log_step(action=action, reason=reason)
         return self.parse_action(action), {}
+
+    def preprocess_dom(self, dom: str) -> str:
+        """Preprocess the DOM before passing it to the model. Replace 'bid="XYZ"' by 'id=XYZ' 
+        to match original SteP prompt for MiniWoB.
+        """
+        bid_match = re.search(
+            r'(bid=)"(\d+)"', dom)  # group using "="" to avoid catching words containing "bid"
+        id_name = bid_match.group(
+            1) if bid_match else None  # should return "bid="
+        id_value = bid_match.group(2) if bid_match else None
+        return re.sub(rf'{id_name}"{id_value}"', f'id={id_value}', dom)
 
     def parse_action(self, action: str) -> str:
         """Parse the action to a string from BrowserGym action space."""
@@ -107,13 +126,14 @@ class BrowserGymStepAgent(Agent):
             return f"click(\"{bid}\")"
 
         if "type" in action:
-            type_match = re.search(r'type\s*\[(\d+)\]\s*\[(.*?)\](\s*\[(0|1)\])?', action, re.DOTALL)
+            type_match = re.search(
+                r'type\s*\[(\d+)\]\s*\[(.*?)\](\s*\[(0|1)\])?', action, re.DOTALL)
             bid = type_match.group(1) if type_match else None
             text = type_match.group(2) if type_match else None
             has_enter_option = type_match.group(3) if type_match else None
             press_enter = type_match.group(4) if has_enter_option else None
             # TODO: need to handle "press_enter" option: returns 2 actions instead of one
-            return [f"fill(\"{bid}\", \"{text}\")", "keyboard_press(enter)"]
+            return f"fill(\"{bid}\", \"{text}\")"
 
         if "scroll" in action:
             scroll_match = re.search(r'scroll\s*\[(.*?)\]', action, re.DOTALL)
