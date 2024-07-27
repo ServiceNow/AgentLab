@@ -1,26 +1,32 @@
 import traceback
 from dataclasses import asdict, dataclass
-from warnings import warn
 from functools import partial
+from warnings import warn
 
+from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
 from langchain.schema import HumanMessage, SystemMessage
 
-
-from browsergym.experiments.agent import Agent
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.utils import openai_monitored_agent
-from agentlab.llm.chat_api import ChatModelArgs
-from agentlab.llm.llm_utils import ParseError, RetryError, retry_and_fit, retry
+from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.llm_utils import ParseError, RetryError, retry_raise
+
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
 
 @dataclass
 class GenericAgentArgs(AbstractAgentArgs):
     agent_name: str = "GenericAgent"
-    chat_model_args: ChatModelArgs = None
+    chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
+
+    def prepare(self):
+        return self.chat_model_args.prepare_server()
+
+    def close(self):
+        return self.chat_model_args.close_server()
 
     def make_agent(self):
         return GenericAgent(
@@ -32,12 +38,12 @@ class GenericAgent(Agent):
 
     def __init__(
         self,
-        chat_model_args: ChatModelArgs,
+        chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
     ):
 
-        self.chat_llm = chat_model_args.make_chat_model()
+        self.chat_llm = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
         self.max_retry = max_retry
 
@@ -66,13 +72,16 @@ class GenericAgent(Agent):
             flags=self.flags,
         )
 
-        max_prompt_tokens, max_trunk_itr = self._get_maxes()
+        max_prompt_tokens, max_trunc_itr = self._get_maxes()
 
-        fit_function = partial(
-            dp.fit_tokens,
+        system_prompt = dp.SystemPrompt().prompt
+
+        prompt = dp.fit_tokens(
+            shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
             model_name=self.chat_model_args.model_name,
-            max_iterations=max_trunk_itr,
+            max_iterations=max_trunc_itr,
+            additional_prompts=system_prompt,
         )
 
         def parser(text):
@@ -84,49 +93,43 @@ class GenericAgent(Agent):
                 return None, False, str(e)
             return ans_dict, True, ""
 
+        stats = {}
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
-            if self.flags.use_retry_and_fit:
-                ans_dict = retry_and_fit(
-                    self.chat_llm,
-                    main_prompt=main_prompt,
-                    system_prompt=dp.SystemPrompt().prompt,
-                    n_retry=self.max_retry,
-                    parser=parser,
-                    fit_function=fit_function,
-                    add_missparsed_messages=self.flags.add_missparsed_messages,
-                )
-            else:  # classic retry
-                prompt = fit_function(shrinkable=main_prompt)
 
-                chat_messages = [
-                    SystemMessage(content=dp.SystemPrompt().prompt),
-                    HumanMessage(content=prompt),
-                ]
-                ans_dict = retry(
-                    self.chat_llm, chat_messages, n_retry=self.max_retry, parser=parser
-                )
-                # inferring the number of retries, TODO: make this less hacky
-                ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
+            chat_messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt),
+            ]
+            ans_dict = retry_raise(
+                self.chat_llm,
+                chat_messages,
+                n_retry=self.max_retry,
+                parser=main_prompt._parse_answer,
+            )
+            # inferring the number of retries, TODO: make this less hacky
+            stats["n_retry"] = (len(chat_messages) - 3) / 2
+            stats["busted_retry"] = 0
         except RetryError as e:
-            # Likely due to maximum retry. We catch it here to be able to return
-            # the list of messages for further analysis
             ans_dict = {"action": None}
+            stats["busted_retry"] = 1
 
-            # TODO Debatable, it shouldn't be reported as some error, since we don't
-            # want to re-launch those failure.
+            stats["n_retry"] = self.max_retry + 1
 
-            # ans_dict["err_msg"] = str(e)
-            # ans_dict["stack_trace"] = traceback.format_exc()
-            ans_dict["n_retry"] = self.max_retry + 1
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
         self.actions.append(ans_dict["action"])
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
-        ans_dict["chat_model_args"] = asdict(self.chat_model_args)
-        return ans_dict["action"], ans_dict
+
+        agent_info = dict(
+            think=ans_dict.get("think", None),
+            chat_messages=chat_messages,
+            stats=stats,
+            extra_info={"chat_model_args": asdict(self.chat_model_args)},
+        )
+        return ans_dict["action"], agent_info
 
     def reset(self, seed=None):
         self.seed = seed
@@ -164,9 +167,88 @@ does not support vision. Disabling use_screenshot."""
         )
         maxes = [m for m in maxes if m is not None]
         max_prompt_tokens = min(maxes) if maxes else None
-        max_trunk_itr = (
-            self.chat_model_args.max_trunk_itr
-            if self.chat_model_args.max_trunk_itr
+        max_trunc_itr = (
+            self.flags.max_trunc_itr
+            if self.flags.max_trunc_itr
             else 20  # dangerous to change the default value here?
         )
-        return max_prompt_tokens, max_trunk_itr
+        return max_prompt_tokens, max_trunc_itr
+
+
+from functools import partial
+
+
+def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
+    """
+    Get the action post-hoc for the agent.
+
+    This function is used to get the action after the agent has already been run.
+    Its goal is to recreate the prompt and the output of the agent a posteriori.
+    The purpose is to build datasets for training the agents.
+
+    Args:
+        agent (GenericAgent): The agent for which the action is being determined.
+        obs (dict): The observation dictionary to append to the agent's history.
+        ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
+
+    Returns:
+        Tuple[str, str]: The complete prompt used for the agent and the reconstructed output based on the answer dictionary.
+    """
+    system_prompt = dp.SystemPrompt().prompt
+
+    agent.obs_history.append(obs)
+
+    main_prompt = MainPrompt(
+        action_set=agent.action_set,
+        obs_history=agent.obs_history,
+        actions=agent.actions,
+        memories=agent.memories,
+        thoughts=agent.thoughts,
+        previous_plan=agent.plan,
+        step=agent.plan_step,
+        flags=agent.flags,
+    )
+
+    max_prompt_tokens, max_trunc_itr = agent._get_maxes()
+
+    fit_function = partial(
+        dp.fit_tokens,
+        max_prompt_tokens=max_prompt_tokens,
+        model_name=agent.chat_model_args.model_name,
+        max_iterations=max_trunc_itr,
+    )
+
+    instruction_prompt = fit_function(shrinkable=main_prompt)
+
+    if isinstance(instruction_prompt, list):
+        # NOTE: this is when we have images
+        instruction_prompt = instruction_prompt[0]["text"]
+
+    # TODO: make sure the bid is in the prompt
+
+    output = ""
+
+    # TODO: validate this
+    agent.plan = ans_dict.get("plan", agent.plan)
+    if agent.plan != "No plan yet":
+        output += f"\n<plan>\n{agent.plan}\n</plan>\n"
+
+    # TODO: is plan_step something that the agent's outputs?
+    agent.plan_step = ans_dict.get("step", agent.plan_step)
+
+    memory = ans_dict.get("memory", None)
+    agent.memories.append(memory)
+    if memory is not None:
+        output += f"\n<memory>\n{memory}\n</memory>\n"
+
+    thought = ans_dict.get("think", None)
+    agent.thoughts.append(thought)
+    if thought is not None:
+        output += f"\n<think>\n{thought}\n</think>\n"
+
+    action = ans_dict["action"]
+    agent.actions.append(action)
+    if action is not None:
+        output += f"\n<action>\n{action}\n</action>"
+
+    return system_prompt, instruction_prompt, output

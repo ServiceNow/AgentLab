@@ -1,26 +1,30 @@
-from collections import defaultdict
-from datetime import datetime
 import fnmatch
 import io
-from logging import warn
-from pathlib import Path
 import random
 import re
 import warnings
+from collections import defaultdict
+from datetime import datetime
+from logging import warn
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp_results
+from IPython.display import display
 from tqdm import tqdm
+
 from agentlab.analyze.error_categorization import (
     ERR_CLASS_MAP,
     is_critical_server_error,
     is_minor_server_error,
 )
-from browsergym.experiments.loop import ExpResult, yield_all_exp_results, get_exp_result
 from agentlab.experiments.exp_utils import RESULTS_DIR
-
-from IPython.display import display
 from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
-from agentlab.analyze.ICML_2024_results import TASK_CATEGORY_MAP
+
+# TODO find a more portable way to code set_task_category_as_index at least
+# handle dynamic imports. We don't want to always import workarena
+# from browsergym.workarena import TASK_CATEGORY_MAP
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -55,7 +59,7 @@ def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
 def set_index_from_variables(
     df: pd.DataFrame,
     index_white_list=("agent_args.*",),
-    index_black_list=("*model_url*",),
+    index_black_list=("*model_url*", "*extra*"),
     task_key="env_args.task_name",
     force_at_leaste_one_variable=False,
 ):
@@ -72,6 +76,10 @@ def set_index_from_variables(
             should be included in the index.
         index_black_list: List of wildard patterns to match variables that
             should be excluded from the index.
+        task_key: The key to use as the first level of the index.
+        force_at_leaste_one_variable: If True, force at least one variable in the
+            index. If no variable is found, the index will be set to
+            task_key + "agent_args.agent_name".
     """
     df.reset_index(inplace=True)
     constants, variables, _ = get_constants_and_variables(df)
@@ -94,7 +102,6 @@ def set_index_from_variables(
     if len(index_variables) == 0 and force_at_leaste_one_variable:
         if "agent_args.agent_name" in constants:
             index_variables = ["agent_args.agent_name"]
-
     # agent_variables = [var for var in variables if var.startswith("agent_args.")]
     df.set_index([task_key] + index_variables, inplace=True)
     df.sort_index(inplace=True)
@@ -106,7 +113,7 @@ def load_result_df(
     set_index=True,
     result_df=None,
     index_white_list=("agent_args.*",),
-    index_black_list=("*model_url*",),
+    index_black_list=("*model_url*", "*extra*"),
 ):
     """Load the result dataframe.
 
@@ -124,6 +131,9 @@ def load_result_df(
             should be included in the index.
         index_black_list: List of wildard patterns to match variables that
             should be excluded from the index.
+
+    Returns:
+        pd.DataFrame: The result dataframe
     """
 
     if result_df is not None:
@@ -143,10 +153,8 @@ def load_result_df(
     return df
 
 
-def reduce_episodes(result_df: pd.DataFrame):
-    """Reduce the dataframe to a single row per episode and summarize some of
-    the columns.
-    """
+def reduce_episodes(result_df: pd.DataFrame) -> pd.DataFrame:
+    """Reduce the dataframe to a single row per episode and summarize some of the columns."""
 
     levels = list(range(result_df.index.nlevels))
     return result_df.groupby(level=levels).apply(summarize)
@@ -164,6 +172,15 @@ def report_2d(df: pd.DataFrame, reduce_fn: callable = reduce_episodes, n_row_key
     3) Unstack: Produce a 2D table such that the first n_row_keys are used to
        specify how many dimensions are used for the rows. The remaining
        dimensions are used for the columns.
+
+    Args:
+        df: The dataframe to reduce
+        reduce_fn: The function to use to reduce the sub dataframe. By default
+            this is reduce_episodes.
+        n_row_keys: The number of keys to use for the rows.
+
+    Returns:
+        pd.DataFrame: The 2D report
     """
 
     levels = list(range(df.index.nlevels))
@@ -208,12 +225,24 @@ def get_bootstrap(
     return np.nanmean(bootstrapped_values), np.nanstd(bootstrapped_values)
 
 
-def summarize(sub_df):
+def get_std_err(df, metric):
+    """Get the standard error for a binary metric."""
+    # extract non missing values
+    data = df[metric].dropna().values
+
+    # asser either 0 or 1
+    assert np.all(np.isin(data, [0, 1]))
+    mean = np.mean(data)
+    std_err = np.sqrt(mean * (1 - mean) / len(data))
+    return mean, std_err
+
+
+def summarize(sub_df, use_bootstrap=False):
     if not "cum_reward" in sub_df:
         record = dict(
             avg_reward=np.nan,
-            uncertainty_reward=np.nan,
-            avg_raw_reward=np.nan,
+            std_err=np.nan,
+            # avg_raw_reward=np.nan,
             avg_steps=np.nan,
             n_completed=f"0/{len(sub_df)}",
             n_err=0,
@@ -224,15 +253,19 @@ def summarize(sub_df):
 
         if n_completed == 0:
             return None
-        _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+
+        if use_bootstrap:
+            _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+        else:
+            _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
 
         # sanity check, if there is an error the reward should be zero
         assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
 
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-            uncertainty_reward=std_reward.round(3),
-            avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
+            std_err=std_reward.round(3),
+            # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
             n_err=err.sum(skipna=True),
@@ -263,37 +296,6 @@ def summarize_stats(sub_df):
                 record[key_] = sub_df[key].max(skipna=True).round(3)
             else:
                 raise ValueError(f"Unknown stats operation: {op}")
-    return pd.Series(record)
-
-
-# NOTE: decprecated but I might want to use it again
-def summarize_tgi(sub_df):
-    err = sub_df["err_msg"].notnull()
-
-    n_server_errors = (
-        sub_df["stack_trace"]
-        .apply(
-            is_server_error,
-        )
-        .sum()
-    )
-
-    n_completed = (err | sub_df["truncated"] | sub_df["terminated"]).sum()
-
-    record = dict(
-        avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-        avg_reward_server_corr=(
-            sub_df["cum_reward"].mean(skipna=True) * n_completed / (n_completed - n_server_errors)
-        ).round(3),
-        avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
-        avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
-        n_completed=f"{n_completed}/{len(sub_df)}",
-        n_err=err.sum(skipna=True),
-        n_server_errors=n_server_errors,
-        # total_cost=sub_df["total_cost"].sum(skipna=True).round(3),
-        # exp_dir=",".join([str(path).split("/")[-1] for path in sub_df["exp_dir"]]),
-    )
-
     return pd.Series(record)
 
 
@@ -351,6 +353,8 @@ def ablation_report(result_df: pd.DataFrame, reduce_fn=summarize, progression=Fa
         result_df: The result dataframe as returned by load_result_df.
         reduce_fn: The function to use to reduce the sub dataframe. By default
             this is summarize.
+        progression: If True, the change description will be the progression
+
     Returns:
         A dataframe with the change description as index.
     """
@@ -391,15 +395,15 @@ def global_report(
     """Produce a report that summarize all tasks and all episodes for each
     agent.
 
-    Parameters
-    ----------
-    result_df : pd.DataFrame
-        The result dataframe as returned by load_result_df.
-    reduce_fn : callable to summarize sub dataframe
-    rename_index : callable, optional
-        Function to rename the index. By default we remove the prefix
-        "agent_args.flags."
-    apply_shrink_columns: Make the column more compat
+    Args:
+        result_df: The result dataframe as returned by load_result_df.
+        reduce_fn: The function to use to reduce the sub dataframe. By default
+            this is summarize.
+        rename_index: Function to rename the index. By default we remove the prefix
+            "agent_args.flags."
+
+    Returns:
+        pd.DataFrame: The report
     """
 
     levels = list(range(result_df.index.nlevels))
@@ -445,9 +449,9 @@ def to_clipboard(df: pd.DataFrame):
             pyperclip.copy(csv_string)
         except Exception as e:
             warn(f"Failed to copy to clipboard: {e}")
-    else:
-        print("pyperclip is not installed, cannot copy to clipboard.")
-    return df
+    # else:
+    #     print("pyperclip is not installed, cannot copy to clipboard.")
+    # return df
 
 
 def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: int = 2):
@@ -511,6 +515,7 @@ def display_report(
     apply_shrink_columns: bool = True,
     copy_to_clipboard: bool = True,
     rename_bool_flags: bool = True,
+    print_only: str = None,
 ):
     """Display the report in a nicer-ish format.
 
@@ -524,6 +529,7 @@ def display_report(
             underscores with newlines
         copy_to_clipboard: Copy the report to the clipboard
         rename_bool_flags: Rename the boolean flags to be more compact and readable
+        print_only: Print only the given column
     """
     report = report.copy()
 
@@ -536,7 +542,13 @@ def display_report(
     if copy_to_clipboard:
         to_clipboard(report)
 
+    columns = list(report.columns)
+
     report.reset_index(inplace=True)
+
+    if print_only:
+        columns = [print_only] + columns
+        report = report[columns]
 
     styled_report = set_wrap_style(report)
 
@@ -745,15 +757,15 @@ def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
     return df_dict
 
 
-def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
-    """Create task_category index from task_name if needed and re-assign index
-    from variables using task_category."""
-    # rested index task_name (level 0)
-    new_df = result_df.reset_index(inplace=False)
-    if not "task_category" in new_df.columns:
-        new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
-    set_index_from_variables(new_df, task_key="task_category")
-    return new_df
+# def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
+#     """Create task_category index from task_name if needed and re-assign index
+#     from variables using task_category."""
+#     # rested index task_name (level 0)
+#     new_df = result_df.reset_index(inplace=False)
+#     if not "task_category" in new_df.columns:
+#         new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
+#     set_index_from_variables(new_df, task_key="task_category")
+#     return new_df
 
 
 def get_all_task_messages(exp_dir, max_n_exp=None):

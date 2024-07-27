@@ -1,14 +1,14 @@
-from logging import warning
+import logging
+import time as t
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-import time as t
-import logging
 
 logger = logging.getLogger(__name__)
 
 from browsergym.experiments import EnvArgs
-
+from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
@@ -25,55 +25,6 @@ assert len(tasks_eval) == 107
 assert len(miniwob_debug) == 12
 assert len(miniwob_tiny_test) == 2
 
-# small set of task that should be a good indicator of the agent's performance
-miniwob_allac_test = [
-    "miniwob.use-slider-2",
-    "miniwob.book-flight",  # long html
-    "miniwob.hot-cold",  # many iterations + memory
-    "miniwob.login-user-popup",  # challenge: it sometimes has a random popup that prevents the agent from logging in. Seed 43 has a popup.
-    "miniwob.guess-number",
-    "miniwob.copy-paste-2",  # requires ctrl+A befor ctrl+C and cmd on mac
-    "miniwob.bisect-angle",  # requires good 2d understanding
-]
-
-suspisous_tasks = [
-    "miniwob.choose-date",
-    "miniwob.copy-paste",
-    "miniwob.copy-paste-2",
-    "miniwob.find-word",
-    "miniwob.resize-textarea",
-    "miniwob.text-transform",
-    "miniwob.use-autocomplete",
-    "miniwob.use-colorwheel",
-    "miniwob.use-colorwheel-2",
-    "miniwob.click-button-sequence",
-    "miniwob.click-checkboxes-large",
-]
-
-# the best agent is able to solve these tasks some of the time but often fails
-edge_tasks = [
-    "miniwob.choose-date",
-    "miniwob.click-scroll-list",
-    "miniwob.count-shape",
-    "miniwob.daily-calendar",
-    "miniwob.drag-cube",
-    "miniwob.drag-shapes",
-    "miniwob.draw-line",
-    "miniwob.email-inbox-forward",
-    "miniwob.email-inbox-forward-nl",
-    "miniwob.email-inbox-forward-nl-turk",
-    "miniwob.form-sequence",
-    "miniwob.form-sequence-2",
-    "miniwob.hot-cold",
-    "miniwob.resize-textarea",
-    "miniwob.right-angle",
-    "miniwob.sign-agreement",
-    "miniwob.text-editor",
-    "miniwob.use-slider-2",
-    "miniwob.bisect-angle",
-    "miniwob.choose-date-medium",
-    "miniwob.choose-date-nodelay",
-]
 
 webgum_tasks = [
     "miniwob.book-flight",
@@ -185,7 +136,7 @@ step_tasks = [
 
 
 def get_benchmark_env_args(
-    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None
+    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None, is_agent_curriculum=True
 ) -> list[EnvArgs]:
     """
     Returns a list of EnvArgs for the given benchmark_name.
@@ -197,6 +148,14 @@ def get_benchmark_env_args(
             if None, it will use the default value for the benchmark.
         n_repeat: None or int. The number of seeds for each task.
             if None, it will use the default value for the benchmark.
+        is_agent_curriculum: wether to use the agent curriculum or the human curriculum.
+
+    Returns:
+        A list of EnvArgs.
+
+    Raises:
+        ValueError: If the benchmark_name is not recognized, or if the benchmark_name is not
+            followed by a subcategory for workarena.
     """
     env_args_list = []
     rng = np.random.RandomState(meta_seed)
@@ -208,8 +167,8 @@ def get_benchmark_env_args(
 
     max_steps_default = {
         "workarena.l1": 15,
-        "workarena.l2": 30,
-        "workarena.l3": 30,
+        "workarena.l2": 50,
+        "workarena.l3": 50,
         "webarena": 15,
         "miniwob": 10,
     }
@@ -235,7 +194,7 @@ def get_benchmark_env_args(
 
     if benchmark_name.startswith("workarena"):
         t0 = t.time()
-        from browsergym.workarena import ATOMIC_TASKS
+        from browsergym.workarena import ALL_WORKARENA_TASKS, ATOMIC_TASKS, get_all_tasks_agents
 
         dt = t.time() - t0
         print(f"done importing workarena, took {dt:.2f} seconds")
@@ -248,22 +207,29 @@ def get_benchmark_env_args(
             task_names = [task for task in task_names if "sort" in task]
             env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
 
-        elif benchmark_name == "workarena.l1":
-            task_names = [task.get_task_id() for task in ATOMIC_TASKS]
-            env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
-
         else:
-            if benchmark_name in ["workarena.l2", "workarena.l3"]:
-                raise ValueError(
-                    f"Benchmark {benchmark_name} not supported yet, please wait for the WorkArena++ release."
+            for task, seed in get_all_tasks_agents(
+                filter=".".join(filters[1:]),
+                meta_seed=meta_seed,
+                n_seed_l1=n_repeat,
+                is_agent_curriculum=is_agent_curriculum,
+            ):
+                task_name = task.get_task_id()
+                env_args_list.append(
+                    EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps)
                 )
 
     elif benchmark_name == "webarena":
         from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
         env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
-    elif benchmark_name == "miniwob":
-        env_args_list = _make_env_args(MINIWOB_ALL, max_steps, n_repeat, rng)
+    elif benchmark_name.startswith("miniwob"):
+        miniwob_benchmarks_map = {
+            "miniwob": MINIWOB_ALL,
+        }
+        env_args_list = _make_env_args(
+            miniwob_benchmarks_map[benchmark_name], max_steps, n_repeat, rng
+        )
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
@@ -279,7 +245,8 @@ def _make_env_args(task_list, max_steps, n_seeds_default, rng):
 
 
 if __name__ == "__main__":
-    env_args_list = get_benchmark_env_args("workarena.l1.sort")
+    env_args_list = get_benchmark_env_args("workarena.l2")
     print(f"Number of tasks: {len(env_args_list)}")
     for env_args in env_args_list:
-        print(env_args.task_seed, env_args.task_name)
+        if "infeasible" in env_args.task_name:
+            print(env_args.task_seed, env_args.task_name)
