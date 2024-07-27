@@ -2,11 +2,12 @@ from typing import List, Union
 
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 
-from .agent import Agent
+from .base_agent import BaseAgent
 from .utils.llm import fill_prompt_template, construct_llm_message_openai, call_openai_llm, parse_action_reason
 
 
-class PromptAgent(Agent):
+class PromptAgent(BaseAgent):
+    """Adapted from https://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/agents/prompt_agent.py"""
     def __init__(self, 
                  model: Union[ChatOpenAI, AzureChatOpenAI], 
                  max_actions: int = 10, verbose: bool = False, logging: bool = False,

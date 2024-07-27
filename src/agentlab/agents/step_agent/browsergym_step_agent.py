@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import re
-from typing import Union, Dict, List
+from typing import Literal, Dict, List
 
 from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
@@ -43,6 +43,7 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
 
 
 class BrowserGymStepAgent(Agent):
+    BENCHMARKS = Literal["miniwob", "webarena"]
     WEBARENA_AGENTS = {
         "gitlab": "github_agent",
         "reddit": "reddit_agent",
@@ -59,8 +60,8 @@ class BrowserGymStepAgent(Agent):
                  low_level_action_list: List = None,
                  prompt_mode: str = "chat",
                  previous_actions: List = None,
-                 use_dom: bool = False,
-                 benchmark: str = "miniwob",
+                 use_dom: bool = True,
+                 benchmark: BENCHMARKS = "miniwob",
                  website_name: str = None
                  ):
         match benchmark:
@@ -112,7 +113,7 @@ class BrowserGymStepAgent(Agent):
             has_enter_option = type_match.group(3) if type_match else None
             press_enter = type_match.group(4) if has_enter_option else None
             # TODO: need to handle "press_enter" option: returns 2 actions instead of one
-            return f"fill(\"{bid}\", \"{text}\")"
+            return [f"fill(\"{bid}\", \"{text}\")", "keyboard_press(enter)"]
 
         if "scroll" in action:
             scroll_match = re.search(r'scroll\s*\[(.*?)\]', action, re.DOTALL)

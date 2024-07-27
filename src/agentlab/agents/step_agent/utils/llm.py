@@ -1,4 +1,4 @@
-import os
+"""Adapted from     ://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/utils/llm.py"""
 import re
 from typing import Union
 import copy
@@ -16,9 +16,11 @@ def fill_prompt_template(prompt_template: dict[str, str], objective: str, observ
     prompt = copy.deepcopy(prompt_template)
     prompt["input"] = prompt["input"].replace("{objective}", objective)
     prompt["input"] = prompt["input"].replace("{observation}", observation)
-    prompt["input"] = prompt["input"].replace("{url}", url)   
-    prompt["input"] = prompt["input"].replace("{previous_actions}", previous_history)   
+    prompt["input"] = prompt["input"].replace("{url}", url)
+    prompt["input"] = prompt["input"].replace(
+        "{previous_actions}", previous_history)
     return prompt
+
 
 def filter_quotes_if_matches_template(action: Union[str, None]) -> str:
     if action is None:
@@ -38,33 +40,39 @@ def filter_quotes_if_matches_template(action: Union[str, None]) -> str:
         # Return the original action if it doesn't match the template
         return action
 
+
 def parse_action_reason(model_response: str) -> tuple[str, str]:
-    reason_match = re.search(r'REASON:\s*(.*?)\s*(?=\n[A-Z]|$)', model_response, re.DOTALL) 
+    reason_match = re.search(
+        r'REASON:\s*(.*?)\s*(?=\n[A-Z]|$)', model_response, re.DOTALL)
     reason = reason_match.group(1) if reason_match else None
 
-    action_match = re.search(r'ACTION:\s*(.*?)\s*(?=\n[A-Z]|$)', model_response, re.DOTALL) 
+    action_match = re.search(
+        r'ACTION:\s*(.*?)\s*(?=\n[A-Z]|$)', model_response, re.DOTALL)
     action = action_match.group(1) if action_match else None
-    
+
     action = filter_quotes_if_matches_template(action)
-    
+
     return action, reason
-    
+
 
 def construct_llm_message_openai(prompt: str, prompt_mode: str):
     messages = [("system", prompt["instruction"])]
-        
+
     if prompt["examples"]:
         messages.append(("system", "Here are a few examples:"))
         for example in prompt["examples"]:
-            messages.append(("system", f"\n### Input:\n{example['input']}\n\n### Response:\n{example['response']}"))
-    
-    messages.append(("human", f"Here is the current Input. Please respond with REASON and ACTION.\n### Input:\n{prompt['input']}\n\n### Response:"))
+            messages.append(
+                ("system", f"\n### Input:\n{example['input']}\n\n### Response:\n{example['response']}"))
+
+    messages.append(
+        ("human", f"Here is the current Input. Please respond with REASON and ACTION.\n### Input:\n{prompt['input']}\n\n### Response:"))
     if prompt_mode == "chat":
         return messages
     elif prompt_mode == "completion":
         all_content = ''.join(message['content'] for message in messages)
         messages_completion = [("human",  all_content)]
         return messages_completion
+
 
 def call_openai_llm(messages: list[dict[str, str]], model: Union[ChatOpenAI, AzureChatOpenAI], **model_kwargs) -> str:
     """
@@ -78,12 +86,12 @@ def call_openai_llm(messages: list[dict[str, str]], model: Union[ChatOpenAI, Azu
         temperature (float)
             The temperature to use for the chatbot. Defaults to 0. Note that a temperature
             of 0 does not guarantee the same response (https://platform.openai.com/docs/models/gpt-3-5).
-    
+
     Returns:
         response (str)
             The response from OpenAI's chat API, if any.
     """
-    
+
     num_attempts = 0
     while True:
         try:
@@ -107,6 +115,7 @@ def call_openai_llm(messages: list[dict[str, str]], model: Union[ChatOpenAI, Azu
             print("Sleeping for 10 seconds...")
             sleep(10)
             num_attempts += 1
+
 
 def get_num_tokens(text: str, model_name: str) -> int:
     tokenizer = tiktoken.encoding_for_model(model_name=model_name)

@@ -10,6 +10,7 @@ class Element:
 
 
 class Stack:
+    """Adapted from https://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/utils/stack.py"""
     def __init__(self) -> None:
         self.items: list[Element] = []
     

@@ -1,7 +1,8 @@
 from typing import List
 
 
-class Agent:
+class BaseAgent:
+    """Adapted from https://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/agents/agent.py"""
     def __init__(
         self,
         max_actions,

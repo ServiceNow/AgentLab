@@ -1,16 +1,15 @@
 import re
 from typing import Union, Dict, List
 
-from browsergym.experiments.agent import Agent as BrowserGymAgent
-from browsergym.experiments.loop import AbstractAgentArgs
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 
 from .prompt_agent import PromptAgent
-from .agent import Agent
+from .base_agent import BaseAgent
 from .utils.stack import Stack, Element
 
 
-class StepAgent(Agent):
+class StepAgent(BaseAgent):
+    """Adapted from https://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/agents/step_agent.py"""
     def __init__(self, 
                  model: Union[ChatOpenAI, AzureChatOpenAI],
                  max_actions: int = 10, verbose: int = 0, logging: bool = False,

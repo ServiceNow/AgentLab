@@ -1,3 +1,5 @@
+"""Copied from https://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/prompts/webarena/step_fewshot_template.py"""
+
 github_agent = {
 "instruction": """You are an AI assistant performing tasks on a web browser. To solve these tasks, you will issue specific actions.
 
