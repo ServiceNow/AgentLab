@@ -2,10 +2,13 @@ from dataclasses import dataclass
 import re
 from typing import Literal, Dict, List
 
+import bs4
+
 from browsergym.experiments.agent import Agent
 from browsergym.experiments.loop import AbstractAgentArgs
+from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, prune_html
 
-from agentlab.llm.chat_api import ChatModelArgs
+from agentlab.llm.chat_api import BaseModelArgs
 from .step_agent import StepAgent
 
 
@@ -18,7 +21,7 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
     root_action: str = None
     action_to_prompt_dict: Dict = None
     low_level_action_list: List = None
-    model: ChatModelArgs = None
+    model: BaseModelArgs = None
     prompt_mode: str = "chat"
     previous_actions: List = None
     use_dom: bool = False  # or AXTree
@@ -40,6 +43,12 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
             benchmark=self.benchmark,
             website_name=self.website_name
         )
+    
+    def prepare(self):
+        pass
+
+    def close(self):
+        pass
 
 
 class BrowserGymStepAgent(Agent):
@@ -53,7 +62,7 @@ class BrowserGymStepAgent(Agent):
     }
 
     def __init__(self,
-                 model: ChatModelArgs,
+                 model: BaseModelArgs,
                  max_actions: int = 10, verbose: int = 0, logging: bool = False,
                  root_action: str = None,
                  action_to_prompt_dict: Dict = None,
@@ -75,8 +84,10 @@ class BrowserGymStepAgent(Agent):
         action_to_prompt_dict = {
             k: v for k, v in step_fewshot_template.__dict__.items() if isinstance(v, dict)}
 
-        self.model = model.make_chat_model()
+        self.model = model.make_model()
         self.use_dom = use_dom
+        self.benchmark = benchmark
+        self.logging = logging
         self.agent = StepAgent(
             model=self.model,
             max_actions=max_actions, verbose=verbose, logging=logging,
@@ -86,37 +97,70 @@ class BrowserGymStepAgent(Agent):
             prompt_mode=prompt_mode,
             previous_actions=previous_actions
         )
-        self.logging = logging
         super().__init__()
 
     def reset(self):
         self.agent.reset()
+    
+    def obs_preprocessor(self, obs: Dict) -> dict:
+        obs = obs.copy()  # shallow copy to avoid modifying the original dict
+        # augment the observation with text versions of the DOM and AXTree
+        obs["dom_txt"] = flatten_dom_to_str(obs["dom_object"])
+        obs["axtree_txt"] = flatten_axtree_to_str(obs["axtree_object"])
+        obs["pruned_html"] = prune_html(obs["dom_txt"])
+        if self.benchmark == "miniwob":
+            # Apply specific processing to miniwob to match SteP prompts
+            obs["pruned_html"] = self.preprocess_dom(obs["pruned_html"])
+        # remove raw entries that the agent won't use, and we don't want to record
+        del obs["dom_object"]
+        del obs["axtree_object"]
+        return obs
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
         url = obs["url"] if "url" in obs else None
         objective: str = obs["goal"] if "goal" in obs else None
         if self.use_dom:
-            raw_observation: str = obs["pruned_html"] if "pruned_html" in obs else None
-            observation = self.preprocess_dom(
-                raw_observation) if raw_observation else None
+            observation: str = obs["pruned_html"] if "pruned_html" in obs else None
         else:
             observation: str = obs["axtree_txt"] if "axtree_txt" in obs else None
         action, reason = self.agent.predict_action(
             objective=objective, observation=observation, url=url)
         if self.logging:
-            self.agent.log_step(action=action, reason=reason)
+            self.agent.log_step(objective=objective, url=url, observation=observation, action=action, reason=reason, status={})
+            # print(f"Action: {action}\nReason: {reason}")
         return self.parse_action(action), {}
 
     def preprocess_dom(self, dom: str) -> str:
-        """Preprocess the DOM before passing it to the model. Replace 'bid="XYZ"' by 'id=XYZ' 
-        to match original SteP prompt for MiniWoB.
+        """Preprocess the DOM before passing it to the model. Keep only 'id' and 'val' 
+        attributes to match original SteP prompt for MiniWoB.
         """
-        bid_match = re.search(
-            r'(bid=)"(\d+)"', dom)  # group using "="" to avoid catching words containing "bid"
-        id_name = bid_match.group(
-            1) if bid_match else None  # should return "bid="
-        id_value = bid_match.group(2) if bid_match else None
-        return re.sub(rf'{id_name}"{id_value}"', f'id={id_value}', dom)
+        attrs_to_keep = ["bid", "ref", "val"]
+
+        parsed_dom = bs4.BeautifulSoup(dom, 'html.parser')
+        all_elements = parsed_dom.find_all()
+        for tag in all_elements:
+            if isinstance(tag, bs4.NavigableString):
+                continue
+            
+            if "text" in tag.attrs and len(tag["text"]) > 0:
+                tag["val"] = tag["text"]
+            elif "value" in tag.attrs and len(tag["value"]) > 0:
+                tag["val"] = tag["value"]
+            elif "id" in tag.attrs:
+                tag["val"] = tag["id"]
+                        
+            tag_attrs = tag.attrs.copy()
+            for attr in tag_attrs:
+                if attr not in attrs_to_keep:
+                    del tag[attr]
+                    
+            if "ref" in tag.attrs:
+                tag["id"] = tag["ref"]
+                del tag["ref"]
+            elif "bid" in tag.attrs:
+                tag["id"] = tag["bid"]
+                del tag["bid"]
+        return str(parsed_dom)
 
     def parse_action(self, action: str) -> str:
         """Parse the action to a string from BrowserGym action space."""
@@ -133,7 +177,7 @@ class BrowserGymStepAgent(Agent):
             has_enter_option = type_match.group(3) if type_match else None
             press_enter = type_match.group(4) if has_enter_option else None
             # TODO: need to handle "press_enter" option: returns 2 actions instead of one
-            return f"fill(\"{bid}\", \"{text}\")"
+            return f"fill('{bid}', '{text}')"
 
         if "scroll" in action:
             scroll_match = re.search(r'scroll\s*\[(.*?)\]', action, re.DOTALL)
@@ -141,20 +185,20 @@ class BrowserGymStepAgent(Agent):
             # TODO: Better handling of scroll
             if direction == "up":
                 dy = -5
-                return f"scroll(\"{dy}\")"
+                return f"scroll('{dy}')"
             elif direction == "down":
                 dy = 5
-                return f"scroll(\"{dy}\")"
+                return f"scroll('{dy}')"
 
         if "goto" in action:
             goto_match = re.search(r'goto\s*\[(.*?)\]', action, re.DOTALL)
             url = goto_match.group(1) if goto_match else None
-            return f"goto(\"{url}\")"
+            return f"goto('{url}')"
 
         if "hover" in action:
             hover_match = re.search(r'hover\s*\[(\d+)\]', action, re.DOTALL)
             bid = hover_match.group(1) if hover_match else None
-            return f"hover(\"{bid}\")"
+            return f"hover('{bid}')"
 
         if "go_back" in action:
             return "go_back()"

@@ -23,18 +23,19 @@ logging.getLogger().setLevel(logging.INFO)
 exp_args_list = None
 
 ## select your experiment group here from generic_agent/exp_configs.py, as a Python path
-exp_config = "agentlab.agents.generic_agent.exp_config.final_run"
-# exp_config = "step_agent_test"
+# exp_config = "agentlab.agents.generic_agent.exp_config.final_run"
 # exp_config = "agentlab.agents.generic_agent.exp_config.generic_agent_test"  ## this will make a very quick test
 # exp_config = "agentlab.agents.generic_agent.exp_config.generic_agent_eval_llm"
 # exp_config = "agentlab.agents.generic_agent.exp_config.random_search"
+exp_config = "agentlab.agents.step_agent.exp_config.step_agent_test"
 
 ## select your agent config here from generic_agent/agent_config.py, as a Python path
-agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_3_5"
+# agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_3_5"
 # agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_4o"
 # agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_4o_VISION"
 # agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_70B"
 # agent_config = None # if exp_config uses a default agent
+agent_config = "agentlab.agents.step_agent.exp_config.STEP_AGENT_ARGS"
 
 ## select the benchmark to run on
 benchmark = "miniwob"
