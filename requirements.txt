@@ -14,3 +14,5 @@ ipython
 pyyaml>=6
 pandas
 gradio
+requests
+pillow
