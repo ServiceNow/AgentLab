@@ -10,3 +10,5 @@ contexttimer
 ipython
 pyyaml>=6
 pandas
+requests
+pillow
