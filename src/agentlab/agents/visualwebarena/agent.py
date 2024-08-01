@@ -132,7 +132,7 @@ If you have completed the task, use the chat to return an answer. For example, i
                 },
             },
         ]
-        # aditional images
+        # additional images
         for image_i, image in enumerate(goal_images):
             user_msgs.extend(
                 [
@@ -146,6 +146,7 @@ If you have completed the task, use the chat to return an answer. For example, i
                     },
                 ]
             )
+
         # prompt
         user_msgs.append({"type": "text", "text": user_prompt})
 
