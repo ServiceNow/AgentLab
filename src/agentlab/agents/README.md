@@ -92,7 +92,7 @@ class CustomActionSet(AbstractActionSet):
 
 Define a class that inherits from `AbstractAgentArgs` to specify the arguments
 required to instantiate your agent. This factory isolates all hyperparameters of
-your agent and facilitate the expriment pipeline. Make sure it is a dataclass to
+your agent and facilitate the experiment pipeline. Make sure it is a dataclass to
 be compatible with the experiment pipeline. *As a requirement for dataclass, you
 have to specify the type of each field (You can use Any if it is unknown)*
 
