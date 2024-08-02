@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentlab"
-version = "0.0.1"
+version = "0.2.0"
 description = "Main package for developing agents and experiments"
 authors = [
     {name = "Rim Assouel", email = "rim.assouel@gmail.com"},
