@@ -346,14 +346,23 @@ clicking the refresh button.
                 agent_info = gr.Markdown()
 
             with gr.Tab("Prompt tests") as tab_prompt_tests:
-                with gr.Column():
-                    prompt_tests_textbox = gr.Textbox(
+                with gr.Row():
+                    prompt_markdown = gr.Textbox(
                         value="",
                         label="",
                         show_label=False,
-                        interactive=True,
+                        interactive=False,
+                        elem_id="prompt_markdown",
                     )
-                    submit_button = gr.Button(value="Submit")
+                    with gr.Column():
+                        prompt_tests_textbox = gr.Textbox(
+                            value="",
+                            label="",
+                            show_label=False,
+                            interactive=True,
+                            elem_id="prompt_tests_textbox",
+                        )
+                        submit_button = gr.Button(value="Submit")
                     result_box = gr.Textbox(
                         value="", label="Result", show_label=True, interactive=False
                     )
@@ -362,6 +371,7 @@ clicking the refresh button.
                 submit_button.click(
                     fn=submit_action, inputs=prompt_tests_textbox, outputs=result_box
                 )
+
         # Handle Events #
         # ===============#
 
@@ -417,7 +427,8 @@ clicking the refresh button.
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
         step_id.change(fn=if_active("Agent Info")(update_agent_info), outputs=agent_info)
         step_id.change(
-            fn=if_active("Prompt tests")(update_prompt_tests), outputs=prompt_tests_textbox
+            fn=if_active("Prompt tests")(update_prompt_tests),
+            outputs=[prompt_markdown, prompt_tests_textbox],
         )
 
         # In order to handel tabs that were not visible when step was changed,
@@ -437,7 +448,9 @@ clicking the refresh button.
         tab_logs.select(fn=update_logs, outputs=logs)
         tab_stats.select(fn=update_stats, outputs=stats)
         tab_agent_info.select(fn=update_agent_info, outputs=agent_info)
-        tab_prompt_tests.select(fn=update_prompt_tests, outputs=prompt_tests_textbox)
+        tab_prompt_tests.select(
+            fn=update_prompt_tests, outputs=[prompt_markdown, prompt_tests_textbox]
+        )
 
         som_or_not.change(fn=update_screenshot, inputs=som_or_not, outputs=screenshot)
 
@@ -601,7 +614,7 @@ def update_prompt_tests():
         prompt = prompt.content
     elif isinstance(prompt, dict):
         prompt = prompt.get("content", "No Content")
-    return prompt
+    return prompt, prompt
 
 
 def select_step(episode_id: EpisodeId, evt: gr.SelectData):
