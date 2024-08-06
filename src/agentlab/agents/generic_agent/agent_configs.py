@@ -228,6 +228,11 @@ AGENT_4o = GenericAgentArgs(
     flags=FLAGS_GPT_4o,
 )
 
+AGENT_4o_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini"],
+    flags=FLAGS_GPT_4o,
+)
+
 # GPT-4o vision default config
 FLAGS_GPT_4o_VISION = FLAGS_GPT_4o.copy()
 FLAGS_GPT_4o_VISION.obs.use_screenshot = True
