@@ -12,7 +12,6 @@ from joblib import Parallel, delayed
 
 from agentlab.analyze import error_categorization
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
 
 
 def import_object(path: str):
@@ -26,11 +25,6 @@ def import_object(path: str):
 
 
 def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
-    # if webarena, check if the server is running
-    if any("webarena" in exp_args.env_args.task_name for exp_args in exp_args_list):
-        logging.info("Checking webarena servers...")
-        check_webarena_servers()
-
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.agent_args.prepare()

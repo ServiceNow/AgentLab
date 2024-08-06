@@ -1,6 +1,7 @@
+from browsergym.experiments.loop import ExpArgs
+
 from agentlab.agents.dynamic_prompting import Flags
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from browsergym.experiments.loop import ExpArgs
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.llm.chat_api import APIModelArgs
 
