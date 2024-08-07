@@ -59,6 +59,9 @@ extra_kwargs = {}  # anything you want to pass to the experiment group defined i
 n_jobs = 1
 # n_jobs = -1  # to use all available cores
 
+## Shuffling the order of experiments
+shuffle = False
+
 
 if relaunch_mode is not None:
     assert exp_root is not None, "You must specify an exp_root to relaunch experiments."
@@ -74,6 +77,11 @@ else:
         )
     else:
         exp_args_list, exp_dir = make_study(exp_root, study_func, extra_kwargs)
+
+if shuffle:
+    import numpy as np
+
+    np.random.shuffle(exp_args_list)
 
 # run the experiments
 run_experiments(n_jobs, exp_args_list, exp_dir)
