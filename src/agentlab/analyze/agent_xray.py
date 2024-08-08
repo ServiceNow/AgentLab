@@ -12,6 +12,7 @@ import pandas as pd
 from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
 from langchain.schema import BaseMessage
+from langchain_openai import ChatOpenAI
 from PIL import Image
 
 from agentlab.analyze import inspect_results
@@ -343,6 +344,34 @@ clicking the refresh button.
 
             with gr.Tab("Agent Info") as tab_agent_info:
                 agent_info = gr.Markdown()
+
+            with gr.Tab("Prompt tests") as tab_prompt_tests:
+                with gr.Row():
+                    prompt_markdown = gr.Textbox(
+                        value="",
+                        label="",
+                        show_label=False,
+                        interactive=False,
+                        elem_id="prompt_markdown",
+                    )
+                    with gr.Column():
+                        prompt_tests_textbox = gr.Textbox(
+                            value="",
+                            label="",
+                            show_label=False,
+                            interactive=True,
+                            elem_id="prompt_tests_textbox",
+                        )
+                        submit_button = gr.Button(value="Submit")
+                    result_box = gr.Textbox(
+                        value="", label="Result", show_label=True, interactive=False
+                    )
+
+                # Define the interaction
+                submit_button.click(
+                    fn=submit_action, inputs=prompt_tests_textbox, outputs=result_box
+                )
+
         # Handle Events #
         # ===============#
 
@@ -397,6 +426,10 @@ clicking the refresh button.
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
         step_id.change(fn=if_active("Agent Info")(update_agent_info), outputs=agent_info)
+        step_id.change(
+            fn=if_active("Prompt tests")(update_prompt_tests),
+            outputs=[prompt_markdown, prompt_tests_textbox],
+        )
 
         # In order to handel tabs that were not visible when step was changed,
         # we need to update them individually when the tab is selected
@@ -415,6 +448,9 @@ clicking the refresh button.
         tab_logs.select(fn=update_logs, outputs=logs)
         tab_stats.select(fn=update_stats, outputs=stats)
         tab_agent_info.select(fn=update_agent_info, outputs=agent_info)
+        tab_prompt_tests.select(
+            fn=update_prompt_tests, outputs=[prompt_markdown, prompt_tests_textbox]
+        )
 
         som_or_not.change(fn=update_screenshot, inputs=som_or_not, outputs=screenshot)
 
@@ -422,7 +458,7 @@ clicking the refresh button.
         tabs.select(tab_select)
 
     demo.queue()
-    demo.launch(server_port=7888)
+    demo.launch(server_port=7899)
 
 
 def tab_select(evt: gr.SelectData):
@@ -555,6 +591,30 @@ def update_agent_info():
         return page
     except (FileNotFoundError, IndexError):
         return None
+
+
+def submit_action(input_text):
+    global info
+    agent_info = info.exp_result.steps_info[info.step].agent_info
+    chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
+    assert isinstance(chat_messages[1], BaseMessage), "Messages should be langchain messages"
+
+    chat = ChatOpenAI(name="gpt-4o-mini")
+    chat_messages[1].content = input_text
+    result_text = chat(chat_messages).content
+    return result_text
+
+
+def update_prompt_tests():
+    global info
+    agent_info = info.exp_result.steps_info[info.step].agent_info
+    chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
+    prompt = chat_messages[1]
+    if isinstance(prompt, BaseMessage):
+        prompt = prompt.content
+    elif isinstance(prompt, dict):
+        prompt = prompt.get("content", "No Content")
+    return prompt, prompt
 
 
 def select_step(episode_id: EpisodeId, evt: gr.SelectData):
