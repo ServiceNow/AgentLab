@@ -2,16 +2,12 @@ import argparse
 import json
 import logging
 import random
-from abc import ABC, abstractmethod
 from datetime import datetime
 from importlib import import_module
 from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from joblib import Parallel, delayed
-
-from agentlab.analyze import error_categorization
-from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 
 def import_object(path: str):
@@ -22,44 +18,6 @@ def import_object(path: str):
     except (ImportError, AttributeError) as e:
         raise ImportError(f"Error importing {path}: {e}")
     return obj
-
-
-def main(
-    exp_config: str,
-    agent_config: str,
-    benchmark: str,
-    exp_root: str,
-    n_jobs: int = 1,
-    auto_accept: bool = False,
-    relaunch_mode: str = None,
-    shuffle_jobs: bool = False,
-    extra_kwargs: dict = {},
-):
-    """Launch a group of experiments.
-
-    Args:
-        exp_config: name of the experiment group to launch as defined in your
-            exp_configs.EXP_GROUPS
-        agent_config: path to the agent config
-        benchmark: name of the benchmark to launch
-        exp_root: folder where experiments will be saved
-        n_jobs: number of parallel jobs in joblib
-        auto_accept: skip the prompt to accept the experiment
-        relaunch_mode: choice of None, 'incomplete_only', 'all_errors', 'server_error',
-            'incomplete_or_error'
-        shuffle_jobs: shuffle the jobs
-        extra_kwargs: extra arguments to pass to the experiment group
-    """
-    logging.info(f"Launching experiment group: {exp_config}")
-
-    exp_args_list, exp_dir = _validate_launch_mode(
-        exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept, extra_kwargs
-    )
-    if shuffle_jobs:
-        logging.info("Shuffling jobs")
-        random.shuffle(exp_args_list)
-
-    run_experiments(n_jobs, exp_args_list, exp_dir)
 
 
 def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
@@ -119,64 +77,6 @@ def relaunch_study(study_dir: Path, relaunch_mode="incomplete_only"):
     logging.info(message)
 
     return exp_args_list, Path(study_dir)
-
-
-def _validate_launch_mode(
-    exp_root, exp_config, agent_config, benchmark, relaunch_mode, auto_accept, extra_kwargs
-) -> tuple[list[ExpArgs], Path]:
-    if relaunch_mode is not None:
-        # dig into an existing experiment group and relaunch all incomplete experiments
-        _, exp_group_name = split_path(exp_config)
-        exp_dir = Path(exp_root) / exp_group_name
-        if not exp_dir.exists():
-            raise ValueError(
-                f"You asked to relaunch an existing experiment but {exp_group_name} does not exist."
-            )
-
-        exp_args_list = list(_yield_incomplete_experiments(exp_dir, relaunch_mode=relaunch_mode))
-
-        if len(exp_args_list) == 0:
-            logging.info(f"No incomplete experiments found in {exp_dir}.")
-            return
-
-        message = (
-            f"\nHey, You are about to relaunch {len(exp_args_list)} incomplete or errored experiments in {exp_dir}. "
-            f"Make sure the processes that were running are all stopped. Otherwise, "
-            f"there will be concurrent writing in the same directories.\n"
-            f"Press Y to continue.\n"
-        )
-
-        # overwrtting the model_url just in case
-        for exp_args in exp_args_list:
-            exp_args.agent_args.chat_model_args.model_url = CHAT_MODEL_ARGS_DICT[
-                exp_args.agent_args.chat_model_args.model_name
-            ].model_url
-
-    else:
-        exp_obj = import_object(exp_config)
-        agent_obj = import_object(agent_config)
-
-        exp_args_list = exp_obj(agent=agent_obj, benchmark=benchmark, **extra_kwargs)
-        exp_group_name = exp_obj.__name__
-
-        exp_group_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{exp_group_name}"
-        exp_dir = Path(exp_root) / exp_group_name
-        message = (
-            f"\nYou are about to launch {len(exp_args_list)} experiments in {exp_dir}.\n"
-            f"Press Y to continue.\n"
-        )
-
-    if auto_accept:
-        logging.info(message)
-        answer = "y"
-    else:
-        answer = input(message)
-
-    if answer.lower() != "y":
-        logging.info("Aborting.")
-        return
-
-    return exp_args_list, exp_dir
 
 
 def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
