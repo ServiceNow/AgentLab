@@ -4,6 +4,7 @@ from pathlib import Path
 
 import bgym
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
+
 from agentlab.experiments.exp_utils import run_exp
 
 
