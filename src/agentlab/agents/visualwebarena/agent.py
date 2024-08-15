@@ -1,15 +1,14 @@
 import base64
 import dataclasses
 import io
-import requests
 import tempfile
-
-from browsergym.experiments import Agent, AbstractAgentArgs
-from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.utils.obs import flatten_axtree_to_str
-from browsergym.utils.obs import overlay_som
-from PIL import Image
 from io import BytesIO
+
+import requests
+from browsergym.core.action.highlevel import HighLevelActionSet
+from browsergym.experiments import AbstractAgentArgs, Agent
+from browsergym.utils.obs import flatten_axtree_to_str, overlay_som
+from PIL import Image
 
 
 def pil_to_b64(img: Image.Image) -> str:
@@ -52,6 +51,7 @@ class VWAAgent(Agent):
             "axtree_txt": flatten_axtree_to_str(
                 obs["axtree_object"], obs["extra_element_properties"]
             ),
+            "extra_properties": obs["extra_element_properties"],
             "url": obs["url"],
             "screenshot": obs["screenshot"],
         }
@@ -67,26 +67,28 @@ class VWAAgent(Agent):
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
         # download and process all goal images only once on first call
-        if self.goal_images is None:
-            self.goal_images = []
-            for image_i, image_url in enumerate(obs["goal_image_urls"]):
-                # load the image as PIL object + PNG base64 string
-                if image_url.startswith("http"):
-                    image = Image.open(requests.get(image_url, stream=True).raw)
-                    image_base64 = pil_to_b64(image)
-                elif image_url.startswith("data:image/png;base64,"):
-                    image_base64 = image_url
-                    image = b64_to_pil(image_base64)
-                else:
-                    raise ValueError(f"Unexpected image_url: {image_url}")
+        # if self.goal_images is None:
+        #     self.goal_images = []
+        #     for image_i, image_url in enumerate(obs["goal_image_urls"]):
+        #         # load the image as PIL object + PNG base64 string
+        #         if image_url.startswith("http"):
+        #             image = Image.open(requests.get(image_url, stream=True).raw)
+        #             image_base64 = pil_to_b64(image)
+        #         elif image_url.startswith("data:image/png;base64,"):
+        #             image_base64 = image_url
+        #             image = b64_to_pil(image_base64)
+        #         else:
+        #             raise ValueError(f"Unexpected image_url: {image_url}")
 
-                # save the image to a temporary (but persistent) PNG file
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-                    image_path = f.name
-                image.save(image_path)
+        #         # save the image to a temporary (but persistent) PNG file
+        #         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        #             image_path = f.name
+        #         image.save(image_path)
 
-                # add the image to the list
-                self.goal_images.append({"base64": image_base64, "path": image_path})
+        #         # add the image to the list
+        #         self.goal_images.append({"base64": image_base64, "path": image_path})
+
+        goal_images = obs["goal_images"]
 
         system_prompt = f"""\
 Review the current state of the page and all other information to find the best
@@ -131,7 +133,7 @@ If you have completed the task, use the chat to return an answer. For example, i
             },
         ]
         # aditional images
-        for image_i, image in enumerate(self.goal_images):
+        for image_i, image in enumerate(goal_images):
             user_msgs.extend(
                 [
                     {
@@ -156,7 +158,12 @@ If you have completed the task, use the chat to return an answer. For example, i
             ],
         )
         action = response.choices[0].message.content
-        return action, {}
+        stats = dict(response.usage)
+        return action, {
+            "chat_messages": [[m] for m in user_msgs],
+            "think": response.choices[0].message.content,
+            "stats": stats,
+        }
 
 
 @dataclasses.dataclass
@@ -168,18 +175,24 @@ class VWAAgentArgs(AbstractAgentArgs):
     internal states of the agent.
     """
 
-    model_name: str = "gpt-4o"
+    agent_name: str = "vwa"
+    model_name: str = "gpt-4-1106-vision-preview"
+    flags = {}
 
     def make_agent(self):
         return VWAAgent(model_name=self.model_name)
 
 
+CONFIG = VWAAgentArgs(model_name="gpt-4-1106-vision-preview")
+
+
 def main():
-    from browsergym.experiments import EnvArgs, ExpArgs, get_exp_result
     from pathlib import Path
 
+    from browsergym.experiments import EnvArgs, ExpArgs, get_exp_result
+
     exp_args = ExpArgs(
-        agent_args=VWAAgentArgs(model_name="gpt-4-turbo"),
+        agent_args=VWAAgentArgs(model_name="gpt-4-1106-preview"),
         env_args=EnvArgs(
             task_name="visualwebarena.423",
             task_seed=42,

@@ -219,6 +219,30 @@ def final_run(agent=AGENT_3_5, benchmark: str = "miniwob"):
     )
 
 
+def final_run_vwa(agent=AGENT_3_5, benchmark: str = "miniwob"):
+    agent.flags = miniwob_add_html(benchmark, agent.flags)
+
+    env_args_list_reset, env_args_list_no_reset = tasks.get_benchmark_env_args(
+        "visualwebarena", meta_seed=43, max_steps=None, n_repeat=None, is_agent_curriculum=False
+    )
+
+    return args.expand_cross_product(
+        ExpArgs(
+            agent_args=args.CrossProd([agent]),
+            env_args=args.CrossProd(env_args_list_reset),
+            enable_debug=False,
+            logging_level=logging.DEBUG,
+        )
+    ), args.expand_cross_product(
+        ExpArgs(
+            agent_args=args.CrossProd([agent]),
+            env_args=args.CrossProd(env_args_list_no_reset),
+            enable_debug=False,
+            logging_level=logging.DEBUG,
+        )
+    )
+
+
 def ablation_study(
     agent=AGENT_3_5,
     benchmark: str = "miniwob",
