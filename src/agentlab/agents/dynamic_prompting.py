@@ -415,11 +415,14 @@ class Observation(Shrinkable):
             else:
                 screenshot = self.obs["screenshot"]
             img_url = image_to_jpg_base64_url(screenshot)
-            prompt.append(
-                {
-                    "type": "image_url",
-                    "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
-                }
+            prompt.extend(
+                [
+                    {"type": "text", "text": "IMAGES: (1) current page screenshot"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
+                    },
+                ]
             )
         return prompt
 
@@ -443,8 +446,11 @@ that everything was filled correctly.\n"""
 
 
 class GoalInstructions(PromptElement):
-    def __init__(self, goal, visible: bool = True, extra_instructions=None) -> None:
+    def __init__(
+        self, goal, goal_images: list[dict], visible: bool = True, extra_instructions=None
+    ) -> None:
         super().__init__(visible)
+        self.goal_images = goal_images
         self._prompt = f"""\
 # Instructions
 Review the current state of the page and all other information to find the best
@@ -461,6 +467,30 @@ and executed by a program, make sure to follow the formatting instructions.
 
 {extra_instructions}
 """
+
+    def add_images(self, prompt: list[dict]):
+        # count the amount of images already in the prompt
+        img_count = sum([p["type"] == "image_url" for p in prompt])
+        for image_i, image in enumerate(self.goal_images):
+            prompt.extend(
+                [
+                    {
+                        "type": "text",
+                        "text": f"({image_i+img_count+1}) input image {image_i+1} (local path: {repr(image['path'])})",
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image["base64"]},
+                    },
+                ]
+            )
+        return prompt
+
+
+class GoalImages(PromptElement):
+    def __init__(self, goal_images, visible: bool = True) -> None:
+        super().__init__(visible)
+        self._prompt = ""
 
 
 class ChatInstructions(PromptElement):
@@ -496,6 +526,9 @@ and executed by a program, make sure to follow the formatting instructions.
 
 {extra_instructions}
 """
+
+    def add_images(self, prompt: list[dict]):
+        return prompt
 
 
 class Hints(PromptElement):

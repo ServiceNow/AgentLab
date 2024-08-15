@@ -66,10 +66,17 @@ class GenericAgent(Agent):
     @openai_monitored_agent
     def get_action(self, obs):
 
+        goal_images = obs.pop("goal_images", [])
+        if goal_images:
+            assert (
+                self.chat_model_args.vision_support
+            ), "Vision support is required for goal images."
+
         self.obs_history.append(obs)
         main_prompt = MainPrompt(
             action_set=self.action_set,
             obs_history=self.obs_history,
+            goal_images=goal_images,
             actions=self.actions,
             memories=self.memories,
             thoughts=self.thoughts,

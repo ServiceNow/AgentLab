@@ -1,9 +1,9 @@
-from .generic_agent_prompt import GenericPromptFlags
 from agentlab.agents import dynamic_prompting as dp
-from .generic_agent import GenericAgentArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.experiments import args
 
+from .generic_agent import GenericAgentArgs
+from .generic_agent_prompt import GenericPromptFlags
 
 FLAGS_CUSTOM = GenericPromptFlags(
     obs=dp.ObsFlags(
