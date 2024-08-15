@@ -49,6 +49,7 @@ class MainPrompt(dp.Shrinkable):
         self,
         action_set: AbstractActionSet,
         obs_history: list[dict],
+        goal_images: list[dict],
         actions: list[str],
         memories: list[str],
         thoughts: list[str],
@@ -69,7 +70,7 @@ class MainPrompt(dp.Shrinkable):
                     "Agent is in goal mode, but multiple user messages are present in the chat. Consider switching to `enable_chat=True`."
                 )
             self.instructions = dp.GoalInstructions(
-                obs_history[-1]["goal"], extra_instructions=flags.extra_instructions
+                obs_history[-1]["goal"], goal_images, extra_instructions=flags.extra_instructions
             )
 
         self.obs = dp.Observation(obs_history[-1], self.flags.obs)
@@ -130,7 +131,54 @@ Make sure to follow the template with proper tags:
 {self.criticise.concrete_ex}\
 {self.action_prompt.concrete_ex}\
 """
-        return self.obs.add_screenshot(prompt)
+        prompt = [{"type": "text", "text": prompt}]
+        prompt = self.obs.add_screenshot(prompt)
+        return self.instructions.add_images(prompt)
+
+    @property
+    def prompt2(self):
+        prompt_bits = []
+        prompt_bits.append(self.instructions.prompt)
+        prompt_bits.extend(self.goal_images.prompt)
+        prompt_bits.append(self.obs.prompt)
+        prompt_bits.append(self.history.prompt)
+        prompt_bits.append(self.action_prompt.prompt)
+        prompt_bits.append(self.hints.prompt)
+        prompt_bits.append(self.be_cautious.prompt)
+        prompt_bits.append(self.think.prompt)
+        prompt_bits.append(self.plan.prompt)
+        prompt_bits.append(self.memory.prompt)
+        prompt_bits.append(self.criticise.prompt)
+        if self.flags.use_abstract_example:
+            prompt_bits += [
+                f"""
+# Abstract Example
+
+Here is an abstract version of the answer with description of the content of
+each tag. Make sure you follow this structure, but replace the content with your
+answer:
+{self.think.abstract_ex}\
+{self.plan.abstract_ex}\
+{self.memory.abstract_ex}\
+{self.criticise.abstract_ex}\
+{self.action_prompt.abstract_ex}\
+"""
+            ]
+
+        if self.flags.use_concrete_example:
+            prompt_bits += [
+                f"""
+# Concrete Example
+
+Here is a concrete example of how to format your answer.
+Make sure to follow the template with proper tags:
+{self.think.concrete_ex}\
+{self.plan.concrete_ex}\
+{self.memory.concrete_ex}\
+{self.criticise.concrete_ex}\
+{self.action_prompt.concrete_ex}\
+"""
+            ]
 
     def shrink(self):
         self.history.shrink()
