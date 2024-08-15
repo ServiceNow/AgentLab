@@ -18,6 +18,10 @@ def import_object(path: str):
 
 
 def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
+    if isinstance(exp_args_list, tuple):
+        run_experiments_seq(n_jobs, exp_args_list, exp_dir)
+        return
+
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.agent_args.prepare()
@@ -35,6 +39,40 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
         for exp_args in exp_args_list:
             exp_args.agent_args.close()
         logging.info("Experiment finished.")
+
+
+def run_experiments_seq(n_jobs, exp_args_tuple: tuple[list[ExpArgs]], exp_dir):
+    """
+    Runs the first list of experiments sequentially, and the second list in parallel.
+
+    Args:
+        n_jobs: number of parallel jobs
+        exp_args_tuple: a tuple of two lists of ExpArgs
+        exp_dir: the directory where the experiments are saved
+    """
+
+    logging.info(f"Saving experiments to {exp_dir}")
+    for exp_args_list in exp_args_tuple:
+        for exp_args in exp_args_list:
+            exp_args.agent_args.prepare()
+            exp_args.prepare(exp_root=exp_dir)
+
+    try:
+        prefer = "processes"
+        Parallel(n_jobs=n_jobs, prefer=prefer)(
+            delayed(exp_args.run)() for exp_args in exp_args_tuple[1]
+        )
+        for exp_args in exp_args_tuple[0]:
+            exp_args.run()
+    finally:
+        # will close servers even if there is an exception or ctrl+c
+        # servers won't be closed if the script is killed with kill -9 or segfaults.
+        # TODO: it would be convinient to have a way to close servers in that case.
+        logging.info("Closing all LLM servers...")
+        for exp_args_list in exp_args_tuple:
+            for exp_args in exp_args_list:
+                exp_args.agent_args.close()  # TODO: get rid of that
+        logging.info("LLM servers closed.")
 
 
 def make_study_dir(exp_root, study_name, add_date=True):
