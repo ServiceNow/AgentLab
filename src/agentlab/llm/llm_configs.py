@@ -4,6 +4,7 @@ from agentlab.llm.chat_api import (
     AzureModelArgs,
     HuggingFaceModelArgs,
     OpenAIModelArgs,
+    OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
 
@@ -95,5 +96,48 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=2_000,
         backend="huggingface",
         **default_oss_llms_args,
+    ),
+    # ---------------- OPENROUTER ----------------#
+    "meta-llama/llama-3.1-405b-instruct": OpenRouterModelArgs(
+        model_name="meta-llama/llama-3.1-405b-instruct",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
+    "meta-llama/llama-3.1-70b-instruct": OpenRouterModelArgs(
+        model_name="meta-llama/llama-3.1-70b-instruct",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
+    "meta-llama/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
+        model_name="meta-llama/llama-3.1-8b-instruct:free",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
+    "meta-llama/llama-3.1-8b-instruct": OpenRouterModelArgs(
+        model_name="meta-llama/llama-3.1-8b-instruct",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
+    "anthropic/claude-3.5-sonnet:beta": OpenRouterModelArgs(
+        model_name="anthropic/claude-3.5-sonnet:beta",
+        max_total_tokens=200_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
+    "qwen/qwen-2-72b-instruct": OpenRouterModelArgs(
+        model_name="qwen/qwen-2-72b-instruct",
+        max_total_tokens=32_000,
+        max_input_tokens=30_000,
+        max_new_tokens=2_000,
+        temperature=1e-1,
     ),
 }
