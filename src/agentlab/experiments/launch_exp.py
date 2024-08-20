@@ -2,17 +2,12 @@ import argparse
 import json
 import logging
 import random
-from abc import ABC, abstractmethod
 from datetime import datetime
 from importlib import import_module
 from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from joblib import Parallel, delayed
-
-from agentlab.analyze import error_categorization
-from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from agentlab.webarena_setup.check_webarena_servers import check_webarena_servers
 
 
 def import_object(path: str):
@@ -26,11 +21,6 @@ def import_object(path: str):
 
 
 def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
-    # if webarena, check if the server is running
-    if any("webarena" in exp_args.env_args.task_name for exp_args in exp_args_list):
-        logging.info("Checking webarena servers...")
-        check_webarena_servers()
-
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.agent_args.prepare()
@@ -182,12 +172,14 @@ if __name__ == "__main__":
         "-y", "--auto_accept", action="store_true", help="Skip the prompt to accept the experiment"
     )
 
+    parser.add_argument("--shuffle_jobs", action="store_true", help="Shuffle the jobs")
+
     args, unknown = parser.parse_known_args()
 
     # if relaunch_mode is not None, we will relaunch the experiments
     if args.relaunch_mode is not None:
         assert args.exp_root is not None, "You must specify an exp_root to relaunch experiments."
-        exp_args_list, exp_dir = relaunch_study(args.exp_root, args.relaunch_mode)
+        exp_args_list, exp_dir = relaunch_study(args.exp_config, args.relaunch_mode)
     else:
         # we launch an experiment using the exp_config
         assert args.exp_config is not None, "You must specify an exp_config."
@@ -201,6 +193,10 @@ if __name__ == "__main__":
             exp_args_list, exp_dir = make_study(args.exp_root, study_func, args.extra_kwargs)
 
     message = f"\nYou are about to launch {len(exp_args_list)} experiments in {exp_dir}.\nPress Y to continue.\n"
+
+    if args.shuffle_jobs:
+        logging.info("Shuffling jobs")
+        random.shuffle(exp_args_list)
 
     if args.auto_accept:
         logging.info(message)
