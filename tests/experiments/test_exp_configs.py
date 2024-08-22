@@ -1,23 +1,19 @@
-from agentlab.agents.generic_agent.agent_configs import AGENT_3_5
-from agentlab.agents.generic_agent.exp_configs import ExpArgs
-from agentlab.experiments.launch_exp import import_object
+from agentlab.experiments import study_generators
 
 
 def test_all_configs():
-    exp_name_list = [
-        "agentlab.agents.generic_agent.generic_agent_test",
-        "agentlab.agents.generic_agent.progression_study",
-        "agentlab.agents.generic_agent.ablation_study",
-        "agentlab.agents.generic_agent.demo_maker",
-        "agentlab.agents.generic_agent.final_run",
+    generators = [
+        study_generators.ablation_study,
+        study_generators.demo_maker,
+        study_generators.run_agents_on_benchmark,
     ]
 
-    for exp_name in exp_name_list:
-        exp_args_list = import_object(exp_name)(AGENT_3_5, "miniwob")
-
+    for generator in generators:
+        study_name, exp_args_list = generator()
+        assert isinstance(study_name, str)
         assert isinstance(exp_args_list, list)
         assert len(exp_args_list) > 0
-        assert all(isinstance(exp_args, ExpArgs) for exp_args in exp_args_list)
+        assert isinstance(exp_args_list[0], study_generators.ExpArgs)
 
 
 if __name__ == "__main__":

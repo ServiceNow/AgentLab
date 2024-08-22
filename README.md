@@ -1,21 +1,77 @@
-## Paper
+# AgentLab
 
+AgentLab is a framework for developing and evaluating web agents on a variety of
+benchmarks supported by [BrowserGym](https://github.com/ServiceNow/BrowserGym).
+This includes:
+* WebArena
+* WorkArena.L1, L2, L3
+* VisualWebArena (coming soon)
+* MiniWoB
 
+The framework enable the desing of rich hyperparameter spaces and the launch of
+parallel experiments using ablation studies or random searches. It also provides
+agent_xray, a visualization tool to inspect the results of the experiments using
+a custom gradio interface
+
+<a href="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d">
+  <img src="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d" width="200" />
+</a>
 
 ## Install agentlab
 
-:warning: skip this section if you've already installed the `agentlab` conda env.
-
-install the package locall with the `-e` flag
-From the same directory as this README file run:
+This repo is intended for developing new agents, hence we clone and install using the `-e` flag.
 
 ```bash
+git clone git@github.com:ServiceNow/AgentLab.git
 pip install -e .
 ```
 
-or `conda env update` from the main agentlab directory.
+## Set Environment Variables
 
-This will ensure that the `PYTHONPATH` will be set correctly.
+```bash
+export AGENTLAB_RESULTS_DIR=<root directory of experiment results>  # defaults to $HOME/agentlab_results
+export OPENAI_API_KEY=<your openai api key> # if openai models are used
+```
+
+## Use an assistant to work for you (at your own cost and risk)
+```bash
+agentlab-assistant --start_url https://www.google.com
+```
+
+## Prepare Benchmarks
+Depending on which benchmark you use, there are some prerequisites
+
+<details>
+<summary>MiniWoB</summary>
+
+```bash
+export MINIWOB_URL="file://$HOME/dev/miniwob-plusplus/miniwob/html/miniwob/"
+```
+</details>
+
+<details>
+<summary>WebArena on AWS</summary>
+TODO
+</details>
+
+<details>
+<summary>WebArena on Azure</summary>
+TODO
+</details>
+
+
+<details>
+
+<summary>WorkArena</summary>
+
+```bash
+export SNOW_INSTANCE_URL="https://<your-instance-number>.service-now.com/"
+export SNOW_INSTANCE_UNAME="admin"
+export SNOW_INSTANCE_PWD=<your-instance-password>
+```
+
+</details>
+
 
 ## Launch experiments
 
@@ -47,7 +103,7 @@ As an example, to launch our agent with GPT-4o on the miniwob benchmark, with ma
 
 ```bash
     python src/agentlab/experiments/launch_exp.py  \
-        --exp_config=agentlab.agents.generic_agent.final_run \
+        --exp_config=agentlab.agents.generic_agent.run_agent_on_benchmark \
         --agent_config=agentlab.agents.generic_agent.AGENT_4o \
         --benchmark=miniwob \
         --n_jobs=-1
