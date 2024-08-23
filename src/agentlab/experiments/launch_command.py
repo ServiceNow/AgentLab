@@ -7,7 +7,7 @@ Don't push your changes to this file to git unless you are making structural cha
 
 import logging
 
-from agentlab.agents.generic_agent.agent_configs import RANDOM_SEARCH_AGENT, AGENT_4o, AGENT_4o_MINI
+from agentlab.agents.generic_agent import RANDOM_SEARCH_AGENT, AGENT_4o, AGENT_4o_MINI
 from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments import study_generators
 from agentlab.experiments.exp_utils import RESULTS_DIR

@@ -7,11 +7,11 @@ from browsergym.experiments.loop import ExpArgs
 
 
 # TODO move this to a more appropriate place
-RESULTS_DIR = os.environ.get("AGENTLAB_RESULTS_DIR", None)
+RESULTS_DIR = os.environ.get("AGENTLAB_EXP_ROOT", None)
 if RESULTS_DIR is None:
     RESULTS_DIR = os.environ.get("UI_COPILOT_RESULTS_DIR", None)
 if RESULTS_DIR is None:
-    logging.info("$AGENTLAB_RESULTS_DIR is not defined, Using $HOME/agentlab_results.")
+    logging.info("$AGENTLAB_EXP_ROOT is not defined, Using $HOME/agentlab_results.")
     RESULTS_DIR = Path.home() / "agentlab_results"
 else:
     RESULTS_DIR = Path(RESULTS_DIR)
