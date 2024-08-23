@@ -1,5 +1,9 @@
 # AgentLab
 
+<a href="https://github.com/user-attachments/assets/d86ef030-c4e2-4a8a-9d79-8f5039039560">
+  <img src="https://github.com/user-attachments/assets/d86ef030-c4e2-4a8a-9d79-8f5039039560" width="500" />
+</a>
+
 AgentLab is a framework for developing and evaluating web agents on a variety of
 benchmarks supported by [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 This includes:
@@ -8,18 +12,18 @@ This includes:
 * VisualWebArena (coming soon)
 * MiniWoB
 
-The framework enable the desing of rich hyperparameter spaces and the launch of
+The framework enables the desing of rich hyperparameter spaces and the launch of
 parallel experiments using ablation studies or random searches. It also provides
 agent_xray, a visualization tool to inspect the results of the experiments using
 a custom gradio interface
 
 <a href="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d">
-  <img src="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d" width="200" />
+  <img src="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d" width="250" />
 </a>
 
 ## Install agentlab
 
-This repo is intended for developing new agents, hence we clone and install using the `-e` flag.
+This repo is intended for testing and developing new agents, hence we clone and install using the `-e` flag.
 
 ```bash
 git clone git@github.com:ServiceNow/AgentLab.git
@@ -29,7 +33,7 @@ pip install -e .
 ## Set Environment Variables
 
 ```bash
-export AGENTLAB_RESULTS_DIR=<root directory of experiment results>  # defaults to $HOME/agentlab_results
+export AGENTLAB_EXP_ROOT=<root directory of experiment results>  # defaults to $HOME/agentlab_results
 export OPENAI_API_KEY=<your openai api key> # if openai models are used
 ```
 
@@ -75,88 +79,78 @@ export SNOW_INSTANCE_PWD=<your-instance-password>
 
 ## Launch experiments
 
-Experiments can be ran from `launch_exp.py`, with the following options:
-
-```bash
-  -h, --help            show this help message and exit
-  --exp_root EXP_ROOT   folder where experiments will be saved
-  --n_jobs N_JOBS       number of parallel jobs
-  --exp_config EXP_CONFIG
-                        Python path to the experiment function to launch
-  --benchmark {miniwob,workarena.l1,workarena.l2,workarena.l3}
-                        Benchmark to launch
-  --agent_config AGENT_CONFIG
-                        Python path to the agent config
-  --relaunch_mode {None,incomplete_only,all_errors,server_errors}
-                        Find all incomplete experiments and relaunch them.
-  --extra_kwargs EXTRA_KWARGS
-                        Extra arguments to pass to the experiment group.
+Create your agent or import an existing one:
+```python
+from agentlab.agents.generic_agent.agent_configs import AGENT_4o
 ```
 
-`exp_config` is a python path to the experiment function to launch as defined in `exp_configs.py`. This function must return a list of `ExpArgs` objects, that correspond to running one agent on a task.
-
-`agent_config` is a python path to an agent config.
-
-Our experiment and agent configs are available at `agentlab.agents.generic_agent`
-
-As an example, to launch our agent with GPT-4o on the miniwob benchmark, with maximum jobs, run:
-
-```bash
-    python src/agentlab/experiments/launch_exp.py  \
-        --exp_config=agentlab.agents.generic_agent.run_agent_on_benchmark \
-        --agent_config=agentlab.agents.generic_agent.AGENT_4o \
-        --benchmark=miniwob \
-        --n_jobs=-1
+Run the agent on a benchmark:
+```python
+study_name, exp_args_list = run_agents_on_benchmark(AGENT_4o, benchmark)
+study_dir = make_study_dir(RESULTS_DIR, study_name)
+run_experiments(n_jobs, exp_args_list, study_dir)
 ```
 
-Our configs are available in the [agent_config folder](src/agentlab/agents/generic_agent/agent_configs.py). We provide configs for our agent with the following models:
-- `AGENT_3_5`: GPT-3.5
-- `AGENT_4o`: GPT-4o
-- `AGENT_4o_vision`: GPT-4o with vision
-- `AGENT_8B`: Llama3-8B
-- `AGENT_70B`: Llama3-70B
+use [agentlab.experiments.launch_commad.py](src/agentlab/experiments/launch_command.py) to launch experiments with a variety
+of options. This is like a lazy CLI that is actually more convenient than a CLI.
+Just comment and uncomment the lines you need or modify at will (but don't push
+to the repo).
 
-We additionnaly provide an `AGENT_CUSTOM` config that can be used to try out flags.
+<details>
 
-### Custom experiments
+<summary>Debugging</summary>
 
-Alternatively, you can customize your experiments by modifying `exp_configs.py` and `launch_command.py`. They are located respectively in `agentlab/agents/generic_agent` and `agentlab/experiments/`.
-
-Then launch the experiment with
-
-```bash
-    python src/agentlab/experiments/launch_command.py
-```
+For debugging, run experiments using `n_jobs=1` and use VSCode debug mode. This
+will allow you to stop on breakpoints. To prevent the debugger from stopping
+on errors when running multiple experiments directly in VSCode, set
+`enable_debug = False` in `ExpArgs` 
+</details>
 
 
-### Debugging
-
-If you launch via VSCode in debug mode, debugging will be enabled and errors will be raised
-instead of being logged, unless you set `enable_debug = False` in `ExpArgs`. This
-will bring a breakpoint on the error.
-
-To make sure you get a breakpoint at the origin of the error, we recommend to set `n_jobs=1` in `main()` from `launch_exp.py`.
 
 
-### `joblib`'s parallel jobs
-Jobs are launched in parallel using joblib. This will launch multiple processes
-on a single computer. The choice is based on the fact that, in general, we are not CPU
-bounded. If it becomes the bottleneck we can launch using multiple servers.
 
-SSH to a server with many cores to get more parallelism. You can use `screen` (or `tmux`) to
-ensure the process keeps running even if you disconnect.
+<details>
+
+<summary>Parallel jobs</summary>
+
+Running one agent on one task correspond to one job. When conducting ablation
+studies or random searches on hundreds of tasks with multiple seeds, this can
+lead to more than 10000 jobs. It is thus crucial to execute them in parallel.
+The agent usually wait on the LLM server to return the results or the web server
+to update the page. Hence, you can run 10-50 jobs in parallel on a single
+computer depending on how much RAM is available.
+
+</details>
+
+## AgentXray
+While your experiments are running, you can inspect the results using:
 
 ```bash
-    screen -S <screen_name>
-    python launch_command.py
-    # ctrl-a d to detach
-    # screen -r <screen_name> to reattach
+agentlab-xray
 ```
 
-## Visualize results
-Open `agentlab/experiments/inspect_results.ipynb` in jupyter notebook.
+<a href="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d">
+  <img src="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d" width="250" />
+</a>
 
-Set your `result_dir` to the right value and run the notebook.
+You will be able to select the recent experiments in the directory
+`AGENTLAB_EXP_ROOT` and visualize the results in a gradio interface.
+
+In the following order, select:
+* The experiment you want to visualize
+* The agent if there is more than one
+* The task
+* And the seed
+
+Once this is selected, you can see the trace of your agent on the given task.
+Click on the profiling image to select a step and observe the action taken by the agent.
+
+## Implement a new Agent
+
+Get inspiration from the `MostBasicAgent` in [agentlab/agents/most_basic_agent/most_basic_agent.py](src/agentlab/agents/most_basic_agent/most_basic_agent.py)
+
+Create a new directory in agentlab/agents/ with the name of your agent. 
 
 ## Misc
 
