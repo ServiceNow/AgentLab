@@ -9,7 +9,7 @@ benchmarks supported by [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 This includes:
 * WebArena
 * WorkArena.L1, L2, L3
-* VisualWebArena (coming soon)
+* VisualWebArena (coming soon...)
 * MiniWoB
 
 The framework enables the desing of rich hyperparameter spaces and the launch of
