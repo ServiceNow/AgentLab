@@ -44,7 +44,7 @@ class WebArenaBasicAgent(Agent):
         self.chat = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
 
-        self.action_set = HighLevelActionSet(['chat', 'bid'], strict=False, multiaction=True)
+        self.action_set = HighLevelActionSet(['chat', 'bid'], strict=False, multiaction=False)
         self.prev_actions = []
 
     def get_action(self, obs: Any) -> tuple[str, dict]:
