@@ -23,16 +23,16 @@ logging.getLogger().setLevel(logging.INFO)
 exp_args_list = None
 
 ## select your experiment group here from generic_agent/exp_configs.py, as a Python path
-exp_config = "agentlab.agents.generic_agent.exp_config.final_run"
-# exp_config = "agentlab.agents.generic_agent.exp_config.generic_agent_test"  ## this will make a very quick test
-# exp_config = "agentlab.agents.generic_agent.exp_config.generic_agent_eval_llm"
-# exp_config = "agentlab.agents.generic_agent.exp_config.random_search"
+exp_config = "agentlab.agents.generic_agent.exp_configs.final_run"
+# exp_config = "agentlab.agents.generic_agent.exp_configs.generic_agent_test"  ## this will make a very quick test
+# exp_config = "agentlab.agents.generic_agent.exp_configs.generic_agent_eval_llm"
+# exp_config = "agentlab.agents.generic_agent.exp_configs.random_search"
 
 ## select your agent config here from generic_agent/agent_config.py, as a Python path
-agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_3_5"
-# agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_4o"
-# agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_4o_VISION"
-# agent_config = "agentlab.agents.generic_agent.agent_config.AGENT_70B"
+agent_config = "agentlab.agents.generic_agent.agent_configs.AGENT_3_5"
+# agent_config = "agentlab.agents.generic_agent.agent_configs.AGENT_4o"
+# agent_config = "agentlab.agents.generic_agent.agent_configs.AGENT_4o_VISION"
+# agent_config = "agentlab.agents.generic_agent.agent_configs.AGENT_70B"
 # agent_config = None # if exp_config uses a default agent
 
 ## select the benchmark to run on
@@ -59,6 +59,9 @@ extra_kwargs = {}  # anything you want to pass to the experiment group defined i
 n_jobs = 1
 # n_jobs = -1  # to use all available cores
 
+## Shuffling the order of experiments
+shuffle = False
+
 
 if relaunch_mode is not None:
     assert exp_root is not None, "You must specify an exp_root to relaunch experiments."
@@ -74,6 +77,11 @@ else:
         )
     else:
         exp_args_list, exp_dir = make_study(exp_root, study_func, extra_kwargs)
+
+if shuffle:
+    import numpy as np
+
+    np.random.shuffle(exp_args_list)
 
 # run the experiments
 run_experiments(n_jobs, exp_args_list, exp_dir)

@@ -1,13 +1,11 @@
 import tempfile
-from pathlib import Path
-
-from browsergym.experiments.loop import EnvArgs, ExpArgs
-
-from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from agentlab.analyze import inspect_results
-from agentlab.experiments import launch_exp
+from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
+from browsergym.experiments.loop import EnvArgs, ExpArgs
+from agentlab.experiments import launch_exp
+from agentlab.analyze import inspect_results
+from pathlib import Path
 
 
 def test_generic_agent():
