@@ -10,7 +10,7 @@ install the package locall with the `-e` flag
 From the same directory as this README file run:
 
 ```bash
-    pip install -e .
+pip install -e .
 ```
 
 or `conda env update` from the main agentlab directory.
