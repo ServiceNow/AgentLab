@@ -1,7 +1,7 @@
-# AgentLab
 
-<a href="https://github.com/user-attachments/assets/d86ef030-c4e2-4a8a-9d79-8f5039039560">
-  <img src="https://github.com/user-attachments/assets/d86ef030-c4e2-4a8a-9d79-8f5039039560" width="500" />
+
+<a href="https://github.com/user-attachments/assets/1bd2f6b2-bce0-43c7-846b-837fd3c6480a">
+  <img src="https://github.com/user-attachments/assets/1bd2f6b2-bce0-43c7-846b-837fd3c6480a" width="1000" />
 </a>
 
 AgentLab is a framework for developing and evaluating web agents on a variety of
