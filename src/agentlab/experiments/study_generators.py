@@ -20,7 +20,13 @@ def run_agents_on_benchmark(
             The agent configuration(s) to run.
 
         benchmark: str
-            The benchmark to use.
+            The benchmark to use. One of:
+                * miniwob
+                * webarena
+                * workarena.l1
+                * workarena.l2
+                * workarena.l3
+                * miniwob_tiny_test
 
     Returns:
         study_name: str
@@ -35,7 +41,7 @@ def run_agents_on_benchmark(
         agent.set_benchmark(benchmark)  # the agent can adapt (lightly?) to the benchmark
 
     env_args_list = tasks.get_benchmark_env_args(
-        benchmark, meta_seed=43, max_steps=None, n_repeat=None, is_agent_curriculum=False
+        benchmark, meta_seed=43, max_steps=None, n_repeat=None
     )
 
     if len(agents) == 1:

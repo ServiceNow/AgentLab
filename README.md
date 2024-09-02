@@ -35,6 +35,7 @@ pip install -e .
 ```bash
 export AGENTLAB_EXP_ROOT=<root directory of experiment results>  # defaults to $HOME/agentlab_results
 export OPENAI_API_KEY=<your openai api key> # if openai models are used
+export HUGGINGFACEHUB_API_TOKEN=<your huggingfacehub api token> # if huggingface models are used
 ```
 
 ## Use an assistant to work for you (at your own cost and risk)
