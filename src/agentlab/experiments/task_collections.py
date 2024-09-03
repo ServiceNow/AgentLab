@@ -18,12 +18,12 @@ tasks_eval = df[df["miniwob_category"].isin(["original", "additional", "hidden t
     "task_name"
 ].tolist()
 miniwob_debug = df[df["miniwob_category"].isin(["debug"])]["task_name"].tolist()
-miniwob_tiny_test = ["miniwob.click-dialog", "miniwob.click-dialog-2"]
+MINIWOB_TINY_TEST = ["miniwob.click-dialog", "miniwob.click-checkboxes"]
 
 assert len(MINIWOB_ALL) == 125
 assert len(tasks_eval) == 107
 assert len(miniwob_debug) == 12
-assert len(miniwob_tiny_test) == 2
+assert len(MINIWOB_TINY_TEST) == 2
 
 
 webgum_tasks = [
@@ -86,8 +86,9 @@ webgum_tasks = [
 ]
 
 
+# TODO add miniwob_tiny_test as benchmarks
 def get_benchmark_env_args(
-    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None, is_agent_curriculum=True
+    benchmark_name: str, meta_seed=42, max_steps=None, n_repeat=None
 ) -> list[EnvArgs]:
     """
     Returns a list of EnvArgs for the given benchmark_name.
@@ -122,6 +123,7 @@ def get_benchmark_env_args(
         "workarena.l3": 50,
         "webarena": 15,
         "miniwob": 10,
+        "miniwob_tiny_test": 5,
     }
 
     n_repeat_default = {
@@ -130,6 +132,7 @@ def get_benchmark_env_args(
         "workarena.l3": 1,
         "webarena": 1,
         "miniwob": 5,
+        "miniwob_tiny_test": 2,
     }
 
     if max_steps is None:
@@ -163,7 +166,6 @@ def get_benchmark_env_args(
                 filter=".".join(filters[1:]),
                 meta_seed=meta_seed,
                 n_seed_l1=n_repeat,
-                is_agent_curriculum=is_agent_curriculum,
             ):
                 task_name = task.get_task_id()
                 env_args_list.append(
@@ -177,6 +179,7 @@ def get_benchmark_env_args(
     elif benchmark_name.startswith("miniwob"):
         miniwob_benchmarks_map = {
             "miniwob": MINIWOB_ALL,
+            "miniwob_tiny_test": MINIWOB_TINY_TEST,
         }
         env_args_list = _make_env_args(
             miniwob_benchmarks_map[benchmark_name], max_steps, n_repeat, rng

@@ -1,26 +1,32 @@
-import traceback
 from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
 from browsergym.experiments.agent import Agent
-from browsergym.experiments.loop import AbstractAgentArgs
 from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.agents import dynamic_prompting as dp
+from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
-from agentlab.llm.llm_utils import ParseError, RetryError, retry_raise
+from agentlab.llm.llm_utils import RetryError, retry_raise
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
 
 @dataclass
-class GenericAgentArgs(AbstractAgentArgs):
-    agent_name: str = "GenericAgent"
+class GenericAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
+
+    @property
+    def agent_name(self):
+        return f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
+
+    def set_benchmark(self, benchmark):
+        if benchmark == "miniwob":
+            self.flags.obs.use_html = True
 
     def prepare(self):
         return self.chat_model_args.prepare_server()
@@ -83,15 +89,6 @@ class GenericAgent(Agent):
             max_iterations=max_trunc_itr,
             additional_prompts=system_prompt,
         )
-
-        def parser(text):
-            try:
-                ans_dict = main_prompt._parse_answer(text)
-            except ParseError as e:
-                # these parse errors will be caught by the retry function and
-                # the chat_llm will have a chance to recover
-                return None, False, str(e)
-            return ans_dict, True, ""
 
         stats = {}
         try:

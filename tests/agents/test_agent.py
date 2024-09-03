@@ -35,7 +35,7 @@ def test_generic_agent():
 
         for key, target_val in target.items():
             assert key in result_record
-            assert result_record[key][0] == target_val
+            assert result_record[key].iloc[0] == target_val
 
 
 if __name__ == "__main__":
