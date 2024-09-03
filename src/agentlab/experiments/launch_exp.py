@@ -179,7 +179,7 @@ if __name__ == "__main__":
     # if relaunch_mode is not None, we will relaunch the experiments
     if args.relaunch_mode is not None:
         assert args.exp_root is not None, "You must specify an exp_root to relaunch experiments."
-        exp_args_list, exp_dir = relaunch_study(args.exp_config, args.relaunch_mode)
+        exp_args_list, exp_dir = relaunch_study(args.exp_root, args.relaunch_mode)
     else:
         # we launch an experiment using the exp_config
         assert args.exp_config is not None, "You must specify an exp_config."
