@@ -5,9 +5,9 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.utils.obs import flatten_axtree_to_str
 from browsergym.experiments.agent import Agent, AgentInfo
 from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
+from browsergym.utils.obs import flatten_axtree_to_str
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
@@ -37,18 +37,16 @@ class WebArenaBasicAgentArgs(AbstractAgentArgs):
 
 
 class WebArenaBasicAgent(Agent):
-    def __init__(
-        self, temperature: float, chat_model_args: "BaseModelArgs"
-    ):
+    def __init__(self, temperature: float, chat_model_args: "BaseModelArgs"):
         self.temperature = temperature
         self.chat = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
 
-        self.action_set = HighLevelActionSet(['chat', 'bid'], strict=False, multiaction=False)
+        self.action_set = HighLevelActionSet(["chat", "bid"], strict=False, multiaction=False)
         self.prev_actions = []
 
     def get_action(self, obs: Any) -> tuple[str, dict]:
-        system_prompt =f"""\
+        system_prompt = f"""\
 # Instructions
 Review the current state of the page and all other information to find the best
 possible next action to accomplish your goal. Your answer will be interpreted
@@ -58,15 +56,10 @@ and executed by a program, make sure to follow the formatting instructions.
 {obs["goal"]}
 
 # Action Space
-{self.action_space.describe(with_long_description=False, with_examples=True)}
+{self.action_set.describe(with_long_description=False, with_examples=True)}
 """
-        cur_axtree_txt = flatten_axtree_to_str(
-                    obs['axtree_object'],
-                    extra_properties=obs['extra_element_properties'],
-                    with_clickable=True,
-                    filter_visible_only=True,
-                )
-        prev_action_str = '\n'.join(self.prev_actions)
+        cur_axtree_txt = obs["axtree_txt"]
+        prev_action_str = "\n".join(self.prev_actions)
 
         prompt = f"""\
 # Current Accessibility Tree:
@@ -91,7 +84,7 @@ send_msg_to_user("$279.49")
 ```
 "
 """.strip()
-   
+
         messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
 
         def parser(response: str) -> tuple[dict, bool, str]:
@@ -153,3 +146,17 @@ exp_args = [
 
 def experiment_config():
     return exp_args
+
+
+if __name__ == "__main__":
+    from agentlab.experiments.exp_utils import RESULTS_DIR
+
+    exp_dir = os.path.join(RESULTS_DIR, "webarena_basic_agent")
+
+    for exp_arg in exp_args:
+        exp_arg.agent_args.prepare()
+        exp_arg.prepare(exp_dir)
+
+    for exp_arg in exp_args:
+        exp_arg.run()
+        exp_arg.agent_args.close()
