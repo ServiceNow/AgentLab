@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING
 from langchain.schema import AIMessage
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
-from agentlab.llm.langchain_utils import HuggingFaceAPIChatModel, HuggingFaceURLChatModel
+from agentlab.llm.langchain_utils import (
+    ChatOpenRouter,
+    HuggingFaceAPIChatModel,
+    HuggingFaceURLChatModel,
+)
 
 if TYPE_CHECKING:
     from langchain_core.language_models.chat_models import BaseChatModel
@@ -74,6 +78,19 @@ class BaseModelArgs(ABC):
 
     def close_server(self):
         pass
+
+
+@dataclass
+class OpenRouterModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenAI
+    model."""
+
+    def make_model(self):
+        return ChatOpenRouter(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
 
 
 @dataclass
