@@ -98,28 +98,28 @@ CHAT_MODEL_ARGS_DICT = {
         **default_oss_llms_args,
     ),
     # ---------------- OPENROUTER ----------------#
-    "meta-llama/llama-3.1-405b-instruct": OpenRouterModelArgs(
+    "openrouter/llama-3.1-405b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-405b-instruct",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,
         temperature=1e-1,
     ),
-    "meta-llama/llama-3.1-70b-instruct": OpenRouterModelArgs(
+    "openrouter/llama-3.1-70b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-70b-instruct",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,
         temperature=1e-1,
     ),
-    "meta-llama/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
+    "openrouter/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct:free",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,
         temperature=1e-1,
     ),
-    "meta-llama/llama-3.1-8b-instruct": OpenRouterModelArgs(
+    "openrouter/llama-3.1-8b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
