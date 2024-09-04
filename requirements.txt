@@ -1,5 +1,5 @@
 browsergym
-joblib>=1.2.0
+dask
 openai>=1.7,<2
 langchain>=0.1,<1
 langchain_openai
