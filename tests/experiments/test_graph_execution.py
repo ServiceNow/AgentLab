@@ -7,8 +7,8 @@ from browsergym.experiments.loop import ExpArgs, EnvArgs
 
 # Mock implementation of the ExpArgs class with timestamp checks
 class MockedExpArgs:
-    def __init__(self, task_id, depends_on=None):
-        self.task_id = task_id
+    def __init__(self, exp_id, depends_on=None):
+        self.exp_id = exp_id
         self.depends_on = depends_on if depends_on else []
         self.start_time = None
         self.end_time = None
@@ -23,10 +23,10 @@ class MockedExpArgs:
 def test_execute_task_graph():
     # Define a list of ExpArgs with dependencies
     exp_args_list = [
-        MockedExpArgs(task_id="task1", depends_on=[]),
-        MockedExpArgs(task_id="task2", depends_on=["task1"]),
-        MockedExpArgs(task_id="task3", depends_on=["task1"]),
-        MockedExpArgs(task_id="task4", depends_on=["task2", "task3"]),
+        MockedExpArgs(exp_id="task1", depends_on=[]),
+        MockedExpArgs(exp_id="task2", depends_on=["task1"]),
+        MockedExpArgs(exp_id="task3", depends_on=["task1"]),
+        MockedExpArgs(exp_id="task4", depends_on=["task2", "task3"]),
     ]
 
     # Execute the task graph
@@ -68,9 +68,9 @@ def test_add_dependencies():
     modified_list = add_dependencies(exp_args_list, task_dependencies)
 
     # Verify dependencies
-    assert modified_list[0].depends_on == ["2"]  # task1 depends on task2
-    assert modified_list[1].depends_on == []  # task2 has no dependencies
-    assert modified_list[2].depends_on == ["1"]  # task3 depends on task1
+    assert modified_list[0].depends_on == ("2",)  # task1 depends on task2
+    assert modified_list[1].depends_on == ()  # task2 has no dependencies
+    assert modified_list[2].depends_on == ("1",)  # task3 depends on task1
 
     # assert raise if task_dependencies is wrong
     task_dependencies = {"task1": ["task2"], "task2": [], "task4": ["task3"]}
@@ -79,4 +79,4 @@ def test_add_dependencies():
 
 
 if __name__ == "__main__":
-    test_add_dependencies()
+    test_execute_task_graph()

@@ -83,10 +83,10 @@ def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[list]
     # turn dependencies from task names to exp_ids
     for task_name, exp_args in exp_args_map.items():
 
-        exp_args.depends_on = [
+        exp_args.depends_on = tuple(
             exp_args_map[dep_name].exp_id
             for dep_name in task_dependencies[task_name]
             if dep_name in exp_args_map  # ignore dependencies that are not to be run
-        ]
+        )
 
     return exp_args_list

@@ -4,7 +4,8 @@ from importlib import import_module
 from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
-from joblib import Parallel, delayed
+from agentlab.experiments.graph_execution import execute_task_graph
+from dask.distributed import Client
 
 
 def import_object(path: str):
@@ -24,10 +25,7 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
         exp_args.prepare(exp_root=exp_dir)
 
     try:
-        prefer = "processes"
-        Parallel(n_jobs=n_jobs, prefer=prefer)(
-            delayed(exp_args.run)() for exp_args in exp_args_list
-        )
+        execute_task_graph(Client(n_workers=n_jobs), exp_args_list)
     finally:
         # will close servers even if there is an exception or ctrl+c
         # servers won't be closed if the script is killed with kill -9 or segfaults.
