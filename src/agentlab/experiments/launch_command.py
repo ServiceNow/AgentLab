@@ -26,6 +26,7 @@ benchmark = "miniwob"
 # benchmark = "workarena.l2"
 # benchmark = "workarena.l3"
 # benchmark = "webarena"
+benchmark = "visualwebarena"
 
 
 ## select the kind of experiment (study)
