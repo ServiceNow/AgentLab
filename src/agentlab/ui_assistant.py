@@ -1,12 +1,13 @@
 import argparse
 
-from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
+from browsergym.experiments.loop import EnvArgs, ExpArgs
 
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.launch_exp import import_object
+from agentlab.agents.agent_args import AgentArgs
 
 
-def make_exp_args(agent_args: AbstractAgentArgs, start_url="https://www.google.com"):
+def make_exp_args(agent_args: AgentArgs, start_url="https://www.google.com"):
 
     try:
         agent_args.flags.action.demo_mode = "default"
@@ -33,20 +34,20 @@ def make_exp_args(agent_args: AbstractAgentArgs, start_url="https://www.google.c
     return exp_args
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--agent_config",
         type=str,
         default="agentlab.agents.generic_agent.AGENT_4o",
-        help="Python path to the agent config",
+        help="""Python path to the agent config. Defaults to : "agentlab.agents.generic_agent.AGENT_4o".""",
     )
     parser.add_argument(
         "--start_url",
         type=str,
         default="https://www.google.com",
-        help="The start page of the agent",
+        help="The start page of the agent. Defaults to https://www.google.com",
     )
 
     args, unknown = parser.parse_known_args()
@@ -54,3 +55,7 @@ if __name__ == "__main__":
     exp_args = make_exp_args(agent_args, args.start_url)
     exp_args.prepare(RESULTS_DIR / "ui_assistant_logs")
     exp_args.run()
+
+
+if __name__ == "__main__":
+    main()
