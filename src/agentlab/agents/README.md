@@ -90,7 +90,7 @@ class CustomActionSet(AbstractActionSet):
 
 ### Step 5: Defining Agent Arguments
 
-Define a class that inherits from `AbstractAgentArgs` to specify the arguments
+Define a class that inherits from `AgentArgs` to specify the arguments
 required to instantiate your agent. This factory isolates all hyperparameters of
 your agent and facilitate the experiment pipeline. Make sure it is a dataclass to
 be compatible with the experiment pipeline. *As a requirement for dataclass, you
@@ -99,11 +99,11 @@ have to specify the type of each field (You can use Any if it is unknown)*
 ```python
 from dataclasses import dataclass
 from browsergym.experiment.agent import Agent
-from browsergym.experiment.loop import AbstractAgentArgs
+from browsergym.experiment.loop import AgentArgs
 
 
 @dataclass
-class CustomAgentArgs(AbstractAgentArgs):
+class CustomAgentArgs(AgentArgs):
     temperature: float = 0.5
     custom_param: str = "default_value"
 

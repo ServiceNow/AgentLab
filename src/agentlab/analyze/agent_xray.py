@@ -89,7 +89,7 @@ class Info:
             self.exp_result = None
 
         # find unique row for task_name and seed
-        result_df = self.result_df.reset_index(inplace=False)
+        result_df = self.agent_df.reset_index(inplace=False)
         sub_df = result_df[
             (result_df[TASK_NAME_KEY] == episode_id.task_name)
             & (result_df[TASK_SEED_KEY] == episode_id.seed)
@@ -1062,5 +1062,8 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     return step_times
 
 
-if __name__ == "__main__":
+def main():
     run_gradio(RESULTS_DIR)
+
+if __name__ == "__main__":
+    main()

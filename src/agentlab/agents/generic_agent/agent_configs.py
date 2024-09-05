@@ -2,6 +2,7 @@ from .generic_agent_prompt import GenericPromptFlags
 from agentlab.agents import dynamic_prompting as dp
 from .generic_agent import GenericAgentArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
+from agentlab.experiments import args
 
 
 FLAGS_CUSTOM = GenericPromptFlags(
@@ -241,4 +242,51 @@ FLAGS_GPT_4o_VISION.obs.use_som = True
 AGENT_4o_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
     flags=FLAGS_GPT_4o_VISION,
+)
+
+
+DEFAULT_RS_FLAGS = GenericPromptFlags(
+    flag_group="default_rs",
+    obs=dp.ObsFlags(
+        use_html=True,
+        use_ax_tree=args.Choice([True, False]),
+        use_focused_element=False,
+        use_error_logs=True,
+        use_history=True,
+        use_past_error_logs=args.Choice([True, False], p=[0.7, 0.3]),
+        use_action_history=True,
+        use_think_history=args.Choice([True, False], p=[0.7, 0.3]),
+        use_diff=args.Choice([True, False], p=[0.3, 0.7]),
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=args.Choice([True, False]),
+        extract_clickable_tag=False,
+        extract_coords=args.Choice(["center", "box"]),
+        filter_visible_elements_only=args.Choice([True, False], p=[0.3, 0.7]),
+    ),
+    action=dp.ActionFlags(
+        multi_actions=args.Choice([True, False], p=[0.7, 0.3]),
+        action_set=args.Choice(["bid", "bid+coord"]),
+        # action_set=args.Choice(["python", "bid", "coord",
+        # "bid+coord"]),
+    ),
+    # drop_ax_tree_first=True, # this flag is no longer active, according to browsergym doc
+    use_plan=args.Choice([True, False]),
+    use_criticise=args.Choice([True, False], p=[0.7, 0.3]),
+    use_thinking=args.Choice([True, False], p=[0.7, 0.3]),
+    use_memory=args.Choice([True, False], p=[0.7, 0.3]),
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=args.Choice([True, False], p=[0.7, 0.3]),
+    be_cautious=args.Choice([True, False]),
+    enable_chat=False,
+    max_prompt_tokens=None,
+    extra_instructions=None,
+)
+
+
+RANDOM_SEARCH_AGENT = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=DEFAULT_RS_FLAGS,
 )
