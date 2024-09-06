@@ -92,7 +92,7 @@ def make_study_dir(exp_root, study_name, add_date=True):
 #     return exp_args_list, make_study_dir(exp_root, f"{study_func.__name__}")
 
 
-def relaunch_study(study_dir: Path, relaunch_mode="incomplete_only"):
+def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
     """Return exp_args_list and study_dir
 
     Args:
@@ -103,6 +103,7 @@ def relaunch_study(study_dir: Path, relaunch_mode="incomplete_only"):
             - "incomplete_only": relaunch only the incomplete experiments.
             - "incomplete_or_error": relaunch incomplete or errors.
     """
+    study_dir = Path(study_dir)
 
     if not study_dir.exists():
         raise ValueError(
