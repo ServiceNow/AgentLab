@@ -1,9 +1,7 @@
-import logging
 from dataclasses import dataclass
-
+import logging
 from browsergym.core import action
 from browsergym.core.action.base import AbstractActionSet
-
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.llm.llm_utils import parse_html_tags_raise
 
@@ -316,7 +314,5 @@ if __name__ == "__main__":
             previous_plan="No plan yet",
             step=0,
             flags=flags,
-        ).prompt
-    )
         ).prompt
     )

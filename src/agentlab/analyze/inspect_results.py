@@ -485,17 +485,26 @@ def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: 
 
 
 def get_most_recent_folder(
-    result_dir: Path = None, date_format: str = "%Y-%m-%d_%H-%M-%S", contains=None
+    root_dir: Path = None, date_format: str = "%Y-%m-%d_%H-%M-%S", contains=None
 ):
-    """Return the most recent directory based on the date in the folder name."""
+    """Return the most recent directory based on the date in the folder name.
 
-    if result_dir is None:
-        result_dir = RESULTS_DIR
+    Args:
+        root_dir: The directory to search in
+        date_format: The format of the date in the folder name
+        contains: If not None, only consider folders that contains this string
+
+    Returns:
+        Path: The most recent folder satisfying the conditions
+    """
+
+    if root_dir is None:
+        root_dir = RESULTS_DIR
 
     most_recent_folder = None
     most_recent_time = datetime.min
 
-    for item in result_dir.iterdir():
+    for item in root_dir.iterdir():
         if item.is_dir() and not item.name.startswith("_"):
             if contains is not None and contains not in item.name:
                 continue
