@@ -1,3 +1,6 @@
+pytest==7.3.2
+pytest-xdist
+pytest-playwright
 browsergym
 joblib>=1.2.0
 openai>=1.7,<2
