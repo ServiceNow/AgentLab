@@ -6,9 +6,11 @@ from io import BytesIO
 
 import requests
 from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.experiments import AbstractAgentArgs, Agent
+from browsergym.experiments import Agent
 from browsergym.utils.obs import flatten_axtree_to_str, overlay_som
 from PIL import Image
+
+from agentlab.agents.agent_args import AgentArgs
 
 
 def pil_to_b64(img: Image.Image) -> str:
@@ -168,7 +170,7 @@ If you have completed the task, use the chat to return an answer. For example, i
 
 
 @dataclasses.dataclass
-class VWAAgentArgs(AbstractAgentArgs):
+class VWAAgentArgs(AgentArgs):
     """
     This class is meant to store the arguments that define the agent.
 
