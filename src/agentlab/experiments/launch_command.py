@@ -26,6 +26,7 @@ benchmark = "miniwob"
 # benchmark = "workarena.l2"
 # benchmark = "workarena.l3"
 # benchmark = "webarena"
+# benchmark = "workarena.l1.form_filling"
 
 
 ## select the kind of experiment (study)

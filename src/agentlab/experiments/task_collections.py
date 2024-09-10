@@ -1,3 +1,5 @@
+from browsergym.webarena import ALL_WEBARENA_TASK_IDS
+from browsergym.experiments import EnvArgs
 import logging
 import time as t
 from pathlib import Path
@@ -7,8 +9,6 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-from browsergym.experiments import EnvArgs
-from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
@@ -17,7 +17,8 @@ MINIWOB_ALL = df["task_name"].tolist()
 tasks_eval = df[df["miniwob_category"].isin(["original", "additional", "hidden test"])][
     "task_name"
 ].tolist()
-miniwob_debug = df[df["miniwob_category"].isin(["debug"])]["task_name"].tolist()
+miniwob_debug = df[df["miniwob_category"].isin(
+    ["debug"])]["task_name"].tolist()
 MINIWOB_TINY_TEST = ["miniwob.click-dialog", "miniwob.click-checkboxes"]
 
 assert len(MINIWOB_ALL) == 125
@@ -85,6 +86,54 @@ webgum_tasks = [
     "miniwob.use-spinner",
 ]
 
+workarena_l1_tasks_by_category = {
+    "form_filling": [
+        "workarena.servicenow.create-change-request",
+        "workarena.servicenow.create-hardware-asset",
+        "workarena.servicenow.create-incident",
+        "workarena.servicenow.create-problem",
+        "workarena.servicenow.create-user"
+
+    ],
+    "sort": [
+        "workarena.servicenow.sort-asset-list",
+        "workarena.servicenow.sort-change-request",
+        "workarena.servicenow.sort-hardware-list",
+        "workarena.servicenow.sort-incident-list",
+        "workarena.servicenow.sort-service-catalog",
+        "workarena.servicenow.sort-user-list"
+    ],
+    "service_catalog": [
+        "workarena.servicenow.order-apple-mac-book-pro15",
+        "workarena.servicenow.order-apple-watch",
+        "workarena.servicenow.order-developer-laptop",
+        "workarena.servicenow.order-development-laptop-p-c",
+        "workarena.servicenow.order-ipad-mini",
+        "workarena.servicenow.order-ipad-pro",
+        "workarena.servicenow.order-loaner-laptop",
+        "workarena.servicenow.order-sales-laptop",
+        "workarena.servicenow.order-standard-laptop"
+    ],
+    "filter": [
+        "workarena.servicenow.filter-asset-list",
+        "workarena.servicenow.filter-change-request-list",
+        "workarena.servicenow.filter-hardware-list",
+        "workarena.servicenow.filter-incident-list",
+        "workarena.servicenow.filter-service-catalog-item-list",
+        "workarena.servicenow.filter-user-list"
+    ],
+    "retrieval": [
+        "workarena.servicenow.knowledge-base-search",
+        "workarena.servicenow.dashboard-min-max-retrieval",
+        "workarena.servicenow.dashboard-value-retrieval",
+        "workarena.servicenow.report-value-retrieval",
+        "workarena.servicenow.report-min-max-retrieval"
+    ],
+    "other": [
+        "workarena.servicenow.all-menu",
+        "workarena.servicenow.impersonation"
+    ]
+}
 
 # TODO add miniwob_tiny_test as benchmarks
 def get_benchmark_env_args(
@@ -114,11 +163,13 @@ def get_benchmark_env_args(
 
     filters = benchmark_name.split(".")
     benchmark_id = filters[0]
+    task_category = None
     if filters[0] == "workarena":
         benchmark_id = "workarena." + filters[1]
+        task_category = filters[2] if len(filters) > 1 else None
 
     max_steps_default = {
-        "workarena.l1": 15,
+        "workarena.l1": 30,
         "workarena.l2": 50,
         "workarena.l3": 50,
         "webarena": 15,
@@ -154,28 +205,37 @@ def get_benchmark_env_args(
         print(f"done importing workarena, took {dt:.2f} seconds")
 
         if len(filters) < 2:
-            raise ValueError(f"You must specify the sub set of workarena, e.g.: workarena.l2.")
+            raise ValueError(
+                f"You must specify the sub set of workarena, e.g.: workarena.l2.")
 
         if benchmark_name == "workarena.l1.sort":
             task_names = [task.get_task_id() for task in ATOMIC_TASKS]
             task_names = [task for task in task_names if "sort" in task]
-            env_args_list = _make_env_args(task_names, max_steps, n_repeat, rng)
+            env_args_list = _make_env_args(
+                task_names, max_steps, n_repeat, rng)
 
         else:
-            for task, seed in get_all_tasks_agents(
-                filter=".".join(filters[1:]),
-                meta_seed=meta_seed,
-                n_seed_l1=n_repeat,
-            ):
-                task_name = task.get_task_id()
-                env_args_list.append(
-                    EnvArgs(task_name=task_name, task_seed=seed, max_steps=max_steps)
-                )
+            if task_category is not None:
+                task_names = workarena_l1_tasks_by_category[task_category]
+                env_args_list = _make_env_args(
+                    task_names, max_steps, n_repeat, rng)
+            else:
+                for task, seed in get_all_tasks_agents(
+                    filter=".".join(filters[1:]),
+                    meta_seed=meta_seed,
+                    n_seed_l1=n_repeat,
+                ):
+                    task_name = task.get_task_id()
+                    env_args_list.append(
+                        EnvArgs(task_name=task_name,
+                                task_seed=seed, max_steps=max_steps)
+                    )
 
     elif benchmark_name == "webarena":
         from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
-        env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
+        env_args_list = _make_env_args(
+            ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
     elif benchmark_name.startswith("miniwob"):
         miniwob_benchmarks_map = {
             "miniwob": MINIWOB_ALL,
@@ -194,7 +254,8 @@ def _make_env_args(task_list, max_steps, n_seeds_default, rng):
     env_args_list = []
     for task in task_list:
         for seed in rng.randint(0, 100, n_seeds_default):
-            env_args_list.append(EnvArgs(task_name=task, task_seed=int(seed), max_steps=max_steps))
+            env_args_list.append(
+                EnvArgs(task_name=task, task_seed=int(seed), max_steps=max_steps))
     return env_args_list
 
 
