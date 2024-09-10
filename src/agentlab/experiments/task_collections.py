@@ -166,7 +166,7 @@ def get_benchmark_env_args(
     task_category = None
     if filters[0] == "workarena":
         benchmark_id = "workarena." + filters[1]
-        task_category = filters[2] if len(filters) > 1 else None
+        task_category = filters[2] if len(filters) > 2 else None
 
     max_steps_default = {
         "workarena.l1": 30,
