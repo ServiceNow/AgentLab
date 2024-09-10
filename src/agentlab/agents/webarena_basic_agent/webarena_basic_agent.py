@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Any
 
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.agent import Agent, AgentInfo
-from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
-from browsergym.utils.obs import flatten_axtree_to_str
+from browsergym.experiments.loop import EnvArgs, ExpArgs
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
+from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class WebArenaBasicAgentArgs(AbstractAgentArgs):
+class WebArenaBasicAgentArgs(AgentArgs):
     agent_name: str = "WebArenaBasicAgent"
     temperature: float = 0.0
     chat_model_args: "BaseModelArgs" = None
