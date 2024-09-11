@@ -26,9 +26,6 @@ jobs:
           python-version: '3.10'
           cache: 'pip' # caching pip dependencies
 
-      - name: Pip install
-        run: pip install -r requirements.txt
-
       - name: Install AgentLab
         run: pip install -e .
 
@@ -50,6 +47,13 @@ jobs:
         with:
           directory: "${{ github.workspace }}/miniwob-plusplus/miniwob/html"
           port: 8080
+
+      - name: Verify MINIWOB_URL
+        run: echo "MINIWOB_URL: $MINIWOB_URL"
+
+      # Step to check if MiniWob is reachable
+      - name: Check MiniWob availability
+        run: curl -I "http://localhost:8080/miniwob/" || echo "MiniWob not reachable"
 
       - name: Run AgentLab Unit Tests
         env:
