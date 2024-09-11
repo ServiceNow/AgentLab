@@ -15,6 +15,13 @@ class MockedExpArgs:
 
     def run(self):
         self.start_time = time()
+
+        # simulate playright code, (this was causing issues due to python async loop)
+        import playwright.sync_api
+
+        pw = playwright.sync_api.sync_playwright().start()
+        pw.selectors.set_test_id_attribute("mytestid")
+
         sleep(0.5)  # Simulate task execution time
         self.end_time = time()
         return self
@@ -30,7 +37,7 @@ def test_execute_task_graph():
     ]
 
     # Execute the task graph
-    results = execute_task_graph(Client(n_workers=3), exp_args_list)
+    results = execute_task_graph(Client(n_workers=3, processes=True), exp_args_list)
 
     exp_args_list = [results[task_id] for task_id in ["task1", "task2", "task3", "task4"]]
 
@@ -80,3 +87,4 @@ def test_add_dependencies():
 
 if __name__ == "__main__":
     test_execute_task_graph()
+    # test_add_dependencies()

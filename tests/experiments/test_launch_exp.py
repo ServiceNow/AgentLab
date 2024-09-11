@@ -25,11 +25,8 @@ def test_relaunch_study():
     assert len(exp_args_list) == 2
 
 
-if __name__ == "__main__":
-    test_relaunch_study()
-
-
-def test_launch_system():
+@pytest.mark.repeat(3)  # there was stochastic bug caused by asyncio loop not started
+def test_launch_system(backend="dask"):
     exp_args_list = []
     for seed in range(3):
         exp_args_list.append(
@@ -45,16 +42,32 @@ def test_launch_system():
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         study_dir = make_study_dir(tmp_dir, "generic_agent_test")
-        run_experiments(n_jobs=3, exp_args_list=exp_args_list, exp_dir=study_dir)
+        run_experiments(
+            n_jobs=3, exp_args_list=exp_args_list, exp_dir=study_dir, parallel_backend=backend
+        )
 
         results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
         assert len(results_df) == len(exp_args_list)
 
+        for _, row in results_df.iterrows():
+            if row.stack_trace is not None:
+                print(row.stack_trace)
+            assert row.err_msg is None
+            assert row.cum_reward == 1.0
+
         global_report = inspect_results.global_report(results_df)
         assert len(global_report) == 2
-        assert global_report.avg_reward.iloc[0] == 1.0
         assert global_report.std_err.iloc[0] == 0
         assert global_report.n_completed.iloc[0] == "3/3"
+        assert global_report.avg_reward.iloc[0] == 1.0
+
+
+def test_launch_system_joblib():
+    test_launch_system(backend="joblib")
+
+
+def test_launch_system_sequntial():
+    test_launch_system(backend="sequential")
 
 
 @pytest.mark.pricy
@@ -82,4 +95,6 @@ def test_4o_mini_on_miniwob_tiny_test():
 
 
 if __name__ == "__main__":
-    test_4o_mini_on_miniwob_tiny_test()
+    # test_4o_mini_on_miniwob_tiny_test()
+    # test_launch_system()
+    test_launch_system_joblib()
