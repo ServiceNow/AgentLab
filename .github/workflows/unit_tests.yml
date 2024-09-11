@@ -29,6 +29,9 @@ jobs:
       - name: Pip install
         run: pip install -r requirements.txt
 
+      - name: Install AgentLab
+        run: pip install -e .
+
       - name: Pip list
         run: pip list
 
