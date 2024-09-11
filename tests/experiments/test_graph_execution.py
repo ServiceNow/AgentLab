@@ -1,8 +1,10 @@
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 import pytest
 from agentlab.experiments.graph_execution import execute_task_graph, add_dependencies
 from time import time, sleep
 from browsergym.experiments.loop import ExpArgs, EnvArgs
+
+TASK_TIME = 0.1
 
 
 # Mock implementation of the ExpArgs class with timestamp checks
@@ -21,8 +23,7 @@ class MockedExpArgs:
 
         pw = playwright.sync_api.sync_playwright().start()
         pw.selectors.set_test_id_attribute("mytestid")
-
-        sleep(0.5)  # Simulate task execution time
+        sleep(TASK_TIME)  # Simulate task execution time
         self.end_time = time()
         return self
 
@@ -37,7 +38,8 @@ def test_execute_task_graph():
     ]
 
     # Execute the task graph
-    results = execute_task_graph(Client(n_workers=3, processes=True), exp_args_list)
+    cluster = LocalCluster(n_workers=3, processes=True)
+    results = execute_task_graph(Client(cluster), exp_args_list)
 
     exp_args_list = [results[task_id] for task_id in ["task1", "task2", "task3", "task4"]]
 
@@ -53,7 +55,9 @@ def test_execute_task_graph():
 
     # Ensure that the entire task graph took the expected amount of time
     total_time = exp_args_list[-1].end_time - exp_args_list[0].start_time
-    assert total_time >= 1.5  # Since the critical path involves at least 1.5 seconds of work
+    assert (
+        total_time >= TASK_TIME * 3
+    )  # Since the critical path involves at least 1.5 seconds of work
 
 
 def test_add_dependencies():
