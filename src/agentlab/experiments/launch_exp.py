@@ -5,7 +5,6 @@ from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from agentlab.experiments.graph_execution import execute_task_graph
-from dask.distributed import Client
 
 
 def import_object(path: str):
@@ -18,14 +17,45 @@ def import_object(path: str):
     return obj
 
 
-def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir):
+def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_backend="joblib"):
+    """Run a list of ExpArgs in parallel.
+
+    To ensure optimal parallelism, make sure ExpArgs.depend_on is set correctly
+    and the backend is set to dask.
+
+    Args:
+        n_jobs: int
+            Number of parallel jobs.
+        exp_args_list: list[ExpArgs]
+            List of ExpArgs objects.
+        exp_dir: Path
+            Directory where the experiments will be saved.
+        parallel_backend: str
+            Parallel backend to use. Either "joblib", "dask" or "sequential".
+
+    """
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.agent_args.prepare()
         exp_args.prepare(exp_root=exp_dir)
-
     try:
-        execute_task_graph(Client(n_workers=n_jobs), exp_args_list)
+        if parallel_backend == "joblib":
+            from joblib import Parallel, delayed
+
+            Parallel(n_jobs=n_jobs, prefer="processes")(
+                delayed(exp_args.run)() for exp_args in exp_args_list
+            )
+
+        elif parallel_backend == "dask":
+            from dask.distributed import Client, LocalCluster
+
+            cluster = LocalCluster(n_workers=n_jobs, processes=True)
+            execute_task_graph(Client(cluster), exp_args_list)
+        elif parallel_backend == "sequential":
+            for exp_args in exp_args_list:
+                exp_args.run()
+        else:
+            raise ValueError(f"Unknown parallel_backend: {parallel_backend}")
     finally:
         # will close servers even if there is an exception or ctrl+c
         # servers won't be closed if the script is killed with kill -9 or segfaults.
