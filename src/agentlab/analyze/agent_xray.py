@@ -1065,5 +1065,6 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
 def main():
     run_gradio(RESULTS_DIR)
 
+
 if __name__ == "__main__":
     main()
