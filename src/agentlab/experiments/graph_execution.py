@@ -1,29 +1,22 @@
+import asyncio
 from dask import compute, delayed
-from dask.distributed import Client
 from browsergym.experiments.loop import ExpArgs
-import logging
-
-
-def run_experiments(n_workers, exp_args_list: list[ExpArgs], exp_dir):
-    """Run a list of experiments in parallel while respecting dependencies."""
-
-    logging.info(f"Saving experiments to {exp_dir}")
-    for exp_args in exp_args_list:
-        exp_args.agent_args.prepare()
-        exp_args.prepare(exp_root=exp_dir)
-
-    try:
-        execute_task_graph(Client(n_workers=n_workers), exp_args_list)
-    finally:
-        logging.info("All jobs are finished. Calling agent_args.close() on all agents...")
-        for exp_args in exp_args_list:
-            exp_args.agent_args.close()
-        logging.info("Experiment finished.")
 
 
 def _run(exp_arg: ExpArgs, *dependencies):
     """Capture dependencies to ensure they are run before the current task."""
-    return exp_arg.run()
+    try:
+        # Create a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Run the experiment in the new loop
+        result = loop.run_until_complete(asyncio.to_thread(exp_arg.run))
+
+        return result
+    finally:
+        # Clean up the event loop
+        loop.close()
 
 
 def execute_task_graph(dask_client, exp_args_list: list[ExpArgs]):
