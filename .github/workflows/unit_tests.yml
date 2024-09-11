@@ -54,5 +54,5 @@ jobs:
 
       - name: Run AgentLab Unit Tests
         env:
-          MINIWOB_URL: "http://localhost:8080/miniwob/"
+          MINIWOB_URL: "file://${{ github.workspace }}/miniwob-plusplus/miniwob/html/miniwob/"
         run: pytest -n 5 --durations=10 -m 'not pricy' -v
