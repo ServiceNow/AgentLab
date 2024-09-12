@@ -16,7 +16,7 @@ from agentlab.experiments.launch_exp import make_study_dir, run_experiments, rel
 logging.getLogger().setLevel(logging.INFO)
 
 # choose your agent or provide a new agent
-agent = AGENT_4o_MINI
+agent_args = AGENT_4o_MINI
 # agent = AGENT_4o
 
 
@@ -30,7 +30,7 @@ benchmark = "miniwob"
 
 ## select the kind of experiment (study)
 ## Or define new studies, you only have to return list of ExpArgs to run and a name for the study
-study_name, exp_args_list = study_generators.run_agents_on_benchmark(agent, benchmark)
+study_name, exp_args_list = study_generators.run_agents_on_benchmark(agent_args, benchmark)
 # study_name, exp_args_list = study_generators.ablation_study(agent, benchmark)
 # study_name, exp_args_list = study_generators.random_search(agent, benchmark, n_samples=20)
 study_dir = make_study_dir(RESULTS_DIR, study_name)
