@@ -20,14 +20,12 @@ class GenericAgentArgs(AgentArgs):
     flags: GenericPromptFlags = None
     max_retry: int = 4
 
-    def __post_init__(self):
-        self.agent_name = f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
-
     def set_benchmark(self, benchmark):
         if benchmark == "miniwob":
             self.flags.obs.use_html = True
 
     def prepare(self):
+        self.agent_name = f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
         return self.chat_model_args.prepare_server()
 
     def close(self):
