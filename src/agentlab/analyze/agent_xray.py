@@ -425,7 +425,7 @@ clicking the refresh button.
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
         step_id.change(fn=if_active("Agent Info")(update_agent_info), outputs=agent_info)
         step_id.change(
-            fn=if_active("Prompt tests")(update_prompt_tests),
+            fn=if_active("Prompt tests", 2)(update_prompt_tests),
             outputs=[prompt_markdown, prompt_tests_textbox],
         )
 

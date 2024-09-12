@@ -4,7 +4,7 @@ pre-commit
 pytest==7.3.2
 pytest-xdist
 pytest-playwright
-browsergym
+browsergym>=0.6.0
 joblib>=1.2.0
 openai>=1.7,<2
 langchain>=0.1,<1
