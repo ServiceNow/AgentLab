@@ -20,9 +20,8 @@ class GenericAgentArgs(AgentArgs):
     flags: GenericPromptFlags = None
     max_retry: int = 4
 
-    @property
-    def agent_name(self):
-        return f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
+    def __post_init__(self):
+        self.agent_name = f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
 
     def set_benchmark(self, benchmark):
         if benchmark == "miniwob":
