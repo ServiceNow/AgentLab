@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentlab"
-version = "0.2.0"
+dynamic = ["version", "dependencies"]
 description = "Main package for developing agents and experiments"
 authors = [
     {name = "Rim Assouel", email = "rim.assouel@gmail.com"},
@@ -13,6 +13,7 @@ authors = [
     {name = "Alex Lacoste", email = "alex.lacoste@servicenow.com"},
     {name = "Tom Marty", email = "tom.marty@polymtl.ca"},
     {name = "Massimo Caccia", email = "massimo.caccia1@servicenow.com"}
+    {name = "Thibault Le Sellier de Chezelles", email = "thibault.de.chezelles@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">3.7"
@@ -24,12 +25,12 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dynamic = ["dependencies"]
 
 [project.urls]
 "Homepage" = "https://github.com/ServiceNow/AgentLab"
 
 [tool.setuptools.dynamic]
+version = {attr = "agentlab.__version__"}
 dependencies = {file = ["requirements.txt"]}
 
 [tool.black]

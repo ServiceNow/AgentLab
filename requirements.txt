@@ -18,3 +18,4 @@ ipython
 pyyaml>=6
 pandas
 gradio
+gitpython # for the reproducibility script
