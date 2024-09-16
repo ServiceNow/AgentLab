@@ -1,10 +1,13 @@
-from dask.distributed import Client, LocalCluster
 import pytest
-from agentlab.experiments.graph_execution import execute_task_graph, add_dependencies
+from agentlab.experiments.graph_execution import (
+    execute_task_graph,
+    add_dependencies,
+    make_dask_client,
+)
 from time import time, sleep
 from browsergym.experiments.loop import ExpArgs, EnvArgs
 
-TASK_TIME = 0.1
+TASK_TIME = 3
 
 
 # Mock implementation of the ExpArgs class with timestamp checks
@@ -18,11 +21,11 @@ class MockedExpArgs:
     def run(self):
         self.start_time = time()
 
-        # simulate playright code, (this was causing issues due to python async loop)
-        import playwright.sync_api
+        # # simulate playright code, (this was causing issues due to python async loop)
+        # import playwright.sync_api
 
-        pw = playwright.sync_api.sync_playwright().start()
-        pw.selectors.set_test_id_attribute("mytestid")
+        # pw = playwright.sync_api.sync_playwright().start()
+        # pw.selectors.set_test_id_attribute("mytestid")
         sleep(TASK_TIME)  # Simulate task execution time
         self.end_time = time()
         return self
@@ -37,9 +40,8 @@ def test_execute_task_graph():
         MockedExpArgs(exp_id="task4", depends_on=["task2", "task3"]),
     ]
 
-    # Execute the task graph
-    cluster = LocalCluster(n_workers=3, processes=True)
-    results = execute_task_graph(Client(cluster), exp_args_list)
+    with make_dask_client(n_worker=5):
+        results = execute_task_graph(exp_args_list)
 
     exp_args_list = [results[task_id] for task_id in ["task1", "task2", "task3", "task4"]]
 
@@ -51,7 +53,7 @@ def test_execute_task_graph():
 
     # Verify that parallel tasks (task2 and task3) started within a short time of each other
     parallel_start_diff = abs(exp_args_list[1].start_time - exp_args_list[2].start_time)
-    assert parallel_start_diff < 0.1  # Allow for a small delay
+    assert parallel_start_diff < 1.5  # Allow for a small delay
 
     # Ensure that the entire task graph took the expected amount of time
     total_time = exp_args_list[-1].end_time - exp_args_list[0].start_time

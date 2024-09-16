@@ -4,7 +4,6 @@ from importlib import import_module
 from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
-from agentlab.experiments.graph_execution import execute_task_graph
 
 
 def import_object(path: str):
@@ -47,10 +46,10 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_back
             )
 
         elif parallel_backend == "dask":
-            from dask.distributed import Client, LocalCluster
+            from agentlab.experiments.graph_execution import execute_task_graph, make_dask_client
 
-            cluster = LocalCluster(n_workers=n_jobs, processes=True, dashboard_address=None)
-            execute_task_graph(Client(cluster), exp_args_list)
+            with make_dask_client(n_worker=n_jobs):
+                execute_task_graph(exp_args_list)
         elif parallel_backend == "sequential":
             for exp_args in exp_args_list:
                 exp_args.run()

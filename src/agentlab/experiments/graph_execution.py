@@ -1,42 +1,53 @@
-import asyncio
 from dask import compute, delayed
 from browsergym.experiments.loop import ExpArgs
+from distributed import LocalCluster, Client
 
 
 def _run(exp_arg: ExpArgs, *dependencies):
-    """Capture dependencies to ensure they are run before the current task."""
-    try:
-        # Create a new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        # Run the experiment in the new loop
-        result = loop.run_until_complete(asyncio.to_thread(exp_arg.run))
-
-        return result
-    finally:
-        # Clean up the event loop
-        loop.close()
+    return exp_arg.run()
 
 
-def execute_task_graph(dask_client, exp_args_list: list[ExpArgs]):
+def make_dask_client(n_worker):
+    """Create a Dask client with a LocalCluster backend.
+
+    I struggled to find an appropriate configuration.
+    I believe it has to do with the interplay of playwright async loop (even if
+    used in sync mode) and the fact that dask uses asyncio under the hood.
+    Making sure we use processes and 1 thread per worker seems to work.
+
+    Args:
+        n_worker: int
+            Number of workers to create.
+
+    Returns:
+        A Dask client object.
+    """
+    cluster = LocalCluster(
+        n_workers=n_worker,
+        processes=True,
+        threads_per_worker=1,
+    )
+
+    return Client(cluster, asynchronous=True)
+
+
+def execute_task_graph(exp_args_list: list[ExpArgs]):
     """Execute a task graph in parallel while respecting dependencies."""
     exp_args_map = {exp_args.exp_id: exp_args for exp_args in exp_args_list}
 
-    with dask_client:
-        tasks = {}
+    tasks = {}
 
-        def get_task(exp_arg: ExpArgs):
-            if exp_arg.exp_id not in tasks:
-                dependencies = [get_task(exp_args_map[dep_key]) for dep_key in exp_arg.depends_on]
-                tasks[exp_arg.exp_id] = delayed(_run)(exp_arg, *dependencies)
-            return tasks[exp_arg.exp_id]
+    def get_task(exp_arg: ExpArgs):
+        if exp_arg.exp_id not in tasks:
+            dependencies = [get_task(exp_args_map[dep_key]) for dep_key in exp_arg.depends_on]
+            tasks[exp_arg.exp_id] = delayed(_run)(exp_arg, *dependencies)
+        return tasks[exp_arg.exp_id]
 
-        for exp_arg in exp_args_list:
-            get_task(exp_arg)
+    for exp_arg in exp_args_list:
+        get_task(exp_arg)
 
-        task_ids, task_list = zip(*tasks.items())
-        results = compute(*task_list)
+    task_ids, task_list = zip(*tasks.items())
+    results = compute(*task_list)
 
     return {task_id: result for task_id, result in zip(task_ids, results)}
 
