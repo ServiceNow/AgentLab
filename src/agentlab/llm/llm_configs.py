@@ -20,8 +20,8 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
-    "openai/gpt-4o-mini": OpenAIModelArgs(
-        model_name="gpt-4o-mini",
+    "openai/gpt-4o-mini-2024-07-18": OpenAIModelArgs(
+        model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,
