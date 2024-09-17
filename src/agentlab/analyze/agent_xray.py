@@ -17,6 +17,7 @@ from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.llm.llm_utils import image_to_jpg_base64_url
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -340,8 +341,11 @@ clicking the refresh button.
             with gr.Tab("Stats") as tab_stats:
                 stats = gr.DataFrame(height=500, show_label=False, interactive=False)
 
-            with gr.Tab("Agent Info") as tab_agent_info:
-                agent_info = gr.Markdown()
+            with gr.Tab("Agent Info HTML") as tab_agent_info_html:
+                agent_info_html = gr.HTML()
+
+            with gr.Tab("Agent Info MD") as tab_agent_info_md:
+                agent_info_md = gr.Markdown()
 
             with gr.Tab("Prompt tests") as tab_prompt_tests:
                 with gr.Row():
@@ -423,7 +427,8 @@ clicking the refresh button.
         step_id.change(fn=if_active("Task Error")(update_task_error), outputs=task_error)
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
-        step_id.change(fn=if_active("Agent Info")(update_agent_info), outputs=agent_info)
+        step_id.change(fn=if_active("Agent Info HTML")(update_agent_info_html), outputs=agent_info_html)
+        step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
         step_id.change(
             fn=if_active("Prompt tests", 2)(update_prompt_tests),
             outputs=[prompt_markdown, prompt_tests_textbox],
@@ -445,7 +450,8 @@ clicking the refresh button.
         tab_error.select(fn=update_task_error, outputs=task_error)
         tab_logs.select(fn=update_logs, outputs=logs)
         tab_stats.select(fn=update_stats, outputs=stats)
-        tab_agent_info.select(fn=update_agent_info, outputs=agent_info)
+        tab_agent_info_html.select(fn=update_agent_info_html, outputs=agent_info_html)
+        tab_agent_info_md.select(fn=update_agent_info_md, outputs=agent_info_md)
         tab_prompt_tests.select(
             fn=update_prompt_tests, outputs=[prompt_markdown, prompt_tests_textbox]
         )
@@ -579,13 +585,33 @@ def update_stats():
         return None
 
 
-def update_agent_info():
+def update_agent_info_md():
     global info
     try:
         agent_info = info.exp_result.steps_info[info.step].agent_info
-        page = agent_info.get("markup_page", None)
+        page = agent_info.get("markdown_page", None)
         if page is None:
             page = """Fill up markup_page attribute in AgentInfo to display here."""
+        return page
+    except (FileNotFoundError, IndexError):
+        return None
+    
+def update_agent_info_html():
+    global info
+    # screenshots from current and next step
+    screenshot_pre_action = image_to_jpg_base64_url(get_screenshot(info, info.step, False))
+    screenshot_post_action = image_to_jpg_base64_url(get_screenshot(info, info.step + 1, False))
+
+    try:
+        agent_info = info.exp_result.steps_info[info.step].agent_info
+        page = agent_info.get("html_page", ["No Agent Info"])
+
+        # Page contains placeholders for screenshots
+        page = page.replace("screenshot_pre_action_placeholder", screenshot_pre_action)
+        page = page.replace("screenshot_post_action_placeholder", screenshot_post_action)
+        page = page.replace("max-width: 48%;", "max-width: 100%;")
+        if page is None:
+            page = """Fill up html_page attribute in AgentInfo to display here."""
         return page
     except (FileNotFoundError, IndexError):
         return None
