@@ -230,7 +230,7 @@ AGENT_4o = GenericAgentArgs(
 )
 
 AGENT_4o_MINI = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini"],
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
     flags=FLAGS_GPT_4o,
 )
 

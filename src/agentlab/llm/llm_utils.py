@@ -7,16 +7,13 @@ import os
 import re
 import time
 from functools import cache
-from pathlib import Path
 from typing import TYPE_CHECKING
 from warnings import warn
 
 import numpy as np
 import tiktoken
 import yaml
-from joblib import Memory
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from openai import BadRequestError, RateLimitError
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
@@ -449,22 +446,6 @@ def parse_html_tags(text, keys=(), optional_keys=(), merge_multiple=False):
     valid = len(retry_messages) == 0
     retry_message = "\n".join(retry_messages)
     return content_dict, valid, retry_message
-
-
-class ChatCached:
-    # I wish I could extend ChatOpenAI, but it is somehow locked, I don't know if it's pydantic soercey.
-
-    def __init__(self, chat, memory=None):
-        self.chat = chat
-        self.memory = memory if memory else Memory(location=Path.home() / "llm-cache", verbose=10)
-        self._call = self.memory.cache(self.chat.__call__, ignore=["self"])
-        self._generate = self.memory.cache(self.chat.generate, ignore=["self"])
-
-    def __call__(self, messages):
-        return self._call(messages)
-
-    def generate(self, messages):
-        return self._generate(messages)
 
 
 def download_and_save_model(model_name: str, save_dir: str = "."):
