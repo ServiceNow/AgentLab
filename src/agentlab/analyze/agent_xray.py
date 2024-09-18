@@ -433,7 +433,10 @@ clicking the refresh button.
         step_id.change(fn=if_active("Task Error")(update_task_error), outputs=task_error)
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
-        step_id.change(fn=if_active("Agent Info HTML")(update_agent_info_html), outputs=[agent_info_html, screenshot1, screenshot2])
+        step_id.change(
+            fn=if_active("Agent Info HTML")(update_agent_info_html),
+            outputs=[agent_info_html, screenshot1, screenshot2],
+        )
         step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
         step_id.change(
             fn=if_active("Prompt tests", 2)(update_prompt_tests),
@@ -601,7 +604,8 @@ def update_agent_info_md():
         return page
     except (FileNotFoundError, IndexError):
         return None
-    
+
+
 def update_agent_info_html():
     global info
     # screenshots from current and next step
@@ -615,7 +619,7 @@ def update_agent_info_html():
         if page is None:
             page = """Fill up html_page attribute in AgentInfo to display here."""
         return page, s1, s2
-    
+
     except (FileNotFoundError, IndexError):
         return None, None, None
 
