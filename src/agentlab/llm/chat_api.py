@@ -12,6 +12,7 @@ from agentlab.llm.langchain_utils import (
     HuggingFaceAPIChatModel,
     HuggingFaceURLChatModel,
 )
+from agentlab.llm.tracking import OpenRouterChatModel
 
 if TYPE_CHECKING:
     from langchain_core.language_models.chat_models import BaseChatModel
@@ -86,7 +87,7 @@ class OpenRouterModelArgs(BaseModelArgs):
     model."""
 
     def make_model(self):
-        return ChatOpenRouter(
+        return OpenRouterChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
