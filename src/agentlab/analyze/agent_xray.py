@@ -648,7 +648,10 @@ def get_episode_info(info: Info):
         env_args = info.exp_result.exp_args.env_args
         steps_info = info.exp_result.steps_info
         step_info = steps_info[info.step]
-        goal = step_info.obs["goal"]
+        try:
+            goal = step_info.obs["goal"]
+        except:
+            goal = None
         try:
             cum_reward = info.exp_result.summary_info["cum_reward"]
         except FileNotFoundError:
@@ -674,7 +677,7 @@ def get_episode_info(info: Info):
 <small style="line-height: 1; margin: 0; padding: 0;">{code(exp_dir_str)}</small>"""
     except Exception as e:
         info = f"""\
-**Error while getting episod info**
+**Error while getting episode info**
 {code(traceback.format_exc())}"""
     return info
 
