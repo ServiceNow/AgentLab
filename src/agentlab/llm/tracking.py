@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 
 import requests
 from langchain.schema import AIMessage, BaseMessage
+from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS
 from openai import AzureOpenAI, OpenAI
 
 from agentlab.llm.langchain_utils import _convert_messages_to_dict
@@ -68,36 +69,20 @@ def get_pricing(api: str = "openrouter", api_key: str = None):
             for model in model_metadata["data"]
         }
     elif api == "openai":
-        url = "https://raw.githubusercontent.com/langchain-ai/langchain/master/libs/community/langchain_community/callbacks/openai_info.py"
-        response = requests.get(url)
-
-        if response.status_code == 200:
-            content = response.text
-            tree = ast.parse(content)
-            cost_dict = None
-            for node in tree.body:
-                if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-                    if node.targets[0].id == "MODEL_COST_PER_1K_TOKENS":
-                        cost_dict = ast.literal_eval(node.value)
-                        break
-            if cost_dict:
-                cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
-                res = {}
-                for k in cost_dict:
-                    if k.endswith("-completion"):
-                        continue
-                    prompt_key = k
-                    completion_key = k + "-completion"
-                    if completion_key in cost_dict:
-                        res[k] = {
-                            "prompt": cost_dict[prompt_key],
-                            "completion": cost_dict[completion_key],
-                        }
-                return res
-            else:
-                raise ValueError("Cost dictionary not found.")
-        else:
-            raise ValueError(f"Failed to retrieve the file. Status code: {response.status_code}")
+        cost_dict = MODEL_COST_PER_1K_TOKENS
+        cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
+        res = {}
+        for k in cost_dict:
+            if k.endswith("-completion"):
+                continue
+            prompt_key = k
+            completion_key = k + "-completion"
+            if completion_key in cost_dict:
+                res[k] = {
+                    "prompt": cost_dict[prompt_key],
+                    "completion": cost_dict[completion_key],
+                }
+        return res
 
 
 class ChatModel(ABC):
