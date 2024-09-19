@@ -7,13 +7,11 @@ Don't push your changes to this file to git unless you are making structural cha
 
 import logging
 
-from agentlab.agents.generic_agent import (AGENT_CUSTOM, RANDOM_SEARCH_AGENT,
-                                           AGENT_4o, AGENT_4o_MINI)
+from agentlab.agents.generic_agent import AGENT_CUSTOM, RANDOM_SEARCH_AGENT, AGENT_4o, AGENT_4o_MINI
 from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments import study_generators
 from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.experiments.launch_exp import (make_study_dir, relaunch_study,
-                                             run_experiments)
+from agentlab.experiments.launch_exp import make_study_dir, relaunch_study, run_experiments
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -50,5 +48,4 @@ n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
 
 # run the experiments
 if __name__ == "__main__":
-    run_experiments(n_jobs, exp_args_list, study_dir)if __name__ == "__main__":
     run_experiments(n_jobs, exp_args_list, study_dir)
