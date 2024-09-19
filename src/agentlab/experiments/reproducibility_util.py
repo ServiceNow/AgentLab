@@ -1,4 +1,9 @@
 from copy import deepcopy
+import csv
+from datetime import datetime
+import json
+import logging
+import platform
 
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from pathlib import Path
@@ -6,6 +11,7 @@ from git import Repo, InvalidGitRepositoryError
 from importlib import metadata
 from git.config import GitConfigParser
 import os
+import agentlab
 
 
 def _get_repo(module):
@@ -25,9 +31,11 @@ def _get_benchmark_version(benchmark_name):
         raise ValueError(f"Unknown benchmark {benchmark_name}")
 
 
-def get_git_username(repo: Repo) -> str:
+def _get_git_username(repo: Repo) -> str:
     """
     Retrieves the first available Git username from various sources.
+
+    Note: overlycomplex designed by Claude and not fully tested.
 
     This function checks multiple locations for the Git username in the following order:
     1. Repository-specific configuration
@@ -82,7 +90,7 @@ def get_git_username(repo: Repo) -> str:
     return os.environ.get("GIT_AUTHOR_NAME") or os.environ.get("GIT_COMMITTER_NAME")
 
 
-def get_git_info(module):
+def _get_git_info(module):
     """
     Retrieve comprehensive git information for the given module.
 
@@ -129,35 +137,189 @@ def get_git_info(module):
         return None, []
 
 
-def get_reproducibility_info(benchmark_name, ignore_changes=False):
+def get_reproducibility_info(agent_name, benchmark_name, ignore_changes=False):
+    """
+    Retrieve a dict of information that could influence the reproducibility of an experiment.
+    """
     import agentlab
     from browsergym import core
 
     info = {
-        "git_user": get_git_username(_get_repo(agentlab)),
+        "git_user": _get_git_username(_get_repo(agentlab)),
+        "agent_name": agent_name,
         "benchmark": benchmark_name,
         "benchmark_version": _get_benchmark_version(benchmark_name),
+        "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+        "os": f"{platform.system()} ({platform.version()})",
+        "python_version": platform.python_version(),
+        "playwright_version": metadata.distribution("playwright").version,
     }
 
-    def add_info(module_name, module):
-        git_hash, modified_files = get_git_info(module)
+    def add_git_info(module_name, module):
+        git_hash, modified_files = _get_git_info(module)
 
-        modified_files_str = "\n".join([f"{status} {file}" for status, file in modified_files])
+        modified_files_str = "\n".join([f"  {status}: {file}" for status, file in modified_files])
 
-        if len(modified_files) > 0 and not ignore_changes:
-            raise ValueError(
-                f"Module {module_name} has uncommitted changes."
-                "Please commit or stash these changes before running the experiment or set ignore_changes=True."
+        if len(modified_files) > 0:
+            msg = (
+                f"Module {module_name} has uncommitted changes. "
                 f"Modified files:  \n{modified_files_str}\n"
             )
+            if ignore_changes:
+                logging.warning(
+                    msg + "Ignoring changes as requested and proceeding to experiments."
+                )
+            else:
+                raise ValueError(
+                    msg + "Please commit or stash your changes before running the experiment."
+                )
 
         info[f"{module_name}_version"] = module.__version__
         info[f"{module_name}_git_hash"] = git_hash
         info[f"{module_name}__local_modifications"] = modified_files_str
 
-    add_info("agentlab", agentlab)
-    add_info("browsergym", core)
+    add_git_info("agentlab", agentlab)
+    add_git_info("browsergym", core)
     return info
+
+
+def _assert_compatible(info: dict, old_info: dict):
+    """Make sure that the two info dicts are compatible."""
+    # TODO may need to adapt if there are multiple agents, and the re-run on
+    # error only has a subset of agents. Hence old_info.agent_name != info.agent_name
+    for key in info.keys():
+        if key in ("date", "avg_reward", "std_err", "n_completed", "n_err"):
+            continue
+        if info[key] != old_info[key]:
+            raise ValueError(
+                f"Reproducibility info already exist and is not compatible."
+                f"Key {key} has changed from {old_info[key]} to {info[key]}."
+            )
+
+
+def write_reproducibility_info(study_dir, agent_name, benchmark_name, ignore_changes=False):
+    info = get_reproducibility_info(agent_name, benchmark_name, ignore_changes=ignore_changes)
+    return save_reproducibility_info(study_dir, info)
+
+
+def save_reproducibility_info(study_dir, info):
+    """
+    Save a JSON file containing reproducibility information to the specified directory.
+    """
+
+    info_path = Path(study_dir) / "reproducibility_info.json"
+
+    if info_path.exists():
+        with open(info_path, "r") as f:
+            existing_info = json.load(f)
+        _assert_compatible(info, existing_info)
+        logging.info(
+            "Reproducibility info already exists and is compatible. Overwriting the old one."
+        )
+
+    with open(info_path, "w") as f:
+        json.dump(info, f, indent=4)
+
+    info_str = json.dumps(info, indent=4)
+    logging.info(f"Reproducibility info saved to {info_path}. Info: {info_str}")
+
+    return info
+
+
+def load_reproducibility_info(study_dir) -> dict[str]:
+    """Retrieve the reproducibility info from the study directory."""
+    info_path = Path(study_dir) / "reproducibility_info.json"
+    with open(info_path, "r") as f:
+        return json.load(f)
+
+
+# def save_reward(study_dir: str | Path, reward: float | list[float], std_err: float | list[float]):
+#     """Append success rate and std_err to the journal."""
+
+#     info = load_reproducibility_info(study_dir)
+#     info["reward"] = reward
+#     info["std_err"] = std_err
+#     save_reproducibility_info(study_dir, info)
+
+
+from agentlab.analyze import inspect_results
+
+
+def add_reward(info, study_dir, ignore_incomplete=False):
+    result_df = inspect_results.load_result_df(study_dir)
+    report = inspect_results.global_report(result_df)
+
+    if "[ALL TASKS]" in report.index:
+        assert isinstance(info["agent_name"], str)
+
+        n_err = report.loc["[ALL TASKS]", "n_err"].item()
+        n_completed, n_total = report.loc["[ALL TASKS]", "n_completed"].split("/")
+        if n_err > 0 and not ignore_incomplete:
+            raise ValueError(
+                f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
+            )
+        if n_completed != n_total and not ignore_incomplete:
+            raise ValueError(
+                f"Experiment has {n_completed} completed tasks out of {n_total}. "
+                f"Please rerun the study and make sure all tasks are completed."
+            )
+
+        for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+            value = report.loc["[ALL TASKS]", key]
+            if hasattr(value, "item"):
+                value = value.item()
+            info[key] = value
+    else:
+        raise ValueError("Multi agent not implemented yet")
+
+
+def _get_csv_headers(file_path: str) -> list[str]:
+    with open(file_path, "r", newline="") as file:
+        reader = csv.reader(file)
+        try:
+            headers = next(reader)
+        except StopIteration:
+            headers = None
+    return headers
+
+
+def append_to_journal(info, journal_path=None):
+    if journal_path is None:
+        journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
+
+    rows = []
+    headers = None
+    if journal_path.exists():
+        headers = _get_csv_headers(journal_path)
+    
+    if headers is None:
+        headers = list(info.keys())
+        rows.append(headers)
+
+    if isinstance(info["agent_name"], (list, tuple)):
+        # handle multiple agents
+        assert len(info["agent_name"]) == len(info["reward"])
+        assert len(info["agent_name"]) == len(info["std_err"])
+
+        for i, agent_name in info["agent_name"]:
+            sub_info = info.copy()
+            sub_info["agent_name"] = agent_name
+            sub_info["reward"] = info["reward"][i]
+            sub_info["std_err"] = info["std_err"][i]
+            rows.append([str(sub_info[key]) for key in headers])
+    else:
+        rows.append([str(info[key]) for key in headers])
+    with open(journal_path, "a", newline="") as file:
+        writer = csv.writer(file)
+        for row in rows:
+            writer.writerow(row)
+
+
+def add_experiment_to_journal(study_dir, ignore_incomplete=False):
+    info = load_reproducibility_info(study_dir)
+    add_reward(info, study_dir, ignore_incomplete)
+    save_reproducibility_info(study_dir, info)
+    append_to_journal(info)
 
 
 def set_temp(agent_args: GenericAgentArgs, temperature=0):
