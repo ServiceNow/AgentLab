@@ -16,7 +16,7 @@ from agentlab.experiments.launch_exp import make_study_dir, relaunch_study, run_
 logging.getLogger().setLevel(logging.INFO)
 
 # choose your agent or provide a new agent
-agent_args = [AGENT_CUSTOM, AGENT_4o_MINI]
+agent_args = [AGENT_4o_MINI]
 # agent = AGENT_4o
 
 
@@ -48,4 +48,5 @@ n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
 
 
 # run the experiments
-run_experiments(n_jobs, exp_args_list, study_dir)
+if __name__ == "__main__":
+    run_experiments(n_jobs, exp_args_list, study_dir)
