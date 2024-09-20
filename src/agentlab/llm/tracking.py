@@ -68,37 +68,39 @@ def get_action_decorator(get_action):
     return wrapper
 
 
-def get_pricing(api: str = "openrouter", api_key: str = None):
-    if api == "openrouter":
-        assert api_key, "OpenRouter API key is required"
-        # query api to get model metadata
-        url = "https://openrouter.ai/api/v1/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        response = requests.get(url, headers=headers)
+def get_pricing_openrouter():
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    assert api_key, "OpenRouter API key is required"
+    # query api to get model metadata
+    url = "https://openrouter.ai/api/v1/models"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    response = requests.get(url, headers=headers)
 
-        if response.status_code != 200:
-            raise ValueError("Failed to get model metadata")
+    if response.status_code != 200:
+        raise ValueError("Failed to get model metadata")
 
-        model_metadata = response.json()
-        return {
-            model["id"]: {k: float(v) for k, v in model["pricing"].items()}
-            for model in model_metadata["data"]
-        }
-    elif api == "openai":
-        cost_dict = MODEL_COST_PER_1K_TOKENS
-        cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
-        res = {}
-        for k in cost_dict:
-            if k.endswith("-completion"):
-                continue
-            prompt_key = k
-            completion_key = k + "-completion"
-            if completion_key in cost_dict:
-                res[k] = {
-                    "prompt": cost_dict[prompt_key],
-                    "completion": cost_dict[completion_key],
-                }
-        return res
+    model_metadata = response.json()
+    return {
+        model["id"]: {k: float(v) for k, v in model["pricing"].items()}
+        for model in model_metadata["data"]
+    }
+
+
+def get_pricing_openai():
+    cost_dict = MODEL_COST_PER_1K_TOKENS
+    cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
+    res = {}
+    for k in cost_dict:
+        if k.endswith("-completion"):
+            continue
+        prompt_key = k
+        completion_key = k + "-completion"
+        if completion_key in cost_dict:
+            res[k] = {
+                "prompt": cost_dict[prompt_key],
+                "completion": cost_dict[completion_key],
+            }
+    return res
 
 
 class ChatModel(ABC):
@@ -149,7 +151,7 @@ class OpenRouterChatModel(ChatModel):
 
         api_key = api_key or os.getenv("OPENROUTER_API_KEY")
 
-        pricings = get_pricing(api="openrouter", api_key=api_key)
+        pricings = get_pricing_openrouter()
 
         self.input_cost = pricings[model_name]["prompt"]
         self.output_cost = pricings[model_name]["completion"]
@@ -174,7 +176,7 @@ class OpenAIChatModel(ChatModel):
 
         api_key = api_key or os.getenv("OPENAI_API_KEY")
 
-        pricings = get_pricing(api="openai")
+        pricings = get_pricing_openai()
 
         self.input_cost = float(pricings[model_name]["prompt"])
         self.output_cost = float(pricings[model_name]["completion"])
@@ -203,7 +205,7 @@ class AzureChatModel(ChatModel):
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
 
-        pricings = get_pricing(api="openai")
+        pricings = get_pricing_openai()
 
         self.input_cost = float(pricings[model_name]["prompt"])
         self.output_cost = float(pricings[model_name]["completion"])
