@@ -17,7 +17,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 # choose your agent or provide a new agent
 agent_args = AGENT_4o_MINI
-# agent = AGENT_4o
+# agent_args = AGENT_4o
 
 
 ## select the benchmark to run on
@@ -37,8 +37,8 @@ study_dir = make_study_dir(RESULTS_DIR, study_name)
 
 
 ## alternatively, relaunch an existing study
-study_dir = get_most_recent_folder(RESULTS_DIR, contains=None)
-exp_args_list, study_dir = relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
+# study_dir = get_most_recent_folder(RESULTS_DIR, contains=None)
+# exp_args_list, study_dir = relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
 
 
 ## Number of parallel jobs
@@ -46,5 +46,7 @@ n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
 # n_jobs = -1  # to use all available cores
 
 
-# run the experiments
-run_experiments(n_jobs, exp_args_list, study_dir)
+# Run the experiments
+if __name__ == "__main__":
+
+    run_experiments(n_jobs, exp_args_list, study_dir, parallel_backend="dask")
