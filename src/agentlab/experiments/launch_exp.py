@@ -33,6 +33,11 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_back
             Parallel backend to use. Either "joblib", "dask" or "sequential".
 
     """
+
+    if n_jobs == 1 and parallel_backend != "sequential":
+        logging.warning("Only 1 job, switching to sequential backend.")
+        parallel_backend = "sequential"
+
     logging.info(f"Saving experiments to {exp_dir}")
     for exp_args in exp_args_list:
         exp_args.agent_args.prepare()
@@ -67,7 +72,9 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_back
 def make_study_dir(exp_root, study_name, add_date=True):
     if add_date:
         study_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{study_name}"
-    return Path(exp_root) / study_name
+    study_dir = Path(exp_root) / study_name
+    study_dir.mkdir(parents=True, exist_ok=True)
+    return study_dir
 
 
 def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
@@ -91,7 +98,7 @@ def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
 
     if len(exp_args_list) == 0:
         logging.info(f"No incomplete experiments found in {study_dir}.")
-        return
+        return [], study_dir
 
     message = f"Make sure the processes that were running are all stopped. Otherwise, "
     f"there will be concurrent writing in the same directories.\n"

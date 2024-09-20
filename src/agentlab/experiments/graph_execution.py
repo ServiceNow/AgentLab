@@ -28,7 +28,7 @@ def make_dask_client(n_worker):
         threads_per_worker=1,
     )
 
-    return Client(cluster, asynchronous=True)
+    return Client(cluster)
 
 
 def execute_task_graph(exp_args_list: list[ExpArgs]):

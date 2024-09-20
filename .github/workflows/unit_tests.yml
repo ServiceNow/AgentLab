@@ -20,6 +20,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Set up Git user
+        run: git config --global user.email "not_a_real_email@address.com" && git config --global user.name "GitHub Actions"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

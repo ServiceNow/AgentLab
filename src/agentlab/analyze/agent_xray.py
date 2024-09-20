@@ -434,7 +434,7 @@ clicking the refresh button.
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
         step_id.change(
-            fn=if_active("Agent Info HTML")(update_agent_info_html),
+            fn=if_active("Agent Info HTML", 3)(update_agent_info_html),
             outputs=[agent_info_html, screenshot1, screenshot2],
         )
         step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
