@@ -45,7 +45,7 @@ if __name__ == "__main__":
         study_dir=study_dir,
         agent_name=agent_args.agent_name,
         benchmark_name=benchmark,
-        ignore_changes=True,
+        ignore_changes=False,
     )
 
     # run the experiments

@@ -1,0 +1,3 @@
+git_user,agent_name,benchmark,benchmark_version,date,avg_reward,std_err,n_err,n_completed,os,python_version,playwright_version,agentlab_version,agentlab_git_hash,agentlab__local_modifications,browsergym_version,browsergym_git_hash,browsergym__local_modifications
+recursix,GenericAgent-gpt-4o-mini,miniwob_tiny_test,0.6.3,2024-09-19_18-37-00,1.0,0.0,0,4/4,Darwin (Darwin Kernel Version 23.6.0: Mon Jul 29 21:13:00 PDT 2024; root:xnu-10063.141.2~1/RELEASE_X86_64),3.12.2,1.39.0,0.2.1,baf9afa357c9a5dca6079e9e209406536c32eb73,"  M: reproducibility_journal.csv
+  M: src/agentlab/experiments/reproducibility_util.py",0.6.4,b73531271d2ce688c104eb4dfba2819583f1ba36,
