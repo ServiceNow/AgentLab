@@ -3,7 +3,6 @@ import os
 import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Any, List, Optional
 
 import requests
 from langchain.schema import AIMessage, BaseMessage
@@ -116,11 +115,10 @@ class ChatModel(ABC):
         self.input_cost = 0.0
         self.output_cost = 0.0
 
-    def __call__(self, messages: List[BaseMessage]) -> str:
-        messages_formated = _convert_messages_to_dict(messages)
+    def __call__(self, messages: list[dict]) -> dict:
         completion = self.client.chat.completions.create(
             model=self.model_name,
-            messages=messages_formated,
+            messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
@@ -131,9 +129,9 @@ class ChatModel(ABC):
         if isinstance(TRACKER.instance, LLMTracker):
             TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return AIMessage(content=completion.choices[0].message.content)
+        return dict(role="assistant", content=completion.choices[0].message.content)
 
-    def invoke(self, messages: List[BaseMessage]) -> AIMessage:
+    def invoke(self, messages: list[dict]) -> dict:
         return self(messages)
 
 
