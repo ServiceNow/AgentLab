@@ -1,5 +1,6 @@
 import ast
 import os
+import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, List, Optional
@@ -11,12 +12,14 @@ from openai import AzureOpenAI, OpenAI
 
 from agentlab.llm.langchain_utils import _convert_messages_to_dict
 
+TRACKER = threading.local()
+
 
 class LLMTracker:
     def __init__(self):
         self.input_tokens = 0
         self.output_tokens = 0
-        self.cost = 0
+        self.cost = 0.0
 
     def __call__(self, input_tokens: int, output_tokens: int, cost: float):
         self.input_tokens += input_tokens
@@ -31,20 +34,33 @@ class LLMTracker:
             "cost": self.cost,
         }
 
+    def add_tracker(self, tracker: "LLMTracker"):
+        self(tracker.input_tokens, tracker.output_tokens, tracker.cost)
+
+    def __repr__(self):
+        return f"LLMTracker(input_tokens={self.input_tokens}, output_tokens={self.output_tokens}, cost={self.cost})"
+
 
 @contextmanager
-def set_tracker(tracker: LLMTracker):
-    global current_tracker
-    previous_tracker = globals().get("current_tracker", None)
-    current_tracker = tracker
-    yield
-    current_tracker = previous_tracker
+def set_tracker():
+    global TRACKER
+    if not hasattr(TRACKER, "instance"):
+        TRACKER.instance = None
+    previous_tracker = TRACKER.instance  # type: LLMTracker
+    TRACKER.instance = LLMTracker()
+    try:
+        yield TRACKER.instance
+    finally:
+        # If there was a previous tracker, add the current one to it
+        if isinstance(previous_tracker, LLMTracker):
+            previous_tracker.add_tracker(TRACKER.instance)
+        # Restore the previous tracker
+        TRACKER.instance = previous_tracker
 
 
 def get_action_decorator(get_action):
     def wrapper(self, obs):
-        tracker = LLMTracker()
-        with set_tracker(tracker):
+        with set_tracker() as tracker:
             action, agent_info = get_action(self, obs)
         agent_info.get("stats").update(tracker.stats)
         return action, agent_info
@@ -110,9 +126,8 @@ class ChatModel(ABC):
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        global current_tracker
-        if "current_tracker" in globals() and isinstance(current_tracker, LLMTracker):
-            current_tracker(input_tokens, output_tokens, cost)
+        if isinstance(TRACKER.instance, LLMTracker):
+            TRACKER.instance(input_tokens, output_tokens, cost)
 
         return AIMessage(content=completion.choices[0].message.content)
 
@@ -174,7 +189,7 @@ class AzureChatModel(ChatModel):
         self,
         model_name,
         api_key=None,
-        endpoint=None,
+        deployment_name=None,
         temperature=0.5,
         max_tokens=100,
     ):
@@ -182,7 +197,11 @@ class AzureChatModel(ChatModel):
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+
+        # AZURE_OPENAI_ENDPOINT has to be defined in the environment
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
 
         pricings = get_pricing(api="openai")
 
@@ -190,5 +209,8 @@ class AzureChatModel(ChatModel):
         self.output_cost = float(pricings[model_name]["completion"])
 
         self.client = AzureOpenAI(
-            api_key=api_key, azure_endpoint=endpoint, api_version="2024-02-01"
+            api_key=api_key,
+            azure_deployment=deployment_name,
+            azure_endpoint=endpoint,
+            api_version="2024-02-01",
         )
