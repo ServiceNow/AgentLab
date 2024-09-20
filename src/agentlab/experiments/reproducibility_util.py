@@ -90,7 +90,7 @@ def _get_git_username(repo: Repo) -> str:
     return os.environ.get("GIT_AUTHOR_NAME") or os.environ.get("GIT_COMMITTER_NAME")
 
 
-def _get_git_info(module):
+def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, Path]]]:
     """
     Retrieve comprehensive git information for the given module.
 
@@ -100,6 +100,7 @@ def _get_git_info(module):
 
     Args:
         module: The Python module object to check for git information.
+        changes_white_list: A list of file paths to ignore when checking for changes.
 
     Returns:
         tuple: A tuple containing two elements:
@@ -132,12 +133,19 @@ def _get_git_info(module):
         for file in untracked_files:
             modified_files.append(("??", Path(file)))
 
-        return git_hash, modified_files
+        # wildcard matching from white list
+        modified_files_filtered = []
+        for status, file in modified_files:
+            if any(file.match(pattern) for pattern in changes_white_list):
+                continue
+            modified_files_filtered.append((status, file))
+
+        return git_hash, modified_files_filtered
     except InvalidGitRepositoryError:
         return None, []
 
 
-def get_reproducibility_info(agent_name, benchmark_name, ignore_changes=False):
+def get_reproducibility_info(agent_name, benchmark_name, changes_white_list=("*/reproducibility_script.py",), ignore_changes=False):
     """
     Retrieve a dict of information that could influence the reproducibility of an experiment.
     """
@@ -156,7 +164,8 @@ def get_reproducibility_info(agent_name, benchmark_name, ignore_changes=False):
     }
 
     def add_git_info(module_name, module):
-        git_hash, modified_files = _get_git_info(module)
+        git_hash, modified_files = _get_git_info(module, changes_white_list)
+
 
         modified_files_str = "\n".join([f"  {status}: {file}" for status, file in modified_files])
 
@@ -233,13 +242,6 @@ def load_reproducibility_info(study_dir) -> dict[str]:
         return json.load(f)
 
 
-# def save_reward(study_dir: str | Path, reward: float | list[float], std_err: float | list[float]):
-#     """Append success rate and std_err to the journal."""
-
-#     info = load_reproducibility_info(study_dir)
-#     info["reward"] = reward
-#     info["std_err"] = std_err
-#     save_reproducibility_info(study_dir, info)
 
 
 from agentlab.analyze import inspect_results
