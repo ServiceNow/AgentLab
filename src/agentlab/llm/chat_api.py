@@ -5,14 +5,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from langchain.schema import AIMessage
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
+import agentlab.llm.tracking as tracking
 from agentlab.llm.langchain_utils import (
     ChatOpenRouter,
     HuggingFaceAPIChatModel,
     HuggingFaceURLChatModel,
 )
-from agentlab.llm.tracking import OpenAIChatModel, OpenRouterChatModel
 
 if TYPE_CHECKING:
     from langchain_core.language_models.chat_models import BaseChatModel
@@ -127,7 +126,7 @@ class AzureModelArgs(BaseModelArgs):
     deployment_name: str = None
 
     def make_model(self):
-        return AzureChatOpenAI(
+        return AzureChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
@@ -195,3 +194,117 @@ class ChatModelArgs(BaseModelArgs):
 
     def make_model(self):
         pass
+
+
+class ChatModel(ABC):
+
+    @abstractmethod
+    def __init__(self, model_name, api_key=None, temperature=0.5, max_tokens=100):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        self.client = tracking.OpenAI()
+
+        self.input_cost = 0.0
+        self.output_cost = 0.0
+
+    def __call__(self, messages: list[dict]) -> dict:
+        completion = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+        )
+        input_tokens = completion.usage.prompt_tokens
+        output_tokens = completion.usage.completion_tokens
+        cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+
+        if isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+            tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+
+        return dict(role="assistant", content=completion.choices[0].message.content)
+
+    def invoke(self, messages: list[dict]) -> dict:
+        return self(messages)
+
+
+class OpenRouterChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+
+        pricings = tracking.get_pricing_openrouter()
+
+        self.input_cost = pricings[model_name]["prompt"]
+        self.output_cost = pricings[model_name]["completion"]
+
+        self.client = tracking.OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+        )
+
+
+class OpenAIChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
+
+        pricings = tracking.get_pricing_openai()
+
+        self.input_cost = float(pricings[model_name]["prompt"])
+        self.output_cost = float(pricings[model_name]["completion"])
+
+        self.client = tracking.OpenAI(
+            api_key=api_key,
+        )
+
+
+class AzureChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        deployment_name=None,
+        temperature=0.5,
+        max_tokens=100,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+
+        # AZURE_OPENAI_ENDPOINT has to be defined in the environment
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
+
+        pricings = tracking.get_pricing_openai()
+
+        self.input_cost = float(pricings[model_name]["prompt"])
+        self.output_cost = float(pricings[model_name]["completion"])
+
+        self.client = tracking.AzureOpenAI(
+            api_key=api_key,
+            azure_deployment=deployment_name,
+            azure_endpoint=endpoint,
+            api_version="2024-02-01",
+        )
