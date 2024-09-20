@@ -110,3 +110,71 @@ def test_threaded_trackers():
         thread.join()
 
     assert all(result["cost"] == 1 for result in results)
+
+
+OPENAI_API_KEY_AVAILABLE = os.environ.get("OPENAI_API_KEY") is not None
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(not OPENAI_API_KEY_AVAILABLE, reason="OpenAI API key is not available")
+def test_openai_chat_model():
+    chat_model = tracking.OpenAIChatModel("gpt-4o-mini")
+    assert chat_model.input_cost > 0
+    assert chat_model.output_cost > 0
+
+    from langchain.schema import HumanMessage, SystemMessage
+
+    messages = [
+        SystemMessage(content="You are an helpful virtual assistant"),
+        HumanMessage(content="Give the third prime number"),
+    ]
+    with tracking.set_tracker() as tracker:
+        answer = chat_model.invoke(messages)
+    assert "5" in answer.content
+    assert tracker.stats["cost"] > 0
+
+
+AZURE_OPENAI_API_KEY_AVAILABLE = (
+    os.environ.get("AZURE_OPENAI_API_KEY") is not None
+    and os.environ.get("AZURE_OPENAI_ENDPOINT") is not None
+)
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(
+    not AZURE_OPENAI_API_KEY_AVAILABLE, reason="Azure OpenAI API key is not available"
+)
+def test_azure_chat_model():
+    chat_model = tracking.AzureChatModel(model_name="gpt-35-turbo", deployment_name="gpt-35-turbo")
+    assert chat_model.input_cost > 0
+    assert chat_model.output_cost > 0
+
+    from langchain.schema import HumanMessage, SystemMessage
+
+    messages = [
+        SystemMessage(content="You are an helpful virtual assistant"),
+        HumanMessage(content="Give the third prime number"),
+    ]
+    with tracking.set_tracker() as tracker:
+        answer = chat_model.invoke(messages)
+    assert "5" in answer.content
+    assert tracker.stats["cost"] > 0
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(not OPENROUTER_API_KEY_AVAILABLE, reason="OpenRouter API key is not available")
+def test_openrouter_chat_model():
+    chat_model = tracking.OpenRouterChatModel("openai/gpt-4o-mini")
+    assert chat_model.input_cost > 0
+    assert chat_model.output_cost > 0
+
+    from langchain.schema import HumanMessage, SystemMessage
+
+    messages = [
+        SystemMessage(content="You are an helpful virtual assistant"),
+        HumanMessage(content="Give the third prime number"),
+    ]
+    with tracking.set_tracker() as tracker:
+        answer = chat_model.invoke(messages)
+    assert "5" in answer.content
+    assert tracker.stats["cost"] > 0
