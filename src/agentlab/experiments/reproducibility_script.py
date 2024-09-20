@@ -20,15 +20,15 @@ if __name__ == "__main__":
     agent_args = set_temp(AGENT_4o_MINI)
 
     ## select the benchmark to run on
-    # benchmark = "miniwob"
-    benchmark = "miniwob_tiny_test"
+    benchmark = "miniwob"
+    # benchmark = "miniwob_tiny_test"
     # benchmark = "workarena.l1
     # benchmark = "workarena.l2"
     # benchmark = "workarena.l3"
     # benchmark = "webarena"
 
     ## Number of parallel jobs
-    n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
+    n_jobs = 6  # Make sure to use 1 job when debugging in VSCode
     # n_jobs = -1  # to use all available cores
 
     relaunch = False
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     # run the experiments
     try:
-        run_experiments(n_jobs, exp_args_list, study_dir, parallel_backend="dask")
+        run_experiments(n_jobs, exp_args_list, study_dir, parallel_backend="joblib")
     finally:
         # will try to gather info at the end even if run_experiments failed
         add_experiment_to_journal(study_dir)
