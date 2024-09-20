@@ -17,7 +17,9 @@ def test_set_temp():
     ["miniwob", "workarena.l1", "webarena", "visualwebarena"],
 )
 def test_get_reproducibility_info(benchmark_name):
-    info = reproducibility_util.get_reproducibility_info("test_agent", benchmark_name, ignore_changes=True)
+    info = reproducibility_util.get_reproducibility_info(
+        "test_agent", benchmark_name, ignore_changes=True
+    )
 
     print("reproducibility info:")
     print(json.dumps(info, indent=4))
@@ -84,6 +86,7 @@ def test_save_reproducibility_info():
         reproducibility_util.add_reward(info3, test_study_dir, ignore_incomplete=True)
         reproducibility_util.append_to_journal(info3, journal_path=tmp_dir / "journal.csv")
         print((tmp_dir / "journal.csv").read_text())
+
 
 if __name__ == "__main__":
     # test_set_temp()
