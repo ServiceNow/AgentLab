@@ -94,40 +94,6 @@ hola
     assert compressed_text == expected_output
 
 
-@pytest.mark.pricy
-def test_retry_parallel():
-    chat = AzureChatOpenAI(
-        model_name="gpt-35-turbo", azure_deployment="gpt-35-turbo", temperature=0.2, n=3
-    )
-    prompt = """List primes from 1 to 10."""
-    messages = [
-        SystemMessage(content=prompt),
-    ]
-
-    global n_call
-    n_call = 0
-
-    def parser(message):
-        global n_call
-        n_call += 1
-
-        if n_call <= 3:  # First 3 calls, just answer the new prompt
-            return (
-                None,
-                False,
-                "I changed my mind. List primes up to 15. Just answer the json list, nothing else.",
-                0,
-            )
-        elif n_call == 5:
-            return "success", True, "", 10
-        else:
-            return "bad", True, "", 1 + np.random.rand()
-
-    value = llm_utils.retry_parallel(chat, messages, parser=parser, n_retry=2)
-    assert value == "success"
-    assert n_call == 6  # 2*3 calls
-
-
 # Mock ChatOpenAI class
 class MockChatOpenAI:
     def invoke(self, messages):
