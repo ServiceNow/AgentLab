@@ -31,7 +31,7 @@ if __name__ == "__main__":
     n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
     # n_jobs = -1  # to use all available cores
 
-    relaunch = True
+    relaunch = False
 
     if relaunch:
         #  relaunch an existing study

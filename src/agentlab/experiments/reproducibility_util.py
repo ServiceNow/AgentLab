@@ -145,7 +145,16 @@ def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, P
         return None, []
 
 
-def get_reproducibility_info(agent_name, benchmark_name, changes_white_list=("*/reproducibility_script.py",), ignore_changes=False):
+def get_reproducibility_info(
+    agent_name,
+    benchmark_name,
+    changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
+        "*/reproducibility_script.py",
+        "*/reproducibility_journal.csv",
+        "*/launch_command.py",
+    ),
+    ignore_changes=False,
+):
     """
     Retrieve a dict of information that could influence the reproducibility of an experiment.
     """
@@ -165,7 +174,6 @@ def get_reproducibility_info(agent_name, benchmark_name, changes_white_list=("*/
 
     def add_git_info(module_name, module):
         git_hash, modified_files = _get_git_info(module, changes_white_list)
-
 
         modified_files_str = "\n".join([f"  {status}: {file}" for status, file in modified_files])
 
@@ -242,8 +250,6 @@ def load_reproducibility_info(study_dir) -> dict[str]:
         return json.load(f)
 
 
-
-
 from agentlab.analyze import inspect_results
 
 
@@ -293,7 +299,7 @@ def append_to_journal(info, journal_path=None):
     headers = None
     if journal_path.exists():
         headers = _get_csv_headers(journal_path)
-    
+
     if headers is None:
         headers = list(info.keys())
         rows.append(headers)
