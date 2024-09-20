@@ -12,7 +12,7 @@ authors = [
     {name = "Maxime Gasse", email = "maxime.gasse@servicenow.com"},
     {name = "Alex Lacoste", email = "alex.lacoste@servicenow.com"},
     {name = "Tom Marty", email = "tom.marty@polymtl.ca"},
-    {name = "Massimo Caccia", email = "massimo.caccia1@servicenow.com"}
+    {name = "Massimo Caccia", email = "massimo.caccia1@servicenow.com"},
     {name = "Thibault Le Sellier de Chezelles", email = "thibault.de.chezelles@gmail.com"}
 ]
 readme = "README.md"
