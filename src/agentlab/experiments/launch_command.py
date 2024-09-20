@@ -46,5 +46,7 @@ n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
 # n_jobs = -1  # to use all available cores
 
 
-# run the experiments
-run_experiments(n_jobs, exp_args_list, study_dir)
+# Run the experiments
+if __name__ == "__main__":
+
+    run_experiments(n_jobs, exp_args_list, study_dir, parallel_backend="dask")

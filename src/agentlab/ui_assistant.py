@@ -2,9 +2,9 @@ import argparse
 
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 
+from agentlab.agents.agent_args import AgentArgs
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.launch_exp import import_object
-from agentlab.agents.agent_args import AgentArgs
 
 
 def make_exp_args(agent_args: AgentArgs, start_url="https://www.google.com"):
@@ -40,7 +40,7 @@ def main():
     parser.add_argument(
         "--agent_config",
         type=str,
-        default="agentlab.agents.generic_agent.AGENT_4o",
+        default="agentlab.agents.generic_agent.AGENT_4o_MINI",
         help="""Python path to the agent config. Defaults to : "agentlab.agents.generic_agent.AGENT_4o".""",
     )
     parser.add_argument(
