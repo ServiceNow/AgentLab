@@ -11,6 +11,7 @@ from agentlab.llm.langchain_utils import (
     ChatOpenRouter,
     HuggingFaceAPIChatModel,
     HuggingFaceURLChatModel,
+    _convert_messages_to_dict,
 )
 
 if TYPE_CHECKING:
@@ -210,9 +211,10 @@ class ChatModel(ABC):
         self.output_cost = 0.0
 
     def __call__(self, messages: list[dict]) -> dict:
+        messages_formatted = _convert_messages_to_dict(messages)
         completion = self.client.chat.completions.create(
             model=self.model_name,
-            messages=messages,
+            messages=messages_formatted,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
@@ -223,7 +225,7 @@ class ChatModel(ABC):
         if isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return dict(role="assistant", content=completion.choices[0].message.content)
+        return AIMessage(content=completion.choices[0].message.content)
 
     def invoke(self, messages: list[dict]) -> dict:
         return self(messages)

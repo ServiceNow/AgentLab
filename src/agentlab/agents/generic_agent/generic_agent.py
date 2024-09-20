@@ -10,7 +10,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import RetryError, retry_raise
-from agentlab.llm.tracking import get_action_decorator
+from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
@@ -66,7 +66,7 @@ class GenericAgent(Agent):
     def obs_preprocessor(self, obs: dict) -> dict:
         return self._obs_preprocessor(obs)
 
-    @get_action_decorator
+    @cost_tracker_decorator
     def get_action(self, obs):
 
         self.obs_history.append(obs)

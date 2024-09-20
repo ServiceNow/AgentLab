@@ -57,7 +57,7 @@ def set_tracker():
         TRACKER.instance = previous_tracker
 
 
-def get_action_decorator(get_action):
+def cost_tracker_decorator(get_action):
     def wrapper(self, obs):
         with set_tracker() as tracker:
             action, agent_info = get_action(self, obs)
