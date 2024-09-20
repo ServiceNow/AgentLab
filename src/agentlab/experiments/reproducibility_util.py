@@ -51,40 +51,52 @@ def _get_git_username(repo: Repo) -> str:
         str: The first non-None username found, or None if no username is found.
     """
     # Repository-specific configuration
-    username = repo.config_reader().get_value("user", "name", None)
-    if username:
-        return username
+    try:
+        username = repo.config_reader().get_value("user", "name", None)
+        if username:
+            return username
+    except Exception:
+        pass
 
-    # GitHub username
-    remote_url = repo.remotes.origin.url
-    if "github.com" in remote_url:
-        import re
-        import urllib.request
-        import json
+    try:
+        # GitHub username
+        remote_url = repo.remotes.origin.url
+        if "github.com" in remote_url:
+            import re
+            import urllib.request
+            import json
 
-        match = re.search(r"github\.com[:/](.+)/(.+)\.git", remote_url)
-        if match:
-            owner, repo_name = match.groups()
-            api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
-            with urllib.request.urlopen(api_url) as response:
-                data = json.loads(response.read().decode())
-                username = data["owner"]["login"]
-                if username:
-                    return username
+            match = re.search(r"github\.com[:/](.+)/(.+)\.git", remote_url)
+            if match:
+                owner, repo_name = match.groups()
+                api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
+                with urllib.request.urlopen(api_url) as response:
+                    data = json.loads(response.read().decode())
+                    username = data["owner"]["login"]
+                    if username:
+                        return username
+    except Exception:
+        pass
 
-    # Global configuration
-    username = GitConfigParser(repo.git.config("--global", "--list"), read_only=True).get_value(
-        "user", "name", None
-    )
-    if username:
-        return username
+    try:
+        # Global configuration
+        username = GitConfigParser(repo.git.config("--global", "--list"), read_only=True).get_value(
+            "user", "name", None
+        )
+        if username:
+            return username
+    except Exception:
+        pass
 
-    # System configuration
-    username = GitConfigParser(repo.git.config("--system", "--list"), read_only=True).get_value(
-        "user", "name", None
-    )
-    if username:
-        return username
+    try:
+        # System configuration
+        username = GitConfigParser(repo.git.config("--system", "--list"), read_only=True).get_value(
+            "user", "name", None
+        )
+        if username:
+            return username
+    except Exception:
+        pass
 
     # Environment variables
     return os.environ.get("GIT_AUTHOR_NAME") or os.environ.get("GIT_COMMITTER_NAME")
