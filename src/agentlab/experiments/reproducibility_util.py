@@ -150,7 +150,7 @@ def get_reproducibility_info(
     benchmark_name,
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
-        "*/reproducibility_journal.csv",
+        "*reproducibility_journal.csv",
         "*/launch_command.py",
     ),
     ignore_changes=False,
