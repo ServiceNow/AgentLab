@@ -126,7 +126,7 @@ class ChatModel(ABC):
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if isinstance(TRACKER.instance, LLMTracker):
+        if hasattr(TRACKER, "instance") and isinstance(TRACKER.instance, LLMTracker):
             TRACKER.instance(input_tokens, output_tokens, cost)
 
         return dict(role="assistant", content=completion.choices[0].message.content)
