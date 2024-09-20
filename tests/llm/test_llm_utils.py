@@ -1,13 +1,10 @@
 import warnings
 from typing import Literal
-from unittest import mock
 from unittest.mock import Mock
 
 import httpx
 import numpy as np
 import pytest
-from langchain.schema import SystemMessage
-from langchain_openai import AzureChatOpenAI
 from openai import RateLimitError
 
 from agentlab.llm import llm_utils
@@ -152,7 +149,7 @@ def test_rate_limit_success():
     mock_chat.invoke = Mock(
         side_effect=[
             mock_rate_limit_error("Rate limit reached. Please try again in 2s."),
-            SystemMessage(content="correct content"),
+            dict(role="system", content="correct content"),
         ]
     )
 
@@ -177,9 +174,9 @@ def test_successful_parse_before_max_retries():
     # content  on the 3rd time
     mock_chat.invoke = Mock(
         side_effect=[
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="correct content"),
+            dict(role="system", content="wrong content"),
+            dict(role="system", content="wrong content"),
+            dict(role="system", content="correct content"),
         ]
     )
 
@@ -196,9 +193,9 @@ def test_unsuccessful_parse_before_max_retries():
     # content  on the 3rd time
     mock_chat.invoke = Mock(
         side_effect=[
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="correct content"),
+            dict(role="system", content="wrong content"),
+            dict(role="system", content="wrong content"),
+            dict(role="system", content="correct content"),
         ]
     )
     with pytest.raises(ValueError):
@@ -209,7 +206,7 @@ def test_unsuccessful_parse_before_max_retries():
 
 def test_retry_parse_raises():
     mock_chat = MockChatOpenAI()
-    mock_chat.invoke = Mock(return_value=SystemMessage(content="mocked response"))
+    mock_chat.invoke = Mock(return_value=dict(role="system", content="mocked response"))
     parser_raises = Mock(side_effect=ValueError("Parser error"))
 
     with pytest.raises(ValueError):

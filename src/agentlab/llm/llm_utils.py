@@ -13,13 +13,12 @@ from warnings import warn
 import numpy as np
 import tiktoken
 import yaml
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 from openai import BadRequestError, RateLimitError
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
 if TYPE_CHECKING:
-    from langchain_core.language_models import BaseChatModel
+    from agentlab.llm.tracking import ChatModel
 
 
 def _extract_wait_time(error_message, min_retry_wait_time=60):
@@ -35,8 +34,8 @@ class RetryError(ValueError):
 
 
 def retry(
-    chat: "BaseChatModel",
-    messages,
+    chat: "ChatModel",
+    messages: list[dict],
     n_retry,
     parser,
     log=True,
@@ -53,9 +52,9 @@ def retry(
     and expensive.
 
     Args:
-        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
-            returning a list of answers.
-        messages (list): the list of messages so far.
+        chat (ChatModel): a ChatModel object taking a list of messages and
+            returning a list of answers, all in OpenAI format.
+        messages (list): the list of messages so far, in OpenAI format.
         n_retry (int): the maximum number of sequential retries.
         parser (function): a function taking a message and returning a tuple
             with the following fields:
@@ -94,22 +93,22 @@ def retry(
 
         messages.append(answer)
 
-        value, valid, retry_message = parser(answer.content)
+        value, valid, retry_message = parser(answer.get("content"))
         if valid:
             return value
 
         tries += 1
         if log:
-            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
+            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.get("content")}\n[User]:\n{retry_message}"
             logging.info(msg)
-        messages.append(HumanMessage(content=retry_message))
+        messages.append(dict(role="user", content=retry_message))
 
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
 
 def retry_raise(
-    chat: "BaseChatModel",
-    messages: list[BaseMessage],
+    chat: "ChatModel",
+    messages: list[dict],
     n_retry: int,
     parser: callable,
     log: bool = True,
@@ -126,8 +125,8 @@ def retry_raise(
     and expensive.
 
     Args:
-        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
-            returning a list of answers.
+        chat (ChatModel): a ChatModel object taking a list of messages and
+            returning a list of answers, all in OpenAI format.
         messages (list): the list of messages so far. This list will be modified with
             the new messages and the retry messages.
         n_retry (int): the maximum number of sequential retries.
@@ -166,13 +165,13 @@ def retry_raise(
         messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
 
         try:
-            return parser(answer.content)
+            return parser(answer.get("content"))
         except ParseError as parsing_error:
             tries += 1
             if log:
-                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{str(parsing_error)}"
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.get("content")}\n[User]:\n{str(parsing_error)}"
                 logging.info(msg)
-            messages.append(HumanMessage(content=str(parsing_error)))
+            messages.append(dict(role="user", content=str(parsing_error)))
 
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 

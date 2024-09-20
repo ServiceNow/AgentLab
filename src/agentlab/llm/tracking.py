@@ -5,11 +5,8 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 
 import requests
-from langchain.schema import AIMessage, BaseMessage
 from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS
 from openai import AzureOpenAI, OpenAI
-
-from agentlab.llm.langchain_utils import _convert_messages_to_dict
 
 TRACKER = threading.local()
 
@@ -126,7 +123,7 @@ class ChatModel(ABC):
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if isinstance(TRACKER.instance, LLMTracker):
+        if hasattr(TRACKER, "instance") and isinstance(TRACKER.instance, LLMTracker):
             TRACKER.instance(input_tokens, output_tokens, cost)
 
         return dict(role="assistant", content=completion.choices[0].message.content)

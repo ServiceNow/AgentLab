@@ -245,9 +245,7 @@ def fit_tokens(
         additional_prompts = [additional_prompts]
 
     for prompt in additional_prompts:
-        max_prompt_tokens -= (
-            count_tokens(prompt, model=model_name) + 1
-        )  # +1 accounts for LangChain token
+        max_prompt_tokens -= count_tokens(prompt, model=model_name) + 1  # +1 because why not ?
 
     for _ in range(max_iterations):
         prompt = shrinkable.prompt

@@ -11,8 +11,7 @@ import numpy as np
 import pandas as pd
 from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
-from langchain.schema import BaseMessage
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 from PIL import Image
 
 from agentlab.analyze import inspect_results
@@ -560,9 +559,7 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
     for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):
-            m = m.content
-        elif isinstance(m, dict):
+        if isinstance(m, dict):
             m = m.get("content", "No Content")
         messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
     return "\n".join(messages)
@@ -628,11 +625,16 @@ def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    assert isinstance(chat_messages[1], BaseMessage), "Messages should be langchain messages"
+    assert isinstance(chat_messages[1], dict), "Messages should be a dict"
+    assert chat_messages[1].get("role", None) == "user", "Second message should be user"
 
-    chat = ChatOpenAI(name="gpt-4o-mini")
-    chat_messages[1].content = input_text
-    result_text = chat(chat_messages).content
+    client = OpenAI()
+    chat_messages[1].get("content") = input_text
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=chat_messages,
+    )
+    result_text = completion.choices[0].message.content
     return result_text
 
 
@@ -641,9 +643,7 @@ def update_prompt_tests():
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     prompt = chat_messages[1]
-    if isinstance(prompt, BaseMessage):
-        prompt = prompt.content
-    elif isinstance(prompt, dict):
+    if isinstance(prompt, dict):
         prompt = prompt.get("content", "No Content")
     return prompt, prompt
 

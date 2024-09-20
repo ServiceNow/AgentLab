@@ -25,6 +25,7 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,
+        vision_support=True,
     ),
     "openai/gpt-4-1106-preview": OpenAIModelArgs(
         model_name="gpt-4-1106-preview",

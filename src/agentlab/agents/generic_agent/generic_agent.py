@@ -3,11 +3,9 @@ from functools import partial
 from warnings import warn
 
 from browsergym.experiments.agent import Agent
-from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import RetryError, retry_raise
 from agentlab.llm.tracking import get_action_decorator
@@ -99,8 +97,8 @@ class GenericAgent(Agent):
             # cause it to be too long
 
             chat_messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=prompt),
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
             ]
             ans_dict = retry_raise(
                 self.chat_llm,

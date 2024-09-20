@@ -1,45 +1,25 @@
 """This module helps uniformizing the interface of different LLMs for the
 AgentLab platform. We wish there was already a uniform interface."""
 
+import json
 import logging
 import os
 import time
+from contextlib import contextmanager
 from functools import partial
 from typing import Any, List, Optional
 
+import requests
 from huggingface_hub import InferenceClient
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.chat_models.base import SimpleChatModel
 from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_community.chat_models import ChatOpenAI
 from langchain_community.llms import HuggingFaceHub, HuggingFacePipeline
+from openai import OpenAI
 from pydantic import Field
 from transformers import AutoTokenizer, GPT2TokenizerFast, pipeline
 
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
-
-
-class ChatOpenRouter(ChatOpenAI):
-    openai_api_base: str
-    openai_api_key: str
-    model_name: str
-
-    def __init__(
-        self,
-        model_name: str,
-        openai_api_key: Optional[str] = None,
-        openai_api_base: str = "https://openrouter.ai/api/v1",
-        temperature: Optional[float] = 0.5,
-        max_tokens: Optional[int] = 100,
-    ):
-        openai_api_key = openai_api_key or os.getenv("OPENROUTER_API_KEY")
-        super().__init__(
-            openai_api_base=openai_api_base,
-            openai_api_key=openai_api_key,
-            model_name=model_name,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
 
 
 class HFBaseChatModel(SimpleChatModel):

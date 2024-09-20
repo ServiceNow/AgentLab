@@ -4,25 +4,22 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from langchain.schema import AIMessage
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
-
 from agentlab.llm.langchain_utils import (
     ChatOpenRouter,
     HuggingFaceAPIChatModel,
     HuggingFaceURLChatModel,
 )
-from agentlab.llm.tracking import OpenAIChatModel, OpenRouterChatModel
+from agentlab.llm.tracking import AzureChatModel, OpenAIChatModel, OpenRouterChatModel
 
 if TYPE_CHECKING:
-    from langchain_core.language_models.chat_models import BaseChatModel
+    from agentlab.llm.tracking import ChatModel
 
 
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
     def invoke(self, messages) -> str:
-        prompt = messages[-1].content
+        prompt = messages[-1].get("content", "")
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:
@@ -36,7 +33,7 @@ class CheatMiniWoBLLM:
 {action}
 </action>
 """
-        return AIMessage(content=answer)
+        return {"role": "assistant", "content": answer}
 
     def __call__(self, messages) -> str:
         return self.invoke(messages)
@@ -71,7 +68,7 @@ class BaseModelArgs(ABC):
     vision_support: bool = False
 
     @abstractmethod
-    def make_model(self) -> "BaseChatModel":
+    def make_model(self) -> "ChatModel":
         pass
 
     def prepare_server(self):
@@ -127,7 +124,7 @@ class AzureModelArgs(BaseModelArgs):
     deployment_name: str = None
 
     def make_model(self):
-        return AzureChatOpenAI(
+        return AzureChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,

@@ -291,9 +291,9 @@ def summarize_stats(sub_df):
             key_ = key.split(".")[1]
             op = key_.split("_")[0]
             if op == "cum":
-                record[key_] = sub_df[key].sum(skipna=True).round(3)
+                record[key_] = sub_df[key].sum(skipna=True).round(6)
             elif op == "max":
-                record[key_] = sub_df[key].max(skipna=True).round(3)
+                record[key_] = sub_df[key].max(skipna=True).round(6)
             else:
                 raise ValueError(f"Unknown stats operation: {op}")
     return pd.Series(record)

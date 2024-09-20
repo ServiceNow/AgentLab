@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.agent import Agent, AgentInfo
 from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
@@ -82,7 +81,10 @@ Focus on the bid that are given in the html, and use them to perform the actions
 Provide a chain of thoughts reasoning to decompose the task into smaller steps. And execute only the next step.
 """
 
-        messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
 
         def parser(response: str) -> tuple[dict, bool, str]:
             blocks = extract_code_blocks(response)

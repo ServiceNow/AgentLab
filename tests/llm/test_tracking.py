@@ -122,15 +122,13 @@ def test_openai_chat_model():
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
-    from langchain.schema import HumanMessage, SystemMessage
-
     messages = [
-        SystemMessage(content="You are an helpful virtual assistant"),
-        HumanMessage(content="Give the third prime number"),
+        dict(role="system", content="You are an helpful virtual assistant"),
+        dict(role="user", content="Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
         answer = chat_model.invoke(messages)
-    assert "5" in answer.content
+    assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0
 
 
@@ -149,15 +147,13 @@ def test_azure_chat_model():
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
-    from langchain.schema import HumanMessage, SystemMessage
-
     messages = [
-        SystemMessage(content="You are an helpful virtual assistant"),
-        HumanMessage(content="Give the third prime number"),
+        dict(role="system", content="You are an helpful virtual assistant"),
+        dict(role="user", content="Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
         answer = chat_model.invoke(messages)
-    assert "5" in answer.content
+    assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0
 
 
@@ -168,13 +164,11 @@ def test_openrouter_chat_model():
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
-    from langchain.schema import HumanMessage, SystemMessage
-
     messages = [
-        SystemMessage(content="You are an helpful virtual assistant"),
-        HumanMessage(content="Give the third prime number"),
+        dict(role="system", content="You are an helpful virtual assistant"),
+        dict(role="user", content="Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
         answer = chat_model.invoke(messages)
-    assert "5" in answer.content
+    assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0

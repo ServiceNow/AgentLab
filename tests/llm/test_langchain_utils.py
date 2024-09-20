@@ -1,5 +1,4 @@
 import pytest
-from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.llm.chat_api import HuggingFaceAPIChatModel, HuggingFaceURLChatModel
 from agentlab.llm.llm_utils import download_and_save_model
@@ -20,8 +19,8 @@ def test_CustomLLMChatbot_remotely():
     )
 
     messages = [
-        SystemMessage(content="You are an helpful virtual assistant"),
-        HumanMessage(content="Is python a programming language?"),
+        dict(role="system", content="You are an helpful virtual assistant"),
+        dict(role="user", content="Is python a programming language?"),
     ]
 
     answer = chatbot(messages)
@@ -37,8 +36,8 @@ def test_CustomLLMChatbot_locally():
     chatbot = HuggingFaceURLChatModel(model_path=model_path, temperature=1e-3)
 
     messages = [
-        SystemMessage(content="Please tell me back the following word: "),
-        HumanMessage(content="bird"),
+        dict(role="system", content="Please tell me back the following word: "),
+        dict(role="user", content="bird"),
     ]
 
     answer = chatbot(messages)
