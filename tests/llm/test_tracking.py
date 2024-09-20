@@ -36,7 +36,7 @@ OPENROUTER_MODELS = (
 
 @pytest.mark.skipif(not OPENROUTER_API_KEY_AVAILABLE, reason="OpenRouter API key is not available")
 def test_get_pricing_openrouter():
-    pricing = tracking.get_pricing(api="openrouter", api_key=os.environ["OPENROUTER_API_KEY"])
+    pricing = tracking.get_pricing_openrouter()
     assert isinstance(pricing, dict)
     assert all(isinstance(v, dict) for v in pricing.values())
     for model in OPENROUTER_MODELS:
@@ -46,7 +46,7 @@ def test_get_pricing_openrouter():
 
 
 def test_get_pricing_openai():
-    pricing = tracking.get_pricing(api="openai")
+    pricing = tracking.get_pricing_openai()
     assert isinstance(pricing, dict)
     assert all("prompt" in pricing[model] and "completion" in pricing[model] for model in pricing)
     assert all(isinstance(pricing[model]["prompt"], float) for model in pricing)
