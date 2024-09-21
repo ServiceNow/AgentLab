@@ -31,7 +31,7 @@ def display_table(df: pd.DataFrame):
     return df
 
 
-def remove_args_frcom_col(df: pd.DataFrame):
+def remove_args_from_col(df: pd.DataFrame):
     df.columns = [col.replace("_args", "") for col in df.columns]
     df.index.names = [col.replace("_args", "") for col in df.index.names]
     return df
@@ -220,15 +220,18 @@ clicking the refresh button.
             with gr.Tab("Select Task and Seed", id="Select Task"):
                 with gr.Row():
                     with gr.Column(scale=4):
-                        with gr.Accordion("Task Selector (click for help)", open=False):
-                            gr.Markdown(
-                                """\
-    Click on a row to select a task. It will trigger the update of other fields.
+                        with gr.Row():  # combining the title (help) and the refresh button
+                            with gr.Accordion("Task Selector (click for help)", open=False):
+                                gr.Markdown(
+                                    """\
+        Click on a row to select a task. It will trigger the update of other fields.
 
-    **GRADIO BUG**: If you sort the columns the click will not match the
-    content. You have to sort back with the Idx column to align the click with
-    the order."""
-                            )
+        **GRADIO BUG**: If you sort the columns the click will not match the
+        content. You have to sort back with the Idx column to align the click with
+        the order."""
+                                )
+                            refresh_results_button = gr.Button("↺", scale=0, size="sm")
+
                         task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
 
                     with gr.Column(scale=2):
@@ -384,6 +387,10 @@ clicking the refresh button.
         # ===============#
 
         refresh_button.click(
+            fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice
+        )
+
+        refresh_results_button.click(
             fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice
         )
 
@@ -853,17 +860,11 @@ def get_agent_report(result_df: pd.DataFrame):
     levels = list(range(result_df.index.nlevels))
 
     if len(levels) == 1:
-        df = pd.DataFrame([{AGENT_NAME_KEY: result_df[AGENT_NAME_KEY].iloc[0]}])
-        df.set_index(AGENT_NAME_KEY, inplace=True)
-        return df
+        result_df = result_df.set_index(AGENT_NAME_KEY, append=True)
+        levels = list(range(result_df.index.nlevels))
 
     report = result_df.groupby(level=levels[1:]).apply(inspect_results.summarize)
 
-    # def rename_index(name: str):
-    #     return name.replace("agent_args.flags.", "")
-
-    # index_names = [rename_index(name) for name in report.index.names]
-    # report = report.rename_axis(index=index_names)
     return report
 
 
@@ -874,7 +875,7 @@ def update_global_stats():
     return stats
 
 
-def new_exp_dir(exp_dir, progress=gr.Progress()):
+def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
 
     if exp_dir == select_dir_instructions:
         return None, None
@@ -887,7 +888,7 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
 
     info.exp_list_dir = info.results_dir / exp_dir
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
-    info.result_df = remove_args_frcom_col(info.result_df)
+    info.result_df = remove_args_from_col(info.result_df)
 
     agent_report = display_table(get_agent_report(info.result_df))
     info.agent_id_keys = agent_report.index.names
