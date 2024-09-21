@@ -17,7 +17,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 if __name__ == "__main__":
 
-    agent_args = set_temp(AGENT_4o_MINI)
+    agent_args = set_temp(AGENT_4o)
 
     ## select the benchmark to run on
     benchmark = "miniwob"
