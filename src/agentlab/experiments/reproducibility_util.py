@@ -160,6 +160,7 @@ def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, P
 def get_reproducibility_info(
     agent_name,
     benchmark_name,
+    comment=None,
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
         "*reproducibility_journal.csv",
@@ -177,6 +178,7 @@ def get_reproducibility_info(
         "git_user": _get_git_username(_get_repo(agentlab)),
         "agent_name": agent_name,
         "benchmark": benchmark_name,
+        "comment": comment,
         "benchmark_version": _get_benchmark_version(benchmark_name),
         "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
         "os": f"{platform.system()} ({platform.version()})",
@@ -226,8 +228,12 @@ def _assert_compatible(info: dict, old_info: dict):
             )
 
 
-def write_reproducibility_info(study_dir, agent_name, benchmark_name, ignore_changes=False):
-    info = get_reproducibility_info(agent_name, benchmark_name, ignore_changes=ignore_changes)
+def write_reproducibility_info(
+    study_dir, agent_name, benchmark_name, comment=None, ignore_changes=False
+):
+    info = get_reproducibility_info(
+        agent_name, benchmark_name, comment, ignore_changes=ignore_changes
+    )
     return save_reproducibility_info(study_dir, info)
 
 
