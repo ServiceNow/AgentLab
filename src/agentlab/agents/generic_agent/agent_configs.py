@@ -136,7 +136,7 @@ FLAGS_LLAMA3_70B = GenericPromptFlags(
 )
 
 AGENT_LLAMA3_70B = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/Meta-Llama-3-70B-Instruct"],
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
     flags=FLAGS_LLAMA3_70B,
 )
 AGENT_LLAMA31_70B = GenericAgentArgs(
