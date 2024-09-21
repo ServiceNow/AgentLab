@@ -11,6 +11,7 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
+from agentlab.llm.tracking import cost_tracker_decorator
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
@@ -48,6 +49,7 @@ class MostBasicAgent(Agent):
 
         self.action_set = HighLevelActionSet(["bid"], multiaction=False)
 
+    @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
         system_prompt = f"""
 You are a web assistant.

@@ -177,69 +177,6 @@ def retry_raise(
     raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
 
 
-def retry_parallel(chat: "BaseChatModel", messages, n_retry, parser):
-    """Retry querying the chat models with the response from the parser until it returns a valid value.
-
-    It will stop after `n_retry`. It assuemes that chat will generate n_parallel answers for each message.
-    The best answer is selected according to the score returned by the parser. If no answer is valid, the
-    it will retry with the best answer so far and append to the chat the retry message. If there is a
-    single parallel generation, it behaves like retry.
-
-    This function is, in principle, more robust than retry. The speed and cost overhead is minimal with
-    the prompt is large and the length of the generated message is small.
-
-    Args:
-        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
-            returning a list of answers.
-        messages (list): the list of messages so far.
-        n_retry (int): the maximum number of sequential retries.
-        parser (function): a function taking a message and returning a tuple
-            with the following fields:
-                value : the parsed value,
-                valid : a boolean indicating if the value is valid,
-                retry_message : a message to send to the chat if the value is not valid
-
-    Returns:
-        dict: the parsed value, with a string at key "action".
-
-    Raises:
-        ValueError: if the parser could not parse a valid value after n_retry retries.
-        BadRequestError: if the message is too long
-    """
-
-    for i in range(n_retry):
-        try:
-            answers = chat.generate([messages]).generations[0]  # chat.n parallel completions
-        except BadRequestError as e:
-            # most likely, the added messages triggered a message too long error
-            # we thus retry without the last two messages
-            if i == 0:
-                raise e
-            msg = f"BadRequestError, most likely the message is too long retrying with previous query."
-            warn(msg)
-            messages = messages[:-2]
-            answers = chat.generate([messages]).generations[0]
-
-        values, valids, retry_messages, scores = zip(
-            *[parser(answer.message.content) for answer in answers]
-        )
-        idx = np.argmax(scores)
-        value = values[idx]
-        valid = valids[idx]
-        retry_message = retry_messages[idx]
-        answer = answers[idx].message
-
-        if valid:
-            return value
-
-        msg = f"Query failed. Retrying {i+1}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
-        warn(msg)
-        messages.append(answer)  # already of type AIMessage
-        messages.append(SystemMessage(content=retry_message))
-
-    raise ValueError(f"Could not parse a valid value after {n_retry} retries.")
-
-
 def truncate_tokens(text, max_tokens=8000, start=0, model_name="gpt-4"):
     """Use tiktoken to truncate a text to a maximum number of tokens."""
     enc = tiktoken.encoding_for_model(model_name)

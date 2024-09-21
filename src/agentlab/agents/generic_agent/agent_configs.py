@@ -1,9 +1,9 @@
-from .generic_agent_prompt import GenericPromptFlags
 from agentlab.agents import dynamic_prompting as dp
-from .generic_agent import GenericAgentArgs
-from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.experiments import args
+from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
+from .generic_agent import GenericAgentArgs
+from .generic_agent_prompt import GenericPromptFlags
 
 FLAGS_CUSTOM = GenericPromptFlags(
     obs=dp.ObsFlags(
@@ -45,7 +45,7 @@ FLAGS_CUSTOM = GenericPromptFlags(
 
 
 AGENT_CUSTOM = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-8b-instruct"],
     flags=FLAGS_CUSTOM,
 )
 
