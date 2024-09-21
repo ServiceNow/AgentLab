@@ -96,7 +96,7 @@ AGENT_3_5 = GenericAgentArgs(
 )
 
 # llama3-70b default config
-FLAGS_70B = GenericPromptFlags(
+FLAGS_LLAMA3_70B = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
@@ -135,9 +135,13 @@ FLAGS_70B = GenericPromptFlags(
     add_missparsed_messages=True,
 )
 
-AGENT_70B = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
-    flags=FLAGS_70B,
+AGENT_LLAMA3_70B = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/Meta-Llama-3-70B-Instruct"],
+    flags=FLAGS_LLAMA3_70B,
+)
+AGENT_LLAMA31_70B = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+    flags=FLAGS_LLAMA3_70B,
 )
 
 FLAGS_8B = GenericPromptFlags(

@@ -112,6 +112,13 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=4000,
         temperature=1e-1,
     ),
+    "openrouter/meta-llama/llama-3-70b-instruct": OpenRouterModelArgs(
+        model_name="meta-llama/llama-3-70b-instruct",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
     "openrouter/meta-llama/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct:free",
         max_total_tokens=128_000,
