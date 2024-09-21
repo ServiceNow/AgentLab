@@ -208,8 +208,8 @@ FLAGS_GPT_4o = GenericPromptFlags(
     action=dp.ActionFlags(
         multi_actions=False,
         action_set="bid",
-        long_description=True,
-        individual_examples=True,
+        long_description=False,
+        individual_examples=False,
     ),
     use_plan=False,
     use_criticise=False,
