@@ -1,6 +1,6 @@
 import logging
 
-from agentlab.agents.generic_agent import AGENT_4o, AGENT_4o_MINI
+from agentlab.agents.generic_agent import AGENT_4o, AGENT_4o_MINI, AGENT_LLAMA3_70B
 from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments import study_generators
 from agentlab.experiments.exp_utils import RESULTS_DIR
@@ -17,7 +17,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 if __name__ == "__main__":
 
-    agent_args = set_temp(AGENT_4o)
+    agent_args = set_temp(AGENT_LLAMA3_70B)
 
     ## select the benchmark to run on
     benchmark = "miniwob"
