@@ -55,11 +55,11 @@ def test_launch_system(backend="dask"):
             assert row.err_msg is None
             assert row.cum_reward == 1.0
 
-        global_report = inspect_results.global_report(results_df)
-        assert len(global_report) == 2
-        assert global_report.std_err.iloc[0] == 0
-        assert global_report.n_completed.iloc[0] == "3/3"
-        assert global_report.avg_reward.iloc[0] == 1.0
+        study_summary = inspect_results.summarize_study(results_df)
+        assert len(study_summary) == 1
+        assert study_summary.std_err.iloc[0] == 0
+        assert study_summary.n_completed.iloc[0] == "3/3"
+        assert study_summary.avg_reward.iloc[0] == 1.0
 
 
 def test_launch_system_joblib():
@@ -97,4 +97,4 @@ def test_4o_mini_on_miniwob_tiny_test():
 if __name__ == "__main__":
     # test_4o_mini_on_miniwob_tiny_test()
     # test_launch_system()
-    test_launch_system_joblib()
+    test_launch_system_sequntial()

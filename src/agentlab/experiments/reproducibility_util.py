@@ -273,30 +273,31 @@ from agentlab.analyze import inspect_results
 
 def add_reward(info, study_dir, ignore_incomplete=False):
     result_df = inspect_results.load_result_df(study_dir)
-    report = inspect_results.global_report(result_df)
+    report = inspect_results.summarize_study(result_df)
 
-    if "[ALL TASKS]" in report.index:
-        assert isinstance(info["agent_name"], str)
-
-        n_err = report.loc["[ALL TASKS]", "n_err"].item()
-        n_completed, n_total = report.loc["[ALL TASKS]", "n_completed"].split("/")
-        if n_err > 0 and not ignore_incomplete:
-            raise ValueError(
-                f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
-            )
-        if n_completed != n_total and not ignore_incomplete:
-            raise ValueError(
-                f"Experiment has {n_completed} completed tasks out of {n_total}. "
-                f"Please rerun the study and make sure all tasks are completed."
-            )
-
-        for key in ("avg_reward", "std_err", "n_err", "n_completed"):
-            value = report.loc["[ALL TASKS]", key]
-            if hasattr(value, "item"):
-                value = value.item()
-            info[key] = value
-    else:
+    if len(report) > 1:
         raise ValueError("Multi agent not implemented yet")
+
+    assert isinstance(info["agent_name"], str)
+
+    idx = report.index[0]
+    n_err = report.loc[idx, "n_err"].item()
+    n_completed, n_total = report.loc[idx, "n_completed"].split("/")
+    if n_err > 0 and not ignore_incomplete:
+        raise ValueError(
+            f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
+        )
+    if n_completed != n_total and not ignore_incomplete:
+        raise ValueError(
+            f"Experiment has {n_completed} completed tasks out of {n_total}. "
+            f"Please rerun the study and make sure all tasks are completed."
+        )
+
+    for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+        value = report.loc[idx, key]
+        if hasattr(value, "item"):
+            value = value.item()
+        info[key] = value
 
 
 def _get_csv_headers(file_path: str) -> list[str]:
