@@ -55,7 +55,7 @@ def test_get_pricing_openai():
 
 
 def call_llm():
-    if isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+    if hasattr(tracking.TRACKER, 'instance') and isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
         tracking.TRACKER.instance(1, 1, 1)
     return "action", {"stats": {}}
 
