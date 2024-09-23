@@ -7,7 +7,6 @@ from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import RetryError, retry_raise
 from agentlab.llm.tracking import cost_tracker_decorator
