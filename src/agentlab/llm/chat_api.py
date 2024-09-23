@@ -222,7 +222,7 @@ class ChatModel(ABC):
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+        if hasattr(tracking.TRACKER, 'instance') and isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         return AIMessage(content=completion.choices[0].message.content)
