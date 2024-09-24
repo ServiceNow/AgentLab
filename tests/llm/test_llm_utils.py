@@ -3,7 +3,6 @@ from typing import Literal
 from unittest.mock import Mock
 
 import httpx
-import numpy as np
 import pytest
 from openai import RateLimitError
 

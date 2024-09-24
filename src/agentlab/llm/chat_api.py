@@ -4,16 +4,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from agentlab.llm.langchain_utils import (
-    ChatOpenRouter,
-    HuggingFaceAPIChatModel,
-    HuggingFaceURLChatModel,
-    _convert_messages_to_dict,
-)
-from agentlab.llm.tracking import AzureChatModel, OpenAIChatModel, OpenRouterChatModel
+from openai import AzureOpenAI, OpenAI
 
-if TYPE_CHECKING:
-    from agentlab.llm.tracking import ChatModel
+import agentlab.llm.tracking as tracking
+from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
 
 
 class CheatMiniWoBLLM:
@@ -106,19 +100,6 @@ class OpenAIModelArgs(BaseModelArgs):
 
 
 @dataclass
-class HuggingFaceModelArgs(BaseModelArgs):
-    """Serializable object for instantiating a generic chat model with a HuggingFace model."""
-
-    def make_model(self):
-        return HuggingFaceAPIChatModel(
-            model_name=self.model_name,
-            temperature=self.temperature,
-            max_new_tokens=self.max_new_tokens,
-            n_retry_server=4,
-        )
-
-
-@dataclass
 class AzureModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an Azure model."""
 
@@ -203,16 +184,15 @@ class ChatModel(ABC):
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        self.client = tracking.OpenAI()
+        self.client = OpenAI()
 
         self.input_cost = 0.0
         self.output_cost = 0.0
 
     def __call__(self, messages: list[dict]) -> dict:
-        messages_formatted = _convert_messages_to_dict(messages)
         completion = self.client.chat.completions.create(
             model=self.model_name,
-            messages=messages_formatted,
+            messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
@@ -225,7 +205,7 @@ class ChatModel(ABC):
         ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return AIMessage(content=completion.choices[0].message.content)
+        return dict(role="assistant", content=completion.choices[0].message.content)
 
     def invoke(self, messages: list[dict]) -> dict:
         return self(messages)
@@ -250,7 +230,7 @@ class OpenRouterChatModel(ChatModel):
         self.input_cost = pricings[model_name]["prompt"]
         self.output_cost = pricings[model_name]["completion"]
 
-        self.client = tracking.OpenAI(
+        self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
         )
@@ -275,7 +255,7 @@ class OpenAIChatModel(ChatModel):
         self.input_cost = float(pricings[model_name]["prompt"])
         self.output_cost = float(pricings[model_name]["completion"])
 
-        self.client = tracking.OpenAI(
+        self.client = OpenAI(
             api_key=api_key,
         )
 
@@ -304,7 +284,7 @@ class AzureChatModel(ChatModel):
         self.input_cost = float(pricings[model_name]["prompt"])
         self.output_cost = float(pricings[model_name]["completion"])
 
-        self.client = tracking.AzureOpenAI(
+        self.client = AzureOpenAI(
             api_key=api_key,
             azure_deployment=deployment_name,
             azure_endpoint=endpoint,

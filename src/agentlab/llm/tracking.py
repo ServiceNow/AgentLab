@@ -1,12 +1,9 @@
-import ast
 import os
 import threading
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 
 import requests
 from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS
-from openai import AzureOpenAI, OpenAI
 
 TRACKER = threading.local()
 
