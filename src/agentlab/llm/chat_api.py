@@ -1,13 +1,17 @@
+import logging
 import os
 import re
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import openai
 from openai import AzureOpenAI, OpenAI
 
 import agentlab.llm.tracking as tracking
 from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
+from agentlab.llm.llm_utils import _extract_wait_time
 
 
 class CheatMiniWoBLLM:
@@ -179,10 +183,11 @@ class ChatModelArgs(BaseModelArgs):
 class ChatModel(ABC):
 
     @abstractmethod
-    def __init__(self, model_name, api_key=None, temperature=0.5, max_tokens=100):
+    def __init__(self, model_name, api_key=None, temperature=0.5, max_tokens=100, max_retry=1):
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.max_retry = max_retry
 
         self.client = OpenAI()
 
@@ -190,12 +195,29 @@ class ChatModel(ABC):
         self.output_cost = 0.0
 
     def __call__(self, messages: list[dict]) -> dict:
-        completion = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
+        completion = None
+        for itr in range(self.max_retry):
+            try:
+                completion = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                )
+                break
+            except openai.OpenAIError as e:
+                logging.warning(
+                    f"Failed to get a response from the API: \n{e}\n"
+                    f"Retrying... ({itr+1}/{self.max_retry})"
+                )
+                wait_time = _extract_wait_time(e)
+                logging.info(f"Waiting for {wait_time} seconds")
+                time.sleep(wait_time)
+                # TODO: add total delay limit ?
+
+        if not completion:
+            raise Exception("Failed to get a response from the API")
+
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
@@ -212,16 +234,11 @@ class ChatModel(ABC):
 
 
 class OpenRouterChatModel(ChatModel):
-    def __init__(
-        self,
-        model_name,
-        api_key=None,
-        temperature=0.5,
-        max_tokens=100,
-    ):
+    def __init__(self, model_name, api_key=None, temperature=0.5, max_tokens=100, max_retry=1):
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.max_retry = max_retry
 
         api_key = api_key or os.getenv("OPENROUTER_API_KEY")
 
@@ -237,16 +254,11 @@ class OpenRouterChatModel(ChatModel):
 
 
 class OpenAIChatModel(ChatModel):
-    def __init__(
-        self,
-        model_name,
-        api_key=None,
-        temperature=0.5,
-        max_tokens=100,
-    ):
+    def __init__(self, model_name, api_key=None, temperature=0.5, max_tokens=100, max_retry=1):
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.max_retry = max_retry
 
         api_key = api_key or os.getenv("OPENAI_API_KEY")
 
@@ -268,10 +280,12 @@ class AzureChatModel(ChatModel):
         deployment_name=None,
         temperature=0.5,
         max_tokens=100,
+        max_retry=1,
     ):
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.max_retry = max_retry
 
         api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
 
