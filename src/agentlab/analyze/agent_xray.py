@@ -433,7 +433,7 @@ clicking the refresh button.
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
         step_id.change(
-            fn=if_active("Agent Info HTML")(update_agent_info_html),
+            fn=if_active("Agent Info HTML", 3)(update_agent_info_html),
             outputs=[agent_info_html, screenshot1, screenshot2],
         )
         step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
@@ -611,7 +611,6 @@ def update_agent_info_html():
         s2 = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
         page = agent_info.get("html_page", ["No Agent Info"])
-        print(page)
         # Page contains placeholders for screenshots
         if page is None:
             page = """Fill up html_page attribute in AgentInfo to display here."""

@@ -5,10 +5,11 @@ from functools import partial
 import pytest
 
 import agentlab.llm.tracking as tracking
+from agentlab.llm.chat_api import AzureChatModel, OpenAIChatModel, OpenRouterChatModel
 
 
 def test_get_action_decorator():
-    action, agent_info = tracking.get_action_decorator(lambda x, y: call_llm())(None, None)
+    action, agent_info = tracking.cost_tracker_decorator(lambda x, y: call_llm())(None, None)
     assert action == "action"
     assert agent_info["stats"] == {
         "input_tokens": 1,
@@ -54,7 +55,9 @@ def test_get_pricing_openai():
 
 
 def call_llm():
-    if isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+    if hasattr(tracking.TRACKER, "instance") and isinstance(
+        tracking.TRACKER.instance, tracking.LLMTracker
+    ):
         tracking.TRACKER.instance(1, 1, 1)
     return "action", {"stats": {}}
 
