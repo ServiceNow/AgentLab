@@ -9,7 +9,7 @@ from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import launch_exp
-from agentlab.llm.chat_api import AIMessage, BaseModelArgs, CheatMiniWoBLLMArgs
+from agentlab.llm.chat_api import BaseModelArgs, CheatMiniWoBLLMArgs
 
 
 def test_generic_agent():
@@ -52,7 +52,7 @@ class CheatMiniWoBLLM_Retry:
     def invoke(self, messages) -> str:
         if self.retry_count < self.n_retry:
             self.retry_count += 1
-            return AIMessage(content="I'm retrying")
+            return dict(role="assistant", content="I'm retrying")
 
         prompt = messages[1].content
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
@@ -68,7 +68,7 @@ class CheatMiniWoBLLM_Retry:
 {action}
 </action>
 """
-        return AIMessage(content=answer)
+        return dict(role="assistant", content=answer)
 
     def __call__(self, messages) -> str:
         return self.invoke(messages)
