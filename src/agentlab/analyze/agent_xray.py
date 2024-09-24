@@ -614,7 +614,6 @@ def update_agent_info_html():
         s2 = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
         page = agent_info.get("html_page", ["No Agent Info"])
-        print(page)
         # Page contains placeholders for screenshots
         if page is None:
             page = """Fill up html_page attribute in AgentInfo to display here."""
