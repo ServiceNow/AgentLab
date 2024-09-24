@@ -18,7 +18,7 @@ from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
 if TYPE_CHECKING:
-    from agentlab.llm.tracking import ChatModel
+    from agentlab.llm.chat_api import ChatModel
 
 
 def _extract_wait_time(error_message, min_retry_wait_time=60):
