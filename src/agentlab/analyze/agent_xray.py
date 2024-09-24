@@ -650,7 +650,7 @@ def get_episode_info(info: Info):
         step_info = steps_info[info.step]
         try:
             goal = step_info.obs["goal"]
-        except:
+        except KeyError:
             goal = None
         try:
             cum_reward = info.exp_result.summary_info["cum_reward"]
