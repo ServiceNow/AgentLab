@@ -782,50 +782,30 @@ def summarize_study(result_df: pd.DataFrame) -> pd.DataFrame:
     return result_df.groupby(level=levels[1:]).apply(summarize)
 
 
-def get_study_summary(study_dir: Path, ignore_cache=False, sentinel=None) -> pd.DataFrame:
-    """Get the cached study summary for the given study directory.
+def split_by_key(df: pd.DataFrame, key):
+    """Return a dict of dataframes spearted by the given key."""
+    # check if key in df
+    if not (key in df.columns):
+        df = df.reset_index(key, inplace=False)
 
-    The cashe is based on the modified times of all the files in the study.
+    df_dict = {}
+    for value in df[key].unique():
+        sub_df = df[df[key] == value].copy()
+        set_index_from_variables(sub_df)
+        df_dict[value] = sub_df
 
-    Args:
-        study_dir: The study directory to summarize
-        ignore_cache: If True, ignore the cache and recompute the summary
-        sentinel: Captures internal values for unit testing.
+    return df_dict
 
-    Returns:
-        pd.DataFrame: The study summary
-    """
-    study_dir = Path(study_dir)
-    is_stale, mtimes, summary_path, mtimes_path = _is_stale(study_dir)
-
-    if not ignore_cache:
-        if summary_path.exists() and not is_stale:
-            if sentinel is not None:
-                sentinel["from_cache"] = True
-            return pd.read_csv(summary_path)
-
-    result_df = load_result_df(study_dir)
-    if result_df is None:
-        return None
-
-    summary = summarize_study(result_df)
-
-    summary.to_csv(summary_path)
-    mtimes_path.write_text(json.dumps(mtimes))
-
-    if sentinel is not None:
-        sentinel["from_cache"] = False
-    return summary
-
-
-def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False):
+def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, ignore_stale=False):
     summaries = []
     for study_dir in results_dir.iterdir():
+        print(study_dir.name)
         if skip_hidden and study_dir.name.startswith("_"):
+            print("  skip (starts with '_')")
             continue
 
         try:
-            summary = get_study_summary(study_dir, ignore_cache=ignore_cache)
+            summary = get_study_summary(study_dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale)
             if summary is not None:
                 # set as index
                 summary["study_dir"] = study_dir.name
@@ -842,6 +822,46 @@ def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False):
     return summaries
 
 
+def get_study_summary(study_dir: Path, ignore_cache=False, sentinel=None, ignore_stale=False) -> pd.DataFrame:
+    """Get the cached study summary for the given study directory.
+
+    The cashe is based on the modified times of all the files in the study.
+
+    Args:
+        study_dir: The study directory to summarize
+        ignore_cache: If True, ignore the cache and recompute the summary
+        sentinel: Captures internal values for unit testing.
+
+    Returns:
+        pd.DataFrame: The study summary
+    """
+    study_dir = Path(study_dir)
+
+    summary_path = study_dir / "study_summary.csv"
+    if not ignore_stale:
+        is_stale = _is_stale(study_dir, summary_path)
+    else:
+        is_stale = False
+
+    if not ignore_cache:
+        if summary_path.exists() and not is_stale:
+            if sentinel is not None:
+                sentinel["from_cache"] = True
+            return pd.read_csv(summary_path)
+
+    result_df = load_result_df(study_dir)
+    if result_df is None:
+        return None
+
+    summary = summarize_study(result_df)
+
+    summary.to_csv(summary_path)
+
+    if sentinel is not None:
+        sentinel["from_cache"] = False
+    return summary
+
+
 def _get_mtimes(dir: Path, pattern="[!_.]*", whitelist=()):
     """Recursevly get all file's modif date"""
     # use glob to get all files
@@ -849,17 +869,17 @@ def _get_mtimes(dir: Path, pattern="[!_.]*", whitelist=()):
     return {str(f.relative_to(dir)): f.stat().st_mtime for f in files if f not in whitelist}
 
 
-def _is_stale(study_dir: Path):
-    summary_path = study_dir / "study_summary.csv"
+def _is_stale(study_dir: Path, summary_path: Path) -> bool:
     mtimes_path = study_dir / "_last_modification_times.json"
     mtimes = _get_mtimes(study_dir, whitelist=(summary_path,))
     if not mtimes_path.exists() or not summary_path.exists():
-        return True, mtimes, summary_path, mtimes_path
-
-    mtimes_saved = json.loads(mtimes_path.read_text())
-    if mtimes_saved == mtimes:
-        return False, mtimes, summary_path, mtimes_path
-
+        stale = True
+    else:
+        mtimes_saved = json.loads(mtimes_path.read_text())
+        stale = mtimes_saved != mtimes
+    mtimes_path.write_text(json.dumps(mtimes))
+    return stale
+    
 
 def get_all_task_messages(exp_dir, max_n_exp=None):
     result_list = list(yield_all_exp_results(exp_dir, progress_fn=tqdm))
