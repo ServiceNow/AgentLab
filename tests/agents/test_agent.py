@@ -54,7 +54,7 @@ class CheatMiniWoBLLM_Retry:
             self.retry_count += 1
             return dict(role="assistant", content="I'm retrying")
 
-        prompt = messages[1].content
+        prompt = messages[1].get("content", "")
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:

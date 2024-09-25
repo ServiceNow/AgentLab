@@ -4,7 +4,6 @@ import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import openai
 from openai import AzureOpenAI, OpenAI
