@@ -36,7 +36,7 @@ jobs:
         run: pip list
 
       - name: Install Playwright
-        run: playwright install --with-deps
+        run: playwright install chromium --with-deps
 
       - name: Fetch MiniWob
         uses: actions/checkout@v4
