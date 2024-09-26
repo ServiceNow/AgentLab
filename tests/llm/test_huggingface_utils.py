@@ -1,6 +1,6 @@
 import pytest
 
-from agentlab.llm.chat_api import HuggingFaceURLChatModel
+from agentlab.llm.chat_api import HuggingFaceURLChatModel, make_system_message, make_user_message
 from agentlab.llm.llm_utils import download_and_save_model
 from agentlab.llm.prompt_templates import STARCHAT_PROMPT_TEMPLATE
 
@@ -15,8 +15,8 @@ def test_CustomLLMChatbot_locally():
     chatbot = HuggingFaceURLChatModel(model_path=model_path, temperature=1e-3)
 
     messages = [
-        dict(role="system", content="Please tell me back the following word: "),
-        dict(role="user", content="bird"),
+        make_system_message("Please tell me back the following word: "),
+        make_user_message("bird"),
     ]
 
     answer = chatbot(messages)

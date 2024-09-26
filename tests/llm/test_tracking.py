@@ -5,7 +5,13 @@ from functools import partial
 import pytest
 
 import agentlab.llm.tracking as tracking
-from agentlab.llm.chat_api import AzureChatModel, OpenAIChatModel, OpenRouterChatModel
+from agentlab.llm.chat_api import (
+    AzureChatModel,
+    OpenAIChatModel,
+    OpenRouterChatModel,
+    make_system_message,
+    make_user_message,
+)
 
 
 def test_get_action_decorator():
@@ -126,8 +132,8 @@ def test_openai_chat_model():
     assert chat_model.output_cost > 0
 
     messages = [
-        dict(role="system", content="You are an helpful virtual assistant"),
-        dict(role="user", content="Give the third prime number"),
+        make_system_message("You are an helpful virtual assistant"),
+        make_user_message("Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
         answer = chat_model.invoke(messages)
@@ -151,8 +157,8 @@ def test_azure_chat_model():
     assert chat_model.output_cost > 0
 
     messages = [
-        dict(role="system", content="You are an helpful virtual assistant"),
-        dict(role="user", content="Give the third prime number"),
+        make_system_message("You are an helpful virtual assistant"),
+        make_user_message("Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
         answer = chat_model.invoke(messages)
@@ -168,8 +174,8 @@ def test_openrouter_chat_model():
     assert chat_model.output_cost > 0
 
     messages = [
-        dict(role="system", content="You are an helpful virtual assistant"),
-        dict(role="user", content="Give the third prime number"),
+        make_system_message("You are an helpful virtual assistant"),
+        make_user_message("Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
         answer = chat_model.invoke(messages)

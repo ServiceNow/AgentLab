@@ -6,7 +6,7 @@ from browsergym.experiments.agent import Agent
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
 from agentlab.llm.llm_utils import RetryError, retry_raise
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -97,8 +97,8 @@ class GenericAgent(Agent):
             # cause it to be too long
 
             chat_messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
+                make_system_message(system_prompt),
+                make_user_message(prompt),
             ]
             ans_dict = retry_raise(
                 self.chat_llm,

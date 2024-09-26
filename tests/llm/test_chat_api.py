@@ -2,7 +2,12 @@ import os
 
 import pytest
 
-from agentlab.llm.chat_api import AzureModelArgs, OpenAIModelArgs
+from agentlab.llm.chat_api import (
+    AzureModelArgs,
+    OpenAIModelArgs,
+    make_system_message,
+    make_user_message,
+)
 
 # TODO(optimass): figure out a good model for all tests
 
@@ -27,8 +32,8 @@ def test_api_model_args_azure():
     model = model_args.make_model()
 
     messages = [
-        dict(role="system", content="You are an helpful virtual assistant"),
-        dict(role="user", content="Give the third prime number"),
+        make_system_message("You are an helpful virtual assistant"),
+        make_user_message("Give the third prime number"),
     ]
     answer = model.invoke(messages)
 
@@ -48,8 +53,8 @@ def test_api_model_args_openai():
     model = model_args.make_model()
 
     messages = [
-        dict(role="system", content="You are an helpful virtual assistant"),
-        dict(role="user", content="Give the third prime number"),
+        make_system_message("You are an helpful virtual assistant"),
+        make_user_message("Give the third prime number"),
     ]
     answer = model.invoke(messages)
 

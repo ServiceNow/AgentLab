@@ -13,6 +13,18 @@ from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
 from agentlab.llm.llm_utils import _extract_wait_time
 
 
+def make_system_message(content: str) -> dict:
+    return dict(role="system", content=content)
+
+
+def make_user_message(content: str) -> dict:
+    return dict(role="user", content=content)
+
+
+def make_assistant_message(content: str) -> dict:
+    return dict(role="assistant", content=content)
+
+
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
@@ -31,7 +43,7 @@ class CheatMiniWoBLLM:
 {action}
 </action>
 """
-        return {"role": "assistant", "content": answer}
+        return make_assistant_message(answer)
 
     def __call__(self, messages) -> str:
         return self.invoke(messages)
@@ -226,7 +238,7 @@ class ChatModel(ABC):
         ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return dict(role="assistant", content=completion.choices[0].message.content)
+        return make_assistant_message(completion.choices[0].message.content)
 
     def invoke(self, messages: list[dict]) -> dict:
         return self(messages)

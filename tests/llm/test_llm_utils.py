@@ -7,6 +7,7 @@ import pytest
 from openai import RateLimitError
 
 from agentlab.llm import llm_utils
+from agentlab.llm.chat_api import make_system_message
 
 yaml_str = """Analysis:
 This is the analysis
@@ -148,7 +149,7 @@ def test_rate_limit_success():
     mock_chat.invoke = Mock(
         side_effect=[
             mock_rate_limit_error("Rate limit reached. Please try again in 2s."),
-            dict(role="system", content="correct content"),
+            make_system_message("correct content"),
         ]
     )
 
@@ -173,9 +174,9 @@ def test_successful_parse_before_max_retries():
     # content  on the 3rd time
     mock_chat.invoke = Mock(
         side_effect=[
-            dict(role="system", content="wrong content"),
-            dict(role="system", content="wrong content"),
-            dict(role="system", content="correct content"),
+            make_system_message("wrong content"),
+            make_system_message("wrong content"),
+            make_system_message("correct content"),
         ]
     )
 
@@ -192,9 +193,9 @@ def test_unsuccessful_parse_before_max_retries():
     # content  on the 3rd time
     mock_chat.invoke = Mock(
         side_effect=[
-            dict(role="system", content="wrong content"),
-            dict(role="system", content="wrong content"),
-            dict(role="system", content="correct content"),
+            make_system_message("wrong content"),
+            make_system_message("wrong content"),
+            make_system_message("correct content"),
         ]
     )
     with pytest.raises(ValueError):
@@ -205,7 +206,7 @@ def test_unsuccessful_parse_before_max_retries():
 
 def test_retry_parse_raises():
     mock_chat = MockChatOpenAI()
-    mock_chat.invoke = Mock(return_value=dict(role="system", content="mocked response"))
+    mock_chat.invoke = Mock(return_value=make_system_message("mocked response"))
     parser_raises = Mock(side_effect=ValueError("Parser error"))
 
     with pytest.raises(ValueError):

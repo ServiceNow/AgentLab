@@ -17,6 +17,7 @@ from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.llm.chat_api import make_system_message, make_user_message
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -630,8 +631,8 @@ def submit_action(input_text):
     if isinstance(chat_messages[1], BaseMessage):
         assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
         chat_messages = [
-            {"role": "system", "content": chat_messages[0].content},
-            {"role": "user", "content": chat_messages[1].content},
+            make_system_message(chat_messages[0].content),
+            make_user_message(chat_messages[1].content),
         ]
     elif isinstance(chat_messages[1], dict):
         assert chat_messages[1].get("role", None) == "user", "Second message should be user"
