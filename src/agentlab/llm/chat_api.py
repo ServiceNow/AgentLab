@@ -17,7 +17,7 @@ class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
     def invoke(self, messages) -> str:
-        prompt = messages[-1].get("content", "")
+        prompt = messages[-1]["content"]
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:
