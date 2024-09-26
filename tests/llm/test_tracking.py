@@ -121,7 +121,7 @@ OPENAI_API_KEY_AVAILABLE = os.environ.get("OPENAI_API_KEY") is not None
 @pytest.mark.pricy
 @pytest.mark.skipif(not OPENAI_API_KEY_AVAILABLE, reason="OpenAI API key is not available")
 def test_openai_chat_model():
-    chat_model = tracking.OpenAIChatModel("gpt-4o-mini")
+    chat_model = OpenAIChatModel("gpt-4o-mini")
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
@@ -146,7 +146,7 @@ AZURE_OPENAI_API_KEY_AVAILABLE = (
     not AZURE_OPENAI_API_KEY_AVAILABLE, reason="Azure OpenAI API key is not available"
 )
 def test_azure_chat_model():
-    chat_model = tracking.AzureChatModel(model_name="gpt-35-turbo", deployment_name="gpt-35-turbo")
+    chat_model = AzureChatModel(model_name="gpt-35-turbo", deployment_name="gpt-35-turbo")
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
@@ -163,7 +163,7 @@ def test_azure_chat_model():
 @pytest.mark.pricy
 @pytest.mark.skipif(not OPENROUTER_API_KEY_AVAILABLE, reason="OpenRouter API key is not available")
 def test_openrouter_chat_model():
-    chat_model = tracking.OpenRouterChatModel("openai/gpt-4o-mini")
+    chat_model = OpenRouterChatModel("openai/gpt-4o-mini")
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
