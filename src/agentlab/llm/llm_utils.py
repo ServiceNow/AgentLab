@@ -33,7 +33,7 @@ class RetryError(ValueError):
     pass
 
 
-def retry_raise(
+def retry(
     chat: "ChatModel",
     messages: list[dict],
     n_retry: int,

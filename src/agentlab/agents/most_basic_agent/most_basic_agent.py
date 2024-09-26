@@ -10,7 +10,7 @@ from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
 
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
+from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 if TYPE_CHECKING:
@@ -97,7 +97,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
             thought = response
             return {"action": action, "think": thought}
 
-        ans_dict = retry_raise(self.chat, messages, n_retry=3, parser=parser)
+        ans_dict = retry(self.chat, messages, n_retry=3, parser=parser)
 
         action = ans_dict.get("action", None)
         thought = ans_dict.get("think", None)

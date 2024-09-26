@@ -99,9 +99,9 @@ class MockChatOpenAI:
 
 def mock_parser(answer):
     if answer == "correct content":
-        return "Parsed value", True, ""
-
-    return None, False, "Retry message"
+        return "Parsed value"
+    else:
+        raise llm_utils.ParseError("Retry message")
 
 
 def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> RateLimitError:
