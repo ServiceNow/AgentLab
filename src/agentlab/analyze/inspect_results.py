@@ -64,7 +64,7 @@ def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
 def set_index_from_variables(
     df: pd.DataFrame,
     index_white_list=("agent.*",),
-    index_black_list=("*model_url*", "*extra*"),
+    index_black_list=("*model_url*", "*extra*", "*._*"),
     task_key=TASK_KEY,
     add_agent_and_benchmark=True,
 ):
@@ -121,7 +121,7 @@ def load_result_df(
     set_index=True,
     result_df=None,
     index_white_list=("agent.*",),
-    index_black_list=("*model_url*", "*extra*"),
+    index_black_list=("*model_url*", "*extra*", "*._*"),
     remove_args_suffix=True,
 ):
     """Load the result dataframe.
@@ -796,6 +796,7 @@ def split_by_key(df: pd.DataFrame, key):
 
     return df_dict
 
+
 def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, ignore_stale=False):
     summaries = []
     for study_dir in results_dir.iterdir():
@@ -805,7 +806,9 @@ def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, i
             continue
 
         try:
-            summary = get_study_summary(study_dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale)
+            summary = get_study_summary(
+                study_dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
+            )
             if summary is not None:
                 # set as index
                 summary["study_dir"] = study_dir.name
@@ -822,7 +825,9 @@ def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, i
     return summaries
 
 
-def get_study_summary(study_dir: Path, ignore_cache=False, sentinel=None, ignore_stale=False) -> pd.DataFrame:
+def get_study_summary(
+    study_dir: Path, ignore_cache=False, sentinel=None, ignore_stale=False
+) -> pd.DataFrame:
     """Get the cached study summary for the given study directory.
 
     The cashe is based on the modified times of all the files in the study.
@@ -879,7 +884,7 @@ def _is_stale(study_dir: Path, summary_path: Path) -> bool:
         stale = mtimes_saved != mtimes
     mtimes_path.write_text(json.dumps(mtimes))
     return stale
-    
+
 
 def get_all_task_messages(exp_dir, max_n_exp=None):
     result_list = list(yield_all_exp_results(exp_dir, progress_fn=tqdm))
