@@ -99,7 +99,7 @@ def retry(
 
         tries += 1
         if log:
-            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.get("content")}\n[User]:\n{retry_message}"
+            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.get('content')}\n[User]:\n{retry_message}"
             logging.info(msg)
         messages.append(dict(role="user", content=retry_message))
 
@@ -169,7 +169,7 @@ def retry_raise(
         except ParseError as parsing_error:
             tries += 1
             if log:
-                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.get("content")}\n[User]:\n{str(parsing_error)}"
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.get('content')}\n[User]:\n{str(parsing_error)}"
                 logging.info(msg)
             messages.append(dict(role="user", content=str(parsing_error)))
 
