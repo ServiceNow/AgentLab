@@ -11,9 +11,9 @@ import numpy as np
 import pandas as pd
 from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
+from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
 from PIL import Image
-from langchain.schema import BaseMessage
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
@@ -627,11 +627,19 @@ def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    assert isinstance(chat_messages[1], dict), "Messages should be a dict"
-    assert chat_messages[1].get("role", None) == "user", "Second message should be user"
+    if isinstance(chat_messages[1], BaseMessage):
+        assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
+        chat_messages = [
+            {"role": "system", "content": chat_messages[0].content},
+            {"role": "user", "content": chat_messages[1].content},
+        ]
+    elif isinstance(chat_messages[1], dict):
+        assert chat_messages[1].get("role", None) == "user", "Second message should be user"
+    else:
+        raise ValueError("Chat messages should be a list of BaseMessage or dict")
 
     client = OpenAI()
-    chat_messages[1].get("content") = input_text
+    chat_messages[1]["content"] = input_text
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=chat_messages,
