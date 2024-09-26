@@ -13,6 +13,7 @@ from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
 from openai import OpenAI
 from PIL import Image
+from langchain.schema import BaseMessage
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
@@ -559,7 +560,9 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
     for i, m in enumerate(chat_messages):
-        if isinstance(m, dict):
+        if isinstance(m, BaseMessage):
+            m = m.content
+        elif isinstance(m, dict):
             m = m.get("content", "No Content")
         messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
     return "\n".join(messages)
