@@ -191,14 +191,29 @@ class ChatModelArgs(BaseModelArgs):
         pass
 
 
+class RetryError(Exception):
+    pass
+
+
 class ChatModel(ABC):
 
     @abstractmethod
-    def __init__(self, model_name, api_key=None, temperature=0.5, max_tokens=100, max_retry=1):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=1,
+        min_retry_wait_time=60,
+    ):
+        assert max_retry > 0, "max_retry should be greater than 0"
+
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retry = max_retry
+        self.min_retry_wait_time = min_retry_wait_time
 
         self.client = OpenAI()
 
@@ -221,13 +236,19 @@ class ChatModel(ABC):
                     f"Failed to get a response from the API: \n{e}\n"
                     f"Retrying... ({itr+1}/{self.max_retry})"
                 )
-                wait_time = _extract_wait_time(e)
+                wait_time = _extract_wait_time(
+                    e.args[0],
+                    min_retry_wait_time=self.min_retry_wait_time,
+                )
                 logging.info(f"Waiting for {wait_time} seconds")
                 time.sleep(wait_time)
                 # TODO: add total delay limit ?
 
         if not completion:
-            raise Exception("Failed to get a response from the API")
+            raise RetryError(
+                f"Failed to get a response from the API after {self.max_retry} retries\n\
+Last error: {e}"
+            )
 
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
