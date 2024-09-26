@@ -561,7 +561,7 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
     for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):
+        if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
             m = m.content
         elif isinstance(m, dict):
             m = m.get("content", "No Content")
@@ -628,7 +628,7 @@ def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    if isinstance(chat_messages[1], BaseMessage):
+    if isinstance(chat_messages[1], BaseMessage):  # TODO remove once langchain is deprecated
         assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
         chat_messages = [
             make_system_message(chat_messages[0].content),
