@@ -12,6 +12,7 @@ from importlib import metadata
 from git.config import GitConfigParser
 import os
 import agentlab
+from browsergym.experiments.loop import ExpArgs
 
 
 def _get_repo(module):
@@ -226,6 +227,25 @@ def _assert_compatible(info: dict, old_info: dict):
                 f"Reproducibility info already exist and is not compatible."
                 f"Key {key} has changed from {old_info[key]} to {info[key]}."
             )
+
+
+def _benchmark_from_task_name(task_name: str):
+    """Extract the benchmark from the task name.
+    TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
+    """
+    return task_name.split(".")[0]
+
+
+def infer_agent(exp_args_list: list[ExpArgs]):
+    agent_names = set(exp_args.agent_args.agent_name for exp_args in exp_args_list)
+    return ",".join(agent_names)
+
+
+def infer_benchmark(exp_args_list: list[ExpArgs]):
+    benchmark_names = set(
+        _benchmark_from_task_name(exp_args.env_args.task_name) for exp_args in exp_args_list
+    )
+    return ",".join(benchmark_names)
 
 
 def write_reproducibility_info(
