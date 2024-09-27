@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 import logging
 from pathlib import Path
@@ -7,6 +8,7 @@ from agentlab.agents.agent_args import AgentArgs
 from .generic_agent import GenericAgentArgs, GenericAgent
 from browsergym.experiments.loop import ExpResult, ExpArgs, yield_all_exp_results
 from browsergym.experiments.agent import AgentInfo
+import difflib
 
 
 class ReproChatModel:
@@ -17,14 +19,17 @@ class ReproChatModel:
         delay (int): A delay to simulate the time it takes to generate a response.
     """
 
-    def __init__(self, messages, delay=1) -> None:
-        self.messages = messages
+    def __init__(self, old_messages, delay=1) -> None:
+        self.old_messages = old_messages
         self.delay = delay
 
-    def invoke(self, messages):
+    def invoke(self, messages: list):
+        self.new_messages = copy(messages)
+        old_response = self.old_messages[len(messages)]
+        self.new_messages.append(old_response)
         time.sleep(self.delay)
         # return the next message in the list
-        return self.messages[len(messages)]
+        return old_response
 
 
 @dataclass
@@ -55,8 +60,8 @@ class ReproAgent(GenericAgent):
         # same answers
         step = len(self.actions)
         step_info = self.exp_result.get_step_info(step)
-        chat_messages = step_info.agent_info.get("chat_messages", None)
-        if chat_messages is None:
+        old_chat_messages = step_info.agent_info.get("chat_messages", None)
+        if old_chat_messages is None:
             err_msg = self.exp_result.summary_info["err_msg"]
 
             agent_info = AgentInfo(
@@ -64,15 +69,55 @@ class ReproAgent(GenericAgent):
             )
             return None, agent_info
 
-        self.chat_llm = ReproChatModel(chat_messages)
+        self.chat_llm = ReproChatModel(old_chat_messages)
         action, agent_info = super().get_action(obs)
 
-        return _make_agent_stats(action, agent_info, step_info)
+        return _make_agent_stats(
+            action, agent_info, step_info, old_chat_messages, self.chat_llm.new_messages
+        )
 
 
-def _make_agent_stats(action, agent_info, step_info):
-    # TODO
+def _make_agent_stats(action, agent_info, step_info, old_chat_messages, new_chat_messages):
+
+    # format all messages into a string
+    old_msg_str = _format_messages(old_chat_messages)
+    new_msg_str = _format_messages(new_chat_messages)
+    html_diff = _make_diff(old_str=old_msg_str, new_str=new_msg_str)
+
+    if isinstance(agent_info, dict):
+        agent_info = AgentInfo(**agent_info)
+
+    agent_info.html_page = html_diff
+    agent_info.stats = _diff_stats(old_msg_str, new_msg_str)
+
     return action, agent_info
+
+
+def _format_messages(messages: list[dict]):
+    return "\n".join(f"{m['role']} message:\n{m['content']}\n" for m in messages)
+
+
+def _make_diff(old_str, new_str):
+    diff = difflib.HtmlDiff().make_file(
+        old_str.splitlines(), new_str.splitlines(), fromdesc="Old Version", todesc="New Version"
+    )
+    return diff
+
+
+def _diff_stats(str1: str, str2: str):
+    lines1 = str1.splitlines()
+    lines2 = str2.splitlines()
+
+    diff = list(difflib.Differ().compare(lines1, lines2))
+
+    # Count added and removed lines
+    added = sum(1 for line in diff if line.startswith("+ "))
+    removed = sum(1 for line in diff if line.startswith("- "))
+
+    # Calculate difference ratio
+    difference_ratio = (added + removed) / (2 * max(len(lines1), len(lines2)))
+
+    return dict(lines_added=added, lines_removed=removed, difference_ratio=difference_ratio)
 
 
 def reproduce_study(original_study_dir: Path | str):
