@@ -91,7 +91,6 @@ class GenericAgent(Agent):
             additional_prompts=system_prompt,
         )
 
-        stats = {}
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
@@ -106,20 +105,16 @@ class GenericAgent(Agent):
                 n_retry=self.max_retry,
                 parser=main_prompt._parse_answer,
             )
-            # inferring the number of retries, TODO: make this less hacky
-            stats["n_retry"] = (len(chat_messages) - 3) / 2
-            stats["busted_retry"] = 0
         except RetryError as e:
             ans_dict = {"action": None}
-            stats["busted_retry"] = 1
-
-            stats["n_retry"] = self.max_retry + 1
 
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
         self.actions.append(ans_dict["action"])
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
+
+        stats = self.chat_llm.get_stats()
 
         agent_info = dict(
             think=ans_dict.get("think", None),

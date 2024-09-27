@@ -21,14 +21,6 @@ if TYPE_CHECKING:
     from agentlab.llm.chat_api import ChatModel
 
 
-def _extract_wait_time(error_message, min_retry_wait_time=60):
-    """Extract the wait time from an OpenAI RateLimitError message."""
-    match = re.search(r"try again in (\d+(\.\d+)?)s", error_message)
-    if match:
-        return max(min_retry_wait_time, float(match.group(1)))
-    return min_retry_wait_time
-
-
 class RetryError(ValueError):
     pass
 
@@ -39,8 +31,6 @@ def retry(
     n_retry: int,
     parser: callable,
     log: bool = True,
-    min_retry_wait_time: int = 60,
-    rate_limit_max_wait_time: int = 60 * 30,
 ):
     """Retry querying the chat models with the response from the parser until it
     returns a valid value.
@@ -73,22 +63,8 @@ def retry(
         RateLimitError: if the requests exceed the rate limit.
     """
     tries = 0
-    rate_limit_total_delay = 0
-    while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
-        try:
-            answer = chat.invoke(messages)
-        except RateLimitError as e:
-            wait_time = _extract_wait_time(e.args[0], min_retry_wait_time)
-            logging.warning(f"RateLimitError, waiting {wait_time}s before retrying.")
-            time.sleep(wait_time)
-            rate_limit_total_delay += wait_time
-            if rate_limit_total_delay >= rate_limit_max_wait_time:
-                logging.warning(
-                    f"Total wait time for rate limit exceeded. Waited {rate_limit_total_delay}s > {rate_limit_max_wait_time}s."
-                )
-                raise
-            continue
-
+    while tries < n_retry:
+        answer = chat.invoke(messages)
         messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
 
         try:
@@ -100,7 +76,7 @@ def retry(
                 logging.info(msg)
             messages.append(dict(role="user", content=str(parsing_error)))
 
-    raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
+    raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
 
 
 def truncate_tokens(text, max_tokens=8000, start=0, model_name="gpt-4"):
