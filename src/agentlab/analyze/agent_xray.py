@@ -601,7 +601,9 @@ def update_agent_info_md():
         agent_info = info.exp_result.steps_info[info.step].agent_info
         page = agent_info.get("markdown_page", None)
         if page is None:
-            page = """Fill up markup_page attribute in AgentInfo to display here."""
+            page = agent_info.get("markup_page", None)  # TODO: remove in a while
+        if page is None:
+            page = """Fill up markdown_page attribute in AgentInfo to display here."""
         return page
     except (FileNotFoundError, IndexError):
         return None
