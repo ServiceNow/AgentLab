@@ -7,7 +7,7 @@ from browsergym.experiments.agent import Agent, AgentInfo
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
-from agentlab.llm.llm_utils import RetryError, retry
+from agentlab.llm.llm_utils import ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
@@ -90,7 +90,6 @@ class GenericAgent(Agent):
             max_iterations=max_trunc_itr,
             additional_prompts=system_prompt,
         )
-
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
@@ -105,16 +104,25 @@ class GenericAgent(Agent):
                 n_retry=self.max_retry,
                 parser=main_prompt._parse_answer,
             )
-        except RetryError as e:
-            ans_dict = {"action": None}
+            ans_dict["busted_retry"] = 0
+            # inferring the number of retries, TODO: make this less hacky
+            ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
+        except ParseError as e:
+            ans_dict = dict(
+                action=None,
+                n_retry=self.max_retry + 1,
+                busted_retry=1,
+            )
+
+        stats = self.chat_llm.get_stats()
+        stats["n_retry"] = ans_dict["n_retry"]
+        stats["busted_retry"] = ans_dict["busted_retry"]
 
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
         self.actions.append(ans_dict["action"])
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
-
-        stats = self.chat_llm.get_stats()
 
         agent_info = AgentInfo(
             think=ans_dict.get("think", None),

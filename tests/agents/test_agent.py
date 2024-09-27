@@ -73,6 +73,9 @@ class CheatMiniWoBLLM_Retry:
     def __call__(self, messages) -> str:
         return self.invoke(messages)
 
+    def get_stats(self):
+        return {"n_retry": self.n_retry, "busted_retry": self.retry_count}
+
 
 @dataclass
 class CheatMiniWoBLLMArgs_Retry(BaseModelArgs):

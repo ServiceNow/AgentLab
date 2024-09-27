@@ -308,8 +308,8 @@ class ChatModel:
 
     def get_stats(self):
         return {
-            "n_retry": self.retries,
-            "busted_retry": int(not self.success),
+            "n_retry_llm": self.retries,
+            "busted_retry_llm": int(not self.success),
         }
 
 
