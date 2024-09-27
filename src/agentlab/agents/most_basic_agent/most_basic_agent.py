@@ -106,7 +106,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
                 chat_messages=messages,
                 # put any stats that you care about as long as it is a number or a dict of numbers
                 stats={"prompt_length": len(prompt), "response_length": len(thought)},
-                markup_page="Add any txt information here, including base 64 images, to display in xray",
+                markdown_page="Add any txt information here, including base 64 images, to display in xray",
                 extra_info={"chat_model_args": asdict(self.chat_model_args)},
             ),
         )
