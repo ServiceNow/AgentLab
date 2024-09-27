@@ -17,6 +17,7 @@ from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.llm.llm_utils import image_to_jpg_base64_url
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -601,6 +602,27 @@ def update_agent_info_md():
         page = agent_info.get("markdown_page", None)
         if page is None:
             page = """Fill up markup_page attribute in AgentInfo to display here."""
+        return page
+    except (FileNotFoundError, IndexError):
+        return None
+
+
+def update_agent_info_html():
+    global info
+    # screenshots from current and next step
+    screenshot_pre_action = image_to_jpg_base64_url(get_screenshot(info, info.step, False))
+    screenshot_post_action = image_to_jpg_base64_url(get_screenshot(info, info.step + 1, False))
+
+    try:
+        agent_info = info.exp_result.steps_info[info.step].agent_info
+        page = agent_info.get("html_page", ["No Agent Info"])
+
+        # Page contains placeholders for screenshots
+        page = page.replace("screenshot_pre_action_placeholder", screenshot_pre_action)
+        page = page.replace("screenshot_post_action_placeholder", screenshot_post_action)
+        page = page.replace("max-width: 48%;", "max-width: 100%;")
+        if page is None:
+            page = """Fill up html_page attribute in AgentInfo to display here."""
         return page
     except (FileNotFoundError, IndexError):
         return None
