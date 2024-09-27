@@ -6,7 +6,7 @@ pytest-xdist
 pytest-playwright
 dask
 distributed
-browsergym>=0.6.0
+browsergym>=0.7.1
 joblib>=1.2.0
 openai>=1.7,<2
 langchain>=0.1,<1
@@ -19,3 +19,4 @@ ipython
 pyyaml>=6
 pandas
 gradio
+gitpython # for the reproducibility script

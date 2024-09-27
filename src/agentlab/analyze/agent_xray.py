@@ -342,6 +342,13 @@ clicking the refresh button.
                 stats = gr.DataFrame(height=500, show_label=False, interactive=False)
 
             with gr.Tab("Agent Info HTML") as tab_agent_info_html:
+                with gr.Row():
+                    screenshot1 = gr.Image(
+                        show_label=False, interactive=False, show_download_button=False
+                    )
+                    screenshot2 = gr.Image(
+                        show_label=False, interactive=False, show_download_button=False
+                    )
                 agent_info_html = gr.HTML()
 
             with gr.Tab("Agent Info MD") as tab_agent_info_md:
@@ -427,7 +434,10 @@ clicking the refresh button.
         step_id.change(fn=if_active("Task Error")(update_task_error), outputs=task_error)
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
-        step_id.change(fn=if_active("Agent Info HTML")(update_agent_info_html), outputs=agent_info_html)
+        step_id.change(
+            fn=if_active("Agent Info HTML", 3)(update_agent_info_html),
+            outputs=[agent_info_html, screenshot1, screenshot2],
+        )
         step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
         step_id.change(
             fn=if_active("Prompt tests", 2)(update_prompt_tests),
@@ -595,7 +605,8 @@ def update_agent_info_md():
         return page
     except (FileNotFoundError, IndexError):
         return None
-    
+
+
 def update_agent_info_html():
     global info
     # screenshots from current and next step
@@ -615,6 +626,23 @@ def update_agent_info_html():
         return page
     except (FileNotFoundError, IndexError):
         return None
+
+
+def update_agent_info_html():
+    global info
+    # screenshots from current and next step
+    try:
+        s1 = get_screenshot(info, info.step, False)
+        s2 = get_screenshot(info, info.step + 1, False)
+        agent_info = info.exp_result.steps_info[info.step].agent_info
+        page = agent_info.get("html_page", ["No Agent Info"])
+        # Page contains placeholders for screenshots
+        if page is None:
+            page = """Fill up html_page attribute in AgentInfo to display here."""
+        return page, s1, s2
+
+    except (FileNotFoundError, IndexError):
+        return None, None, None
 
 
 def submit_action(input_text):
@@ -674,7 +702,10 @@ def get_episode_info(info: Info):
         env_args = info.exp_result.exp_args.env_args
         steps_info = info.exp_result.steps_info
         step_info = steps_info[info.step]
-        goal = step_info.obs["goal"]
+        try:
+            goal = step_info.obs["goal"]
+        except KeyError:
+            goal = None
         try:
             cum_reward = info.exp_result.summary_info["cum_reward"]
         except FileNotFoundError:
@@ -700,7 +731,7 @@ def get_episode_info(info: Info):
 <small style="line-height: 1; margin: 0; padding: 0;">{code(exp_dir_str)}</small>"""
     except Exception as e:
         info = f"""\
-**Error while getting episod info**
+**Error while getting episode info**
 {code(traceback.format_exc())}"""
     return info
 
