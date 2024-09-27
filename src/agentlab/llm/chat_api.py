@@ -289,7 +289,7 @@ class ChatModel:
         if not completion:
             raise RetryError(
                 f"Failed to get a response from the API after {self.max_retry} retries\n"
-                f"Last error: {e}"
+                f"Last error: {error_type}"
             )
 
         input_tokens = completion.usage.prompt_tokens
