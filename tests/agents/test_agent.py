@@ -124,8 +124,9 @@ def test_bust_retry():
         target = {
             "stats.cum_n_retry": 5,
             "stats.cum_busted_retry": 1,
-            "n_steps": 1,
+            "n_steps": 0,
             "cum_reward": 0,
+            "err_msg": None,
         }
 
         for key, target_val in target.items():
