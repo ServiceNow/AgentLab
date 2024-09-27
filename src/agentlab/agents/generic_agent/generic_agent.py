@@ -2,7 +2,7 @@ from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
-from browsergym.experiments.agent import Agent
+from browsergym.experiments.agent import Agent, AgentInfo
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
@@ -116,7 +116,7 @@ class GenericAgent(Agent):
 
         stats = self.chat_llm.get_stats()
 
-        agent_info = dict(
+        agent_info = AgentInfo(
             think=ans_dict.get("think", None),
             chat_messages=chat_messages,
             stats=stats,
