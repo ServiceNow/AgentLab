@@ -2,12 +2,11 @@ from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
-from browsergym.experiments.agent import Agent
+from browsergym.experiments.agent import Agent, AgentInfo
 from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import RetryError, retry_raise
 from agentlab.llm.tracking import cost_tracker_decorator
@@ -123,7 +122,7 @@ class GenericAgent(Agent):
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
 
-        agent_info = dict(
+        agent_info = AgentInfo(
             think=ans_dict.get("think", None),
             chat_messages=chat_messages,
             stats=stats,
