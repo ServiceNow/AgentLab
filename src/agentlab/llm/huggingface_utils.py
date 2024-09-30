@@ -97,6 +97,9 @@ class HFBaseChatModel:
     def invoke(self, messages: list[dict]) -> dict:
         return self(messages)
 
+    def get_stats(self):
+        return {}
+
 
 class HuggingFaceURLChatModel(HFBaseChatModel):
     def __init__(
