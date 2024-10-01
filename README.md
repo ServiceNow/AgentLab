@@ -92,7 +92,7 @@ study_dir = make_study_dir(RESULTS_DIR, study_name)
 run_experiments(n_jobs, exp_args_list, study_dir)
 ```
 
-use [agentlab.experiments.launch_commad.py](src/agentlab/experiments/launch_command.py) to launch experiments with a variety
+use [main.py](main.py) to launch experiments with a variety
 of options. This is like a lazy CLI that is actually more convenient than a CLI.
 Just comment and uncomment the lines you need or modify at will (but don't push
 to the repo).
