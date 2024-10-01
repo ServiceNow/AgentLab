@@ -1,14 +1,31 @@
-import copy
+"""Reproducibility Agent
+
+
+This module contains the classes and functions to reproduce the results of a
+study. It is used to create a new study that will run the same experiments as
+the original study, but with a reproducibility agent that will mimic the same
+answers as the original agent. 
+
+Stats are collected to compare the original agent's answers with the new agent's
+answers. Load the this reproducibility study in agent-xray to compare the results.
+"""
+
+from copy import copy
 from dataclasses import dataclass
 import logging
 from pathlib import Path
 import time
+
+from bs4 import BeautifulSoup
 
 from agentlab.agents.agent_args import AgentArgs
 from .generic_agent import GenericAgentArgs, GenericAgent
 from browsergym.experiments.loop import ExpResult, ExpArgs, yield_all_exp_results
 from browsergym.experiments.agent import AgentInfo
 import difflib
+
+from langchain.schema import BaseMessage, AIMessage
+from langchain_community.adapters.openai import convert_message_to_dict
 
 
 class ReproChatModel:
@@ -25,6 +42,12 @@ class ReproChatModel:
 
     def invoke(self, messages: list):
         self.new_messages = copy(messages)
+
+        if len(messages) >= len(self.old_messages):
+            # if for some reason the llm response was not saved
+            # TODO(thibault): convert this to dict instead of AIMessage in the bye langchain PR.
+            return AIMessage(content="""<action>None</action>""")
+
         old_response = self.old_messages[len(messages)]
         self.new_messages.append(old_response)
         time.sleep(self.delay)
@@ -37,6 +60,13 @@ class ReproAgentArgs(GenericAgentArgs):
 
     # starting with "_" will prevent from being part of the index in the load_results function
     _repro_dir: str = None
+
+    def __post_init__(self):
+        try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
+            super().__post_init__()
+            self.agent_name = f"Repro_{self.agent_name}"
+        except AttributeError:
+            pass
 
     def make_agent(self):
         return ReproAgent(self.chat_model_args, self.flags, self.max_retry, self._repro_dir)
@@ -61,11 +91,12 @@ class ReproAgent(GenericAgent):
         step = len(self.actions)
         step_info = self.exp_result.get_step_info(step)
         old_chat_messages = step_info.agent_info.get("chat_messages", None)
+
         if old_chat_messages is None:
             err_msg = self.exp_result.summary_info["err_msg"]
 
             agent_info = AgentInfo(
-                markup_page=f"Agent had no chat messages. Perhaps there was an error. err_msg:\n{err_msg}",
+                markdown_page=f"Agent had no chat messages. Perhaps there was an error. err_msg:\n{err_msg}",
             )
             return None, agent_info
 
@@ -77,47 +108,37 @@ class ReproAgent(GenericAgent):
         )
 
 
+# TODO(thibault): move this to llm utils in bye langchain PR.
+def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
+    new_messages = []
+    for m in messages:
+        if isinstance(m, dict):
+            new_messages.append(m)
+        elif isinstance(m, str):
+            new_messages.append({"role": "<unknown role>", "content": m})
+        elif isinstance(m, BaseMessage):
+            new_messages.append(convert_message_to_dict(m))
+        else:
+            raise ValueError(f"Unknown message type: {type(m)}")
+    return new_messages
+
+
 def _make_agent_stats(action, agent_info, step_info, old_chat_messages, new_chat_messages):
-
-    # format all messages into a string
-    old_msg_str = _format_messages(old_chat_messages)
-    new_msg_str = _format_messages(new_chat_messages)
-    html_diff = _make_diff(old_str=old_msg_str, new_str=new_msg_str)
-
     if isinstance(agent_info, dict):
         agent_info = AgentInfo(**agent_info)
 
-    agent_info.html_page = html_diff
-    agent_info.stats = _diff_stats(old_msg_str, new_msg_str)
+    old_msg_str = _format_messages(old_chat_messages)
+    new_msg_str = _format_messages(new_chat_messages)
+
+    agent_info.html_page = _make_diff(old_str=old_msg_str, new_str=new_msg_str)
+    agent_info.stats.update(_diff_stats(old_msg_str, new_msg_str))
 
     return action, agent_info
 
 
 def _format_messages(messages: list[dict]):
+    messages = messages_to_dict(messages)
     return "\n".join(f"{m['role']} message:\n{m['content']}\n" for m in messages)
-
-
-def _make_diff(old_str, new_str):
-    diff = difflib.HtmlDiff().make_file(
-        old_str.splitlines(), new_str.splitlines(), fromdesc="Old Version", todesc="New Version"
-    )
-    return diff
-
-
-def _diff_stats(str1: str, str2: str):
-    lines1 = str1.splitlines()
-    lines2 = str2.splitlines()
-
-    diff = list(difflib.Differ().compare(lines1, lines2))
-
-    # Count added and removed lines
-    added = sum(1 for line in diff if line.startswith("+ "))
-    removed = sum(1 for line in diff if line.startswith("- "))
-
-    # Calculate difference ratio
-    difference_ratio = (added + removed) / (2 * max(len(lines1), len(lines2)))
-
-    return dict(lines_added=added, lines_removed=removed, difference_ratio=difference_ratio)
 
 
 def reproduce_study(original_study_dir: Path | str):
@@ -164,3 +185,100 @@ def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):
         max_retry=agent_args.max_retry,
         _repro_dir=exp_dir,
     )
+
+
+def _make_diff(old_str, new_str):
+    page = difflib.HtmlDiff().make_file(
+        old_str.splitlines(), new_str.splitlines(), fromdesc="Old Version", todesc="New Version"
+    )
+    page = page.replace('nowrap="nowrap"', "")  # Remove nowrap attribute
+    page = _set_style(page, DIFF_STYLE)
+    return page
+
+
+def _diff_stats(str1: str, str2: str):
+    """Try some kind of metrics to make stats about the amount of diffs between two strings."""
+    lines1 = str1.splitlines()
+    lines2 = str2.splitlines()
+
+    diff = list(difflib.Differ().compare(lines1, lines2))
+
+    # Count added and removed lines
+    added = sum(1 for line in diff if line.startswith("+ "))
+    removed = sum(1 for line in diff if line.startswith("- "))
+
+    # Calculate difference ratio
+    difference_ratio = (added + removed) / (2 * max(len(lines1), len(lines2)))
+
+    return dict(lines_added=added, lines_removed=removed, difference_ratio=difference_ratio)
+
+
+def _set_style(html_str: str, style: str, prepend_previous_style: bool = False):
+    """Add a style tag to an HTML string."""
+
+    soup = BeautifulSoup(html_str, "html.parser")
+    style_tag = soup.find("style")
+
+    if not style_tag:
+        style_tag = soup.new_tag("style")
+        soup.head.append(style_tag)
+
+    current_style = style_tag.string or ""
+
+    if prepend_previous_style:
+        style = f"{style}\n{current_style}"
+    else:
+        style = f"{current_style}\n{style}"
+
+    style_tag.string = style
+
+    return str(soup)
+
+
+# this is the style to adjust the diff table inside gradio
+DIFF_STYLE = """
+    table.diff {
+        font-size: 10px;
+        font-family: Courier;
+        border: medium;
+        width: 100%;
+        max-width: 100%; /* Ensure table does not exceed its container */
+        table-layout: auto; /* Adjust column sizes dynamically */
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    /* Constrain the max-width of the 3rd and 6th columns */
+    td:nth-child(3), td:nth-child(6) {
+        max-width: 200px; /* Adjust this value to suit your content */
+        white-space: normal; /* Allow wrapping in content columns */
+        overflow-wrap: break-word; /* Break long words/content */
+    }
+    /* Ensure span elements wrap inside the table */
+    .diff_add, .diff_chg, .diff_sub {
+        word-wrap: break-word; /* Wrap long text */
+        overflow-wrap: break-word;
+    }
+
+    /* Keep the rest of the table flexible */
+    td {
+        white-space: normal; /* Allow wrapping for content */
+    }
+    .diff_header {
+        background-color: #e0e0e0;
+    }
+    td.diff_header {
+        text-align: right;
+    }
+    .diff_next {
+        background-color: #c0c0c0;
+    }
+    .diff_add {
+        background-color: #aaffaa;
+    }
+    .diff_chg {
+        background-color: #ffff77;
+    }
+    .diff_sub {
+        background-color: #ffaaaa;
+    }
+"""

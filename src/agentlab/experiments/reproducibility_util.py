@@ -215,7 +215,7 @@ def get_reproducibility_info(
     return info
 
 
-def _assert_compatible(info: dict, old_info: dict):
+def _assert_compatible(info: dict, old_info: dict, raise_if_incompatible=True):
     """Make sure that the two info dicts are compatible."""
     # TODO may need to adapt if there are multiple agents, and the re-run on
     # error only has a subset of agents. Hence old_info.agent_name != info.agent_name
@@ -223,10 +223,17 @@ def _assert_compatible(info: dict, old_info: dict):
         if key in ("date", "avg_reward", "std_err", "n_completed", "n_err"):
             continue
         if info[key] != old_info[key]:
-            raise ValueError(
-                f"Reproducibility info already exist and is not compatible."
-                f"Key {key} has changed from {old_info[key]} to {info[key]}."
-            )
+            if not raise_if_incompatible:
+                logging.warning(
+                    f"Reproducibility info already exist and is not compatible."
+                    f"Key {key} has changed from {old_info[key]} to {info[key]}."
+                )
+            else:
+                raise ValueError(
+                    f"Reproducibility info already exist and is not compatible."
+                    f"Key {key} has changed from {old_info[key]} to {info[key]}."
+                    f"Set strict_reproducibility=False to bypass this error."
+                )
 
 
 def _benchmark_from_task_name(task_name: str):
@@ -237,27 +244,32 @@ def _benchmark_from_task_name(task_name: str):
 
 
 def infer_agent(exp_args_list: list[ExpArgs]):
-    agent_names = set(exp_args.agent_args.agent_name for exp_args in exp_args_list)
-    return ",".join(agent_names)
+    return list(set(exp_args.agent_args.agent_name for exp_args in exp_args_list))
 
 
 def infer_benchmark(exp_args_list: list[ExpArgs]):
-    benchmark_names = set(
+    bench_name = set(
         _benchmark_from_task_name(exp_args.env_args.task_name) for exp_args in exp_args_list
     )
-    return ",".join(benchmark_names)
+    if len(bench_name) > 1:
+        raise ValueError(
+            f"Multiple benchmarks in the same study are not well supported: {bench_name}."
+            "Comment out the reproducibility part of the code to proceed at your own risk."
+        )
+
+    return bench_name.pop()
 
 
 def write_reproducibility_info(
-    study_dir, agent_name, benchmark_name, comment=None, ignore_changes=False
+    study_dir, agent_name, benchmark_name, comment=None, strict_reproducibility=True
 ):
     info = get_reproducibility_info(
-        agent_name, benchmark_name, comment, ignore_changes=ignore_changes
+        agent_name, benchmark_name, comment, ignore_changes=not strict_reproducibility
     )
-    return save_reproducibility_info(study_dir, info)
+    return save_reproducibility_info(study_dir, info, strict_reproducibility)
 
 
-def save_reproducibility_info(study_dir, info):
+def save_reproducibility_info(study_dir, info, strict_reproducibility=True):
     """
     Save a JSON file containing reproducibility information to the specified directory.
     """
@@ -267,7 +279,7 @@ def save_reproducibility_info(study_dir, info):
     if info_path.exists():
         with open(info_path, "r") as f:
             existing_info = json.load(f)
-        _assert_compatible(info, existing_info)
+        _assert_compatible(info, existing_info, raise_if_incompatible=strict_reproducibility)
         logging.info(
             "Reproducibility info already exists and is compatible. Overwriting the old one."
         )

@@ -43,7 +43,7 @@ def test_launch_system(backend="dask"):
 
         study_dir = make_study_dir(tmp_dir, "generic_agent_test")
         run_experiments(
-            n_jobs=2, exp_args_list=exp_args_list, exp_dir=study_dir, parallel_backend=backend
+            n_jobs=2, exp_args_list=exp_args_list, study_dir=study_dir, parallel_backend=backend
         )
 
         results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
@@ -80,7 +80,7 @@ def test_4o_mini_on_miniwob_tiny_test():
         )
         study_dir = make_study_dir(tmp_dir, study_name)
 
-        run_experiments(n_jobs=4, exp_args_list=exp_args_list, exp_dir=study_dir)
+        run_experiments(n_jobs=4, exp_args_list=exp_args_list, study_dir=study_dir)
 
         results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
         for row in results_df.iterrows():

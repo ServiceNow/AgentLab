@@ -1,3 +1,4 @@
+import base64
 import traceback
 from copy import deepcopy
 from io import BytesIO
@@ -346,10 +347,10 @@ clicking the refresh button.
 
             with gr.Tab("Agent Info HTML") as tab_agent_info_html:
                 with gr.Row():
-                    screenshot1 = gr.Image(
+                    screenshot1_agent = gr.Image(
                         show_label=False, interactive=False, show_download_button=False
                     )
-                    screenshot2 = gr.Image(
+                    screenshot2_agent = gr.Image(
                         show_label=False, interactive=False, show_download_button=False
                     )
                 agent_info_html = gr.HTML()
@@ -443,7 +444,7 @@ clicking the refresh button.
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
         step_id.change(
             fn=if_active("Agent Info HTML", 3)(update_agent_info_html),
-            outputs=[agent_info_html, screenshot1, screenshot2],
+            outputs=[agent_info_html, screenshot1_agent, screenshot2_agent],
         )
         step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
         step_id.change(
@@ -619,39 +620,33 @@ def update_agent_info_md():
 def update_agent_info_html():
     global info
     # screenshots from current and next step
-    screenshot_pre_action = image_to_jpg_base64_url(get_screenshot(info, info.step, False))
-    screenshot_post_action = image_to_jpg_base64_url(get_screenshot(info, info.step + 1, False))
-
-    try:
-        agent_info = info.exp_result.steps_info[info.step].agent_info
-        page = agent_info.get("html_page", ["No Agent Info"])
-
-        # Page contains placeholders for screenshots
-        page = page.replace("screenshot_pre_action_placeholder", screenshot_pre_action)
-        page = page.replace("screenshot_post_action_placeholder", screenshot_post_action)
-        page = page.replace("max-width: 48%;", "max-width: 100%;")
-        if page is None:
-            page = """Fill up html_page attribute in AgentInfo to display here."""
-        return page
-    except (FileNotFoundError, IndexError):
-        return None
-
-
-def update_agent_info_html():
-    global info
-    # screenshots from current and next step
     try:
         s1 = get_screenshot(info, info.step, False)
         s2 = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
         page = agent_info.get("html_page", ["No Agent Info"])
-        # Page contains placeholders for screenshots
         if page is None:
             page = """Fill up html_page attribute in AgentInfo to display here."""
+        else:
+            page = _page_to_iframe(page)
         return page, s1, s2
 
     except (FileNotFoundError, IndexError):
         return None, None, None
+
+
+def _page_to_iframe(page: str):
+    html_bytes = page.encode("utf-8")
+    encoded_html = base64.b64encode(html_bytes).decode("ascii")
+    data_url = f"data:text/html;base64,{encoded_html}"
+
+    # Create iframe with the data URL
+    page = f"""
+<iframe src="{data_url}" 
+        style="width: 100%; height: 1000px; border: none; background-color: white;">
+</iframe>
+"""
+    return page
 
 
 def submit_action(input_text):
