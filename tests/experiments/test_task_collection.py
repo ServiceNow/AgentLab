@@ -1,7 +1,9 @@
-from agentlab.experiments.task_collections import get_benchmark_env_args
 import pytest
 
+from agentlab.experiments.task_collections import get_benchmark_env_args
 
+
+@pytest.mark.pricy
 @pytest.mark.parametrize(
     "benchmark_name, expected_length",
     [

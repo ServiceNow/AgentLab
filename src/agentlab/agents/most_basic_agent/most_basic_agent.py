@@ -11,6 +11,7 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
+from agentlab.llm.tracking import cost_tracker_decorator
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
@@ -18,7 +19,6 @@ if TYPE_CHECKING:
 
 @dataclass
 class MostBasicAgentArgs(AbstractAgentArgs):
-    agent_name: str = "BasicAgent"
     temperature: float = 0.1
     use_chain_of_thought: bool = False
     chat_model_args: "BaseModelArgs" = None
@@ -48,6 +48,7 @@ class MostBasicAgent(Agent):
 
         self.action_set = HighLevelActionSet(["bid"], multiaction=False)
 
+    @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
         system_prompt = f"""
 You are a web assistant.
@@ -104,7 +105,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
                 chat_messages=messages,
                 # put any stats that you care about as long as it is a number or a dict of numbers
                 stats={"prompt_length": len(prompt), "response_length": len(thought)},
-                markup_page="Add any txt information here, including base 64 images, to display in xray",
+                markdown_page="Add any txt information here, including base 64 images, to display in xray",
                 extra_info={"chat_model_args": asdict(self.chat_model_args)},
             ),
         )

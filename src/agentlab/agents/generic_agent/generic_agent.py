@@ -2,14 +2,14 @@ from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
-from browsergym.experiments.agent import Agent
+from browsergym.experiments.agent import Agent, AgentInfo
 from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.utils import openai_monitored_agent
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import RetryError, retry_raise
+from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 
@@ -20,9 +20,11 @@ class GenericAgentArgs(AgentArgs):
     flags: GenericPromptFlags = None
     max_retry: int = 4
 
-    @property
-    def agent_name(self):
-        return f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
+    def __post_init__(self):
+        try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
+            self.agent_name = f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
+        except AttributeError:
+            pass
 
     def set_benchmark(self, benchmark):
         if benchmark == "miniwob":
@@ -63,7 +65,7 @@ class GenericAgent(Agent):
     def obs_preprocessor(self, obs: dict) -> dict:
         return self._obs_preprocessor(obs)
 
-    @openai_monitored_agent
+    @cost_tracker_decorator
     def get_action(self, obs):
 
         self.obs_history.append(obs)
@@ -120,7 +122,7 @@ class GenericAgent(Agent):
         self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
 
-        agent_info = dict(
+        agent_info = AgentInfo(
             think=ans_dict.get("think", None),
             chat_messages=chat_messages,
             stats=stats,

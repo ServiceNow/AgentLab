@@ -1,7 +1,12 @@
+black[jupyter]==24.2.0
+blacken-docs
+pre-commit
 pytest==7.3.2
 pytest-xdist
 pytest-playwright
-browsergym
+dask
+distributed
+browsergym>=0.7.1
 joblib>=1.2.0
 openai>=1.7,<2
 langchain>=0.1,<1
@@ -16,3 +21,4 @@ pandas
 requests
 pillow
 gradio
+gitpython # for the reproducibility script
