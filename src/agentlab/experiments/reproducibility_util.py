@@ -304,13 +304,19 @@ from agentlab.analyze import inspect_results
 
 
 def add_reward(info, study_dir, ignore_incomplete=False):
+    """Add the average reward and standard error to the info dict.
+
+    Verifies that all tasks are completed and that there are no errors.
+    """
     result_df = inspect_results.load_result_df(study_dir)
     report = inspect_results.summarize_study(result_df)
 
     if len(report) > 1:
         raise ValueError("Multi agent not implemented yet")
 
-    assert isinstance(info["agent_name"], str)
+    if isinstance(info["agent_name"], (list, tuple)):
+        if len(info["agent_name"]) > 1:
+            raise ValueError("Multi agent not implemented yet")
 
     idx = report.index[0]
     n_err = report.loc[idx, "n_err"].item()
@@ -343,6 +349,7 @@ def _get_csv_headers(file_path: str) -> list[str]:
 
 
 def append_to_journal(info, journal_path=None):
+    """Append the info and results to the reproducibility journal."""
     if journal_path is None:
         journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
 
@@ -356,18 +363,11 @@ def append_to_journal(info, journal_path=None):
         rows.append(headers)
 
     if isinstance(info["agent_name"], (list, tuple)):
-        # handle multiple agents
-        assert len(info["agent_name"]) == len(info["reward"])
-        assert len(info["agent_name"]) == len(info["std_err"])
+        if len(info["agent_name"]) > 1:
+            raise ValueError("Multi agent not implemented yet")
+        info["agent_name"] = info["agent_name"][0]
 
-        for i, agent_name in info["agent_name"]:
-            sub_info = info.copy()
-            sub_info["agent_name"] = agent_name
-            sub_info["reward"] = info["reward"][i]
-            sub_info["std_err"] = info["std_err"][i]
-            rows.append([str(sub_info[key]) for key in headers])
-    else:
-        rows.append([str(info[key]) for key in headers])
+    rows.append([str(info[key]) for key in headers])
     with open(journal_path, "a", newline="") as file:
         writer = csv.writer(file)
         for row in rows:

@@ -51,6 +51,10 @@ def run_experiments(
             Otherwise, it will only warn.
     """
 
+    if len(exp_args_list) == 0:
+        logging.warning("No experiments to run.")
+        return
+
     study_dir = Path(study_dir)
     study_dir.mkdir(parents=True, exist_ok=True)
 
