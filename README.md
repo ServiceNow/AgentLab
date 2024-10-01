@@ -55,6 +55,33 @@ export MINIWOB_URL="file://$HOME/dev/miniwob-plusplus/miniwob/html/miniwob/"
 </details>
 
 <details>
+
+<summary>WorkArena</summary>
+
+See [detailed instructions on workarena github](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started)
+
+At a glance: 
+* [Sign in](https://developer.servicenow.com/) and reqeuest a `washington` instance.
+* Once the instance is ready, you should see `<your instance URL>` and `<your-instance-password>`
+* Add these to your `.bashrc` (or `.zshrc`) and `source` it (note: make sure that
+  all variables are in single quotes unless you happen to have a password with a
+  single quote in it)
+```bash
+export SNOW_INSTANCE_URL='https://<your-instance-number>.service-now.com/'
+export SNOW_INSTANCE_UNAME='admin'
+export SNOW_INSTANCE_PWD='<your-instance-password>'
+```
+
+```bash
+pip install browsergym-workarena
+playwright install
+workarena-install
+```
+
+
+</details>
+
+<details>
 <summary>WebArena on AWS</summary>
 TODO
 </details>
@@ -65,17 +92,7 @@ TODO
 </details>
 
 
-<details>
 
-<summary>WorkArena</summary>
-
-```bash
-export SNOW_INSTANCE_URL="https://<your-instance-number>.service-now.com/"
-export SNOW_INSTANCE_UNAME="admin"
-export SNOW_INSTANCE_PWD=<your-instance-password>
-```
-
-</details>
 
 
 ## Launch experiments
