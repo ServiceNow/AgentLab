@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from datetime import datetime
 import logging
+from pathlib import Path
 
-from browsergym.experiments.loop import ExpArgs
+from bgym import ExpArgs
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.generic_agent.agent_configs import RANDOM_SEARCH_AGENT, AGENT_4o_MINI
@@ -9,35 +11,57 @@ from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
 from agentlab.experiments.exp_utils import order
-from agentlab.experiments.launch_exp import run_experiments, make_study_dir
-from agentlab.experiments.exp_utils import  RESULTS_DIR
-from agentlab.experiments.reproducibility_util import write_reproducibility_info, add_experiment_to_journal
+from agentlab.experiments.launch_exp import run_experiments
+from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.reproducibility_util import (
+    get_reproducibility_info,
+    save_reproducibility_info,
+    add_experiment_to_journal,
+)
+
 
 @dataclass
 class Study:
 
-    name: str
-    exp_args_list: list[ExpArgs]
+    exp_args_list: list[ExpArgs] = None
     benchmark_name: str = None
     agent_names: list[str] = None
-    dir: str = None
+    dir: Path = None
 
     def run(self, n_jobs=1, parallel_backend="dask", strict_reproducibility=False):
-        if self.dir is None:
-            self.dir = make_study_dir(RESULTS_DIR, self.name)
 
-        write_reproducibility_info(
-            study_dir=self.dir,
-            agent_name=self.agent_names,
-            benchmark_name=self.benchmark_name,
-            strict_reproducibility=strict_reproducibility,
-        )
+        if self.exp_args_list is None:
+            raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
+
+        self.make_dir()
+        self.write_reproducibility_info(strict_reproducibility=strict_reproducibility)
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
 
     def append_to_journal(self):
         add_experiment_to_journal(self.dir)
 
+    @property
+    def name(self):
+        if len(self.agent_names) == 1:
+            return f"{self.agent_names[0]}_on_{self.benchmark_name}"
+        else:
+            return f"{len(self.agent_names)}_agents_on_{self.benchmark_name}"
+
+    def make_dir(self, exp_root=RESULTS_DIR):
+        if self.dir is None:
+            dir_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{self.name}"
+            self.dir = Path(exp_root) / dir_name
+        self.dir.mkdir(parents=True, exist_ok=True)
+
+    def write_reproducibility_info(self, comment=None, strict_reproducibility=False):
+        info = get_reproducibility_info(
+            self.agent_names,
+            self.benchmark_name,
+            comment,
+            ignore_changes=not strict_reproducibility,
+        )
+        return save_reproducibility_info(self.dir, info, strict_reproducibility)
 
 
 def run_agents_on_benchmark(
@@ -72,11 +96,6 @@ def run_agents_on_benchmark(
         benchmark, meta_seed=43, max_steps=None, n_repeat=None
     )
 
-    if len(agents) == 1:
-        study_name = f"{agents[0].agent_name}_on_{benchmark}"
-    else:
-        study_name = f"{len(agents)}_agents_on_{benchmark}"
-
     exp_args_list = args.expand_cross_product(
         ExpArgs(
             agent_args=args.CrossProd(agents),
@@ -85,7 +104,11 @@ def run_agents_on_benchmark(
         )
     )
 
-    return Study(name=study_name, exp_args_list=exp_args_list, benchmark_name=benchmark, agent_names=[a.agent_name for a in agents])
+    return Study(
+        exp_args_list=exp_args_list,
+        benchmark_name=benchmark,
+        agent_names=[a.agent_name for a in agents],
+    )
 
 
 def random_search(

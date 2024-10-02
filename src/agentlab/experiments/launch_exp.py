@@ -5,12 +5,6 @@ from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
-from agentlab.experiments.reproducibility_util import (
-    infer_agent,
-    infer_benchmark,
-    write_reproducibility_info,
-)
-
 
 def import_object(path: str):
     module_name, obj_name = split_path(path)
@@ -42,12 +36,6 @@ def run_experiments(
             Directory where the experiments will be saved.
         parallel_backend: str
             Parallel backend to use. Either "joblib", "dask" or "sequential".
-        strict_reproducibility: bool
-            If True, will raise an error:
-              * if there are local modifications in the git repositories or
-              * if the reproduibility info is inccompatible with an already
-                existing one e.g. when relaunch the study to fix errors.
-            Otherwise, it will only warn.
     """
 
     if len(exp_args_list) == 0:
@@ -56,8 +44,6 @@ def run_experiments(
 
     study_dir = Path(study_dir)
     study_dir.mkdir(parents=True, exist_ok=True)
-
-
 
     if n_jobs == 1 and parallel_backend != "sequential":
         logging.warning("Only 1 job, switching to sequential backend.")
@@ -94,12 +80,12 @@ def run_experiments(
         logging.info("Experiment finished.")
 
 
-def make_study_dir(exp_root, study_name, add_date=True):
-    if add_date:
-        study_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{study_name}"
-    study_dir = Path(exp_root) / study_name
-    study_dir.mkdir(parents=True, exist_ok=True)
-    return study_dir
+# def make_study_dir(exp_root, study_name, add_date=True):
+#     if add_date:
+#         study_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{study_name}"
+#     study_dir = Path(exp_root) / study_name
+#     study_dir.mkdir(parents=True, exist_ok=True)
+#     return study_dir
 
 
 def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):

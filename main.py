@@ -31,16 +31,13 @@ benchmark = "miniwob_tiny_test"
 
 ## select the kind of experiment (study)
 ## Or define new studies, you only have to return list of ExpArgs to run and a name for the study
-study_name, exp_args_list = study_generators.run_agents_on_benchmark(agent_args, benchmark)
-# study_name, exp_args_list = study_generators.ablation_study(agent, benchmark)
-# study_name, exp_args_list = study_generators.random_search(agent, benchmark, n_samples=20)
-study_dir = make_study_dir(RESULTS_DIR, study_name)
 
 
 ## alternatively, relaunch an existing study
 # study_dir = get_most_recent_folder(RESULTS_DIR, contains=None)
 # exp_args_list, study_dir = relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
 
+relaunch = False
 
 ## Number of parallel jobs
 n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
@@ -48,4 +45,15 @@ n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
 
 # run the experiments
 if __name__ == "__main__":
-    run_experiments(n_jobs, exp_args_list, study_dir)
+
+    if relaunch:
+        #  relaunch an existing study
+        study_dir = get_most_recent_folder(RESULTS_DIR, contains=None)
+        study = relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
+
+    else:
+        study = study_generators.run_agents_on_benchmark(agent_args, benchmark)
+
+    study.run(n_jobs=n_jobs, parallel_backend="joblib", strict_reproducibility=False)
+
+    study.append_to_journal()
