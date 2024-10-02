@@ -27,7 +27,6 @@ def run_experiments(
     exp_args_list: list[ExpArgs],
     study_dir,
     parallel_backend="joblib",
-    strict_reproducibility=False,
 ):
     """Run a list of ExpArgs in parallel.
 
@@ -58,12 +57,7 @@ def run_experiments(
     study_dir = Path(study_dir)
     study_dir.mkdir(parents=True, exist_ok=True)
 
-    write_reproducibility_info(
-        study_dir=study_dir,
-        agent_name=infer_agent(exp_args_list),
-        benchmark_name=infer_benchmark(exp_args_list),
-        strict_reproducibility=strict_reproducibility,
-    )
+
 
     if n_jobs == 1 and parallel_backend != "sequential":
         logging.warning("Only 1 job, switching to sequential backend.")

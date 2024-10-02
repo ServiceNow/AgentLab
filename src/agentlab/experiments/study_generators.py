@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 
 from browsergym.experiments.loop import ExpArgs
@@ -8,6 +9,35 @@ from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.experiments import args
 from agentlab.experiments import task_collections as tasks
 from agentlab.experiments.exp_utils import order
+from agentlab.experiments.launch_exp import run_experiments, make_study_dir
+from agentlab.experiments.exp_utils import  RESULTS_DIR
+from agentlab.experiments.reproducibility_util import write_reproducibility_info, add_experiment_to_journal
+
+@dataclass
+class Study:
+
+    name: str
+    exp_args_list: list[ExpArgs]
+    benchmark_name: str = None
+    agent_names: list[str] = None
+    dir: str = None
+
+    def run(self, n_jobs=1, parallel_backend="dask", strict_reproducibility=False):
+        if self.dir is None:
+            self.dir = make_study_dir(RESULTS_DIR, self.name)
+
+        write_reproducibility_info(
+            study_dir=self.dir,
+            agent_name=self.agent_names,
+            benchmark_name=self.benchmark_name,
+            strict_reproducibility=strict_reproducibility,
+        )
+
+        run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
+
+    def append_to_journal(self):
+        add_experiment_to_journal(self.dir)
+
 
 
 def run_agents_on_benchmark(
@@ -29,9 +59,7 @@ def run_agents_on_benchmark(
                 * miniwob_tiny_test
 
     Returns:
-        study_name: str
-        List[ExpArgs]
-            A list of experiments to run.
+        study: Study
     """
 
     if not isinstance(agents, (list, tuple)):
@@ -49,13 +77,15 @@ def run_agents_on_benchmark(
     else:
         study_name = f"{len(agents)}_agents_on_{benchmark}"
 
-    return study_name, args.expand_cross_product(
+    exp_args_list = args.expand_cross_product(
         ExpArgs(
             agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
             logging_level=logging.DEBUG,
         )
     )
+
+    return Study(name=study_name, exp_args_list=exp_args_list, benchmark_name=benchmark, agent_names=[a.agent_name for a in agents])
 
 
 def random_search(
