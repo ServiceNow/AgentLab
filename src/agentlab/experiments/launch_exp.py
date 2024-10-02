@@ -5,6 +5,12 @@ from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
+from agentlab.experiments.reproducibility_util import (
+    infer_agent,
+    infer_benchmark,
+    write_reproducibility_info,
+)
+
 
 def import_object(path: str):
     module_name, obj_name = split_path(path)
@@ -16,7 +22,13 @@ def import_object(path: str):
     return obj
 
 
-def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_backend="joblib"):
+def run_experiments(
+    n_jobs,
+    exp_args_list: list[ExpArgs],
+    study_dir,
+    parallel_backend="joblib",
+    strict_reproducibility=False,
+):
     """Run a list of ExpArgs in parallel.
 
     To ensure optimal parallelism, make sure ExpArgs.depend_on is set correctly
@@ -31,17 +43,36 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_back
             Directory where the experiments will be saved.
         parallel_backend: str
             Parallel backend to use. Either "joblib", "dask" or "sequential".
-
+        strict_reproducibility: bool
+            If True, will raise an error:
+              * if there are local modifications in the git repositories or
+              * if the reproduibility info is inccompatible with an already
+                existing one e.g. when relaunch the study to fix errors.
+            Otherwise, it will only warn.
     """
+
+    if len(exp_args_list) == 0:
+        logging.warning("No experiments to run.")
+        return
+
+    study_dir = Path(study_dir)
+    study_dir.mkdir(parents=True, exist_ok=True)
+
+    write_reproducibility_info(
+        study_dir=study_dir,
+        agent_name=infer_agent(exp_args_list),
+        benchmark_name=infer_benchmark(exp_args_list),
+        strict_reproducibility=strict_reproducibility,
+    )
 
     if n_jobs == 1 and parallel_backend != "sequential":
         logging.warning("Only 1 job, switching to sequential backend.")
         parallel_backend = "sequential"
 
-    logging.info(f"Saving experiments to {exp_dir}")
+    logging.info(f"Saving experiments to {study_dir}")
     for exp_args in exp_args_list:
         exp_args.agent_args.prepare()
-        exp_args.prepare(exp_root=exp_dir)
+        exp_args.prepare(exp_root=study_dir)
     try:
         if parallel_backend == "joblib":
             from joblib import Parallel, delayed

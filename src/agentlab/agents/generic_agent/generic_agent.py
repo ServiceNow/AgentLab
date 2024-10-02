@@ -27,6 +27,7 @@ class GenericAgentArgs(AgentArgs):
             pass
 
     def set_benchmark(self, benchmark):
+        """Override Some flags based on the benchmark."""
         if benchmark == "miniwob":
             self.flags.obs.use_html = True
 

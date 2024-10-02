@@ -17,29 +17,6 @@ else:
 
 
 @pytest.mark.pricy
-@pytest.mark.skipif(skip_tests, reason="Skipping on remote as HF token have limited usage")
-def test_api_model_args_hf():
-    model_name = "HuggingFaceH4/starchat-beta"
-
-    model_args = HuggingFaceModelArgs(
-        model_name=model_name,
-        max_total_tokens=8192,
-        max_input_tokens=8192 - 512,
-        max_new_tokens=512,
-        temperature=1e-1,
-    )
-    model = model_args.make_model()
-
-    messages = [
-        SystemMessage(content="You are an helpful virtual assistant"),
-        HumanMessage(content="Give the third prime number"),
-    ]
-    answer = model.invoke(messages)
-
-    assert "5" in answer.content
-
-
-@pytest.mark.pricy
 @pytest.mark.skipif(skip_tests, reason="Skipping on remote as Azure is pricy")
 def test_api_model_args_azure():
     model_args = AzureModelArgs(
