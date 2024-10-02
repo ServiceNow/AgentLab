@@ -826,7 +826,7 @@ def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, i
 
 
 def get_study_summary(
-    study_dir: Path, ignore_cache=False, sentinel=None, ignore_stale=False
+    study_dir: Path, ignore_cache=False, sentinel=None, ignore_stale=False, progress_fn=None
 ) -> pd.DataFrame:
     """Get the cached study summary for the given study directory.
 
@@ -854,7 +854,7 @@ def get_study_summary(
                 sentinel["from_cache"] = True
             return pd.read_csv(summary_path)
 
-    result_df = load_result_df(study_dir)
+    result_df = load_result_df(study_dir, progress_fn=progress_fn)
     if result_df is None:
         return None
 
