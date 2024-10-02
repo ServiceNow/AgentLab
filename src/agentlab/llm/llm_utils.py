@@ -13,12 +13,27 @@ from warnings import warn
 import numpy as np
 import tiktoken
 import yaml
-from openai import BadRequestError, RateLimitError
+from langchain.schema import BaseMessage
+from langchain_community.adapters.openai import convert_message_to_dict
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import ChatModel
+
+
+def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
+    new_messages = []
+    for m in messages:
+        if isinstance(m, dict):
+            new_messages.append(m)
+        elif isinstance(m, str):
+            new_messages.append({"role": "<unknown role>", "content": m})
+        elif isinstance(m, BaseMessage):
+            new_messages.append(convert_message_to_dict(m))
+        else:
+            raise ValueError(f"Unknown message type: {type(m)}")
+    return new_messages
 
 
 class RetryError(ValueError):
