@@ -35,7 +35,7 @@ def test_generic_agent():
             "truncated": False,
             "err_msg": None,
             "stack_trace": None,
-            "agent_args.flags.obs.use_ax_tree": True,
+            "agent.flags.obs.use_ax_tree": True,
         }
 
         for key, target_val in target.items():
