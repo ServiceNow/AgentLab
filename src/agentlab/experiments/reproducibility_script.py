@@ -18,7 +18,7 @@ if __name__ == "__main__":
     ## select the benchmark to run on
     benchmark = "miniwob"
     # benchmark = "miniwob_tiny_test"
-    # benchmark = "workarena.l1
+    # benchmark = "workarena.l1"
     # benchmark = "workarena.l2"
     # benchmark = "workarena.l3"
     # benchmark = "webarena"
