@@ -1,16 +1,18 @@
 import base64
 import dataclasses
 import io
+import re
 import tempfile
 from io import BytesIO
 
-import requests
 from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.experiments import Agent
+from browsergym.experiments import Agent, AgentInfo
 from browsergym.utils.obs import flatten_axtree_to_str, overlay_som
 from PIL import Image
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
+from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
 
 
 def pil_to_b64(img: Image.Image) -> str:
@@ -58,13 +60,12 @@ class VWAAgent(Agent):
             "screenshot": obs["screenshot"],
         }
 
-    def __init__(self, model_name) -> None:
+    def __init__(self, chat_model_args: BaseModelArgs, n_retry: int) -> None:
         super().__init__()
-        self.model_name = model_name
+        self.model_name = chat_model_args.model_name
+        self.chat_llm = chat_model_args.make_model()
+        self.n_retry = n_retry
 
-        from openai import OpenAI
-
-        self.openai_client = OpenAI()
         self.goal_images = None
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
@@ -152,21 +153,29 @@ If you have completed the task, use the chat to return an answer. For example, i
         # prompt
         user_msgs.append({"type": "text", "text": user_prompt})
 
-        # query OpenAI model
-        response = self.openai_client.chat.completions.create(
-            model=self.model_name,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_msgs},
-            ],
-        )
-        action = response.choices[0].message.content
+        messages = [
+            make_system_message(system_prompt),
+            make_user_message(user_prompt),
+        ]
+
+        def parser(response: str) -> tuple[dict, bool, str]:
+            pattern = r"```((.|\\n)*?)```"
+            match = re.search(pattern, response)
+            if not match:
+                raise ParseError("No code block found in the response")
+            action = match.group(1).strip()
+            thought = response
+            return {"action": action, "think": thought}
+
+        response = retry(self.chat_llm, messages, n_retry=self.n_retry, parser=parser)
+
+        action = response.get("action", None)
         stats = dict(response.usage)
-        return action, {
-            "chat_messages": [[m] for m in user_msgs],
-            "think": response.choices[0].message.content,
-            "stats": stats,
-        }
+        return action, AgentInfo(
+            chat_messages=[[m] for m in user_msgs],
+            think=response.get("think", None),
+            stats=stats,
+        )
 
 
 @dataclasses.dataclass
@@ -179,11 +188,11 @@ class VWAAgentArgs(AgentArgs):
     """
 
     agent_name: str = "vwa"
-    model_name: str = "gpt-4-1106-vision-preview"
-    flags = {}
+    temperature: float = 0.1
+    chat_model_args: BaseModelArgs = None
 
     def make_agent(self):
-        return VWAAgent(model_name=self.model_name)
+        return VWAAgent()
 
 
 CONFIG = VWAAgentArgs(model_name="gpt-4-1106-vision-preview")
