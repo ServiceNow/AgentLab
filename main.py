@@ -7,13 +7,8 @@ Don't push your changes to this file to git unless you are making structural cha
 
 import logging
 
-from agentlab.agents.generic_agent import (
-    AGENT_CUSTOM,
-    AGENT_SONNET,
-    RANDOM_SEARCH_AGENT,
-    AGENT_4o,
-    AGENT_4o_MINI,
-)
+from agentlab.agents.generic_agent import AGENT_CUSTOM  # AGENT_SONNET,
+from agentlab.agents.generic_agent import RANDOM_SEARCH_AGENT, AGENT_4o, AGENT_4o_MINI
 from agentlab.agents.webarena_basic_agent.webarena_basic_agent import AGENT_SONNET as WA_SONNET
 from agentlab.agents.webarena_basic_agent.webarena_basic_agent import AGENT_4o as WA_4o
 from agentlab.agents.webarena_basic_agent.webarena_basic_agent import AGENT_4o_MINI as WA_4o_MINI
