@@ -1,8 +1,5 @@
-import logging
 from dataclasses import dataclass
 from typing import List
-
-from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 """
 To use this class, you should have the ``openai`` python package installed, and the
@@ -24,7 +21,7 @@ class PromptTemplate:
     ai: str
     prompt_end: str = ""
 
-    def format_message(self, message: BaseMessage) -> str:
+    def format_message(self, message: dict) -> str:
         """
         Formats a given message based on its type.
 
@@ -37,16 +34,16 @@ class PromptTemplate:
         Raises:
             ValueError: If the message type is not supported.
         """
-        if isinstance(message, SystemMessage):
-            return self.system.format(input=message.content)
-        elif isinstance(message, HumanMessage):
-            return self.human.format(input=message.content)
-        elif isinstance(message, AIMessage):
-            return self.ai.format(input=message.content)
+        if message["role"] == "system":
+            return self.system.format(input=message["content"])
+        elif message["role"] == "user":
+            return self.human.format(input=message["content"])
+        elif message["role"] == "assistant":
+            return self.ai.format(input=message["content"])
         else:
-            raise ValueError(f"Message type {type(message)} not supported")
+            raise ValueError(f"Message role {message['role']} not supported")
 
-    def construct_prompt(self, messages: List[BaseMessage]) -> str:
+    def construct_prompt(self, messages: List[dict]) -> str:
         """
         Constructs a prompt from a list of messages.
 
@@ -59,8 +56,8 @@ class PromptTemplate:
         Raises:
             ValueError: If any element in the list is not of type BaseMessage.
         """
-        if not all(isinstance(m, BaseMessage) for m in messages):
-            raise ValueError("All elements in the list must be of type BaseMessage")
+        if not all(isinstance(m, dict) and "role" in m and "content" in m for m in messages):
+            raise ValueError("All elements in the list must be in openai format")
 
         prompt = "".join([self.format_message(m) for m in messages])
         prompt += self.prompt_end

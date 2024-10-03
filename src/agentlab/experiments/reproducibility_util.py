@@ -1,20 +1,20 @@
-from copy import deepcopy
 import csv
-from datetime import datetime
 import json
 import logging
+import os
 import platform
+from copy import deepcopy
+from datetime import datetime
+from importlib import metadata
+from pathlib import Path
 
 import pandas as pd
-
-from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from pathlib import Path
-from git import Repo, InvalidGitRepositoryError
-from importlib import metadata
-from git.config import GitConfigParser
-import os
-import agentlab
 from browsergym.experiments.loop import ExpArgs
+from git import InvalidGitRepositoryError, Repo
+from git.config import GitConfigParser
+
+import agentlab
+from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 
 
 def _get_repo(module):
@@ -65,9 +65,9 @@ def _get_git_username(repo: Repo) -> str:
         # GitHub username
         remote_url = repo.remotes.origin.url
         if "github.com" in remote_url:
+            import json
             import re
             import urllib.request
-            import json
 
             match = re.search(r"github\.com[:/](.+)/(.+)\.git", remote_url)
             if match:
@@ -174,8 +174,9 @@ def get_reproducibility_info(
     """
     Retrieve a dict of information that could influence the reproducibility of an experiment.
     """
-    import agentlab
     from browsergym import core
+
+    import agentlab
 
     if isinstance(agent_name, str):
         agent_name = [agent_name]
@@ -346,40 +347,62 @@ def _verify_report(report_df: pd.DataFrame, agent_names=list[str], strict_reprod
             )
     return report_df
 
+    # def add_reward(info, study_dir, ignore_incomplete=False):
+    #     """Add the average reward and standard error to the info dict.
 
-# def add_reward(info, study_dir, ignore_incomplete=False):
-#     """Add the average reward and standard error to the info dict.
+    #     Verifies that all tasks are completed and that there are no errors.
+    #     """
+    #     result_df = inspect_results.load_result_df(study_dir)
+    #     report = inspect_results.summarize_study(result_df)
 
-#     Verifies that all tasks are completed and that there are no errors.
-#     """
-#     result_df = inspect_results.load_result_df(study_dir)
-#     report = inspect_results.summarize_study(result_df)
+    #     if len(report) > 1:
+    #         raise ValueError("Multi agent not implemented yet")
 
-#     if len(report) > 1:
-#         raise ValueError("Multi agent not implemented yet")
+    #     if isinstance(info["agent_names"], (list, tuple)):
+    #         if len(info["agent_names"]) > 1:
+    #             raise ValueError("Multi agent not implemented yet")
 
-#     if isinstance(info["agent_names"], (list, tuple)):
-#         if len(info["agent_names"]) > 1:
-#             raise ValueError("Multi agent not implemented yet")
+    #     idx = report.index[0]
+    #     n_err = report.loc[idx, "n_err"].item()
+    #     n_completed, n_total = report.loc[idx, "n_completed"].split("/")
+    #     if n_err > 0 and not ignore_incomplete:
+    #         raise ValueError(
+    #             f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
+    #         )
+    #     if n_completed != n_total and not ignore_incomplete:
+    #         raise ValueError(
+    #             f"Experiment has {n_completed} completed tasks out of {n_total}. "
+    #             f"Please rerun the study and make sure all tasks are completed."
+    #         )
 
-#     idx = report.index[0]
-#     n_err = report.loc[idx, "n_err"].item()
-#     n_completed, n_total = report.loc[idx, "n_completed"].split("/")
-#     if n_err > 0 and not ignore_incomplete:
-#         raise ValueError(
-#             f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
-#         )
-#     if n_completed != n_total and not ignore_incomplete:
-#         raise ValueError(
-#             f"Experiment has {n_completed} completed tasks out of {n_total}. "
-#             f"Please rerun the study and make sure all tasks are completed."
-#         )
+    #     for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+    #         value = report.loc[idx, key]
+    #         if hasattr(value, "item"):
+    #             value = value.item()
+    #         info[key] = value
 
-#     for key in ("avg_reward", "std_err", "n_err", "n_completed"):
-#         value = report.loc[idx, key]
-#         if hasattr(value, "item"):
-#             value = value.item()
-#         info[key] = value
+    if isinstance(info["agent_name"], (list, tuple)):
+        if len(info["agent_name"]) > 1:
+            raise ValueError("Multi agent not implemented yet")
+
+    idx = report.index[0]
+    n_err = report.loc[idx, "n_err"].item()
+    n_completed, n_total = report.loc[idx, "n_completed"].split("/")
+    if n_err > 0 and not ignore_incomplete:
+        raise ValueError(
+            f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
+        )
+    if n_completed != n_total and not ignore_incomplete:
+        raise ValueError(
+            f"Experiment has {n_completed} completed tasks out of {n_total}. "
+            f"Please rerun the study and make sure all tasks are completed."
+        )
+
+    for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+        value = report.loc[idx, key]
+        if hasattr(value, "item"):
+            value = value.item()
+        info[key] = value
 
 
 def _get_csv_headers(file_path: str) -> list[str]:

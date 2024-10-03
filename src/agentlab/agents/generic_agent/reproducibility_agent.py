@@ -10,23 +10,25 @@ Stats are collected to compare the original agent's answers with the new agent's
 answers. Load the this reproducibility study in agent-xray to compare the results.
 """
 
+import difflib
+import logging
+import time
 from copy import copy
 from dataclasses import dataclass
-import logging
 from pathlib import Path
-import time
 
+from browsergym.experiments.agent import AgentInfo
+from browsergym.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from bs4 import BeautifulSoup
+from langchain.schema import AIMessage, BaseMessage
+from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.experiments.study_generators import Study
-from .generic_agent import GenericAgentArgs, GenericAgent
-from browsergym.experiments.loop import ExpResult, ExpArgs, yield_all_exp_results
-from browsergym.experiments.agent import AgentInfo
-import difflib
+from agentlab.llm.chat_api import make_assistant_message
+from agentlab.llm.llm_utils import messages_to_dict
 
-from langchain.schema import BaseMessage, AIMessage
-from langchain_community.adapters.openai import convert_message_to_dict
+from .generic_agent import GenericAgent, GenericAgentArgs
 
 
 class ReproChatModel:
@@ -46,8 +48,7 @@ class ReproChatModel:
 
         if len(messages) >= len(self.old_messages):
             # if for some reason the llm response was not saved
-            # TODO(thibault): convert this to dict instead of AIMessage in the bye langchain PR.
-            return AIMessage(content="""<action>None</action>""")
+            return make_assistant_message("""<action>None</action>""")
 
         old_response = self.old_messages[len(messages)]
         self.new_messages.append(old_response)
@@ -107,21 +108,6 @@ class ReproAgent(GenericAgent):
         return _make_agent_stats(
             action, agent_info, step_info, old_chat_messages, self.chat_llm.new_messages
         )
-
-
-# TODO(thibault): move this to llm utils in bye langchain PR.
-def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
-    new_messages = []
-    for m in messages:
-        if isinstance(m, dict):
-            new_messages.append(m)
-        elif isinstance(m, str):
-            new_messages.append({"role": "<unknown role>", "content": m})
-        elif isinstance(m, BaseMessage):
-            new_messages.append(convert_message_to_dict(m))
-        else:
-            raise ValueError(f"Unknown message type: {type(m)}")
-    return new_messages
 
 
 def _make_agent_stats(action, agent_info, step_info, old_chat_messages, new_chat_messages):

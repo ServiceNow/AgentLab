@@ -9,8 +9,6 @@ import logging
 
 from agentlab.agents.generic_agent.reproducibility_agent import reproduce_study
 from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.experiments.launch_exp import run_experiments
-
 
 logging.getLogger().setLevel(logging.INFO)
 

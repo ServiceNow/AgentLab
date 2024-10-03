@@ -12,12 +12,13 @@ import numpy as np
 import pandas as pd
 from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
-from langchain.schema import BaseMessage
-from langchain_openai import ChatOpenAI
+from langchain.schema import BaseMessage, HumanMessage
+from openai import OpenAI
 from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import image_to_jpg_base64_url
 
 select_dir_instructions = "Select Experiment Directory"
@@ -569,7 +570,7 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
     for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):
+        if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
             m = m.content
         elif isinstance(m, dict):
             m = m.get("content", "No Content")
@@ -653,11 +654,24 @@ def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    assert isinstance(chat_messages[1], BaseMessage), "Messages should be langchain messages"
+    if isinstance(chat_messages[1], BaseMessage):  # TODO remove once langchain is deprecated
+        assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
+        chat_messages = [
+            make_system_message(chat_messages[0].content),
+            make_user_message(chat_messages[1].content),
+        ]
+    elif isinstance(chat_messages[1], dict):
+        assert chat_messages[1].get("role", None) == "user", "Second message should be user"
+    else:
+        raise ValueError("Chat messages should be a list of BaseMessage or dict")
 
-    chat = ChatOpenAI(name="gpt-4o-mini")
-    chat_messages[1].content = input_text
-    result_text = chat(chat_messages).content
+    client = OpenAI()
+    chat_messages[1]["content"] = input_text
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=chat_messages,
+    )
+    result_text = completion.choices[0].message.content
     return result_text
 
 
@@ -666,9 +680,7 @@ def update_prompt_tests():
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     prompt = chat_messages[1]
-    if isinstance(prompt, BaseMessage):
-        prompt = prompt.content
-    elif isinstance(prompt, dict):
+    if isinstance(prompt, dict):
         prompt = prompt.get("content", "No Content")
     return prompt, prompt
 

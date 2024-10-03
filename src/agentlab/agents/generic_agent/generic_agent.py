@@ -3,12 +3,11 @@ from functools import partial
 from warnings import warn
 
 from browsergym.experiments.agent import Agent, AgentInfo
-from langchain.schema import HumanMessage, SystemMessage
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.llm.chat_api import BaseModelArgs
-from agentlab.llm.llm_utils import RetryError, retry_raise
+from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
+from agentlab.llm.llm_utils import ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
@@ -95,30 +94,33 @@ class GenericAgent(Agent):
             max_iterations=max_trunc_itr,
             additional_prompts=system_prompt,
         )
-
-        stats = {}
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
 
             chat_messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=prompt),
+                make_system_message(system_prompt),
+                make_user_message(prompt),
             ]
-            ans_dict = retry_raise(
+            ans_dict = retry(
                 self.chat_llm,
                 chat_messages,
                 n_retry=self.max_retry,
                 parser=main_prompt._parse_answer,
             )
+            ans_dict["busted_retry"] = 0
             # inferring the number of retries, TODO: make this less hacky
-            stats["n_retry"] = (len(chat_messages) - 3) / 2
-            stats["busted_retry"] = 0
-        except RetryError as e:
-            ans_dict = {"action": None}
-            stats["busted_retry"] = 1
+            ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
+        except ParseError as e:
+            ans_dict = dict(
+                action=None,
+                n_retry=self.max_retry + 1,
+                busted_retry=1,
+            )
 
-            stats["n_retry"] = self.max_retry + 1
+        stats = self.chat_llm.get_stats()
+        stats["n_retry"] = ans_dict["n_retry"]
+        stats["busted_retry"] = ans_dict["busted_retry"]
 
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
