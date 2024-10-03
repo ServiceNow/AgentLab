@@ -95,12 +95,6 @@ TODO
     - in their demo, they queried the SNOW UI!
 
 
-
-## Relevant agentic tools
-
-- [Langchain Agents](https://python.langchain.com/docs/modules/agents/)
-
-
 ## Relevant Benchmarks
 
 - [bigcode/bigcode-models-leaderboard](https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard)
