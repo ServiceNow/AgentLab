@@ -12,6 +12,7 @@ from importlib import metadata
 from git.config import GitConfigParser
 import os
 import agentlab
+from browsergym.experiments.loop import ExpArgs
 
 
 def _get_repo(module):
@@ -160,6 +161,7 @@ def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, P
 def get_reproducibility_info(
     agent_name,
     benchmark_name,
+    comment=None,
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
         "*reproducibility_journal.csv",
@@ -177,6 +179,7 @@ def get_reproducibility_info(
         "git_user": _get_git_username(_get_repo(agentlab)),
         "agent_name": agent_name,
         "benchmark": benchmark_name,
+        "comment": comment,
         "benchmark_version": _get_benchmark_version(benchmark_name),
         "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
         "os": f"{platform.system()} ({platform.version()})",
@@ -212,7 +215,7 @@ def get_reproducibility_info(
     return info
 
 
-def _assert_compatible(info: dict, old_info: dict):
+def _assert_compatible(info: dict, old_info: dict, raise_if_incompatible=True):
     """Make sure that the two info dicts are compatible."""
     # TODO may need to adapt if there are multiple agents, and the re-run on
     # error only has a subset of agents. Hence old_info.agent_name != info.agent_name
@@ -220,18 +223,53 @@ def _assert_compatible(info: dict, old_info: dict):
         if key in ("date", "avg_reward", "std_err", "n_completed", "n_err"):
             continue
         if info[key] != old_info[key]:
-            raise ValueError(
-                f"Reproducibility info already exist and is not compatible."
-                f"Key {key} has changed from {old_info[key]} to {info[key]}."
-            )
+            if not raise_if_incompatible:
+                logging.warning(
+                    f"Reproducibility info already exist and is not compatible."
+                    f"Key {key} has changed from {old_info[key]} to {info[key]}."
+                )
+            else:
+                raise ValueError(
+                    f"Reproducibility info already exist and is not compatible."
+                    f"Key {key} has changed from {old_info[key]} to {info[key]}."
+                    f"Set strict_reproducibility=False to bypass this error."
+                )
 
 
-def write_reproducibility_info(study_dir, agent_name, benchmark_name, ignore_changes=False):
-    info = get_reproducibility_info(agent_name, benchmark_name, ignore_changes=ignore_changes)
-    return save_reproducibility_info(study_dir, info)
+def _benchmark_from_task_name(task_name: str):
+    """Extract the benchmark from the task name.
+    TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
+    """
+    return task_name.split(".")[0]
 
 
-def save_reproducibility_info(study_dir, info):
+def infer_agent(exp_args_list: list[ExpArgs]):
+    return list(set(exp_args.agent_args.agent_name for exp_args in exp_args_list))
+
+
+def infer_benchmark(exp_args_list: list[ExpArgs]):
+    bench_name = set(
+        _benchmark_from_task_name(exp_args.env_args.task_name) for exp_args in exp_args_list
+    )
+    if len(bench_name) > 1:
+        raise ValueError(
+            f"Multiple benchmarks in the same study are not well supported: {bench_name}."
+            "Comment out the reproducibility part of the code to proceed at your own risk."
+        )
+
+    return bench_name.pop()
+
+
+def write_reproducibility_info(
+    study_dir, agent_name, benchmark_name, comment=None, strict_reproducibility=True
+):
+    info = get_reproducibility_info(
+        agent_name, benchmark_name, comment, ignore_changes=not strict_reproducibility
+    )
+    return save_reproducibility_info(study_dir, info, strict_reproducibility)
+
+
+def save_reproducibility_info(study_dir, info, strict_reproducibility=True):
     """
     Save a JSON file containing reproducibility information to the specified directory.
     """
@@ -241,7 +279,7 @@ def save_reproducibility_info(study_dir, info):
     if info_path.exists():
         with open(info_path, "r") as f:
             existing_info = json.load(f)
-        _assert_compatible(info, existing_info)
+        _assert_compatible(info, existing_info, raise_if_incompatible=strict_reproducibility)
         logging.info(
             "Reproducibility info already exists and is compatible. Overwriting the old one."
         )
@@ -266,31 +304,38 @@ from agentlab.analyze import inspect_results
 
 
 def add_reward(info, study_dir, ignore_incomplete=False):
+    """Add the average reward and standard error to the info dict.
+
+    Verifies that all tasks are completed and that there are no errors.
+    """
     result_df = inspect_results.load_result_df(study_dir)
-    report = inspect_results.global_report(result_df)
+    report = inspect_results.summarize_study(result_df)
 
-    if "[ALL TASKS]" in report.index:
-        assert isinstance(info["agent_name"], str)
-
-        n_err = report.loc["[ALL TASKS]", "n_err"].item()
-        n_completed, n_total = report.loc["[ALL TASKS]", "n_completed"].split("/")
-        if n_err > 0 and not ignore_incomplete:
-            raise ValueError(
-                f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
-            )
-        if n_completed != n_total and not ignore_incomplete:
-            raise ValueError(
-                f"Experiment has {n_completed} completed tasks out of {n_total}. "
-                f"Please rerun the study and make sure all tasks are completed."
-            )
-
-        for key in ("avg_reward", "std_err", "n_err", "n_completed"):
-            value = report.loc["[ALL TASKS]", key]
-            if hasattr(value, "item"):
-                value = value.item()
-            info[key] = value
-    else:
+    if len(report) > 1:
         raise ValueError("Multi agent not implemented yet")
+
+    if isinstance(info["agent_name"], (list, tuple)):
+        if len(info["agent_name"]) > 1:
+            raise ValueError("Multi agent not implemented yet")
+
+    idx = report.index[0]
+    n_err = report.loc[idx, "n_err"].item()
+    n_completed, n_total = report.loc[idx, "n_completed"].split("/")
+    if n_err > 0 and not ignore_incomplete:
+        raise ValueError(
+            f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
+        )
+    if n_completed != n_total and not ignore_incomplete:
+        raise ValueError(
+            f"Experiment has {n_completed} completed tasks out of {n_total}. "
+            f"Please rerun the study and make sure all tasks are completed."
+        )
+
+    for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+        value = report.loc[idx, key]
+        if hasattr(value, "item"):
+            value = value.item()
+        info[key] = value
 
 
 def _get_csv_headers(file_path: str) -> list[str]:
@@ -304,6 +349,7 @@ def _get_csv_headers(file_path: str) -> list[str]:
 
 
 def append_to_journal(info, journal_path=None):
+    """Append the info and results to the reproducibility journal."""
     if journal_path is None:
         journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
 
@@ -317,18 +363,11 @@ def append_to_journal(info, journal_path=None):
         rows.append(headers)
 
     if isinstance(info["agent_name"], (list, tuple)):
-        # handle multiple agents
-        assert len(info["agent_name"]) == len(info["reward"])
-        assert len(info["agent_name"]) == len(info["std_err"])
+        if len(info["agent_name"]) > 1:
+            raise ValueError("Multi agent not implemented yet")
+        info["agent_name"] = info["agent_name"][0]
 
-        for i, agent_name in info["agent_name"]:
-            sub_info = info.copy()
-            sub_info["agent_name"] = agent_name
-            sub_info["reward"] = info["reward"][i]
-            sub_info["std_err"] = info["std_err"][i]
-            rows.append([str(sub_info[key]) for key in headers])
-    else:
-        rows.append([str(info[key]) for key in headers])
+    rows.append([str(info[key]) for key in headers])
     with open(journal_path, "a", newline="") as file:
         writer = csv.writer(file)
         for row in rows:

@@ -1,14 +1,15 @@
-import pytest
-from agentlab.experiments.launch_exp import relaunch_study, run_experiments, make_study_dir
-from agentlab.experiments.study_generators import run_agents_on_benchmark
-from browsergym.experiments.loop import EnvArgs, ExpArgs
-from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
-from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
-from agentlab.analyze import inspect_results
 import tempfile
-
 from pathlib import Path
+
+import pytest
+from browsergym.experiments.loop import EnvArgs, ExpArgs
+
+from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
+from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
+from agentlab.analyze import inspect_results
+from agentlab.experiments.launch_exp import make_study_dir, relaunch_study, run_experiments
+from agentlab.experiments.study_generators import run_agents_on_benchmark
+from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
 
 def test_relaunch_study():
@@ -43,7 +44,7 @@ def test_launch_system(backend="dask"):
 
         study_dir = make_study_dir(tmp_dir, "generic_agent_test")
         run_experiments(
-            n_jobs=2, exp_args_list=exp_args_list, exp_dir=study_dir, parallel_backend=backend
+            n_jobs=2, exp_args_list=exp_args_list, study_dir=study_dir, parallel_backend=backend
         )
 
         results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
@@ -55,11 +56,11 @@ def test_launch_system(backend="dask"):
             assert row.err_msg is None
             assert row.cum_reward == 1.0
 
-        global_report = inspect_results.global_report(results_df)
-        assert len(global_report) == 2
-        assert global_report.std_err.iloc[0] == 0
-        assert global_report.n_completed.iloc[0] == "3/3"
-        assert global_report.avg_reward.iloc[0] == 1.0
+        study_summary = inspect_results.summarize_study(results_df)
+        assert len(study_summary) == 1
+        assert study_summary.std_err.iloc[0] == 0
+        assert study_summary.n_completed.iloc[0] == "3/3"
+        assert study_summary.avg_reward.iloc[0] == 1.0
 
 
 def test_launch_system_joblib():
@@ -80,7 +81,7 @@ def test_4o_mini_on_miniwob_tiny_test():
         )
         study_dir = make_study_dir(tmp_dir, study_name)
 
-        run_experiments(n_jobs=4, exp_args_list=exp_args_list, exp_dir=study_dir)
+        run_experiments(n_jobs=4, exp_args_list=exp_args_list, study_dir=study_dir)
 
         results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
         for row in results_df.iterrows():
@@ -89,12 +90,14 @@ def test_4o_mini_on_miniwob_tiny_test():
                 print(row[1].stack_trace)
 
         assert len(results_df) == len(exp_args_list)
-        global_report = inspect_results.global_report(results_df)
-        print(global_report)
-        assert global_report.avg_reward["[ALL TASKS]"] == 1.0
+        summary = inspect_results.summarize_study(results_df)
+        print(summary)
+        assert len(summary) == 1
+        reward = summary.avg_reward.iloc[0]
+        assert reward == 1.0
 
 
 if __name__ == "__main__":
-    # test_4o_mini_on_miniwob_tiny_test()
+    test_4o_mini_on_miniwob_tiny_test()
     # test_launch_system()
-    test_launch_system_joblib()
+    # test_launch_system_sequntial()
