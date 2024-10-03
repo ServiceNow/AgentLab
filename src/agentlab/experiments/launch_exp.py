@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from importlib import import_module
 from pathlib import Path
 
@@ -80,14 +79,6 @@ def run_experiments(
         logging.info("Experiment finished.")
 
 
-# def make_study_dir(exp_root, study_name, add_date=True):
-#     if add_date:
-#         study_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{study_name}"
-#     study_dir = Path(exp_root) / study_name
-#     study_dir.mkdir(parents=True, exist_ok=True)
-#     return study_dir
-
-
 def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
     """Return exp_args_list and study_dir
 
@@ -116,7 +107,7 @@ def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
 
     logging.info(message)
 
-    return exp_args_list, Path(study_dir)
+    return exp_args_list, study_dir
 
 
 def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):

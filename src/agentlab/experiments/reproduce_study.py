@@ -9,7 +9,7 @@ import logging
 
 from agentlab.agents.generic_agent.reproducibility_agent import reproduce_study
 from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.experiments.launch_exp import make_study_dir, run_experiments
+from agentlab.experiments.launch_exp import run_experiments
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -20,8 +20,7 @@ if __name__ == "__main__":
     old_study = "2024-06-02_18-16-17_final_run"
     # old_study = "2024-09-12_08-39-16_GenericAgent-gpt-4o-mini_on_miniwob_tiny_test"
 
-    study_name, exp_args_list = reproduce_study(RESULTS_DIR / old_study)
-    study_dir = make_study_dir(RESULTS_DIR, study_name)
+    study = reproduce_study(RESULTS_DIR / old_study)
     n_jobs = 1
 
-    run_experiments(n_jobs, exp_args_list, study_dir, parallel_backend="joblib")
+    study.run(n_jobs=n_jobs, parallel_backend="joblib", strict_reproducibility=False)

@@ -19,6 +19,7 @@ import time
 from bs4 import BeautifulSoup
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.experiments.study_generators import Study
 from .generic_agent import GenericAgentArgs, GenericAgent
 from browsergym.experiments.loop import ExpResult, ExpArgs, yield_all_exp_results
 from browsergym.experiments.agent import AgentInfo
@@ -158,7 +159,12 @@ def reproduce_study(original_study_dir: Path | str):
                 logging_level=logging.DEBUG,
             )
         )
-    return study_name, exp_args_list
+
+    return Study(
+        exp_args_list=exp_args_list,
+        benchmark_name="repro_study",
+        agent_names=[agent_args.agent_name],
+    )
 
 
 def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):

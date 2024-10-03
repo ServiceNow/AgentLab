@@ -826,15 +826,22 @@ def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, i
 
 
 def get_study_summary(
-    study_dir: Path, ignore_cache=False, sentinel=None, ignore_stale=False, progress_fn=None
+    study_dir: Path,
+    ignore_cache=False,
+    ignore_stale=False,
+    progress_fn=None,
+    sentinel=None,
 ) -> pd.DataFrame:
-    """Get the cached study summary for the given study directory.
+    """Get the cached study summary for the given study directory or computes it.
 
-    The cashe is based on the modified times of all the files in the study.
+    The cache is based on the modified times of all the files in the study.
 
     Args:
         study_dir: The study directory to summarize
         ignore_cache: If True, ignore the cache and recompute the summary
+        ignore_stale: If True, don't verify if files have changed since the last
+            summary was computed. This may lead to stale summaries.
+        progress_fn: Pass tqdm.tqdm to show progress.
         sentinel: Captures internal values for unit testing.
 
     Returns:

@@ -1,2 +1,0 @@
-agent.agent_name,env.benchmark,avg_reward,std_err,avg_steps,n_completed,n_err
-GenericAgent,miniwob,0.0,0.0,10.0,1/2,1

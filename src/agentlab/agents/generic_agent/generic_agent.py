@@ -26,10 +26,13 @@ class GenericAgentArgs(AgentArgs):
         except AttributeError:
             pass
 
-    def set_benchmark(self, benchmark):
+    def set_benchmark(self, benchmark, demo_mode):
         """Override Some flags based on the benchmark."""
         if benchmark == "miniwob":
             self.flags.obs.use_html = True
+
+        if demo_mode:
+            self.flags.action.demo_mode = "all_blue"
 
     def prepare(self):
         return self.chat_model_args.prepare_server()

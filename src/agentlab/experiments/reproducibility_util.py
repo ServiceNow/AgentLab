@@ -318,12 +318,12 @@ def _verify_report(report_df: pd.DataFrame, agent_names=list[str], strict_reprod
 
     unique_agent_names = report_df["agent.agent_name"].unique()
     if set(agent_names) != set(unique_agent_names):
-        _raise_or_warn(
+        raise ValueError(
             f"Agent names in the report {unique_agent_names} do not match the agent names {agent_names}.",
             raise_error=strict_reproducibility,
         )
     if len(set(agent_names)) != len(agent_names):
-        _raise_or_warn(
+        raise ValueError(
             f"Duplicate agent names {agent_names}.",
             raise_error=strict_reproducibility,
         )
@@ -441,13 +441,6 @@ def append_to_journal(
         writer = csv.writer(file)
         for row in rows:
             writer.writerow(row)
-
-
-# def add_experiment_to_journal(study_dir, ignore_incomplete=False):
-#     info = load_reproducibility_info(study_dir)
-#     add_reward(info, study_dir, ignore_incomplete)
-#     save_reproducibility_info(study_dir, info)
-#     append_to_journal(info)
 
 
 def set_temp(agent_args: GenericAgentArgs, temperature=0):

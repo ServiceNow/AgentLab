@@ -7,7 +7,7 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import make_study_dir, relaunch_study, run_experiments
+from agentlab.experiments.launch_exp import relaunch_study, run_experiments
 from agentlab.experiments.study_generators import run_agents_on_benchmark
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
@@ -42,7 +42,7 @@ def test_launch_system(backend="dask"):
 
     with tempfile.TemporaryDirectory() as tmp_dir:
 
-        study_dir = make_study_dir(tmp_dir, "generic_agent_test")
+        study_dir = Path(tmp_dir) / "generic_agent_test"
         run_experiments(
             n_jobs=2, exp_args_list=exp_args_list, study_dir=study_dir, parallel_backend=backend
         )
@@ -79,7 +79,7 @@ def test_4o_mini_on_miniwob_tiny_test():
         study_name, exp_args_list = run_agents_on_benchmark(
             agents=AGENT_4o_MINI, benchmark="miniwob_tiny_test"
         )
-        study_dir = make_study_dir(tmp_dir, study_name)
+        study_dir = Path(tmp_dir) / study_name
 
         run_experiments(n_jobs=4, exp_args_list=exp_args_list, study_dir=study_dir)
 

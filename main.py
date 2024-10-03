@@ -11,7 +11,6 @@ from agentlab.agents.generic_agent import AGENT_CUSTOM, RANDOM_SEARCH_AGENT, AGE
 from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments import study_generators
 from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.experiments.launch_exp import make_study_dir, relaunch_study, run_experiments
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -49,11 +48,13 @@ if __name__ == "__main__":
     if relaunch:
         #  relaunch an existing study
         study_dir = get_most_recent_folder(RESULTS_DIR, contains=None)
-        study = relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
+        study = study_generators.make_relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
 
     else:
         study = study_generators.run_agents_on_benchmark(agent_args, benchmark)
 
     study.run(n_jobs=n_jobs, parallel_backend="joblib", strict_reproducibility=False)
 
-    study.append_to_journal()
+    # Uncomment the following line if you think your study represent a
+    # reproducible result. You can run in relaunch mode to avoid re-running the experiments.
+    # study.append_to_journal(strict_reproducibility=True)

@@ -83,7 +83,8 @@ def test_save_reproducibility_info():
         assert info1 != info3
 
         test_study_dir = Path(__file__).parent.parent / "data" / "test_study"
-        report_df = inspect_results.get_study_summary(test_study_dir, ignore_cache=True)
+        result_df = inspect_results.load_result_df(test_study_dir, progress_fn=None)
+        report_df = inspect_results.summarize_study(result_df)
 
         with pytest.raises(ValueError):
             reproducibility_util.append_to_journal(
