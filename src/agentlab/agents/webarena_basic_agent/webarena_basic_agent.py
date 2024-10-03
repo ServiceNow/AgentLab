@@ -131,9 +131,19 @@ env_args = EnvArgs(
 chat_model_args = CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"]
 
 
-AGENT_CONFIG = WebArenaBasicAgentArgs(
+AGENT_4o_MINI = WebArenaBasicAgentArgs(
     temperature=0.1,
-    chat_model_args=chat_model_args,
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
+)
+
+AGENT_4o = WebArenaBasicAgentArgs(
+    temperature=0.1,
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-2024-08-06"],
+)
+
+AGENT_SONNET = WebArenaBasicAgentArgs(
+    temperature=0.1,
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
 )
 
 
