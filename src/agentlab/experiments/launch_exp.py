@@ -4,12 +4,6 @@ from pathlib import Path
 
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
-from agentlab.experiments.reproducibility_util import (
-    infer_agent,
-    infer_benchmark,
-    write_reproducibility_info,
-)
-
 
 def import_object(path: str):
     module_name, obj_name = split_path(path)
