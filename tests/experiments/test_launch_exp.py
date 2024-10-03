@@ -76,20 +76,18 @@ def test_4o_mini_on_miniwob_tiny_test():
     """Run with `pytest -m pricy`."""
     with tempfile.TemporaryDirectory() as tmp_dir:
 
-        study_name, exp_args_list = run_agents_on_benchmark(
-            agents=AGENT_4o_MINI, benchmark="miniwob_tiny_test"
-        )
-        study_dir = Path(tmp_dir) / study_name
+        study = run_agents_on_benchmark(agents=AGENT_4o_MINI, benchmark="miniwob_tiny_test")
 
-        run_experiments(n_jobs=4, exp_args_list=exp_args_list, study_dir=study_dir)
+        study.run(n_jobs=4)
 
-        results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
+        results_df = inspect_results.load_result_df(study.dir, progress_fn=None)
+
         for row in results_df.iterrows():
             if row[1].err_msg:
                 print(row[1].err_msg)
                 print(row[1].stack_trace)
 
-        assert len(results_df) == len(exp_args_list)
+        assert len(results_df) == len(study.exp_args_list)
         summary = inspect_results.summarize_study(results_df)
         print(summary)
         assert len(summary) == 1
