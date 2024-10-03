@@ -10,8 +10,10 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry_raise
+from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
+from agentlab.llm.tracking import cost_tracker_decorator
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
@@ -22,6 +24,9 @@ class WebArenaBasicAgentArgs(AgentArgs):
     agent_name: str = "WebArenaBasicAgent"
     temperature: float = 0.0
     chat_model_args: "BaseModelArgs" = None
+
+    def __post_init__(self):
+        self.agent_name = f"WebArenaBasicAgent-{self.chat_model_args.model_name}".replace("/", "_")
 
     def make_agent(self) -> Agent:
         return WebArenaBasicAgent(
@@ -45,6 +50,7 @@ class WebArenaBasicAgent(Agent):
         self.action_set = HighLevelActionSet(["chat", "bid"], strict=False, multiaction=False)
         self.prev_actions = []
 
+    @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
         system_prompt = f"""\
 # Instructions
@@ -85,7 +91,7 @@ send_msg_to_user("$279.49")
 "
 """.strip()
 
-        messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
+        messages = [make_system_message(system_prompt), make_user_message(prompt)]
 
         def parser(response: str) -> tuple[dict, bool, str]:
             blocks = extract_code_blocks(response)
@@ -95,7 +101,7 @@ send_msg_to_user("$279.49")
             thought = response
             return {"action": action, "think": thought}
 
-        ans_dict = retry_raise(self.chat, messages, n_retry=3, parser=parser)
+        ans_dict = retry(self.chat, messages, n_retry=3, parser=parser)
 
         action = ans_dict.get("action", None)
         thought = ans_dict.get("think", None)
@@ -109,7 +115,7 @@ send_msg_to_user("$279.49")
                 chat_messages=messages,
                 # put any stats that you care about as long as it is a number or a dict of numbers
                 stats={"prompt_length": len(prompt), "response_length": len(thought)},
-                markup_page="Add any txt information here, including base 64 images, to display in xray",
+                markdown_page="Add any txt information here, including base 64 images, to display in xray",
                 extra_info={"chat_model_args": asdict(self.chat_model_args)},
             ),
         )
@@ -122,7 +128,14 @@ env_args = EnvArgs(
     headless=True,
 )
 
-chat_model_args = CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"]
+chat_model_args = CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"]
+
+
+AGENT_CONFIG = WebArenaBasicAgentArgs(
+    temperature=0.1,
+    chat_model_args=chat_model_args,
+)
+
 
 exp_args = [
     ExpArgs(
