@@ -77,9 +77,11 @@ def test_4o_mini_on_miniwob_tiny_test():
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         study = run_agents_on_benchmark(agents=AGENT_4o_MINI, benchmark="miniwob_tiny_test")
-        study.run(n_jobs=4, strict_reproducibility=False)
+
+        study.run(n_jobs=4)
 
         results_df = inspect_results.load_result_df(study.dir, progress_fn=None)
+
         for row in results_df.iterrows():
             if row[1].err_msg:
                 print(row[1].err_msg)

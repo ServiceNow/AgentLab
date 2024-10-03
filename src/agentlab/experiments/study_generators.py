@@ -135,7 +135,7 @@ def make_relaunch_study(study_dir, relaunch_mode="incomplete_or_error"):
     study = Study(dir=study_dir)
     study.exp_args_list, _ = relaunch_study(study.dir, relaunch_mode=relaunch_mode)
     info = study.load_reproducibility_info()
-    study.benchmark_name = info["benchmark_name"]
+    study.benchmark_name = info["benchmark"]
     study.agent_names = info["agent_names"]
     return study
 
