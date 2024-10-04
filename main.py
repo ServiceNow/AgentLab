@@ -16,7 +16,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 # choose your agent or provide a new agent
 agent_args = [AGENT_4o_MINI]
-# agent_args = AGENT_4o
+# agent_args = [AGENT_4o]
 
 ## select the benchmark to run on
 benchmark = "miniwob_tiny_test"
