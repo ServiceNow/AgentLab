@@ -20,8 +20,6 @@ from pathlib import Path
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from bs4 import BeautifulSoup
-from langchain.schema import AIMessage, BaseMessage
-from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.experiments.study_generators import Study
