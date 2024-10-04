@@ -27,16 +27,16 @@ benchmark = "miniwob_tiny_test"
 # benchmark = "webarena"
 
 # Set reproducibility_mode = True for reproducibility
-# this will "ask" agents to be deterministic and prevent you from launching if you have
-# local changes.
-reproducibility_mode = True
+# this will "ask" agents to be deterministic. Also, it will prevent you from launching if you have
+# local changes. For your custom agents you need to implement set_reproducibility_mode
+reproducibility_mode = False
 
 # Set relaunch = True to relaunch an existing study, this will continue incomplete
 # experiments and relaunch errored experiments
 relaunch = False
 
 ## Number of parallel jobs
-n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
+n_jobs = 4  # Make sure to use 1 job when debugging in VSCode
 # n_jobs = -1  # to use all available cores
 
 
