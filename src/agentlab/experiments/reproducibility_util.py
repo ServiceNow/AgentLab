@@ -1,18 +1,20 @@
-from copy import deepcopy
 import csv
-from datetime import datetime
 import json
 import logging
-import platform
-
-from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
-from pathlib import Path
-from git import Repo, InvalidGitRepositoryError
-from importlib import metadata
-from git.config import GitConfigParser
 import os
-import agentlab
+import platform
+from copy import deepcopy
+from datetime import datetime
+from importlib import metadata
+from pathlib import Path
+
+import pandas as pd
 from browsergym.experiments.loop import ExpArgs
+from git import InvalidGitRepositoryError, Repo
+from git.config import GitConfigParser
+
+import agentlab
+from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 
 
 def _get_repo(module):
@@ -63,9 +65,9 @@ def _get_git_username(repo: Repo) -> str:
         # GitHub username
         remote_url = repo.remotes.origin.url
         if "github.com" in remote_url:
+            import json
             import re
             import urllib.request
-            import json
 
             match = re.search(r"github\.com[:/](.+)/(.+)\.git", remote_url)
             if match:
@@ -159,7 +161,7 @@ def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, P
 
 
 def get_reproducibility_info(
-    agent_name,
+    agent_name: str | list[str],
     benchmark_name,
     comment=None,
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
@@ -172,12 +174,16 @@ def get_reproducibility_info(
     """
     Retrieve a dict of information that could influence the reproducibility of an experiment.
     """
-    import agentlab
     from browsergym import core
+
+    import agentlab
+
+    if isinstance(agent_name, str):
+        agent_name = [agent_name]
 
     info = {
         "git_user": _get_git_username(_get_repo(agentlab)),
-        "agent_name": agent_name,
+        "agent_names": agent_name,
         "benchmark": benchmark_name,
         "comment": comment,
         "benchmark_version": _get_benchmark_version(benchmark_name),
@@ -236,37 +242,37 @@ def _assert_compatible(info: dict, old_info: dict, raise_if_incompatible=True):
                 )
 
 
-def _benchmark_from_task_name(task_name: str):
-    """Extract the benchmark from the task name.
-    TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
-    """
-    return task_name.split(".")[0]
+# def _benchmark_from_task_name(task_name: str):
+#     """Extract the benchmark from the task name.
+#     TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
+#     """
+#     return task_name.split(".")[0]
 
 
-def infer_agent(exp_args_list: list[ExpArgs]):
-    return list(set(exp_args.agent_args.agent_name for exp_args in exp_args_list))
+# def infer_agent(exp_args_list: list[ExpArgs]):
+#     return list(set(exp_args.agent_args.agent_name for exp_args in exp_args_list))
 
 
-def infer_benchmark(exp_args_list: list[ExpArgs]):
-    bench_name = set(
-        _benchmark_from_task_name(exp_args.env_args.task_name) for exp_args in exp_args_list
-    )
-    if len(bench_name) > 1:
-        raise ValueError(
-            f"Multiple benchmarks in the same study are not well supported: {bench_name}."
-            "Comment out the reproducibility part of the code to proceed at your own risk."
-        )
+# def infer_benchmark(exp_args_list: list[ExpArgs]):
+#     bench_name = set(
+#         _benchmark_from_task_name(exp_args.env_args.task_name) for exp_args in exp_args_list
+#     )
+#     if len(bench_name) > 1:
+#         raise ValueError(
+#             f"Multiple benchmarks in the same study are not well supported: {bench_name}."
+#             "Comment out the reproducibility part of the code to proceed at your own risk."
+#         )
 
-    return bench_name.pop()
+#     return bench_name.pop()
 
 
-def write_reproducibility_info(
-    study_dir, agent_name, benchmark_name, comment=None, strict_reproducibility=True
-):
-    info = get_reproducibility_info(
-        agent_name, benchmark_name, comment, ignore_changes=not strict_reproducibility
-    )
-    return save_reproducibility_info(study_dir, info, strict_reproducibility)
+# def write_reproducibility_info(
+#     study_dir, agent_name, benchmark_name, comment=None, strict_reproducibility=True
+# ):
+#     info = get_reproducibility_info(
+#         agent_name, benchmark_name, comment, ignore_changes=not strict_reproducibility
+#     )
+#     return save_reproducibility_info(study_dir, info, strict_reproducibility)
 
 
 def save_reproducibility_info(study_dir, info, strict_reproducibility=True):
@@ -300,19 +306,80 @@ def load_reproducibility_info(study_dir) -> dict[str]:
         return json.load(f)
 
 
-from agentlab.analyze import inspect_results
+def _raise_or_warn(msg, raise_error=True):
+    if raise_error:
+        raise ValueError(msg)
+    else:
+        logging.warning(msg)
 
 
-def add_reward(info, study_dir, ignore_incomplete=False):
-    """Add the average reward and standard error to the info dict.
+def _verify_report(report_df: pd.DataFrame, agent_names=list[str], strict_reproducibility=True):
 
-    Verifies that all tasks are completed and that there are no errors.
-    """
-    result_df = inspect_results.load_result_df(study_dir)
-    report = inspect_results.summarize_study(result_df)
+    report_df = report_df.reset_index()
 
-    if len(report) > 1:
-        raise ValueError("Multi agent not implemented yet")
+    unique_agent_names = report_df["agent.agent_name"].unique()
+    if set(agent_names) != set(unique_agent_names):
+        raise ValueError(
+            f"Agent names in the report {unique_agent_names} do not match the agent names {agent_names}.",
+            raise_error=strict_reproducibility,
+        )
+    if len(set(agent_names)) != len(agent_names):
+        raise ValueError(
+            f"Duplicate agent names {agent_names}.",
+            raise_error=strict_reproducibility,
+        )
+
+    report_df = report_df.set_index("agent.agent_name", inplace=False)
+
+    for idx in report_df.index:
+        n_err = report_df.loc[idx, "n_err"].item()
+        n_completed, n_total = report_df.loc[idx, "n_completed"].split("/")
+        if n_err > 0:
+            _raise_or_warn(
+                f"Experiment {idx} has {n_err} errors. Please rerun the study and make sure all tasks are completed.",
+                raise_error=strict_reproducibility,
+            )
+        if n_completed != n_total:
+            _raise_or_warn(
+                f"Experiment {idx} has {n_completed} completed tasks out of {n_total}. "
+                f"Please rerun the study and make sure all tasks are completed.",
+                raise_error=strict_reproducibility,
+            )
+    return report_df
+
+    # def add_reward(info, study_dir, ignore_incomplete=False):
+    #     """Add the average reward and standard error to the info dict.
+
+    #     Verifies that all tasks are completed and that there are no errors.
+    #     """
+    #     result_df = inspect_results.load_result_df(study_dir)
+    #     report = inspect_results.summarize_study(result_df)
+
+    #     if len(report) > 1:
+    #         raise ValueError("Multi agent not implemented yet")
+
+    #     if isinstance(info["agent_names"], (list, tuple)):
+    #         if len(info["agent_names"]) > 1:
+    #             raise ValueError("Multi agent not implemented yet")
+
+    #     idx = report.index[0]
+    #     n_err = report.loc[idx, "n_err"].item()
+    #     n_completed, n_total = report.loc[idx, "n_completed"].split("/")
+    #     if n_err > 0 and not ignore_incomplete:
+    #         raise ValueError(
+    #             f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
+    #         )
+    #     if n_completed != n_total and not ignore_incomplete:
+    #         raise ValueError(
+    #             f"Experiment has {n_completed} completed tasks out of {n_total}. "
+    #             f"Please rerun the study and make sure all tasks are completed."
+    #         )
+
+    #     for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+    #         value = report.loc[idx, key]
+    #         if hasattr(value, "item"):
+    #             value = value.item()
+    #         info[key] = value
 
     if isinstance(info["agent_name"], (list, tuple)):
         if len(info["agent_name"]) > 1:
@@ -348,37 +415,55 @@ def _get_csv_headers(file_path: str) -> list[str]:
     return headers
 
 
-def append_to_journal(info, journal_path=None):
+def _add_result_to_info(info: dict, report_df: pd.DataFrame):
+    """Extracts the results from the report and adds them to the info dict inplace"""
+
+    for key in ("avg_reward", "std_err", "n_err", "n_completed"):
+        value = report_df.loc[info["agent_name"], key]
+        if hasattr(value, "item"):
+            value = value.item()
+        info[key] = value
+
+
+def append_to_journal(
+    info, report_df: pd.DataFrame, journal_path=None, strict_reproducibility=True
+):
     """Append the info and results to the reproducibility journal."""
     if journal_path is None:
         journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
+
+    if len(report_df) != len(info["agent_names"]):
+        raise ValueError(
+            "Mismatch between the number of agents in reproducibility info and the summary report."
+        )
+
+    report_df = _verify_report(
+        report_df, info["agent_names"], strict_reproducibility=strict_reproducibility
+    )
 
     rows = []
     headers = None
     if journal_path.exists():
         headers = _get_csv_headers(journal_path)
 
-    if headers is None:
+    if headers is None:  # first creation
         headers = list(info.keys())
+        headers[headers.index("agent_names")] = "agent_name"
         rows.append(headers)
 
-    if isinstance(info["agent_name"], (list, tuple)):
-        if len(info["agent_name"]) > 1:
-            raise ValueError("Multi agent not implemented yet")
-        info["agent_name"] = info["agent_name"][0]
+    for agent_name in info["agent_names"]:
+        info_copy = info.copy()
+        del info_copy["agent_names"]
+        info_copy["agent_name"] = agent_name
 
-    rows.append([str(info[key]) for key in headers])
+        _add_result_to_info(info_copy, report_df)
+
+        rows.append([str(info_copy[key]) for key in headers])
+
     with open(journal_path, "a", newline="") as file:
         writer = csv.writer(file)
         for row in rows:
             writer.writerow(row)
-
-
-def add_experiment_to_journal(study_dir, ignore_incomplete=False):
-    info = load_reproducibility_info(study_dir)
-    add_reward(info, study_dir, ignore_incomplete)
-    save_reproducibility_info(study_dir, info)
-    append_to_journal(info)
 
 
 def set_temp(agent_args: GenericAgentArgs, temperature=0):
