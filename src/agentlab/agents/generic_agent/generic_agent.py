@@ -33,6 +33,9 @@ class GenericAgentArgs(AgentArgs):
         if demo_mode:
             self.flags.action.demo_mode = "all_blue"
 
+    def set_reproducibility_mode(self):
+        self.chat_model_args.temperature = 0
+
     def prepare(self):
         return self.chat_model_args.prepare_server()
 

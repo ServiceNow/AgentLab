@@ -14,3 +14,11 @@ class AgentArgs(AbstractAgentArgs):
                 the demo_mode flag in the browsergym action space.
         """
         pass
+
+    def set_reproducibility_mode(self):
+        """Optional method to set the agent in a reproducibility mode.
+
+        This should adjust the agent configuration to make it as deterministic
+        as possible e.g. setting the temperature of the model to 0.
+        """
+        pass

@@ -464,10 +464,3 @@ def append_to_journal(
         writer = csv.writer(file)
         for row in rows:
             writer.writerow(row)
-
-
-def set_temp(agent_args: GenericAgentArgs, temperature=0):
-    """Set temperature to 0. Assumes a GenericAgent structure."""
-    agent_args = deepcopy(agent_args)
-    agent_args.chat_model_args.temperature = temperature
-    return agent_args
