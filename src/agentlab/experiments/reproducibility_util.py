@@ -167,7 +167,7 @@ def get_reproducibility_info(
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
         "*reproducibility_journal.csv",
-        "*/main.py",
+        "*main.py",
     ),
     ignore_changes=False,
 ):
