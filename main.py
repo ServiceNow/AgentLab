@@ -8,7 +8,13 @@ repository.
 
 import logging
 
-from agentlab.agents.generic_agent import RANDOM_SEARCH_AGENT, AGENT_4o, AGENT_4o_MINI, AGENT_LLAMA3_70B, AGENT_LLAMA31_70B
+from agentlab.agents.generic_agent import (
+    RANDOM_SEARCH_AGENT,
+    AGENT_4o,
+    AGENT_4o_MINI,
+    AGENT_LLAMA3_70B,
+    AGENT_LLAMA31_70B,
+)
 from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments import study_generators
 
