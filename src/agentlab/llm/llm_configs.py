@@ -1,5 +1,3 @@
-import os
-
 from agentlab.llm.chat_api import (
     AzureModelArgs,
     OpenAIModelArgs,

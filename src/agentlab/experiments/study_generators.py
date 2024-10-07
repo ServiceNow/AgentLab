@@ -65,6 +65,9 @@ class Study:
         self.write_reproducibility_info(strict_reproducibility=strict_reproducibility)
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
+        report_df = self.get_report(ignore_cache=True)
+        logging.info(f"Study {self.name} finished.")
+        logging.info("\n" + str(report_df))
 
     def append_to_journal(self, strict_reproducibility=True):
         """Append the study to the journal.

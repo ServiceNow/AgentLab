@@ -167,7 +167,7 @@ def get_reproducibility_info(
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
         "*reproducibility_journal.csv",
-        "*/launch_command.py",
+        "*main.py",
     ),
     ignore_changes=False,
 ):
@@ -347,63 +347,6 @@ def _verify_report(report_df: pd.DataFrame, agent_names=list[str], strict_reprod
             )
     return report_df
 
-    # def add_reward(info, study_dir, ignore_incomplete=False):
-    #     """Add the average reward and standard error to the info dict.
-
-    #     Verifies that all tasks are completed and that there are no errors.
-    #     """
-    #     result_df = inspect_results.load_result_df(study_dir)
-    #     report = inspect_results.summarize_study(result_df)
-
-    #     if len(report) > 1:
-    #         raise ValueError("Multi agent not implemented yet")
-
-    #     if isinstance(info["agent_names"], (list, tuple)):
-    #         if len(info["agent_names"]) > 1:
-    #             raise ValueError("Multi agent not implemented yet")
-
-    #     idx = report.index[0]
-    #     n_err = report.loc[idx, "n_err"].item()
-    #     n_completed, n_total = report.loc[idx, "n_completed"].split("/")
-    #     if n_err > 0 and not ignore_incomplete:
-    #         raise ValueError(
-    #             f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
-    #         )
-    #     if n_completed != n_total and not ignore_incomplete:
-    #         raise ValueError(
-    #             f"Experiment has {n_completed} completed tasks out of {n_total}. "
-    #             f"Please rerun the study and make sure all tasks are completed."
-    #         )
-
-    #     for key in ("avg_reward", "std_err", "n_err", "n_completed"):
-    #         value = report.loc[idx, key]
-    #         if hasattr(value, "item"):
-    #             value = value.item()
-    #         info[key] = value
-
-    if isinstance(info["agent_name"], (list, tuple)):
-        if len(info["agent_name"]) > 1:
-            raise ValueError("Multi agent not implemented yet")
-
-    idx = report.index[0]
-    n_err = report.loc[idx, "n_err"].item()
-    n_completed, n_total = report.loc[idx, "n_completed"].split("/")
-    if n_err > 0 and not ignore_incomplete:
-        raise ValueError(
-            f"Experiment has {n_err} errors. Please rerun the study and make sure all tasks are completed."
-        )
-    if n_completed != n_total and not ignore_incomplete:
-        raise ValueError(
-            f"Experiment has {n_completed} completed tasks out of {n_total}. "
-            f"Please rerun the study and make sure all tasks are completed."
-        )
-
-    for key in ("avg_reward", "std_err", "n_err", "n_completed"):
-        value = report.loc[idx, key]
-        if hasattr(value, "item"):
-            value = value.item()
-        info[key] = value
-
 
 def _get_csv_headers(file_path: str) -> list[str]:
     with open(file_path, "r", newline="") as file:
@@ -464,10 +407,3 @@ def append_to_journal(
         writer = csv.writer(file)
         for row in rows:
             writer.writerow(row)
-
-
-def set_temp(agent_args: GenericAgentArgs, temperature=0):
-    """Set temperature to 0. Assumes a GenericAgent structure."""
-    agent_args = deepcopy(agent_args)
-    agent_args.chat_model_args.temperature = temperature
-    return agent_args

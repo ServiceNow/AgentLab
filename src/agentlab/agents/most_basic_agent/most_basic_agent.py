@@ -1,35 +1,35 @@
 import logging
-import os
-import re
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
-from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.experiments.agent import Agent, AgentInfo
-from browsergym.experiments.loop import AbstractAgentArgs, EnvArgs, ExpArgs
+import bgym
 
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
 from agentlab.llm.tracking import cost_tracker_decorator
+from agentlab.agents.agent_args import AgentArgs
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
 
 
 @dataclass
-class MostBasicAgentArgs(AbstractAgentArgs):
+class MostBasicAgentArgs(AgentArgs):
     agent_name: str = "BasicAgent"
     temperature: float = 0.1
     use_chain_of_thought: bool = False
     chat_model_args: "BaseModelArgs" = None
 
-    def make_agent(self) -> Agent:
+    def make_agent(self) -> bgym.Agent:
         return MostBasicAgent(
             temperature=self.temperature,
             use_chain_of_thought=self.use_chain_of_thought,
             chat_model_args=self.chat_model_args,
         )
+
+    def set_reproducibility_mode(self):
+        self.temperature = 0
 
     def prepare(self):
         return self.chat_model_args.prepare_server()
@@ -38,7 +38,7 @@ class MostBasicAgentArgs(AbstractAgentArgs):
         return self.chat_model_args.close_server()
 
 
-class MostBasicAgent(Agent):
+class MostBasicAgent(bgym.Agent):
     def __init__(
         self, temperature: float, use_chain_of_thought: bool, chat_model_args: "BaseModelArgs"
     ):
@@ -47,7 +47,7 @@ class MostBasicAgent(Agent):
         self.chat = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
 
-        self.action_set = HighLevelActionSet(["bid"], multiaction=False)
+        self.action_set = bgym.HighLevelActionSet(["bid"], multiaction=False)
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
@@ -104,7 +104,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
 
         return (
             action,
-            AgentInfo(
+            bgym.AgentInfo(
                 think=thought,
                 chat_messages=messages,
                 # put any stats that you care about as long as it is a number or a dict of numbers
@@ -115,17 +115,19 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
         )
 
 
-env_args = EnvArgs(
+# example for a single task
+env_args = bgym.EnvArgs(
     task_name="miniwob.click-button",
     task_seed=0,
     max_steps=10,
     headless=True,
 )
 
-chat_model_args = CHAT_MODEL_ARGS_DICT["azure/gpt-35-turbo/gpt-35-turbo"]
+chat_model_args = CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"]
 
+# example for 2 experiments testing chain of thoughts on a miniwob task
 exp_args = [
-    ExpArgs(
+    bgym.ExpArgs(
         agent_args=MostBasicAgentArgs(
             temperature=0.1,
             use_chain_of_thought=True,
@@ -134,7 +136,7 @@ exp_args = [
         env_args=env_args,
         logging_level=logging.INFO,
     ),
-    ExpArgs(
+    bgym.ExpArgs(
         agent_args=MostBasicAgentArgs(
             temperature=0.1,
             use_chain_of_thought=False,

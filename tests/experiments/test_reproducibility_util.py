@@ -8,11 +8,6 @@ import pytest
 import json
 
 
-def test_set_temp():
-    agent_args = reproducibility_util.set_temp(AGENT_4o_MINI)
-    assert agent_args.chat_model_args.temperature == 0
-
-
 @pytest.mark.parametrize(
     "benchmark_name",
     ["miniwob", "workarena.l1", "webarena", "visualwebarena"],
