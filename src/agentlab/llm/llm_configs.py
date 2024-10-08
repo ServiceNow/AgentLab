@@ -1,5 +1,3 @@
-import os
-
 from agentlab.llm.chat_api import (
     AzureModelArgs,
     OpenAIModelArgs,
@@ -64,6 +62,20 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=8_192,
         max_input_tokens=7500,
         max_new_tokens=500,
+    ),
+    "azure/gpt-4o-2024-05-13": AzureModelArgs(
+        model_name="gpt-4o",
+        deployment_name="gpt-4o-2024-05-13",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
+    ),
+    "azure/gpt-4o-2024-08-06": AzureModelArgs(
+        model_name="gpt-4o",
+        deployment_name="gpt-4o-2024-08-06",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
     ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(

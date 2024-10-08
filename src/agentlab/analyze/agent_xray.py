@@ -481,7 +481,7 @@ clicking the refresh button.
         tabs.select(tab_select)
 
     demo.queue()
-    demo.launch(server_port=7899)
+    demo.launch(server_port=7899, share=True)
 
 
 def tab_select(evt: gr.SelectData):
