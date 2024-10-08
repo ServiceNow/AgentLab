@@ -569,12 +569,22 @@ def update_chat_messages():
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
-    for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
-            m = m.content
-        elif isinstance(m, dict):
-            m = m.get("content", "No Content")
-        messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
+    for i, msg in enumerate(chat_messages):
+        if isinstance(msg, BaseMessage):  # TODO remove once langchain is deprecated
+            msg = msg.content
+        elif isinstance(msg, dict):
+            msg = msg.get("content", "No Content")
+        if isinstance(msg, str):
+            msg = [{"type": "text", "text": msg}]
+        messages.append(f"# Message {i}\n")
+        for m in msg:
+            if m["type"] == "text":
+                messages.append(f"""\n```\n{m["text"]}\n```\n\n""")
+            elif m["type"] == "image_url":
+                if isinstance(m["image_url"], str):
+                    messages.append(f"""\n![Image]({m["image_url"]})\n\n""")
+                elif isinstance(m["image_url"], dict):
+                    messages.append(f"""\n![Image]({m["image_url"]["url"]})\n\n""")
     return "\n".join(messages)
 
 
