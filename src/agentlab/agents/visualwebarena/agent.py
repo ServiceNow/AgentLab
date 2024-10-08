@@ -49,8 +49,7 @@ class VWAAgent(Agent):
 
     def obs_preprocessor(self, obs: dict) -> dict:
         return {
-            "goal": obs["goal"],
-            "goal_image_urls": obs["goal_image_urls"],
+            "goal_object": obs["goal_object"],
             "last_action": obs["last_action"],
             "axtree_txt": flatten_axtree_to_str(
                 obs["axtree_object"], obs["extra_element_properties"]
@@ -69,29 +68,6 @@ class VWAAgent(Agent):
         self.goal_images = None
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
-        # download and process all goal images only once on first call
-        # if self.goal_images is None:
-        #     self.goal_images = []
-        #     for image_i, image_url in enumerate(obs["goal_image_urls"]):
-        #         # load the image as PIL object + PNG base64 string
-        #         if image_url.startswith("http"):
-        #             image = Image.open(requests.get(image_url, stream=True).raw)
-        #             image_base64 = pil_to_b64(image)
-        #         elif image_url.startswith("data:image/png;base64,"):
-        #             image_base64 = image_url
-        #             image = b64_to_pil(image_base64)
-        #         else:
-        #             raise ValueError(f"Unexpected image_url: {image_url}")
-
-        #         # save the image to a temporary (but persistent) PNG file
-        #         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        #             image_path = f.name
-        #         image.save(image_path)
-
-        #         # add the image to the list
-        #         self.goal_images.append({"base64": image_base64, "path": image_path})
-
-        goal_images = obs["goal_images"]
 
         system_prompt = f"""\
 Review the current state of the page and all other information to find the best
@@ -100,7 +76,7 @@ and executed by a program, make sure to follow the formatting instructions."""
 
         user_prompt = f"""\
 # Goal:
-{obs["goal"]}
+{obs["goal_object"][0]["text"]}
 
 # Current Accessibility Tree:
 {obs["axtree_txt"]}
@@ -119,12 +95,14 @@ If you have completed the task, use the chat to return an answer. For example, i
 ```send_msg_to_user("blue")```
 "
 """
+        # prompt
+        user_msgs = [{"type": "text", "text": user_prompt}]
 
         # screenshot
         user_msgs = [
             {
                 "type": "text",
-                "text": "IMAGES: (1) current page screenshot",
+                "text": "IMAGES: current page screenshot",
             },
             {
                 "type": "image_url",
@@ -136,22 +114,7 @@ If you have completed the task, use the chat to return an answer. For example, i
             },
         ]
         # additional images
-        for image_i, image in enumerate(goal_images):
-            user_msgs.extend(
-                [
-                    {
-                        "type": "text",
-                        "text": f"({image_i+2}) input image {image_i+1} (local path: {repr(image['path'])})",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image["base64"]},
-                    },
-                ]
-            )
-
-        # prompt
-        user_msgs.append({"type": "text", "text": user_prompt})
+        user_msgs.extend(obs["goal_object"][1:])
 
         messages = [
             make_system_message(system_prompt),
@@ -172,7 +135,7 @@ If you have completed the task, use the chat to return an answer. For example, i
         action = response.get("action", None)
         stats = dict(response.usage)
         return action, AgentInfo(
-            chat_messages=[[m] for m in user_msgs],
+            chat_messages=messages,
             think=response.get("think", None),
             stats=stats,
         )
