@@ -1,7 +1,9 @@
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+
 from browsergym.core import action
 from browsergym.core.action.base import AbstractActionSet
+
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.llm.llm_utils import parse_html_tags_raise
 
@@ -49,7 +51,7 @@ class MainPrompt(dp.Shrinkable):
         self,
         action_set: AbstractActionSet,
         obs_history: list[dict],
-        goal_images: list[dict],
+        goal: list[dict],
         actions: list[str],
         memories: list[str],
         thoughts: list[str],
@@ -70,7 +72,7 @@ class MainPrompt(dp.Shrinkable):
                     "Agent is in goal mode, but multiple user messages are present in the chat. Consider switching to `enable_chat=True`."
                 )
             self.instructions = dp.GoalInstructions(
-                obs_history[-1]["goal"], goal_images, extra_instructions=flags.extra_instructions
+                goal, extra_instructions=flags.extra_instructions
             )
 
         self.obs = dp.Observation(obs_history[-1], self.flags.obs)
@@ -91,7 +93,7 @@ class MainPrompt(dp.Shrinkable):
         self.memory = Memory(visible=lambda: flags.use_memory)
 
     @property
-    def _prompt(self) -> str:
+    def _prompt_old(self) -> str:
         prompt = f"""\
 {self.instructions.prompt}\
 {self.obs.prompt}\
@@ -133,25 +135,34 @@ Make sure to follow the template with proper tags:
 """
         prompt = [{"type": "text", "text": prompt}]
         prompt = self.obs.add_screenshot(prompt)
-        return self.instructions.add_images(prompt)
+        return prompt
 
     @property
-    def prompt2(self):
-        prompt_bits = []
-        prompt_bits.append(self.instructions.prompt)
-        prompt_bits.extend(self.goal_images.prompt)
-        prompt_bits.append(self.obs.prompt)
-        prompt_bits.append(self.history.prompt)
-        prompt_bits.append(self.action_prompt.prompt)
-        prompt_bits.append(self.hints.prompt)
-        prompt_bits.append(self.be_cautious.prompt)
-        prompt_bits.append(self.think.prompt)
-        prompt_bits.append(self.plan.prompt)
-        prompt_bits.append(self.memory.prompt)
-        prompt_bits.append(self.criticise.prompt)
+    def _prompt(self) -> str:
+        prompt = []
+        prompt += self.instructions.prompt
+        prompt += [
+            {
+                "type": "text",
+                "text": f"""
+{self.obs.prompt}\
+{self.history.prompt}\
+{self.action_prompt.prompt}\
+{self.hints.prompt}\
+{self.be_cautious.prompt}\
+{self.think.prompt}\
+{self.plan.prompt}\
+{self.memory.prompt}\
+{self.criticise.prompt}\
+""",
+            }
+        ]
+
         if self.flags.use_abstract_example:
-            prompt_bits += [
-                f"""
+            prompt += [
+                {
+                    "type": "text",
+                    "text": f"""
 # Abstract Example
 
 Here is an abstract version of the answer with description of the content of
@@ -162,12 +173,15 @@ answer:
 {self.memory.abstract_ex}\
 {self.criticise.abstract_ex}\
 {self.action_prompt.abstract_ex}\
-"""
+""",
+                }
             ]
 
         if self.flags.use_concrete_example:
-            prompt_bits += [
-                f"""
+            prompt += [
+                {
+                    "type": "text",
+                    "text": f"""
 # Concrete Example
 
 Here is a concrete example of how to format your answer.
@@ -177,8 +191,10 @@ Make sure to follow the template with proper tags:
 {self.memory.concrete_ex}\
 {self.criticise.concrete_ex}\
 {self.action_prompt.concrete_ex}\
-"""
+""",
+                }
             ]
+        return self.obs.add_screenshot(prompt)
 
     def shrink(self):
         self.history.shrink()
