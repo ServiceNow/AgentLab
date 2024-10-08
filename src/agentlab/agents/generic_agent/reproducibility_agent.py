@@ -20,8 +20,11 @@ from pathlib import Path
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from bs4 import BeautifulSoup
+from langchain.schema import AIMessage, BaseMessage
+from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.experiments.study_generators import Study
 from agentlab.llm.chat_api import make_assistant_message
 from agentlab.llm.llm_utils import messages_to_dict
 
@@ -142,7 +145,12 @@ def reproduce_study(original_study_dir: Path | str):
                 logging_level=logging.DEBUG,
             )
         )
-    return study_name, exp_args_list
+
+    return Study(
+        exp_args_list=exp_args_list,
+        benchmark_name="repro_study",
+        agent_names=[agent_args.agent_name],
+    )
 
 
 def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):
