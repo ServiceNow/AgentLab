@@ -1,3 +1,4 @@
+import base64
 import traceback
 from copy import deepcopy
 from io import BytesIO
@@ -11,12 +12,14 @@ import numpy as np
 import pandas as pd
 from attr import dataclass
 from browsergym.experiments.loop import ExpResult, StepInfo
-from langchain.schema import BaseMessage
-from langchain_openai import ChatOpenAI
+from langchain.schema import BaseMessage, HumanMessage
+from openai import OpenAI
 from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.llm.chat_api import make_system_message, make_user_message
+from agentlab.llm.llm_utils import image_to_jpg_base64_url
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -31,7 +34,7 @@ def display_table(df: pd.DataFrame):
     return df
 
 
-def remove_args_frcom_col(df: pd.DataFrame):
+def remove_args_from_col(df: pd.DataFrame):
     df.columns = [col.replace("_args", "") for col in df.columns]
     df.index.names = [col.replace("_args", "") for col in df.index.names]
     return df
@@ -220,15 +223,18 @@ clicking the refresh button.
             with gr.Tab("Select Task and Seed", id="Select Task"):
                 with gr.Row():
                     with gr.Column(scale=4):
-                        with gr.Accordion("Task Selector (click for help)", open=False):
-                            gr.Markdown(
-                                """\
-    Click on a row to select a task. It will trigger the update of other fields.
+                        with gr.Row():  # combining the title (help) and the refresh button
+                            with gr.Accordion("Task Selector (click for help)", open=False):
+                                gr.Markdown(
+                                    """\
+        Click on a row to select a task. It will trigger the update of other fields.
 
-    **GRADIO BUG**: If you sort the columns the click will not match the
-    content. You have to sort back with the Idx column to align the click with
-    the order."""
-                            )
+        **GRADIO BUG**: If you sort the columns the click will not match the
+        content. You have to sort back with the Idx column to align the click with
+        the order."""
+                                )
+                            refresh_results_button = gr.Button("↺", scale=0, size="sm")
+
                         task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
 
                     with gr.Column(scale=2):
@@ -340,8 +346,18 @@ clicking the refresh button.
             with gr.Tab("Stats") as tab_stats:
                 stats = gr.DataFrame(height=500, show_label=False, interactive=False)
 
-            with gr.Tab("Agent Info") as tab_agent_info:
-                agent_info = gr.Markdown()
+            with gr.Tab("Agent Info HTML") as tab_agent_info_html:
+                with gr.Row():
+                    screenshot1_agent = gr.Image(
+                        show_label=False, interactive=False, show_download_button=False
+                    )
+                    screenshot2_agent = gr.Image(
+                        show_label=False, interactive=False, show_download_button=False
+                    )
+                agent_info_html = gr.HTML()
+
+            with gr.Tab("Agent Info MD") as tab_agent_info_md:
+                agent_info_md = gr.Markdown()
 
             with gr.Tab("Prompt tests") as tab_prompt_tests:
                 with gr.Row():
@@ -374,6 +390,10 @@ clicking the refresh button.
         # ===============#
 
         refresh_button.click(
+            fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice
+        )
+
+        refresh_results_button.click(
             fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice
         )
 
@@ -423,9 +443,13 @@ clicking the refresh button.
         step_id.change(fn=if_active("Task Error")(update_task_error), outputs=task_error)
         step_id.change(fn=if_active("Logs")(update_logs), outputs=logs)
         step_id.change(fn=if_active("Stats")(update_stats), outputs=stats)
-        step_id.change(fn=if_active("Agent Info")(update_agent_info), outputs=agent_info)
         step_id.change(
-            fn=if_active("Prompt tests")(update_prompt_tests),
+            fn=if_active("Agent Info HTML", 3)(update_agent_info_html),
+            outputs=[agent_info_html, screenshot1_agent, screenshot2_agent],
+        )
+        step_id.change(fn=if_active("Agent Info MD")(update_agent_info_md), outputs=agent_info_md)
+        step_id.change(
+            fn=if_active("Prompt tests", 2)(update_prompt_tests),
             outputs=[prompt_markdown, prompt_tests_textbox],
         )
 
@@ -445,7 +469,8 @@ clicking the refresh button.
         tab_error.select(fn=update_task_error, outputs=task_error)
         tab_logs.select(fn=update_logs, outputs=logs)
         tab_stats.select(fn=update_stats, outputs=stats)
-        tab_agent_info.select(fn=update_agent_info, outputs=agent_info)
+        tab_agent_info_html.select(fn=update_agent_info_html, outputs=agent_info_html)
+        tab_agent_info_md.select(fn=update_agent_info_md, outputs=agent_info_md)
         tab_prompt_tests.select(
             fn=update_prompt_tests, outputs=[prompt_markdown, prompt_tests_textbox]
         )
@@ -456,7 +481,7 @@ clicking the refresh button.
         tabs.select(tab_select)
 
     demo.queue()
-    demo.launch(server_port=7899)
+    demo.launch(server_port=7899, share=True)
 
 
 def tab_select(evt: gr.SelectData):
@@ -545,7 +570,7 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     messages = []
     for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):
+        if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
             m = m.content
         elif isinstance(m, dict):
             m = m.get("content", "No Content")
@@ -579,27 +604,74 @@ def update_stats():
         return None
 
 
-def update_agent_info():
+def update_agent_info_md():
     global info
     try:
         agent_info = info.exp_result.steps_info[info.step].agent_info
-        page = agent_info.get("markup_page", None)
+        page = agent_info.get("markdown_page", None)
         if page is None:
-            page = """Fill up markup_page attribute in AgentInfo to display here."""
+            page = agent_info.get("markup_page", None)  # TODO: remove in a while
+        if page is None:
+            page = """Fill up markdown_page attribute in AgentInfo to display here."""
         return page
     except (FileNotFoundError, IndexError):
         return None
+
+
+def update_agent_info_html():
+    global info
+    # screenshots from current and next step
+    try:
+        s1 = get_screenshot(info, info.step, False)
+        s2 = get_screenshot(info, info.step + 1, False)
+        agent_info = info.exp_result.steps_info[info.step].agent_info
+        page = agent_info.get("html_page", ["No Agent Info"])
+        if page is None:
+            page = """Fill up html_page attribute in AgentInfo to display here."""
+        else:
+            page = _page_to_iframe(page)
+        return page, s1, s2
+
+    except (FileNotFoundError, IndexError):
+        return None, None, None
+
+
+def _page_to_iframe(page: str):
+    html_bytes = page.encode("utf-8")
+    encoded_html = base64.b64encode(html_bytes).decode("ascii")
+    data_url = f"data:text/html;base64,{encoded_html}"
+
+    # Create iframe with the data URL
+    page = f"""
+<iframe src="{data_url}" 
+        style="width: 100%; height: 1000px; border: none; background-color: white;">
+</iframe>
+"""
+    return page
 
 
 def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    assert isinstance(chat_messages[1], BaseMessage), "Messages should be langchain messages"
+    if isinstance(chat_messages[1], BaseMessage):  # TODO remove once langchain is deprecated
+        assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
+        chat_messages = [
+            make_system_message(chat_messages[0].content),
+            make_user_message(chat_messages[1].content),
+        ]
+    elif isinstance(chat_messages[1], dict):
+        assert chat_messages[1].get("role", None) == "user", "Second message should be user"
+    else:
+        raise ValueError("Chat messages should be a list of BaseMessage or dict")
 
-    chat = ChatOpenAI(name="gpt-4o-mini")
-    chat_messages[1].content = input_text
-    result_text = chat(chat_messages).content
+    client = OpenAI()
+    chat_messages[1]["content"] = input_text
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=chat_messages,
+    )
+    result_text = completion.choices[0].message.content
     return result_text
 
 
@@ -608,9 +680,7 @@ def update_prompt_tests():
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     prompt = chat_messages[1]
-    if isinstance(prompt, BaseMessage):
-        prompt = prompt.content
-    elif isinstance(prompt, dict):
+    if isinstance(prompt, dict):
         prompt = prompt.get("content", "No Content")
     return prompt, prompt
 
@@ -648,7 +718,10 @@ def get_episode_info(info: Info):
         env_args = info.exp_result.exp_args.env_args
         steps_info = info.exp_result.steps_info
         step_info = steps_info[info.step]
-        goal = step_info.obs["goal"]
+        try:
+            goal = step_info.obs["goal"]
+        except KeyError:
+            goal = None
         try:
             cum_reward = info.exp_result.summary_info["cum_reward"]
         except FileNotFoundError:
@@ -674,7 +747,7 @@ def get_episode_info(info: Info):
 <small style="line-height: 1; margin: 0; padding: 0;">{code(exp_dir_str)}</small>"""
     except Exception as e:
         info = f"""\
-**Error while getting episod info**
+**Error while getting episode info**
 {code(traceback.format_exc())}"""
     return info
 
@@ -820,17 +893,11 @@ def get_agent_report(result_df: pd.DataFrame):
     levels = list(range(result_df.index.nlevels))
 
     if len(levels) == 1:
-        df = pd.DataFrame([{AGENT_NAME_KEY: result_df[AGENT_NAME_KEY].iloc[0]}])
-        df.set_index(AGENT_NAME_KEY, inplace=True)
-        return df
+        result_df = result_df.set_index(AGENT_NAME_KEY, append=True)
+        levels = list(range(result_df.index.nlevels))
 
     report = result_df.groupby(level=levels[1:]).apply(inspect_results.summarize)
 
-    # def rename_index(name: str):
-    #     return name.replace("agent_args.flags.", "")
-
-    # index_names = [rename_index(name) for name in report.index.names]
-    # report = report.rename_axis(index=index_names)
     return report
 
 
@@ -841,7 +908,7 @@ def update_global_stats():
     return stats
 
 
-def new_exp_dir(exp_dir, progress=gr.Progress()):
+def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
 
     if exp_dir == select_dir_instructions:
         return None, None
@@ -854,7 +921,7 @@ def new_exp_dir(exp_dir, progress=gr.Progress()):
 
     info.exp_list_dir = info.results_dir / exp_dir
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
-    info.result_df = remove_args_frcom_col(info.result_df)
+    info.result_df = remove_args_from_col(info.result_df)
 
     agent_report = display_table(get_agent_report(info.result_df))
     info.agent_id_keys = agent_report.index.names
@@ -1064,6 +1131,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
 
 def main():
     run_gradio(RESULTS_DIR)
+
 
 if __name__ == "__main__":
     main()

@@ -1,8 +1,5 @@
-import os
-
 from agentlab.llm.chat_api import (
     AzureModelArgs,
-    HuggingFaceModelArgs,
     OpenAIModelArgs,
     OpenRouterModelArgs,
     SelfHostedModelArgs,
@@ -20,11 +17,12 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
-    "openai/gpt-4o-mini": OpenAIModelArgs(
-        model_name="gpt-4o-mini",
+    "openai/gpt-4o-mini-2024-07-18": OpenAIModelArgs(
+        model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,
+        vision_support=True,
     ),
     "openai/gpt-4-1106-preview": OpenAIModelArgs(
         model_name="gpt-4-1106-preview",
@@ -65,12 +63,19 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=7500,
         max_new_tokens=500,
     ),
-    "HuggingFaceH4/starchat-beta": HuggingFaceModelArgs(
-        model_name="HuggingFaceH4/starchat-beta",
-        max_total_tokens=8192,
-        max_input_tokens=8192 - 512,
-        max_new_tokens=512,
-        temperature=1e-1,
+    "azure/gpt-4o-2024-05-13": AzureModelArgs(
+        model_name="gpt-4o",
+        deployment_name="gpt-4o-2024-05-13",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
+    ),
+    "azure/gpt-4o-2024-08-06": AzureModelArgs(
+        model_name="gpt-4o",
+        deployment_name="gpt-4o-2024-08-06",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
     ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
@@ -107,6 +112,13 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "openrouter/meta-llama/llama-3.1-70b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-70b-instruct",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
+        temperature=1e-1,
+    ),
+    "openrouter/meta-llama/llama-3-70b-instruct": OpenRouterModelArgs(
+        model_name="meta-llama/llama-3-70b-instruct",
         max_total_tokens=128_000,
         max_input_tokens=40_000,
         max_new_tokens=4000,

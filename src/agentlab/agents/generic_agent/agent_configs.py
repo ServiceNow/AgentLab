@@ -1,6 +1,6 @@
 from agentlab.agents import dynamic_prompting as dp
-from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.experiments import args
+from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 from .generic_agent import GenericAgentArgs
 from .generic_agent_prompt import GenericPromptFlags
@@ -45,7 +45,7 @@ FLAGS_CUSTOM = GenericPromptFlags(
 
 
 AGENT_CUSTOM = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-3.5-turbo-1106"],
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-8b-instruct"],
     flags=FLAGS_CUSTOM,
 )
 
@@ -96,7 +96,7 @@ AGENT_3_5 = GenericAgentArgs(
 )
 
 # llama3-70b default config
-FLAGS_70B = GenericPromptFlags(
+FLAGS_LLAMA3_70B = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
         use_ax_tree=True,
@@ -135,9 +135,13 @@ FLAGS_70B = GenericPromptFlags(
     add_missparsed_messages=True,
 )
 
-AGENT_70B = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["meta-llama/Meta-Llama-3-70B-Instruct"],
-    flags=FLAGS_70B,
+AGENT_LLAMA3_70B = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
+    flags=FLAGS_LLAMA3_70B,
+)
+AGENT_LLAMA31_70B = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+    flags=FLAGS_LLAMA3_70B,
 )
 
 FLAGS_8B = GenericPromptFlags(
@@ -208,8 +212,8 @@ FLAGS_GPT_4o = GenericPromptFlags(
     action=dp.ActionFlags(
         multi_actions=False,
         action_set="bid",
-        long_description=True,
-        individual_examples=True,
+        long_description=False,
+        individual_examples=False,
     ),
     use_plan=False,
     use_criticise=False,
@@ -230,7 +234,7 @@ AGENT_4o = GenericAgentArgs(
 )
 
 AGENT_4o_MINI = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini"],
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
     flags=FLAGS_GPT_4o,
 )
 

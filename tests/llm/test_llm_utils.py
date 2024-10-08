@@ -1,16 +1,13 @@
 import warnings
 from typing import Literal
-from unittest import mock
 from unittest.mock import Mock
 
 import httpx
-import numpy as np
 import pytest
-from langchain.schema import SystemMessage
-from langchain_openai import AzureChatOpenAI
 from openai import RateLimitError
 
 from agentlab.llm import llm_utils
+from agentlab.llm.chat_api import make_system_message
 
 yaml_str = """Analysis:
 This is the analysis
@@ -94,40 +91,6 @@ hola
     assert compressed_text == expected_output
 
 
-@pytest.mark.pricy
-def test_retry_parallel():
-    chat = AzureChatOpenAI(
-        model_name="gpt-35-turbo", azure_deployment="gpt-35-turbo", temperature=0.2, n=3
-    )
-    prompt = """List primes from 1 to 10."""
-    messages = [
-        SystemMessage(content=prompt),
-    ]
-
-    global n_call
-    n_call = 0
-
-    def parser(message):
-        global n_call
-        n_call += 1
-
-        if n_call <= 3:  # First 3 calls, just answer the new prompt
-            return (
-                None,
-                False,
-                "I changed my mind. List primes up to 15. Just answer the json list, nothing else.",
-                0,
-            )
-        elif n_call == 5:
-            return "success", True, "", 10
-        else:
-            return "bad", True, "", 1 + np.random.rand()
-
-    value = llm_utils.retry_parallel(chat, messages, parser=parser, n_retry=2)
-    assert value == "success"
-    assert n_call == 6  # 2*3 calls
-
-
 # Mock ChatOpenAI class
 class MockChatOpenAI:
     def invoke(self, messages):
@@ -136,9 +99,9 @@ class MockChatOpenAI:
 
 def mock_parser(answer):
     if answer == "correct content":
-        return "Parsed value", True, ""
-
-    return None, False, "Retry message"
+        return "Parsed value"
+    else:
+        raise llm_utils.ParseError("Retry message")
 
 
 def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> RateLimitError:
@@ -161,46 +124,46 @@ def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> Rate
 
 
 # Test to ensure function stops retrying after reaching the max wait time
-def test_rate_limit_max_wait_time():
-    mock_chat = MockChatOpenAI()
-    mock_chat.invoke = Mock(
-        side_effect=mock_rate_limit_error("Rate limit reached. Please try again in 2s.")
-    )
+# def test_rate_limit_max_wait_time():
+#     mock_chat = MockChatOpenAI()
+#     mock_chat.invoke = Mock(
+#         side_effect=mock_rate_limit_error("Rate limit reached. Please try again in 2s.")
+#     )
 
-    with pytest.raises(RateLimitError):
-        llm_utils.retry(
-            mock_chat,
-            [],
-            n_retry=4,
-            parser=mock_parser,
-            rate_limit_max_wait_time=6,
-            min_retry_wait_time=1,
-        )
+#     with pytest.raises(RateLimitError):
+#         llm_utils.retry(
+#             mock_chat,
+#             [],
+#             n_retry=4,
+#             parser=mock_parser,
+#             rate_limit_max_wait_time=6,
+#             min_retry_wait_time=1,
+#         )
 
-    # The function should stop retrying after 2 attempts (6s each time, 12s total which is greater than the 10s max wait time)
-    assert mock_chat.invoke.call_count == 3
+#     # The function should stop retrying after 2 attempts (6s each time, 12s total which is greater than the 10s max wait time)
+#     assert mock_chat.invoke.call_count == 3
 
 
-def test_rate_limit_success():
-    mock_chat = MockChatOpenAI()
-    mock_chat.invoke = Mock(
-        side_effect=[
-            mock_rate_limit_error("Rate limit reached. Please try again in 2s."),
-            SystemMessage(content="correct content"),
-        ]
-    )
+# def test_rate_limit_success():
+#     mock_chat = MockChatOpenAI()
+#     mock_chat.invoke = Mock(
+#         side_effect=[
+#             mock_rate_limit_error("Rate limit reached. Please try again in 2s."),
+#             make_system_message("correct content"),
+#         ]
+#     )
 
-    result = llm_utils.retry(
-        mock_chat,
-        [],
-        n_retry=4,
-        parser=mock_parser,
-        rate_limit_max_wait_time=6,
-        min_retry_wait_time=1,
-    )
+#     result = llm_utils.retry(
+#         mock_chat,
+#         [],
+#         n_retry=4,
+#         parser=mock_parser,
+#         rate_limit_max_wait_time=6,
+#         min_retry_wait_time=1,
+#     )
 
-    assert result == "Parsed value"
-    assert mock_chat.invoke.call_count == 2
+#     assert result == "Parsed value"
+#     assert mock_chat.invoke.call_count == 2
 
 
 # Mock a successful parser response to test function exit before max retries
@@ -211,13 +174,13 @@ def test_successful_parse_before_max_retries():
     # content  on the 3rd time
     mock_chat.invoke = Mock(
         side_effect=[
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="correct content"),
+            make_system_message("wrong content"),
+            make_system_message("wrong content"),
+            make_system_message("correct content"),
         ]
     )
 
-    result = llm_utils.retry(mock_chat, [], 5, mock_parser, min_retry_wait_time=1)
+    result = llm_utils.retry(mock_chat, [], 5, mock_parser)
 
     assert result == "Parsed value"
     assert mock_chat.invoke.call_count == 3
@@ -230,12 +193,12 @@ def test_unsuccessful_parse_before_max_retries():
     # content  on the 3rd time
     mock_chat.invoke = Mock(
         side_effect=[
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="wrong content"),
-            SystemMessage(content="correct content"),
+            make_system_message("wrong content"),
+            make_system_message("wrong content"),
+            make_system_message("correct content"),
         ]
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(llm_utils.ParseError):
         result = llm_utils.retry(mock_chat, [], 2, mock_parser)
 
     assert mock_chat.invoke.call_count == 2
@@ -243,7 +206,7 @@ def test_unsuccessful_parse_before_max_retries():
 
 def test_retry_parse_raises():
     mock_chat = MockChatOpenAI()
-    mock_chat.invoke = Mock(return_value=SystemMessage(content="mocked response"))
+    mock_chat.invoke = Mock(return_value=make_system_message("mocked response"))
     parser_raises = Mock(side_effect=ValueError("Parser error"))
 
     with pytest.raises(ValueError):

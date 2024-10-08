@@ -1,27 +1,34 @@
+import logging
 import os
 import re
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from langchain.schema import AIMessage
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
+import openai
+from openai import AzureOpenAI, OpenAI
 
-from agentlab.llm.langchain_utils import (
-    ChatOpenRouter,
-    HuggingFaceAPIChatModel,
-    HuggingFaceURLChatModel,
-)
+import agentlab.llm.tracking as tracking
+from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
 
-if TYPE_CHECKING:
-    from langchain_core.language_models.chat_models import BaseChatModel
+
+def make_system_message(content: str) -> dict:
+    return dict(role="system", content=content)
+
+
+def make_user_message(content: str) -> dict:
+    return dict(role="user", content=content)
+
+
+def make_assistant_message(content: str) -> dict:
+    return dict(role="assistant", content=content)
 
 
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
     def invoke(self, messages) -> str:
-        prompt = messages[-1].content
+        prompt = messages[-1]["content"]
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:
@@ -35,10 +42,13 @@ class CheatMiniWoBLLM:
 {action}
 </action>
 """
-        return AIMessage(content=answer)
+        return make_assistant_message(answer)
 
     def __call__(self, messages) -> str:
         return self.invoke(messages)
+
+    def get_stats(self):
+        return {}
 
 
 @dataclass
@@ -70,7 +80,7 @@ class BaseModelArgs(ABC):
     vision_support: bool = False
 
     @abstractmethod
-    def make_model(self) -> "BaseChatModel":
+    def make_model(self) -> "ChatModel":
         pass
 
     def prepare_server(self):
@@ -86,7 +96,7 @@ class OpenRouterModelArgs(BaseModelArgs):
     model."""
 
     def make_model(self):
-        return ChatOpenRouter(
+        return OpenRouterChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
@@ -99,23 +109,10 @@ class OpenAIModelArgs(BaseModelArgs):
     model."""
 
     def make_model(self):
-        return ChatOpenAI(
+        return OpenAIChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-        )
-
-
-@dataclass
-class HuggingFaceModelArgs(BaseModelArgs):
-    """Serializable object for instantiating a generic chat model with a HuggingFace model."""
-
-    def make_model(self):
-        return HuggingFaceAPIChatModel(
-            model_name=self.model_name,
-            temperature=self.temperature,
-            max_new_tokens=self.max_new_tokens,
-            n_retry_server=4,
         )
 
 
@@ -126,7 +123,7 @@ class AzureModelArgs(BaseModelArgs):
     deployment_name: str = None
 
     def make_model(self):
-        return AzureChatOpenAI(
+        return AzureChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
@@ -194,3 +191,213 @@ class ChatModelArgs(BaseModelArgs):
 
     def make_model(self):
         pass
+
+
+def _extract_wait_time(error_message, min_retry_wait_time=60):
+    """Extract the wait time from an OpenAI RateLimitError message."""
+    match = re.search(r"try again in (\d+(\.\d+)?)s", error_message)
+    if match:
+        return max(min_retry_wait_time, float(match.group(1)))
+    return min_retry_wait_time
+
+
+class RetryError(Exception):
+    pass
+
+
+def handle_error(error, itr, min_retry_wait_time, max_retry):
+    if not isinstance(error, openai.OpenAIError):
+        raise error
+    logging.warning(
+        f"Failed to get a response from the API: \n{error}\n" f"Retrying... ({itr+1}/{max_retry})"
+    )
+    wait_time = _extract_wait_time(
+        error.args[0],
+        min_retry_wait_time=min_retry_wait_time,
+    )
+    logging.info(f"Waiting for {wait_time} seconds")
+    time.sleep(wait_time)
+    error_type = error.args[0]
+    return error_type
+
+
+class ChatModel:
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+        api_key_env_var=None,
+        client_class=OpenAI,
+        client_args=None,
+        pricing_func=None,
+    ):
+        assert max_retry > 0, "max_retry should be greater than 0"
+
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
+        self.min_retry_wait_time = min_retry_wait_time
+
+        # Get the API key from the environment variable if not provided
+        if api_key_env_var:
+            api_key = api_key or os.getenv(api_key_env_var)
+        self.api_key = api_key
+
+        # Get pricing information
+        if pricing_func:
+            pricings = pricing_func()
+            try:
+                self.input_cost = float(pricings[model_name]["prompt"])
+                self.output_cost = float(pricings[model_name]["completion"])
+            except KeyError:
+                logging.warning(
+                    f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+                )
+                self.input_cost = 0.0
+                self.output_cost = 0.0
+        else:
+            self.input_cost = 0.0
+            self.output_cost = 0.0
+
+        client_args = client_args or {}
+        self.client = client_class(
+            api_key=api_key,
+            **client_args,
+        )
+
+    def __call__(self, messages: list[dict]) -> dict:
+        # Initialize retry tracking attributes
+        self.retries = 0
+        self.success = False
+        self.error_types = []
+
+        completion = None
+        e = None
+        for itr in range(self.max_retry):
+            self.retries += 1
+            try:
+                completion = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                )
+                self.success = True
+                break
+            except openai.OpenAIError as e:
+                error_type = handle_error(e, itr, self.min_retry_wait_time, self.max_retry)
+                self.error_types.append(error_type)
+
+        if not completion:
+            raise RetryError(
+                f"Failed to get a response from the API after {self.max_retry} retries\n"
+                f"Last error: {error_type}"
+            )
+
+        input_tokens = completion.usage.prompt_tokens
+        output_tokens = completion.usage.completion_tokens
+        cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+
+        if hasattr(tracking.TRACKER, "instance") and isinstance(
+            tracking.TRACKER.instance, tracking.LLMTracker
+        ):
+            tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+
+        return make_assistant_message(completion.choices[0].message.content)
+
+    def invoke(self, messages: list[dict]) -> dict:
+        return self(messages)
+
+    def get_stats(self):
+        return {
+            "n_retry_llm": self.retries,
+            # "busted_retry_llm": int(not self.success), # not logged if it occurs anyways
+        }
+
+
+class OpenAIChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+    ):
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retry=max_retry,
+            min_retry_wait_time=min_retry_wait_time,
+            api_key_env_var="OPENAI_API_KEY",
+            client_class=OpenAI,
+            pricing_func=tracking.get_pricing_openai,
+        )
+
+
+class OpenRouterChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+    ):
+        client_args = {
+            "base_url": "https://openrouter.ai/api/v1",
+        }
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retry=max_retry,
+            min_retry_wait_time=min_retry_wait_time,
+            api_key_env_var="OPENROUTER_API_KEY",
+            client_class=OpenAI,
+            client_args=client_args,
+            pricing_func=tracking.get_pricing_openrouter,
+        )
+
+
+class AzureChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        deployment_name=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+    ):
+        api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
+
+        client_args = {
+            "azure_deployment": deployment_name,
+            "azure_endpoint": endpoint,
+            "api_version": "2024-02-01",
+        }
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retry=max_retry,
+            min_retry_wait_time=min_retry_wait_time,
+            client_class=AzureOpenAI,
+            client_args=client_args,
+            pricing_func=tracking.get_pricing_openai,
+        )

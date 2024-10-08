@@ -1,7 +1,9 @@
 import fnmatch
 import io
+import json
 import random
 import re
+import traceback
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -35,6 +37,9 @@ except ImportError:
 
 pd.set_option("display.multi_sparse", False)
 
+AGENT_NAME_KEY = "agent.agent_name"
+TASK_KEY = "env.task_name"
+
 
 def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
     """Filter out constants from the dataframe."""
@@ -58,12 +63,12 @@ def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
 
 def set_index_from_variables(
     df: pd.DataFrame,
-    index_white_list=("agent_args.*",),
-    index_black_list=("*model_url*", "*extra*"),
-    task_key="env_args.task_name",
-    force_at_leaste_one_variable=False,
+    index_white_list=("agent.*",),
+    index_black_list=("*model_url*", "*extra*", "*._*"),
+    task_key=TASK_KEY,
+    add_agent_and_benchmark=True,
 ):
-    """Set the index, inplace, to env_args.task_name and all variables.
+    """Set the index, inplace, to env.task_name and all variables.
 
     Introspects `df` to find all fields that are variable and set the index to
     those fields. This will allow to easily groupby and compare results. To
@@ -79,17 +84,23 @@ def set_index_from_variables(
         task_key: The key to use as the first level of the index.
         force_at_leaste_one_variable: If True, force at least one variable in the
             index. If no variable is found, the index will be set to
-            task_key + "agent_args.agent_name".
+            task_key + "agent.agent_name".
     """
     df.reset_index(inplace=True)
     constants, variables, _ = get_constants_and_variables(df)
 
     index_variables = []
+    if add_agent_and_benchmark:
+        index_variables.append("agent.agent_name")
+        if "env.benchmark" not in df.columns:
+            df["env.benchmark"] = df[TASK_KEY].map(_benchmark_from_task_name)
+        index_variables.append("env.benchmark")
+
     for var in variables:
         white = any([fnmatch.fnmatch(var, pattern) for pattern in index_white_list])
         black = any([fnmatch.fnmatch(var, pattern) for pattern in index_black_list])
 
-        if white and not black:
+        if white and (not black) and (not var in index_variables):
             index_variables.append(var)
 
     for var in index_variables:
@@ -99,10 +110,7 @@ def set_index_from_variables(
             )
             df[var] = df[var].fillna("None")
 
-    if len(index_variables) == 0 and force_at_leaste_one_variable:
-        if "agent_args.agent_name" in constants:
-            index_variables = ["agent_args.agent_name"]
-    # agent_variables = [var for var in variables if var.startswith("agent_args.")]
+    # agent_variables = [var for var in variables if var.startswith("agent.")]
     df.set_index([task_key] + index_variables, inplace=True)
     df.sort_index(inplace=True)
 
@@ -112,19 +120,20 @@ def load_result_df(
     progress_fn=tqdm,
     set_index=True,
     result_df=None,
-    index_white_list=("agent_args.*",),
-    index_black_list=("*model_url*", "*extra*"),
+    index_white_list=("agent.*",),
+    index_black_list=("*model_url*", "*extra*", "*._*"),
+    remove_args_suffix=True,
 ):
     """Load the result dataframe.
 
-    Will set the index to env_args.task_name and all columens that are not constant and
-    starts with agent_args. This will allow to easily groupby and compare
+    Will set the index to env.task_name and all columens that are not constant and
+    starts with agent. This will allow to easily groupby and compare
     results. This index can be changed later using df.set_index.
 
     Args:
         exp_dir: Path to the experiment directory
         progress_fn: Progress function to use when loading the results
-        set_index: If True, set the index to env_args.task_name and variable agent_args
+        set_index: If True, set the index to env.task_name and variable agent
         result_df: If not None, speed up the loading process by reusing
             alreading loaded objects.
         index_white_list: List of wildard patterns to match variables that
@@ -148,6 +157,10 @@ def load_result_df(
         result_list = progress_fn(result_list, desc="Loading results")
 
     df = pd.DataFrame([exp_result.get_exp_record() for exp_result in result_list])
+
+    if remove_args_suffix:
+        df.columns = [col.replace("_args", "") for col in df.columns]
+
     if set_index:
         set_index_from_variables(df, index_white_list, index_black_list)
     return df
@@ -211,9 +224,7 @@ def report_constant_and_variables(df, show_stack_traces=True):
             print(f"        ...\n")
 
 
-def get_bootstrap(
-    df, metric, reduce_fn=np.nanmean, n_bootstrap=100, group_by="env_args.task_name", prior=0.5
-):
+def get_bootstrap(df, metric, reduce_fn=np.nanmean, n_bootstrap=100, group_by=TASK_KEY, prior=0.5):
     """Get the stratified bootstrap mean and std for the given metric."""
     grouped_df = df.reset_index(inplace=False).groupby(group_by)
     array = convert_df_to_array(grouped_df, metric=metric, threshold=0.7)
@@ -291,9 +302,9 @@ def summarize_stats(sub_df):
             key_ = key.split(".")[1]
             op = key_.split("_")[0]
             if op == "cum":
-                record[key_] = sub_df[key].sum(skipna=True).round(3)
+                record[key_] = sub_df[key].sum(skipna=True)
             elif op == "max":
-                record[key_] = sub_df[key].max(skipna=True).round(3)
+                record[key_] = sub_df[key].max(skipna=True)
             else:
                 raise ValueError(f"Unknown stats operation: {op}")
     return pd.Series(record)
@@ -390,7 +401,7 @@ def _sort_order(result_df, report):
 def global_report(
     result_df: pd.DataFrame,
     reduce_fn=summarize,
-    rename_index=lambda name: name.replace("agent_args.flags.", ""),
+    rename_index=lambda name: name.replace("agent.flags.", ""),
 ):
     """Produce a report that summarize all tasks and all episodes for each
     agent.
@@ -400,7 +411,7 @@ def global_report(
         reduce_fn: The function to use to reduce the sub dataframe. By default
             this is summarize.
         rename_index: Function to rename the index. By default we remove the prefix
-            "agent_args.flags."
+            "agent.flags."
 
     Returns:
         pd.DataFrame: The report
@@ -751,7 +762,27 @@ def report_different_errors(sub_df):
     return error_report
 
 
-def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
+# ===============
+
+
+def _benchmark_from_task_name(task_name: str):
+    """Extract the benchmark from the task name.
+    TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
+    """
+    return task_name.split(".")[0]
+
+
+def summarize_study(result_df: pd.DataFrame) -> pd.DataFrame:
+    """Create a summary of the study.
+
+    Similar to global report, but handles single agent differently.
+    """
+
+    levels = list(range(result_df.index.nlevels))
+    return result_df.groupby(level=levels[1:]).apply(summarize)
+
+
+def split_by_key(df: pd.DataFrame, key):
     """Return a dict of dataframes spearted by the given key."""
     # check if key in df
     if not (key in df.columns):
@@ -760,21 +791,106 @@ def split_by_key(df: pd.DataFrame, key, force_at_leaste_one_variable=True):
     df_dict = {}
     for value in df[key].unique():
         sub_df = df[df[key] == value].copy()
-        set_index_from_variables(sub_df, force_at_leaste_one_variable=force_at_leaste_one_variable)
+        set_index_from_variables(sub_df)
         df_dict[value] = sub_df
 
     return df_dict
 
 
-# def set_task_category_as_index(result_df, task_category_map=TASK_CATEGORY_MAP):
-#     """Create task_category index from task_name if needed and re-assign index
-#     from variables using task_category."""
-#     # rested index task_name (level 0)
-#     new_df = result_df.reset_index(inplace=False)
-#     if not "task_category" in new_df.columns:
-#         new_df["task_category"] = new_df["env_args.task_name"].map(task_category_map)
-#     set_index_from_variables(new_df, task_key="task_category")
-#     return new_df
+def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, ignore_stale=False):
+    summaries = []
+    for study_dir in results_dir.iterdir():
+        print(study_dir.name)
+        if skip_hidden and study_dir.name.startswith("_"):
+            print("  skip (starts with '_')")
+            continue
+
+        try:
+            summary = get_study_summary(
+                study_dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
+            )
+            if summary is not None:
+                # set as index
+                summary["study_dir"] = study_dir.name
+                summary.set_index("study_dir", inplace=True)
+                summaries.append(summary)
+
+        except Exception as e:
+            traceback.print_exc()
+            continue
+
+    summaries = pd.concat(summaries)
+    # reverse sort according to index
+    summaries.sort_index(ascending=False, inplace=True)
+    return summaries
+
+
+def get_study_summary(
+    study_dir: Path,
+    ignore_cache=False,
+    ignore_stale=False,
+    progress_fn=None,
+    sentinel=None,
+) -> pd.DataFrame:
+    """Get the cached study summary for the given study directory or computes it.
+
+    The cache is based on the modified times of all the files in the study.
+
+    Args:
+        study_dir: The study directory to summarize
+        ignore_cache: If True, ignore the cache and recompute the summary
+        ignore_stale: If True, don't verify if files have changed since the last
+            summary was computed. This may lead to stale summaries.
+        progress_fn: Pass tqdm.tqdm to show progress.
+        sentinel: Captures internal values for unit testing.
+
+    Returns:
+        pd.DataFrame: The study summary
+    """
+    study_dir = Path(study_dir)
+
+    summary_path = study_dir / "study_summary.csv"
+    if not ignore_stale:
+        is_stale = _is_stale(study_dir, summary_path)
+    else:
+        is_stale = False
+
+    if not ignore_cache:
+        if summary_path.exists() and not is_stale:
+            if sentinel is not None:
+                sentinel["from_cache"] = True
+            return pd.read_csv(summary_path)
+
+    result_df = load_result_df(study_dir, progress_fn=progress_fn)
+    if result_df is None:
+        return None
+
+    summary = summarize_study(result_df)
+
+    summary.to_csv(summary_path)
+
+    if sentinel is not None:
+        sentinel["from_cache"] = False
+    return summary
+
+
+def _get_mtimes(dir: Path, pattern="[!_.]*", whitelist=()):
+    """Recursevly get all file's modif date"""
+    # use glob to get all files
+    files = list(dir.rglob(pattern))
+    return {str(f.relative_to(dir)): f.stat().st_mtime for f in files if f not in whitelist}
+
+
+def _is_stale(study_dir: Path, summary_path: Path) -> bool:
+    mtimes_path = study_dir / "_last_modification_times.json"
+    mtimes = _get_mtimes(study_dir, whitelist=(summary_path,))
+    if not mtimes_path.exists() or not summary_path.exists():
+        stale = True
+    else:
+        mtimes_saved = json.loads(mtimes_path.read_text())
+        stale = mtimes_saved != mtimes
+    mtimes_path.write_text(json.dumps(mtimes))
+    return stale
 
 
 def get_all_task_messages(exp_dir, max_n_exp=None):

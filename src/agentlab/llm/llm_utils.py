@@ -7,30 +7,33 @@ import os
 import re
 import time
 from functools import cache
-from pathlib import Path
 from typing import TYPE_CHECKING
 from warnings import warn
 
 import numpy as np
 import tiktoken
 import yaml
-from joblib import Memory
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-from openai import BadRequestError, RateLimitError
+from langchain.schema import BaseMessage
+from langchain_community.adapters.openai import convert_message_to_dict
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
 if TYPE_CHECKING:
-    from langchain_core.language_models import BaseChatModel
+    from agentlab.llm.chat_api import ChatModel
 
 
-def _extract_wait_time(error_message, min_retry_wait_time=60):
-    """Extract the wait time from an OpenAI RateLimitError message."""
-    match = re.search(r"try again in (\d+(\.\d+)?)s", error_message)
-    if match:
-        return max(min_retry_wait_time, float(match.group(1)))
-    return min_retry_wait_time
+def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
+    new_messages = []
+    for m in messages:
+        if isinstance(m, dict):
+            new_messages.append(m)
+        elif isinstance(m, str):
+            new_messages.append({"role": "<unknown role>", "content": m})
+        elif isinstance(m, BaseMessage):
+            new_messages.append(convert_message_to_dict(m))
+        else:
+            raise ValueError(f"Unknown message type: {type(m)}")
+    return new_messages
 
 
 class RetryError(ValueError):
@@ -38,86 +41,11 @@ class RetryError(ValueError):
 
 
 def retry(
-    chat: "BaseChatModel",
-    messages,
-    n_retry,
-    parser,
-    log=True,
-    min_retry_wait_time=60,
-    rate_limit_max_wait_time=60 * 30,
-):
-    """Retry querying the chat models with the response from the parser until it
-    returns a valid value.
-
-    If the answer is not valid, it will retry and append to the chat the  retry
-    message.  It will stop after `n_retry`.
-
-    Note, each retry has to resend the whole prompt to the API. This can be slow
-    and expensive.
-
-    Args:
-        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
-            returning a list of answers.
-        messages (list): the list of messages so far.
-        n_retry (int): the maximum number of sequential retries.
-        parser (function): a function taking a message and returning a tuple
-            with the following fields:
-                value : the parsed value,
-                valid : a boolean indicating if the value is valid,
-                retry_message : a message to send to the chat if the value is not valid
-        log (bool): whether to log the retry messages.
-        min_retry_wait_time (float): the minimum wait time in seconds
-            after RateLimtError. will try to parse the wait time from the error
-            message.
-        rate_limit_max_wait_time (int): the maximum wait time in seconds
-
-    Returns:
-        dict: the parsed value, with a string at key "action".
-
-    Raises:
-        RetryError: if the parser could not parse a valid value after n_retry retries.
-        RateLimitError: if the requests exceed the rate limit.
-    """
-    tries = 0
-    rate_limit_total_delay = 0
-    while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
-        try:
-            answer = chat.invoke(messages)
-        except RateLimitError as e:
-            wait_time = _extract_wait_time(e.args[0], min_retry_wait_time)
-            logging.warning(f"RateLimitError, waiting {wait_time}s before retrying.")
-            time.sleep(wait_time)
-            rate_limit_total_delay += wait_time
-            if rate_limit_total_delay >= rate_limit_max_wait_time:
-                logging.warning(
-                    f"Total wait time for rate limit exceeded. Waited {rate_limit_total_delay}s > {rate_limit_max_wait_time}s."
-                )
-                raise
-            continue
-
-        messages.append(answer)
-
-        value, valid, retry_message = parser(answer.content)
-        if valid:
-            return value
-
-        tries += 1
-        if log:
-            msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
-            logging.info(msg)
-        messages.append(HumanMessage(content=retry_message))
-
-    raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
-
-
-def retry_raise(
-    chat: "BaseChatModel",
-    messages: list[BaseMessage],
+    chat: "ChatModel",
+    messages: list[dict],
     n_retry: int,
     parser: callable,
     log: bool = True,
-    min_retry_wait_time: int = 60,
-    rate_limit_max_wait_time: int = 60 * 30,
 ):
     """Retry querying the chat models with the response from the parser until it
     returns a valid value.
@@ -129,8 +57,8 @@ def retry_raise(
     and expensive.
 
     Args:
-        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
-            returning a list of answers.
+        chat (ChatModel): a ChatModel object taking a list of messages and
+            returning a list of answers, all in OpenAI format.
         messages (list): the list of messages so far. This list will be modified with
             the new messages and the retry messages.
         n_retry (int): the maximum number of sequential retries.
@@ -150,97 +78,20 @@ def retry_raise(
         RateLimitError: if the requests exceed the rate limit.
     """
     tries = 0
-    rate_limit_total_delay = 0
-    while tries < n_retry and rate_limit_total_delay < rate_limit_max_wait_time:
-        try:
-            answer = chat.invoke(messages)
-        except RateLimitError as e:
-            wait_time = _extract_wait_time(e.args[0], min_retry_wait_time)
-            logging.warning(f"RateLimitError, waiting {wait_time}s before retrying.")
-            time.sleep(wait_time)
-            rate_limit_total_delay += wait_time
-            if rate_limit_total_delay >= rate_limit_max_wait_time:
-                logging.warning(
-                    f"Total wait time for rate limit exceeded. Waited {rate_limit_total_delay}s > {rate_limit_max_wait_time}s."
-                )
-                raise
-            continue
-
+    while tries < n_retry:
+        answer = chat.invoke(messages)
         messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
 
         try:
-            return parser(answer.content)
+            return parser(answer["content"])
         except ParseError as parsing_error:
             tries += 1
             if log:
-                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{str(parsing_error)}"
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer['content']}\n[User]:\n{str(parsing_error)}"
                 logging.info(msg)
-            messages.append(HumanMessage(content=str(parsing_error)))
+            messages.append(dict(role="user", content=str(parsing_error)))
 
-    raise RetryError(f"Could not parse a valid value after {n_retry} retries.")
-
-
-def retry_parallel(chat: "BaseChatModel", messages, n_retry, parser):
-    """Retry querying the chat models with the response from the parser until it returns a valid value.
-
-    It will stop after `n_retry`. It assuemes that chat will generate n_parallel answers for each message.
-    The best answer is selected according to the score returned by the parser. If no answer is valid, the
-    it will retry with the best answer so far and append to the chat the retry message. If there is a
-    single parallel generation, it behaves like retry.
-
-    This function is, in principle, more robust than retry. The speed and cost overhead is minimal with
-    the prompt is large and the length of the generated message is small.
-
-    Args:
-        chat (BaseChatModel): a langchain BaseChatModel taking a list of messages and
-            returning a list of answers.
-        messages (list): the list of messages so far.
-        n_retry (int): the maximum number of sequential retries.
-        parser (function): a function taking a message and returning a tuple
-            with the following fields:
-                value : the parsed value,
-                valid : a boolean indicating if the value is valid,
-                retry_message : a message to send to the chat if the value is not valid
-
-    Returns:
-        dict: the parsed value, with a string at key "action".
-
-    Raises:
-        ValueError: if the parser could not parse a valid value after n_retry retries.
-        BadRequestError: if the message is too long
-    """
-
-    for i in range(n_retry):
-        try:
-            answers = chat.generate([messages]).generations[0]  # chat.n parallel completions
-        except BadRequestError as e:
-            # most likely, the added messages triggered a message too long error
-            # we thus retry without the last two messages
-            if i == 0:
-                raise e
-            msg = f"BadRequestError, most likely the message is too long retrying with previous query."
-            warn(msg)
-            messages = messages[:-2]
-            answers = chat.generate([messages]).generations[0]
-
-        values, valids, retry_messages, scores = zip(
-            *[parser(answer.message.content) for answer in answers]
-        )
-        idx = np.argmax(scores)
-        value = values[idx]
-        valid = valids[idx]
-        retry_message = retry_messages[idx]
-        answer = answers[idx].message
-
-        if valid:
-            return value
-
-        msg = f"Query failed. Retrying {i+1}/{n_retry}.\n[LLM]:\n{answer.content}\n[User]:\n{retry_message}"
-        warn(msg)
-        messages.append(answer)  # already of type AIMessage
-        messages.append(SystemMessage(content=retry_message))
-
-    raise ValueError(f"Could not parse a valid value after {n_retry} retries.")
+    raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
 
 
 def truncate_tokens(text, max_tokens=8000, start=0, model_name="gpt-4"):
@@ -449,22 +300,6 @@ def parse_html_tags(text, keys=(), optional_keys=(), merge_multiple=False):
     valid = len(retry_messages) == 0
     retry_message = "\n".join(retry_messages)
     return content_dict, valid, retry_message
-
-
-class ChatCached:
-    # I wish I could extend ChatOpenAI, but it is somehow locked, I don't know if it's pydantic soercey.
-
-    def __init__(self, chat, memory=None):
-        self.chat = chat
-        self.memory = memory if memory else Memory(location=Path.home() / "llm-cache", verbose=10)
-        self._call = self.memory.cache(self.chat.__call__, ignore=["self"])
-        self._generate = self.memory.cache(self.chat.generate, ignore=["self"])
-
-    def __call__(self, messages):
-        return self._call(messages)
-
-    def generate(self, messages):
-        return self._generate(messages)
 
 
 def download_and_save_model(model_name: str, save_dir: str = "."):

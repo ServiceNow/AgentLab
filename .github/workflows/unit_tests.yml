@@ -20,20 +20,23 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Set up Git user
+        run: git config --global user.email "not_a_real_email@address.com" && git config --global user.name "GitHub Actions"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip' # caching pip dependencies
 
-      - name: Pip install
-        run: pip install -r requirements.txt
+      - name: Install AgentLab
+        run: pip install -e .
 
       - name: Pip list
         run: pip list
 
       - name: Install Playwright
-        run: playwright install --with-deps
+        run: playwright install chromium --with-deps
 
       - name: Fetch MiniWob
         uses: actions/checkout@v4
@@ -48,7 +51,11 @@ jobs:
           directory: "${{ github.workspace }}/miniwob-plusplus/miniwob/html"
           port: 8080
 
+      # Step to check if MiniWob is reachable
+      - name: Check MiniWob availability
+        run: curl -I "http://localhost:8080/miniwob/" || echo "MiniWob not reachable"
+
       - name: Run AgentLab Unit Tests
         env:
           MINIWOB_URL: "http://localhost:8080/miniwob/"
-        run: pytest -n 5 --durations=10 -m 'not pricy' -v agentlab
+        run: pytest -n 5 --durations=10 -m 'not pricy' -v tests/

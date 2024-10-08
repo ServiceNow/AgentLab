@@ -245,9 +245,7 @@ def fit_tokens(
         additional_prompts = [additional_prompts]
 
     for prompt in additional_prompts:
-        max_prompt_tokens -= (
-            count_tokens(prompt, model=model_name) + 1
-        )  # +1 accounts for LangChain token
+        max_prompt_tokens -= count_tokens(prompt, model=model_name) + 1  # +1 because why not ?
 
     for _ in range(max_iterations):
         prompt = shrinkable.prompt
@@ -610,9 +608,14 @@ elements in the page is through bid which are specified in your observations.
                     ans_dict = {"action": code, "parse_error": str(e)}
 
         try:
-            # just check if action can be mapped to python code but keep action as is
-            # the environment will be responsible for mapping it to python
-            self.action_set.to_python_code(ans_dict["action"])
+            if ans_dict["action"] == "None":
+                # Used by reproducibility agent for backward compatibility of
+                # traces missing LLM's response in chat messages.
+                ans_dict["action"] = None
+            else:
+                # just check if action can be mapped to python code but keep action as is
+                # the environment will be responsible for mapping it to python
+                self.action_set.to_python_code(ans_dict["action"])
         except Exception as e:
             raise ParseError(
                 f"Error while parsing action\n: {e}\n"
