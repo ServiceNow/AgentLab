@@ -256,7 +256,9 @@ def get_sample_std_err(df, metric):
     data = df[metric].dropna().values
 
     mean = np.mean(data)
-    std_err = np.std(data) / np.sqrt(len(data))
+    std_err = np.std(data, ddof=1) / np.sqrt(len(data))
+    if np.isnan(std_err):
+        std_err = 0
     return mean, std_err
 
 
