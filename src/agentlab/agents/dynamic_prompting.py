@@ -415,7 +415,7 @@ class Observation(Shrinkable):
             img_url = image_to_jpg_base64_url(screenshot)
             prompt.extend(
                 [
-                    {"type": "text", "text": "IMAGES: (1) current page screenshot"},
+                    {"type": "text", "text": "Screenshot of the current page:"},
                     {
                         "type": "image_url",
                         "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
@@ -445,43 +445,50 @@ that everything was filled correctly.\n"""
 
 class GoalInstructions(PromptElement):
     def __init__(
-        self, goal, goal_images: list[dict], visible: bool = True, extra_instructions=None
+        self,
+        goal: list[dict],
+        visible: bool = True,
+        extra_instructions=None,
+        image_detail="auto",
     ) -> None:
         super().__init__(visible)
-        self.goal_images = goal_images
-        self._prompt = f"""\
+        self.image_detail = image_detail
+        self._prompt = [
+            {
+                "type": "text",
+                "text": f"""\
 # Instructions
 Review the current state of the page and all other information to find the best
 possible next action to accomplish your goal. Your answer will be interpreted
 and executed by a program, make sure to follow the formatting instructions.
 
 ## Goal:
-{goal}
-"""
+""",
+            }
+        ]
+
+        self._prompt += goal
+
         if extra_instructions:
-            self._prompt += f"""
+            self._prompt += [
+                {
+                    "type": "text",
+                    "text": f"""
 
 ## Extra instructions:
 
 {extra_instructions}
-"""
+""",
+                }
+            ]
+        self._prompt = self._update_detail(self._prompt)
 
-    def add_images(self, prompt: list[dict]):
-        # count the amount of images already in the prompt
-        img_count = sum([p["type"] == "image_url" for p in prompt])
-        for image_i, image in enumerate(self.goal_images):
-            prompt.extend(
-                [
-                    {
-                        "type": "text",
-                        "text": f"({image_i+img_count+1}) input image {image_i+1} (local path: {repr(image['path'])})",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image["base64"]},
-                    },
-                ]
-            )
+    def _update_detail(self, prompt):
+        for p in prompt:
+            if p["type"] == "image_url":
+                if isinstance(p["image_url"], str):
+                    p["image_url"] = {"url": p["image_url"]}
+                p["image_url"]["detail"] = self.image_detail
         return prompt
 
 

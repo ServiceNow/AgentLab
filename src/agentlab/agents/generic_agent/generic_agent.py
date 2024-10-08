@@ -74,17 +74,15 @@ class GenericAgent(Agent):
     @cost_tracker_decorator
     def get_action(self, obs):
 
-        goal_images = obs.pop("goal_images", [])
-        if goal_images:
-            assert (
-                self.chat_model_args.vision_support
-            ), "Vision support is required for goal images."
+        goal_object = obs.pop("goal_object", [])
+        if len(goal_object) == 0:
+            raise ValueError("goal_object is empty")
 
         self.obs_history.append(obs)
         main_prompt = MainPrompt(
             action_set=self.action_set,
             obs_history=self.obs_history,
-            goal_images=goal_images,
+            goal=goal_object,
             actions=self.actions,
             memories=self.memories,
             thoughts=self.thoughts,
