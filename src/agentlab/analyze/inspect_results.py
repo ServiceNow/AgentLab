@@ -242,9 +242,21 @@ def get_std_err(df, metric):
     data = df[metric].dropna().values
 
     # asser either 0 or 1
-    assert np.all(np.isin(data, [0, 1]))
+    if np.all(np.isin(data, [0, 1])):
+        mean = np.mean(data)
+        std_err = np.sqrt(mean * (1 - mean) / len(data))
+    else:
+        return get_sample_std_err(df, metric)
+    return mean, std_err
+
+
+def get_sample_std_err(df, metric):
+    """Get the standard error for a binary metric."""
+    # extract non missing values
+    data = df[metric].dropna().values
+
     mean = np.mean(data)
-    std_err = np.sqrt(mean * (1 - mean) / len(data))
+    std_err = np.std(data) / np.sqrt(len(data))
     return mean, std_err
 
 
