@@ -413,11 +413,14 @@ class Observation(Shrinkable):
             else:
                 screenshot = self.obs["screenshot"]
             img_url = image_to_jpg_base64_url(screenshot)
-            prompt.append(
-                {
-                    "type": "image_url",
-                    "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
-                }
+            prompt.extend(
+                [
+                    {"type": "text", "text": "Screenshot of the current page:"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
+                    },
+                ]
             )
         return prompt
 
@@ -441,24 +444,58 @@ that everything was filled correctly.\n"""
 
 
 class GoalInstructions(PromptElement):
-    def __init__(self, goal, visible: bool = True, extra_instructions=None) -> None:
+    def __init__(
+        self,
+        goal: list[dict],
+        visible: bool = True,
+        extra_instructions=None,
+        image_detail="auto",
+    ) -> None:
         super().__init__(visible)
-        self._prompt = f"""\
+        self.image_detail = image_detail
+        self._prompt = [
+            {
+                "type": "text",
+                "text": f"""\
 # Instructions
 Review the current state of the page and all other information to find the best
 possible next action to accomplish your goal. Your answer will be interpreted
 and executed by a program, make sure to follow the formatting instructions.
 
 ## Goal:
-{goal}
-"""
+""",
+            }
+        ]
+
+        self._prompt += goal
+
         if extra_instructions:
-            self._prompt += f"""
+            self._prompt += [
+                {
+                    "type": "text",
+                    "text": f"""
 
 ## Extra instructions:
 
 {extra_instructions}
-"""
+""",
+                }
+            ]
+        self._prompt = self._update_detail(self._prompt)
+
+    def _update_detail(self, prompt):
+        for p in prompt:
+            if p["type"] == "image_url":
+                if isinstance(p["image_url"], str):
+                    p["image_url"] = {"url": p["image_url"]}
+                p["image_url"]["detail"] = self.image_detail
+        return prompt
+
+
+class GoalImages(PromptElement):
+    def __init__(self, goal_images, visible: bool = True) -> None:
+        super().__init__(visible)
+        self._prompt = ""
 
 
 class ChatInstructions(PromptElement):
@@ -494,6 +531,9 @@ and executed by a program, make sure to follow the formatting instructions.
 
 {extra_instructions}
 """
+
+    def add_images(self, prompt: list[dict]):
+        return prompt
 
 
 class Hints(PromptElement):

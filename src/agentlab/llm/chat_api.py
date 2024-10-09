@@ -29,6 +29,8 @@ class CheatMiniWoBLLM:
 
     def invoke(self, messages) -> str:
         prompt = messages[-1]["content"]
+        if isinstance(prompt, list):
+            prompt = "".join([m.get("text", "") for m in prompt])
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:
