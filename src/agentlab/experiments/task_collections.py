@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 from browsergym.experiments import EnvArgs
 from browsergym.webarena import ALL_WEBARENA_TASK_IDS
+from browsergym.visualwebarena import (
+    VISUALWEBARENA_TASK_IDS_WITH_RESET,
+    VISUALWEBARENA_TASK_IDS_WITHOUT_RESET,
+)
 
 df = pd.read_csv(Path(__file__).parent / "miniwob_tasks_all.csv")
 # append miniwob. to task_name column
@@ -122,6 +126,7 @@ def get_benchmark_env_args(
         "workarena.l2": 50,
         "workarena.l3": 50,
         "webarena": 15,
+        "visualwebarena": 15,
         "miniwob": 10,
         "miniwob_tiny_test": 5,
     }
@@ -131,6 +136,7 @@ def get_benchmark_env_args(
         "workarena.l2": 1,
         "workarena.l3": 1,
         "webarena": 1,
+        "visualwebarena": 1,
         "miniwob": 5,
         "miniwob_tiny_test": 2,
     }
@@ -176,6 +182,14 @@ def get_benchmark_env_args(
         from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
         env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
+    elif benchmark_name == "visualwebarena":
+        env_args_list_reset = _make_env_args(
+            VISUALWEBARENA_TASK_IDS_WITH_RESET, max_steps, n_repeat, rng
+        )
+        env_args_list_no_reset = _make_env_args(
+            VISUALWEBARENA_TASK_IDS_WITHOUT_RESET, max_steps, n_repeat, rng
+        )
+        env_args_list = (env_args_list_reset, env_args_list_no_reset)
     elif benchmark_name.startswith("miniwob"):
         miniwob_benchmarks_map = {
             "miniwob": MINIWOB_ALL,

@@ -1,18 +1,18 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
-import logging
 from pathlib import Path
 
-from bgym import ExpArgs, EnvArgs
+from bgym import EnvArgs, ExpArgs
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.generic_agent.agent_configs import RANDOM_SEARCH_AGENT, AGENT_4o_MINI
 from agentlab.analyze import inspect_results
 from agentlab.experiments import args
-from agentlab.experiments import task_collections as tasks
-from agentlab.experiments.launch_exp import run_experiments, relaunch_study
-from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments import reproducibility_util as repro
+from agentlab.experiments import task_collections as tasks
+from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.launch_exp import relaunch_study, run_experiments
 
 
 @dataclass
@@ -267,3 +267,27 @@ def random_search(
     study = run_agents_on_benchmark(agents, benchmark, demo_mode=demo_mode)
     study.suffix = "random_search"
     return study
+
+
+def final_run_vwa(agent: AgentArgs = AGENT_4o_MINI, benchmark: str = "miniwob"):
+    # agent.flags = miniwob_add_html(benchmark, agent.flags)
+
+    env_args_list_reset, env_args_list_no_reset = tasks.get_benchmark_env_args(
+        "visualwebarena", meta_seed=43, max_steps=None, n_repeat=None, is_agent_curriculum=False
+    )
+
+    return args.expand_cross_product(
+        ExpArgs(
+            agent_args=args.CrossProd([agent]),
+            env_args=args.CrossProd(env_args_list_reset),
+            enable_debug=False,
+            logging_level=logging.DEBUG,
+        )
+    ), args.expand_cross_product(
+        ExpArgs(
+            agent_args=args.CrossProd([agent]),
+            env_args=args.CrossProd(env_args_list_no_reset),
+            enable_debug=False,
+            logging_level=logging.DEBUG,
+        )
+    )
