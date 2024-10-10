@@ -218,7 +218,16 @@ def handle_error(error, itr, min_retry_wait_time, max_retry):
     return error_type
 
 
-class ChatModel:
+class AbstractChatModel(ABC):
+    @abstractmethod
+    def __call__(self, messages: list[dict]) -> dict:
+        pass
+
+    def get_stats(self):
+        return {}
+
+
+class ChatModel(AbstractChatModel):
     def __init__(
         self,
         model_name,
