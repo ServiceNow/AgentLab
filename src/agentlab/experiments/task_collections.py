@@ -124,6 +124,7 @@ def get_benchmark_env_args(
         "webarena": 15,
         "miniwob": 10,
         "miniwob_tiny_test": 5,
+        "weblinx": None,
     }
 
     n_repeat_default = {
@@ -133,12 +134,13 @@ def get_benchmark_env_args(
         "webarena": 1,
         "miniwob": 5,
         "miniwob_tiny_test": 2,
+        "weblinx": 1,
     }
 
     if max_steps is None:
-        max_steps = max_steps_default[benchmark_id]
+        max_steps = max_steps_default.get(benchmark_id, None)
     if n_repeat is None:
-        n_repeat = n_repeat_default[benchmark_id]
+        n_repeat = n_repeat_default.get(benchmark_id, 1)
     else:
         if benchmark_id == "webarena" and n_repeat != 1:
             logger.warning(
@@ -184,6 +186,10 @@ def get_benchmark_env_args(
         env_args_list = _make_env_args(
             miniwob_benchmarks_map[benchmark_name], max_steps, n_repeat, rng
         )
+    elif benchmark_name.startswith("weblinx"):
+        from weblinx_browsergym import ALL_WEBLINX_TASK_IDS
+
+        env_args_list = _make_env_args(ALL_WEBLINX_TASK_IDS, max_steps, n_repeat, rng)
     else:
         raise ValueError(f"Unknown benchmark name: {benchmark_name}")
 
