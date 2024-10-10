@@ -50,7 +50,7 @@ class CheatMiniWoBLLM_ParseRetry:
     n_retry: int
     retry_count: int = 0
 
-    def invoke(self, messages) -> str:
+    def __call__(self, messages) -> str:
         if self.retry_count < self.n_retry:
             self.retry_count += 1
             return dict(role="assistant", content="I'm retrying")
@@ -70,9 +70,6 @@ class CheatMiniWoBLLM_ParseRetry:
 </action>
 """
         return dict(role="assistant", content=answer)
-
-    def __call__(self, messages) -> str:
-        return self.invoke(messages)
 
     def get_stats(self):
         return {}
@@ -94,7 +91,7 @@ class CheatLLM_LLMError:
     n_retry: int = 0
     success: bool = False
 
-    def invoke(self, messages) -> str:
+    def __call__(self, messages) -> str:
         if self.success:
             prompt = messages[1].get("content", "")
             match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
@@ -112,9 +109,6 @@ class CheatLLM_LLMError:
     """
             return dict(role="assistant", content=answer)
         raise OpenAIError("LLM failed to respond")
-
-    def __call__(self, messages) -> str:
-        return self.invoke(messages)
 
     def get_stats(self):
         return {"n_llm_retry": self.n_retry, "n_llm_busted_retry": int(not self.success)}

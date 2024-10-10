@@ -79,7 +79,7 @@ def retry(
     """
     tries = 0
     while tries < n_retry:
-        answer = chat.invoke(messages)
+        answer = chat(messages)
         messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
 
         try:

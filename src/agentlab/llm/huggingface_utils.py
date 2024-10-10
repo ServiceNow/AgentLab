@@ -11,7 +11,7 @@ from transformers import AutoTokenizer, GPT2TokenizerFast
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
 
 
-class HFBaseChatModel:
+class HFBaseChatModel:  # we need this to be a subclass of AbstractChatModel
     """
     Custom LLM Chatbot that can interface with HuggingFace models.
 
@@ -93,9 +93,6 @@ class HFBaseChatModel:
 
     def _llm_type(self):
         return "huggingface"
-
-    def invoke(self, messages: list[dict]) -> dict:
-        return self(messages)
 
     def get_stats(self):
         return {}
