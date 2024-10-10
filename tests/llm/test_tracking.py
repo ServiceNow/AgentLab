@@ -136,7 +136,7 @@ def test_openai_chat_model():
         make_user_message("Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
-        answer = chat_model.invoke(messages)
+        answer = chat_model(messages)
     assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0
 
@@ -161,7 +161,7 @@ def test_azure_chat_model():
         make_user_message("Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
-        answer = chat_model.invoke(messages)
+        answer = chat_model(messages)
     assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0
 
@@ -178,6 +178,6 @@ def test_openrouter_chat_model():
         make_user_message("Give the third prime number"),
     ]
     with tracking.set_tracker() as tracker:
-        answer = chat_model.invoke(messages)
+        answer = chat_model(messages)
     assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0

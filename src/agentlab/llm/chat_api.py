@@ -27,7 +27,7 @@ def make_assistant_message(content: str) -> dict:
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
-    def invoke(self, messages) -> str:
+    def __call__(self, messages) -> str:
         prompt = messages[-1]["content"]
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
@@ -43,9 +43,6 @@ class CheatMiniWoBLLM:
 </action>
 """
         return make_assistant_message(answer)
-
-    def __call__(self, messages) -> str:
-        return self.invoke(messages)
 
     def get_stats(self):
         return {}
@@ -309,9 +306,6 @@ class ChatModel:
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         return make_assistant_message(completion.choices[0].message.content)
-
-    def invoke(self, messages: list[dict]) -> dict:
-        return self(messages)
 
     def get_stats(self):
         return {

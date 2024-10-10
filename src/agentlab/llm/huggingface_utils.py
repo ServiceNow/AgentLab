@@ -94,9 +94,6 @@ class HFBaseChatModel:
     def _llm_type(self):
         return "huggingface"
 
-    def invoke(self, messages: list[dict]) -> dict:
-        return self(messages)
-
     def get_stats(self):
         return {}
 

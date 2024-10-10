@@ -43,7 +43,7 @@ class ReproChatModel:
         self.old_messages = old_messages
         self.delay = delay
 
-    def invoke(self, messages: list):
+    def __call__(self, messages: list):
         self.new_messages = copy(messages)
 
         if len(messages) >= len(self.old_messages):
