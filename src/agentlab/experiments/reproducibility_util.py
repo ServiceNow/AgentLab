@@ -30,6 +30,11 @@ def _get_benchmark_version(benchmark_name):
         return metadata.distribution("browsergym.webarena").version
     elif benchmark_name.startswith("visualwebarena"):
         return metadata.distribution("browsergym.visualwebarena").version
+    elif benchmark_name.startswith("weblinx"):
+        try:
+            return metadata.distribution("weblinx_browsergym").version
+        except metadata.PackageNotFoundError:
+            return "0.0.1rc1"
     else:
         raise ValueError(f"Unknown benchmark {benchmark_name}")
 

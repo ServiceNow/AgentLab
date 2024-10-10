@@ -1,4 +1,5 @@
 import base64
+import os
 import traceback
 from copy import deepcopy
 from io import BytesIO
@@ -481,7 +482,7 @@ clicking the refresh button.
         tabs.select(tab_select)
 
     demo.queue()
-    demo.launch(server_port=7899, share=True)
+    demo.launch(server_port=int(os.getenv("AGENTXRAY_APP_PORT", 7899)), share=True)
 
 
 def tab_select(evt: gr.SelectData):
