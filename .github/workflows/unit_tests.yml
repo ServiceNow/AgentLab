@@ -35,6 +35,9 @@ jobs:
       - name: Pip list
         run: pip list
 
+      - name: Install Playwright deps
+        run: playwright install-deps
+
       - name: Install Playwright
         run: playwright install chromium --with-deps
 
