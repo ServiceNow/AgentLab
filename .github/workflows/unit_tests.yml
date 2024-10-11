@@ -9,7 +9,7 @@ on:
 jobs:
 
   agentlab:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     defaults:
       run:
@@ -34,9 +34,6 @@ jobs:
 
       - name: Pip list
         run: pip list
-
-      - name: Fix attempt
-        run: apt-get install -y libasound2t64
 
       - name: Install Playwright
         run: playwright install chromium --with-deps
