@@ -24,6 +24,10 @@ def make_assistant_message(content: str) -> dict:
     return dict(role="assistant", content=content)
 
 
+def make_text_element(text: str) -> dict:
+    return dict(type="text", text=text)
+
+
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
