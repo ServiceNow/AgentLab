@@ -133,7 +133,7 @@ class HuggingFaceAPIChatModel(HFBaseChatModel):
     def __init__(
         self,
         model_name: str,
-        temperature: Optional[int] = 1e-1,
+        temperature: Optional[float] = 1e-1,
         max_new_tokens: Optional[int] = 512,
         n_retry_server: Optional[int] = 4,
     ):
@@ -150,7 +150,7 @@ class HuggingFaceLocalChatModel(HFBaseChatModel):
     def __init__(
         self,
         model_name: str,
-        temperature: Optional[int] = 1e-1,
+        temperature: Optional[float] = 1e-1,
         max_new_tokens: Optional[int] = 512,
         n_retry_server: Optional[int] = 4,
     ):
@@ -174,7 +174,7 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
         model_name: str,
         model_url: str,
         token: Optional[str] = None,
-        temperature: Optional[int] = 1e-1,
+        temperature: Optional[float] = 1e-1,
         max_new_tokens: Optional[int] = 512,
         n_retry_server: Optional[int] = 4,
     ):

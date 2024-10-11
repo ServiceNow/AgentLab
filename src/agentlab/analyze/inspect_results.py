@@ -2,6 +2,7 @@ import fnmatch
 import io
 import random
 import re
+from typing import List, Union
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -114,6 +115,9 @@ def load_result_df(
     result_df=None,
     index_white_list=("agent_args.*",),
     index_black_list=("*model_url*", "*extra*"),
+    avg_across_finetining_samples=True,
+    separate_val_test=False,
+    frac_valid=0.25,
 ):
     """Load the result dataframe.
 
@@ -139,7 +143,12 @@ def load_result_df(
     if result_df is not None:
         result_list = list(result_df["exp_result"])
     else:
-        result_list = list(yield_all_exp_results(exp_dir, progress_fn=progress_fn))
+        if isinstance(exp_dir, list):
+            result_list = []
+            for dir in exp_dir:
+                result_list.extend(list(yield_all_exp_results(dir, progress_fn=progress_fn)))
+        else:
+            result_list = list(yield_all_exp_results(exp_dir, progress_fn=progress_fn))
 
     if len(result_list) == 0:
         return None
@@ -148,8 +157,61 @@ def load_result_df(
         result_list = progress_fn(result_list, desc="Loading results")
 
     df = pd.DataFrame([exp_result.get_exp_record() for exp_result in result_list])
+
+    if separate_val_test:
+        # Initialize the new columns
+        df["valid"] = False
+        df["test"] = False
+        df["cum_reward_valid"] = np.nan
+        df["cum_reward_test"] = np.nan
+
+        # Ensure 'env_args.task_name' and 'env_args.task_seed' are columns after resetting index
+        df["task_name"] = df["env_args.task_name"]  # Copy task_name to a new column for convenience
+        grouped = df.groupby("task_name")
+
+        for task_name, group in grouped:
+            # Get the unique seeds for this task
+            unique_seeds = group["env_args.task_seed"].unique()
+            np.random.shuffle(unique_seeds)  # Shuffle to randomize the split
+
+            # Calculate split index
+            split_idx = int(len(unique_seeds) * frac_valid)
+
+            # Split the seeds into validation and test sets
+            valid_seeds = unique_seeds[:split_idx]
+            test_seeds = unique_seeds[split_idx:]
+
+            # Mark the rows that are in the validation set
+            df.loc[
+                (df["task_name"] == task_name) & (df["env_args.task_seed"].isin(valid_seeds)),
+                "valid",
+            ] = True
+
+            # Mark the rows that are in the test set
+            df.loc[
+                (df["task_name"] == task_name) & (df["env_args.task_seed"].isin(test_seeds)), "test"
+            ] = True
+
+            # Set the `cum_reward_valid` and `cum_reward_test` based on the valid and test columns
+            df.loc[df["valid"], "cum_reward_valid"] = df["cum_reward"]
+            df.loc[df["test"], "cum_reward_test"] = df["cum_reward"]
+
     if set_index:
         set_index_from_variables(df, index_white_list, index_black_list)
+
+    if avg_across_finetining_samples:
+        # Reset the index to make it a DataFrame
+        df_reset = df.reset_index()
+
+        # Modify the 'agent_args.chat_model_args.model_path' column by removing 'sample_{int}/'
+        # TODO: will this work for samples_0-1 ?
+        df_reset["agent_args.chat_model_args.model_path"] = df_reset[
+            "agent_args.chat_model_args.model_path"
+        ].str.replace(r"sample_\d+/", "", regex=True)
+
+        # Recreate the MultiIndex
+        df = df_reset.set_index(df.index.names)
+
     return df
 
 
@@ -237,7 +299,7 @@ def get_std_err(df, metric):
     return mean, std_err
 
 
-def summarize(sub_df, use_bootstrap=False):
+def summarize(sub_df, use_bootstrap=False, separate_val_test=True):
     if not "cum_reward" in sub_df:
         record = dict(
             avg_reward=np.nan,
@@ -248,6 +310,7 @@ def summarize(sub_df, use_bootstrap=False):
             n_err=0,
         )
     else:
+
         err = sub_df["err_msg"].notnull()
         n_completed = (err | sub_df["truncated"] | sub_df["terminated"]).sum()
 
@@ -256,8 +319,22 @@ def summarize(sub_df, use_bootstrap=False):
 
         if use_bootstrap:
             _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
+            if separate_val_test:
+                _mean_reward_valid, std_reward_valid = get_bootstrap(
+                    sub_df[sub_df["valid"]], "cum_reward"
+                )
+                _mean_reward_test, std_reward_test = get_bootstrap(
+                    sub_df[sub_df["test"]], "cum_reward"
+                )
         else:
             _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
+            if separate_val_test:
+                _mean_reward_valid, std_reward_valid = get_std_err(
+                    sub_df[sub_df["valid"]], "cum_reward"
+                )
+                _mean_reward_test, std_reward_test = get_std_err(
+                    sub_df[sub_df["test"]], "cum_reward"
+                )
 
         # sanity check, if there is an error the reward should be zero
         assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
@@ -270,6 +347,11 @@ def summarize(sub_df, use_bootstrap=False):
             n_completed=f"{n_completed}/{len(sub_df)}",
             n_err=err.sum(skipna=True),
         )
+        if separate_val_test:
+            record["avg_reward_valid"] = sub_df["cum_reward_valid"].mean(skipna=True).round(3)
+            record["std_err_valid"] = std_reward_valid
+            record["avg_reward_test"] = sub_df["cum_reward_test"].mean(skipna=True).round(3)
+            record["std_err_test"] = std_reward_test
 
     return pd.Series(record)
 
@@ -391,6 +473,7 @@ def global_report(
     result_df: pd.DataFrame,
     reduce_fn=summarize,
     rename_index=lambda name: name.replace("agent_args.flags.", ""),
+    separate_valid_test=False,
 ):
     """Produce a report that summarize all tasks and all episodes for each
     agent.
@@ -422,7 +505,15 @@ def global_report(
             index_names = [rename_index(name) for name in report.index.names]
             report = report.rename_axis(index=index_names)
 
-        # if has key avg_reward
+        if separate_valid_test:
+            if "avg_reward_valid" in report:
+                report = report.sort_values("avg_reward_valid", ascending=False)
+                ## put avg_reward and std_err at the end
+                report_columns = list(report.columns)
+                report_columns.append(report_columns.pop(report_columns.index("avg_reward")))
+                report_columns.append(report_columns.pop(report_columns.index("std_err")))
+                report = report[report_columns]
+
         if "avg_reward" in report.columns:
             report = report.sort_values("avg_reward", ascending=False)
 
@@ -485,7 +576,9 @@ def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: 
 
 
 def get_most_recent_folder(
-    root_dir: Path = None, date_format: str = "%Y-%m-%d_%H-%M-%S", contains=None
+    root_dir: Path = None,
+    date_format: str = "%Y-%m-%d_%H-%M-%S",
+    contains=None,
 ):
     """Return the most recent directory based on the date in the folder name.
 
@@ -519,12 +612,52 @@ def get_most_recent_folder(
     return most_recent_folder
 
 
+def get_nth_most_recent_folder(
+    result_dirs: Union[List[Path], Path] = None,
+    n=1,
+    date_format: str = "%Y-%m-%d_%H-%M-%S",
+    contains=None,
+):
+    """Return the N-th most recent directory based on the date in the folder name."""
+
+    if result_dirs is None:
+        result_dir = RESULTS_DIR
+
+    if isinstance(result_dirs, Path):
+        result_dirs = [result_dirs]
+
+    folders_with_dates = []
+
+    for folder in result_dirs:
+        for item in folder.iterdir():
+            if item.is_dir() and not item.name.startswith("_"):
+                if contains is not None and contains not in item.name:
+                    continue
+                try:
+                    folder_date = datetime.strptime("_".join(item.name.split("_")[:2]), date_format)
+                    folders_with_dates.append((folder_date, item))
+                except (ValueError, IndexError):
+                    continue
+
+    # Sort folders by date in descending order (most recent first)
+    folders_with_dates.sort(reverse=True, key=lambda x: x[0])
+
+    # Return the N-th most recent folder if it exists
+    if n is None:
+        return [folder for date, folder in folders_with_dates]
+    if len(folders_with_dates) >= n:
+        return folders_with_dates[n - 1][1]
+    else:
+        return None  # or raise an exception if you prefer
+
+
 def display_report(
     report: pd.DataFrame,
     apply_shrink_columns: bool = True,
     copy_to_clipboard: bool = True,
     rename_bool_flags: bool = True,
     print_only: str = None,
+    add_summary_stats: bool = False,
 ):
     """Display the report in a nicer-ish format.
 
@@ -539,6 +672,7 @@ def display_report(
         copy_to_clipboard: Copy the report to the clipboard
         rename_bool_flags: Rename the boolean flags to be more compact and readable
         print_only: Print only the given column
+        add_summary_stats: Add a row with the sum and average for numeric columns
     """
     report = report.copy()
 
@@ -558,6 +692,59 @@ def display_report(
     if print_only:
         columns = [print_only] + columns
         report = report[columns]
+
+    if add_summary_stats:
+
+        # eplace 'NaN' string with actual NaN
+        report.replace("nan", pd.NA, inplace=True)
+        report.dropna(inplace=True)
+
+        # Convert numeric columns back to numeric types where possible
+        report = report.apply(pd.to_numeric, errors="ignore")
+
+        # Function to split fractions into numerator and denominator
+        def split_fraction(fraction_str):
+            try:
+                if isinstance(fraction_str, str) and "/" in fraction_str:
+                    numerator, denominator = map(float, fraction_str.split("/"))
+                    return numerator, denominator
+            except ValueError:
+                pass
+            return None, None
+
+        # Extract numerators and denominators
+        report["n\ncompleted_num"], report["n\ncompleted_den"] = zip(
+            *report["n\ncompleted"].apply(split_fraction)
+        )
+
+        # Round all numeric columns to two decimal places (excluding fraction columns)
+        numeric_cols = report.select_dtypes(include=["number"]).columns
+        report[numeric_cols] = report[numeric_cols].round(2)
+
+        # Calculate the sum and average for numeric columns (ignoring fraction columns for now)
+        total = report[numeric_cols].sum().round(2)
+        average = report[numeric_cols].mean().round(2)
+
+        # Calculate the sum and average for the fraction column
+        total_numerator = int(report["n\ncompleted_num"].sum())
+        total_denominator = int(report["n\ncompleted_den"].sum())
+
+        average_numerator = int(round(report["n\ncompleted_num"].mean()))
+        average_denominator = int(round(report["n\ncompleted_den"].mean()))
+
+        # Append the 'Total' and 'Average' rows
+        report.loc["Total"] = total
+        report.loc["Average"] = average
+
+        # Manually add the fractions back to the Total and Average rows in the original format
+        report.at["Total", "n\ncompleted"] = f"{total_numerator}/{total_denominator}"
+        report.at["Average", "n\ncompleted"] = f"{average_numerator}/{average_denominator}"
+
+        # Drop the temporary converted columns
+        report.drop(columns=["n\ncompleted_num", "n\ncompleted_den"], inplace=True)
+
+        # Convert all values to strings
+        report = report.astype(str)
 
     styled_report = set_wrap_style(report)
 
