@@ -35,8 +35,8 @@ jobs:
       - name: Pip list
         run: pip list
 
-      - name: Install Playwright deps
-        run: playwright install-deps
+      - name: Fix attempt
+        run: apt-get install -y libasound2t64
 
       - name: Install Playwright
         run: playwright install chromium --with-deps
