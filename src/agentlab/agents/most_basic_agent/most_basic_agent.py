@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Any
 
 import bgym
 
-from agentlab.llm.chat_api import make_system_message, make_user_message
+from agentlab.agents.agent_args import AgentArgs
+from agentlab.llm.chat_api import make_system_message, make_text_element, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
 from agentlab.llm.tracking import cost_tracker_decorator
-from agentlab.agents.agent_args import AgentArgs
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
@@ -49,16 +49,22 @@ class MostBasicAgent(bgym.Agent):
 
         self.action_set = bgym.HighLevelActionSet(["bid"], multiaction=False)
 
+    # We include a decorator to track the cost of LLM interactions
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
         system_prompt = f"""
 You are a web assistant.
 """
-        prompt = f"""
-You are helping a user to accomplish the following goal on a website:
-
-{obs["goal"]}
-
+        prompt = [
+            make_text_element(
+                "You are helping a user to accomplish the following goal on a website:\n"
+            )
+        ]
+        # the goal_object is given in OpenAI format, a list of content dict
+        prompt += obs["goal_object"]
+        prompt += [
+            make_text_element(
+                f"""
 Here is the current state of the website, in the form of an html:
 
 {obs["dom_txt"]}
@@ -78,17 +84,19 @@ click('a314')
 
 Please provide a single action at a time and wait for the next observation. Provide only a single action per step. 
 Focus on the bid that are given in the html, and use them to perform the actions.
+{"Provide a chain of thoughts reasoning to decompose the task into smaller steps. And execute only the next step." if self.use_chain_of_thought else ""}
 """
-        if self.use_chain_of_thought:
-            prompt += f"""
-Provide a chain of thoughts reasoning to decompose the task into smaller steps. And execute only the next step.
-"""
+            )
+        ]
+
+        # We feed the goal, the HTML (dom_txt) and a description of the actions to the model
 
         messages = [
             make_system_message(system_prompt),
             make_user_message(prompt),
         ]
 
+        # Define a parser to extract the action from the response
         def parser(response: str) -> tuple[dict, bool, str]:
             blocks = extract_code_blocks(response)
             if len(blocks) == 0:
@@ -102,6 +110,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
         action = ans_dict.get("action", None)
         thought = ans_dict.get("think", None)
 
+        # We return the action and the chat info
         return (
             action,
             bgym.AgentInfo(
@@ -149,4 +158,12 @@ exp_args = [
 
 
 def experiment_config():
+    return exp_args
+    return exp_args
+    return exp_args
+    return exp_args
+    return exp_args
+    return exp_args
+    return exp_args
+    return exp_args
     return exp_args

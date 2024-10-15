@@ -7,6 +7,13 @@ from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.agents.generic_agent.generic_agent_prompt import GenericPromptFlags, MainPrompt
 from agentlab.llm.llm_utils import count_tokens
 
+
+def merge_texts(texts):
+    if isinstance(texts, list):
+        texts = "".join([m.get("text", "") for m in texts])
+    return texts
+
+
 html_template = """
 <html>
 <body>
@@ -23,6 +30,7 @@ some extra text to make the html longer
 OBS_HISTORY = [
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(1),
         "axtree_txt": "[1] Click me",
@@ -31,6 +39,7 @@ OBS_HISTORY = [
     },
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(2),
         "axtree_txt": "[1] Click me",
@@ -39,6 +48,7 @@ OBS_HISTORY = [
     },
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(3),
         "axtree_txt": "[1] Click me",
@@ -158,6 +168,7 @@ def test_shrinking_observation():
     prompt_maker = MainPrompt(
         action_set=dp.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
+        goal=[{"type": "text", "text": "do this and that"}],
         actions=ACTIONS,
         memories=MEMORIES,
         thoughts=THOUGHTS,
@@ -166,9 +177,9 @@ def test_shrinking_observation():
         flags=flags,
     )
 
-    prompt = prompt_maker.prompt
-    new_prompt = dp.fit_tokens(
-        prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7
+    prompt = merge_texts(prompt_maker.prompt)
+    new_prompt = merge_texts(
+        dp.fit_tokens(prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7)
     )
     assert count_tokens(new_prompt) < count_tokens(prompt)
     assert "[1] Click me" in prompt
@@ -201,6 +212,7 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
     prompt = MainPrompt(
         action_set=dp.make_action_set(flags.action),
         obs_history=OBS_HISTORY,
+        goal=[{"type": "text", "text": "do this and that"}],
         actions=ACTIONS,
         memories=memories,
         thoughts=THOUGHTS,
@@ -208,6 +220,8 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
         step=2,
         flags=flags,
     ).prompt
+
+    prompt = merge_texts(prompt)
 
     # Verify all elements are not present
     for expected in expected_prompts:
@@ -221,6 +235,7 @@ def test_main_prompt_elements_present():
     prompt = MainPrompt(
         action_set=dp.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
+        goal=[{"type": "text", "text": "do this and that"}],
         actions=ACTIONS,
         memories=MEMORIES,
         thoughts=THOUGHTS,
@@ -228,6 +243,7 @@ def test_main_prompt_elements_present():
         step=2,
         flags=ALL_TRUE_FLAGS,
     ).prompt
+    prompt = merge_texts(prompt)
     # Verify all elements are not present
     for _, expected_prompts in FLAG_EXPECTED_PROMPT:
         for expected in expected_prompts:

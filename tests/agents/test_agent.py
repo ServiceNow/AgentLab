@@ -13,6 +13,12 @@ from agentlab.experiments import launch_exp
 from agentlab.llm.chat_api import BaseModelArgs, CheatMiniWoBLLMArgs
 
 
+def merge_texts(texts):
+    if isinstance(texts, list):
+        texts = "".join([m.get("text", "") for m in texts])
+    return texts
+
+
 def test_generic_agent():
     exp_args = ExpArgs(
         agent_args=GenericAgentArgs(
@@ -56,6 +62,7 @@ class CheatMiniWoBLLM_ParseRetry:
             return dict(role="assistant", content="I'm retrying")
 
         prompt = messages[1].get("content", "")
+        prompt = merge_texts(prompt)
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:
@@ -97,6 +104,7 @@ class CheatLLM_LLMError:
     def invoke(self, messages) -> str:
         if self.success:
             prompt = messages[1].get("content", "")
+            prompt = merge_texts(prompt)
             match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
             if match:

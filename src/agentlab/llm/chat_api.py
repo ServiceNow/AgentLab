@@ -24,11 +24,17 @@ def make_assistant_message(content: str) -> dict:
     return dict(role="assistant", content=content)
 
 
+def make_text_element(text: str) -> dict:
+    return dict(type="text", text=text)
+
+
 class CheatMiniWoBLLM:
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
     def invoke(self, messages) -> str:
         prompt = messages[-1]["content"]
+        if isinstance(prompt, list):
+            prompt = "".join([m.get("text", "") for m in prompt])
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:

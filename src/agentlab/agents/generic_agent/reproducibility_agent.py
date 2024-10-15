@@ -125,7 +125,15 @@ def _make_agent_stats(action, agent_info, step_info, old_chat_messages, new_chat
 
 def _format_messages(messages: list[dict]):
     messages = messages_to_dict(messages)
-    return "\n".join(f"{m['role']} message:\n{m['content']}\n" for m in messages)
+
+    res = []
+    for m in messages:
+        if isinstance(m, list):
+            assert all(el["type"] == "text" for el in m)
+            res.append("\n".join(el["content"] for el in m))
+        else:
+            res.append(m["content"])
+    return "\n".join(res)
 
 
 def reproduce_study(original_study_dir: Path | str):
