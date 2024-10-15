@@ -157,11 +157,11 @@ def reproduce_study(original_study_dir: Path | str, log_level=logging.INFO):
                 logging_level=log_level,
             )
         )
-    bencmark_name = exp_args_list[0].env_args.task_name.split('.')[0]
+    benchmark_name = exp_args_list[0].env_args.task_name.split('.')[0]
     
     return Study(
         exp_args_list=exp_args_list,
-        benchmark_name=bencmark_name,
+        benchmark_name=benchmark_name,
         agent_names=[agent_args.agent_name],
     )
 
