@@ -6,8 +6,9 @@ import logging
 import os
 import re
 import time
+from copy import deepcopy
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
 import numpy as np
@@ -42,7 +43,7 @@ class RetryError(ValueError):
 
 def retry(
     chat: "ChatModel",
-    messages: list[dict],
+    messages: "Discussion",
     n_retry: int,
     parser: callable,
     log: bool = True,
@@ -80,8 +81,8 @@ def retry(
     tries = 0
     while tries < n_retry:
         answer = chat(messages)
-        messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
-
+        # TODO: could we change this to not use inplace modifications ?
+        messages.add_message(**answer)
         try:
             return parser(answer["content"])
         except ParseError as parsing_error:
@@ -89,7 +90,7 @@ def retry(
             if log:
                 msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer['content']}\n[User]:\n{str(parsing_error)}"
                 logging.info(msg)
-            messages.append(dict(role="user", content=str(parsing_error)))
+            messages.add_message(role="user", content=str(parsing_error))
 
     raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
 
@@ -320,6 +321,132 @@ def image_to_jpg_base64_url(image: np.ndarray | Image.Image):
 
     image_base64 = base64.b64encode(buffered.getvalue()).decode()
     return f"data:image/jpeg;base64,{image_base64}"
+
+
+class BaseMessage(dict):
+    def __init__(self, role: str, content: Union[str, list[dict]]):
+        self["role"] = role
+        self["content"] = content
+
+    def __str__(self) -> str:
+        if isinstance(self["content"], str):
+            return self["content"]
+        if not all(elem["type"] == "text" for elem in self["content"]):
+            logging.warning(
+                "The content of the message has images, which are not displayed in the string representation."
+            )
+        return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
+
+    def add_content(self, type: str, content: Any):
+        if isinstance(self["content"], str):
+            text = self["content"]
+            self["content"] = []
+            self["content"].append({"type": "text", "text": text})
+        self["content"].append({"type": type, type: content})
+
+    def add_text(self, text: str):
+        self.add_content("text", text)
+
+    def add_image(self, image: np.ndarray | Image.Image | str, detail: str = None):
+        if not isinstance(image, str):
+            image_url = image_to_jpg_base64_url(image)
+        else:
+            image_url = image
+        if detail:
+            self.add_content("image", {"url": image_url, "detail": detail})
+        else:
+            self.add_content("image", image_url)
+
+    def to_markdown(self):
+        if isinstance(self["content"], str):
+            return self["content"]
+        res = []
+        for elem in self["content"]:
+            if elem["type"] == "text":
+                res.append(elem["text"])
+            elif elem["type"] == "image":
+                res.append(f"![]({elem['url']})")
+        return "\n".join(res)
+
+
+class SystemMessage(BaseMessage):
+    def __init__(self, content: Union[str, list[dict]]):
+        super().__init__("system", content)
+
+
+class HumanMessage(BaseMessage):
+    def __init__(self, content: Union[str, list[dict]]):
+        super().__init__("user", content)
+
+
+class AIMessage(BaseMessage):
+    def __init__(self, content: Union[str, list[dict]]):
+        super().__init__("assistant", content)
+
+
+class Discussion:
+    def __init__(self, messages: Union[list[BaseMessage], BaseMessage] = []):
+        if isinstance(messages, BaseMessage):
+            messages = [messages]
+        self.messages = messages
+
+    def __str__(self) -> str:
+        return "\n".join(str(m) for m in self.messages)
+
+    def to_string(self):
+        return str(self)
+
+    def to_openai(self):
+        return self.messages
+
+    def add_message(
+        self, message: BaseMessage = None, role: str = None, content: Union[str, list[dict]] = None
+    ):
+        if message is None:
+            message = BaseMessage(role, content)
+        self.messages.append(message)
+
+    def __add__(self, other: Union[str, BaseMessage, "Discussion"]):
+        if isinstance(other, BaseMessage):
+            res = deepcopy(self)
+            res.add_message(other)
+            return res
+        elif isinstance(other, Discussion):
+            res = deepcopy(self)
+            res.messages.extend(other.messages)
+            return res
+        else:
+            raise ValueError(f"Cannot add a {type(other)} to a Discussion.")
+
+    def __radd__(self, other: Union[str, BaseMessage, "Discussion"]):
+        if isinstance(other, BaseMessage):
+            res = deepcopy(self)
+            res.messages.insert(0, other)
+            return res
+        elif isinstance(other, Discussion):
+            res = deepcopy(other)
+            res.messages.extend(self.messages)
+            return res
+        else:
+            raise ValueError(f"Cannot add a {type(other)} to a Discussion.")
+
+    def add_content(self, type: str, content: Any):
+        self.messages[-1].add_content(type, content)
+
+    def add_text(self, text: str):
+        self.messages[-1].add_text(text)
+
+    def add_image(self, image: np.ndarray | Image.Image | str, detail: str = None):
+        self.messages[-1].add_image(image, detail)
+
+    def __iter__(self):
+        return iter(self.messages)
+
+    def __len__(self):
+        return len(self.messages)
+
+    def to_markdown(self):
+        return "\n".join([m.to_markdown() for m in self.messages])
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ from PIL import Image
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.llm.chat_api import make_system_message, make_user_message
-from agentlab.llm.llm_utils import image_to_jpg_base64_url
+from agentlab.llm.llm_utils import Discussion, image_to_jpg_base64_url
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -569,6 +569,8 @@ def update_chat_messages():
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
+    if isinstance(chat_messages, Discussion):
+        return chat_messages.to_markdown()
     messages = []
     for i, m in enumerate(chat_messages):
         if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated

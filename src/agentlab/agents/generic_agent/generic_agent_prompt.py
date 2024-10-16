@@ -1,9 +1,11 @@
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+
 from browsergym.core import action
 from browsergym.core.action.base import AbstractActionSet
+
 from agentlab.agents import dynamic_prompting as dp
-from agentlab.llm.llm_utils import parse_html_tags_raise
+from agentlab.llm.llm_utils import Discussion, HumanMessage, parse_html_tags_raise
 
 
 @dataclass
@@ -90,8 +92,10 @@ class MainPrompt(dp.Shrinkable):
         self.memory = Memory(visible=lambda: flags.use_memory)
 
     @property
-    def _prompt(self) -> str:
-        prompt = f"""\
+    def _prompt(self) -> Discussion:
+        prompt = Discussion()
+        prompt += HumanMessage(
+            f"""\
 {self.instructions.prompt}\
 {self.obs.prompt}\
 {self.history.prompt}\
@@ -103,9 +107,11 @@ class MainPrompt(dp.Shrinkable):
 {self.memory.prompt}\
 {self.criticise.prompt}\
 """
+        )
 
         if self.flags.use_abstract_example:
-            prompt += f"""
+            prompt.add_text(
+                f"""
 # Abstract Example
 
 Here is an abstract version of the answer with description of the content of
@@ -117,9 +123,11 @@ answer:
 {self.criticise.abstract_ex}\
 {self.action_prompt.abstract_ex}\
 """
+            )
 
         if self.flags.use_concrete_example:
-            prompt += f"""
+            prompt.add_text(
+                f"""
 # Concrete Example
 
 Here is a concrete example of how to format your answer.
@@ -130,6 +138,7 @@ Make sure to follow the template with proper tags:
 {self.criticise.concrete_ex}\
 {self.action_prompt.concrete_ex}\
 """
+            )
         return self.obs.add_screenshot(prompt)
 
     def shrink(self):
