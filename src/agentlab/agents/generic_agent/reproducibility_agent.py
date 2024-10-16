@@ -55,10 +55,9 @@ class ReproChatModel:
         time.sleep(self.delay)
         # return the next message in the list
         return old_response
-    
+
     def get_stats(self):
         return {}
-
 
 
 @dataclass
@@ -157,8 +156,8 @@ def reproduce_study(original_study_dir: Path | str, log_level=logging.INFO):
                 logging_level=log_level,
             )
         )
-    benchmark_name = exp_args_list[0].env_args.task_name.split('.')[0]
-    
+    benchmark_name = exp_args_list[0].env_args.task_name.split(".")[0]
+
     return Study(
         exp_args_list=exp_args_list,
         benchmark_name=benchmark_name,
