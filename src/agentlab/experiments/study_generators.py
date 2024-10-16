@@ -153,7 +153,10 @@ def set_demo_mode(env_args_list: list[EnvArgs]):
 
 
 def run_agents_on_benchmark(
-    agents: list[AgentArgs] | AgentArgs = AGENT_4o_MINI, benchmark: str = "miniwob", demo_mode=False
+    agents: list[AgentArgs] | AgentArgs = AGENT_4o_MINI,
+    benchmark: str = "miniwob",
+    demo_mode=False,
+    log_level=logging.INFO,
 ):
     """Run one or multiple agents on a benchmark.
 
@@ -190,7 +193,7 @@ def run_agents_on_benchmark(
         ExpArgs(
             agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
-            logging_level=logging.DEBUG,
+            logging_level=log_level,
         )
     )
 

@@ -56,6 +56,9 @@ class ReproChatModel:
         # return the next message in the list
         return old_response
 
+    def get_stats(self):
+        return {}
+
 
 @dataclass
 class ReproAgentArgs(GenericAgentArgs):
@@ -102,6 +105,14 @@ class ReproAgent(GenericAgent):
             )
             return None, agent_info
 
+        # an old bug prevented the response from being saved.
+        if len(old_chat_messages) == 2:
+            recorded_action = step_info.action
+            if recorded_action:
+                # Recreate the 3rd message based on the recorded action
+                assistant_message = make_assistant_message(f"<action>{recorded_action}</action>")
+                old_chat_messages.append(assistant_message)
+
         self.chat_llm = ReproChatModel(old_chat_messages)
         action, agent_info = super().get_action(obs)
 
@@ -128,27 +139,28 @@ def _format_messages(messages: list[dict]):
     return "\n".join(f"{m['role']} message:\n{m['content']}\n" for m in messages)
 
 
-def reproduce_study(original_study_dir: Path | str):
+def reproduce_study(original_study_dir: Path | str, log_level=logging.INFO):
     """Reproduce a study by running the same experiments with the same agent."""
 
     original_study_dir = Path(original_study_dir)
 
     study_name = f"reproducibility_of_{original_study_dir.name}"
 
-    exp_args_list = []
+    exp_args_list: list[ExpArgs] = []
     for exp_result in yield_all_exp_results(original_study_dir, progress_fn=None):
         agent_args = make_repro_agent(exp_result.exp_args.agent_args, exp_dir=exp_result.exp_dir)
         exp_args_list.append(
             ExpArgs(
                 agent_args=agent_args,
                 env_args=exp_result.exp_args.env_args,
-                logging_level=logging.DEBUG,
+                logging_level=log_level,
             )
         )
+    benchmark_name = exp_args_list[0].env_args.task_name.split(".")[0]
 
     return Study(
         exp_args_list=exp_args_list,
-        benchmark_name="repro_study",
+        benchmark_name=benchmark_name,
         agent_names=[agent_args.agent_name],
     )
 
