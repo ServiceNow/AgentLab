@@ -2,14 +2,17 @@ import logging
 import os
 import re
 import time
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import partial
+from typing import Optional
 
 import openai
+from huggingface_hub import InferenceClient
 from openai import AzureOpenAI, OpenAI
 
 import agentlab.llm.tracking as tracking
-from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
+from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
+from agentlab.llm.huggingface_utils import HFBaseChatModel
 
 
 def make_system_message(content: str) -> dict:
@@ -24,10 +27,10 @@ def make_assistant_message(content: str) -> dict:
     return dict(role="assistant", content=content)
 
 
-class CheatMiniWoBLLM:
+class CheatMiniWoBLLM(AbstractChatModel):
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
-    def invoke(self, messages) -> str:
+    def __call__(self, messages) -> str:
         prompt = messages[-1]["content"]
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
@@ -44,12 +47,6 @@ class CheatMiniWoBLLM:
 """
         return make_assistant_message(answer)
 
-    def __call__(self, messages) -> str:
-        return self.invoke(messages)
-
-    def get_stats(self):
-        return {}
-
 
 @dataclass
 class CheatMiniWoBLLMArgs:
@@ -60,28 +57,6 @@ class CheatMiniWoBLLMArgs:
 
     def make_model(self):
         return CheatMiniWoBLLM()
-
-    def prepare_server(self):
-        pass
-
-    def close_server(self):
-        pass
-
-
-@dataclass
-class BaseModelArgs(ABC):
-    """Base class for all model arguments."""
-
-    model_name: str
-    max_total_tokens: int = None
-    max_input_tokens: int = None
-    max_new_tokens: int = None
-    temperature: float = 0.1
-    vision_support: bool = False
-
-    @abstractmethod
-    def make_model(self) -> "ChatModel":
-        pass
 
     def prepare_server(self):
         pass
@@ -221,7 +196,7 @@ def handle_error(error, itr, min_retry_wait_time, max_retry):
     return error_type
 
 
-class ChatModel:
+class ChatModel(AbstractChatModel):
     def __init__(
         self,
         model_name,
@@ -310,9 +285,6 @@ class ChatModel:
 
         return make_assistant_message(completion.choices[0].message.content)
 
-    def invoke(self, messages: list[dict]) -> dict:
-        return self(messages)
-
     def get_stats(self):
         return {
             "n_retry_llm": self.retries,
@@ -400,4 +372,27 @@ class AzureChatModel(ChatModel):
             client_class=AzureOpenAI,
             client_args=client_args,
             pricing_func=tracking.get_pricing_openai,
+        )
+
+
+class HuggingFaceURLChatModel(HFBaseChatModel):
+    def __init__(
+        self,
+        model_name: str,
+        model_url: str,
+        token: Optional[str] = None,
+        temperature: Optional[int] = 1e-1,
+        max_new_tokens: Optional[int] = 512,
+        n_retry_server: Optional[int] = 4,
+    ):
+        super().__init__(model_name, n_retry_server)
+        if temperature < 1e-3:
+            logging.warning("Models might behave weirdly when temperature is too low.")
+
+        if token is None:
+            token = os.environ["TGI_TOKEN"]
+
+        client = InferenceClient(model=model_url, token=token)
+        self.llm = partial(
+            client.text_generation, temperature=temperature, max_new_tokens=max_new_tokens
         )

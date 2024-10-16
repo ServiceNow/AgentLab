@@ -93,8 +93,11 @@ hola
 
 # Mock ChatOpenAI class
 class MockChatOpenAI:
-    def invoke(self, messages):
+    def call(self, messages):
         return "mocked response"
+
+    def __call__(self, messages):
+        return self.call(messages)
 
 
 def mock_parser(answer):
@@ -126,7 +129,7 @@ def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> Rate
 # Test to ensure function stops retrying after reaching the max wait time
 # def test_rate_limit_max_wait_time():
 #     mock_chat = MockChatOpenAI()
-#     mock_chat.invoke = Mock(
+#     mock_chat.call = Mock(
 #         side_effect=mock_rate_limit_error("Rate limit reached. Please try again in 2s.")
 #     )
 
@@ -141,12 +144,12 @@ def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> Rate
 #         )
 
 #     # The function should stop retrying after 2 attempts (6s each time, 12s total which is greater than the 10s max wait time)
-#     assert mock_chat.invoke.call_count == 3
+#     assert mock_chat.call.call_count == 3
 
 
 # def test_rate_limit_success():
 #     mock_chat = MockChatOpenAI()
-#     mock_chat.invoke = Mock(
+#     mock_chat.call = Mock(
 #         side_effect=[
 #             mock_rate_limit_error("Rate limit reached. Please try again in 2s."),
 #             make_system_message("correct content"),
@@ -163,7 +166,7 @@ def mock_rate_limit_error(message: str, status_code: Literal[429] = 429) -> Rate
 #     )
 
 #     assert result == "Parsed value"
-#     assert mock_chat.invoke.call_count == 2
+#     assert mock_chat.call.call_count == 2
 
 
 # Mock a successful parser response to test function exit before max retries
@@ -172,7 +175,7 @@ def test_successful_parse_before_max_retries():
 
     # mock a chat that returns the wrong content the first 2 time, but the right
     # content  on the 3rd time
-    mock_chat.invoke = Mock(
+    mock_chat.call = Mock(
         side_effect=[
             make_system_message("wrong content"),
             make_system_message("wrong content"),
@@ -183,7 +186,7 @@ def test_successful_parse_before_max_retries():
     result = llm_utils.retry(mock_chat, [], 5, mock_parser)
 
     assert result == "Parsed value"
-    assert mock_chat.invoke.call_count == 3
+    assert mock_chat.call.call_count == 3
 
 
 def test_unsuccessful_parse_before_max_retries():
@@ -191,7 +194,7 @@ def test_unsuccessful_parse_before_max_retries():
 
     # mock a chat that returns the wrong content the first 2 time, but the right
     # content  on the 3rd time
-    mock_chat.invoke = Mock(
+    mock_chat.call = Mock(
         side_effect=[
             make_system_message("wrong content"),
             make_system_message("wrong content"),
@@ -201,12 +204,12 @@ def test_unsuccessful_parse_before_max_retries():
     with pytest.raises(llm_utils.ParseError):
         result = llm_utils.retry(mock_chat, [], 2, mock_parser)
 
-    assert mock_chat.invoke.call_count == 2
+    assert mock_chat.call.call_count == 2
 
 
 def test_retry_parse_raises():
     mock_chat = MockChatOpenAI()
-    mock_chat.invoke = Mock(return_value=make_system_message("mocked response"))
+    mock_chat.call = Mock(return_value=make_system_message("mocked response"))
     parser_raises = Mock(side_effect=ValueError("Parser error"))
 
     with pytest.raises(ValueError):

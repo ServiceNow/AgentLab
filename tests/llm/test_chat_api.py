@@ -35,7 +35,7 @@ def test_api_model_args_azure():
         make_system_message("You are an helpful virtual assistant"),
         make_user_message("Give the third prime number"),
     ]
-    answer = model.invoke(messages)
+    answer = model(messages)
 
     assert "5" in answer.get("content")
 
@@ -56,6 +56,6 @@ def test_api_model_args_openai():
         make_system_message("You are an helpful virtual assistant"),
         make_user_message("Give the third prime number"),
     ]
-    answer = model.invoke(messages)
+    answer = model(messages)
 
     assert "5" in answer.get("content")
