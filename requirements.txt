@@ -19,3 +19,4 @@ pandas
 gradio
 gitpython # for the reproducibility script
 requests
+matplotlib
