@@ -445,6 +445,9 @@ class Discussion:
     def __len__(self):
         return len(self.messages)
 
+    def __getitem__(self, key):
+        return self.messages[key]
+
     def to_markdown(self):
         return "\n".join([m.to_markdown() for m in self.messages])
 

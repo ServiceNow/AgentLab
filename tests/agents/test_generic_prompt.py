@@ -166,10 +166,10 @@ def test_shrinking_observation():
         flags=flags,
     )
 
-    prompt = prompt_maker.prompt
+    prompt = prompt_maker.prompt.to_string()
     new_prompt = dp.fit_tokens(
         prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7
-    )
+    ).to_string()
     assert count_tokens(new_prompt) < count_tokens(prompt)
     assert "[1] Click me" in prompt
     assert "[1] Click me" in new_prompt
@@ -207,7 +207,7 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
         previous_plan="1- think\n2- do it",
         step=2,
         flags=flags,
-    ).prompt
+    ).prompt.to_string()
 
     # Verify all elements are not present
     for expected in expected_prompts:
@@ -227,7 +227,7 @@ def test_main_prompt_elements_present():
         previous_plan="1- think\n2- do it",
         step=2,
         flags=ALL_TRUE_FLAGS,
-    ).prompt
+    ).prompt.to_string()
     # Verify all elements are not present
     for _, expected_prompts in FLAG_EXPECTED_PROMPT:
         for expected in expected_prompts:
