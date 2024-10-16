@@ -247,6 +247,7 @@ def get_std_err(df, metric):
         std_err = np.sqrt(mean * (1 - mean) / len(data))
     else:
         return get_sample_std_err(df, metric)
+
     return mean, std_err
 
 
@@ -258,7 +259,7 @@ def get_sample_std_err(df, metric):
     mean = np.mean(data)
     std_err = np.std(data, ddof=1) / np.sqrt(len(data))
     if np.isnan(std_err):
-        std_err = 0
+        std_err = np.zeros_like(std_err)
     return mean, std_err
 
 
@@ -289,7 +290,7 @@ def summarize(sub_df, use_bootstrap=False):
 
         record = dict(
             avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-            std_err=std_reward.round(3),
+            std_err=std_reward.astype(float).round(3),
             # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
