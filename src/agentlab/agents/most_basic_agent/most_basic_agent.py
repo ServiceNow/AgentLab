@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Any
 
 import bgym
 
+from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
 from agentlab.llm.tracking import cost_tracker_decorator
-from agentlab.agents.agent_args import AgentArgs
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
