@@ -8,13 +8,10 @@ repository.
 
 import logging
 
-from agentlab.agents.generic_agent import (
-    RANDOM_SEARCH_AGENT,
-    AGENT_4o,
-    AGENT_4o_MINI,
-    AGENT_LLAMA3_70B,
-    AGENT_LLAMA31_70B,
-)
+from agentlab.agents.generic_agent import AGENT_CUSTOM, RANDOM_SEARCH_AGENT, AGENT_4o, AGENT_4o_MINI
+from agentlab.agents.webarena_basic_agent.webarena_basic_agent import AGENT_SONNET as WA_SONNET
+from agentlab.agents.webarena_basic_agent.webarena_basic_agent import AGENT_4o as WA_4o
+from agentlab.agents.webarena_basic_agent.webarena_basic_agent import AGENT_4o_MINI as WA_4o_MINI
 from agentlab.analyze.inspect_results import get_most_recent_folder
 from agentlab.experiments import study_generators
 
@@ -26,11 +23,11 @@ agent_args = [AGENT_4o_MINI]
 
 ## select the benchmark to run on
 benchmark = "miniwob_tiny_test"
-# benchmark = "miniwob"
+benchmark = "miniwob"
 # benchmark = "workarena.l1"
 # benchmark = "workarena.l2"
 # benchmark = "workarena.l3"
-# benchmark = "webarena"
+benchmark = "webarena"
 
 # Set reproducibility_mode = True for reproducibility
 # this will "ask" agents to be deterministic. Also, it will prevent you from launching if you have
@@ -42,8 +39,8 @@ reproducibility_mode = False
 relaunch = False
 
 ## Number of parallel jobs
-n_jobs = 4  # Make sure to use 1 job when debugging in VSCode
-# n_jobs = -1  # to use all available cores
+n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
+n_jobs = -1  # to use all available cores
 
 
 if __name__ == "__main__":  # necessary for dask backend
