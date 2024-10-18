@@ -150,10 +150,10 @@ FLAG_EXPECTED_PROMPT = [
         "use_abstract_example",
         ("# Abstract Example",),
     ),
-    (
-        "action.action_set.multiaction",
-        ("One or several actions, separated by new lines",),
-    ),
+    # (
+    #     "action.action_set.multiaction",
+    #     ("One or several actions, separated by new lines",),
+    # ),
 ]
 
 

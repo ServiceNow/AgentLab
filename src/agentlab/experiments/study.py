@@ -9,10 +9,8 @@ from bgym import ExpArgs, EnvArgs, Benchmark
 import bgym
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.generic_agent.agent_configs import RANDOM_SEARCH_AGENT, AGENT_4o_MINI
 from agentlab.analyze import inspect_results
 from agentlab.experiments import args
-from agentlab.experiments import task_collections as tasks
 from agentlab.experiments.launch_exp import run_experiments, find_incomplete
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments import reproducibility_util as repro
@@ -54,7 +52,11 @@ class Study:
 
     def __post_init__(self):
         self.uuid = str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-        self.exp_args_list = _agents_on_benchmark(self.agent_args, self.benchmark.name)
+        if isinstance(self.benchmark, str):
+            self.benchmark = bgym.BENCHMARKS[self.benchmark]()
+        if isinstance(self.dir, str):
+            self.dir = Path(self.dir)
+        self.exp_args_list = _agents_on_benchmark(self.agent_args, self.benchmark)
 
     def find_incomplete(self, relaunch_mode="incomplete_or_error"):
         """Find incomplete or errored experiments in the study directory for relaunching."""
@@ -245,7 +247,7 @@ def _agents_on_benchmark(
     for agent in agents:
         agent.set_benchmark(benchmark, demo_mode)  # the agent can adapt (lightly?) to the benchmark
 
-    env_args_list = benchmark.get_env_args_list()
+    env_args_list = benchmark.env_args_list
     if demo_mode:
         set_demo_mode(env_args_list)
 
