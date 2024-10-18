@@ -24,7 +24,7 @@ from langchain.schema import AIMessage, BaseMessage
 from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.experiments.study_generators import Study
+from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import make_assistant_message
 from agentlab.llm.llm_utils import messages_to_dict
 

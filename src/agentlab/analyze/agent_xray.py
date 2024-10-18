@@ -956,7 +956,7 @@ def get_directory_contents(results_dir: Path):
 
 
 def most_recent_folder(results_dir: Path):
-    return inspect_results.get_most_recent_folder(results_dir).name
+    return inspect_results.get_most_recent_study(results_dir).name
 
 
 def refresh_exp_dir_choices(exp_dir_choice):

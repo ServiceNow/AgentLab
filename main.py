@@ -6,8 +6,8 @@ Copy this script and modify at will, but don't push your changes to the
 repository.
 """
 
+import bgym
 import logging
-
 from agentlab.agents.generic_agent import (
     RANDOM_SEARCH_AGENT,
     AGENT_4o,
@@ -15,8 +15,7 @@ from agentlab.agents.generic_agent import (
     AGENT_LLAMA3_70B,
     AGENT_LLAMA31_70B,
 )
-from agentlab.analyze.inspect_results import get_most_recent_folder
-from agentlab.experiments import study_generators
+from agentlab.experiments.study import Study
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -24,13 +23,15 @@ logging.getLogger().setLevel(logging.INFO)
 agent_args = [AGENT_4o_MINI]
 # agent_args = [AGENT_4o]
 
-## select the benchmark to run on
-benchmark = "miniwob_tiny_test"
-# benchmark = "miniwob"
-# benchmark = "workarena.l1"
-# benchmark = "workarena.l2"
-# benchmark = "workarena.l3"
-# benchmark = "webarena"
+benchmark = bgym.BENCHMARKS["miniwob_tiny_test"]()
+
+# ## select the benchmark to run on
+# benchmark = "miniwob_tiny_test"
+# # benchmark = "miniwob"
+# # benchmark = "workarena.l1"
+# # benchmark = "workarena.l2"
+# # benchmark = "workarena.l3"
+# # benchmark = "webarena"
 
 # Set reproducibility_mode = True for reproducibility
 # this will "ask" agents to be deterministic. Also, it will prevent you from launching if you have
@@ -53,11 +54,11 @@ if __name__ == "__main__":  # necessary for dask backend
 
     if relaunch:
         #  relaunch an existing study
-        study_dir = get_most_recent_folder()
-        study = study_generators.make_relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
+        study = Study.load_most_recent()
+        study.find_incomplete(relaunch_mode="incomplete_or_error")
 
     else:
-        study = study_generators.run_agents_on_benchmark(agent_args, benchmark)
+        study = Study(agent_args, benchmark)
 
     study.run(n_jobs=n_jobs, parallel_backend="joblib", strict_reproducibility=reproducibility_mode)
 

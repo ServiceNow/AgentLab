@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import bgym
 import pytest
 
 from agentlab.agents import dynamic_prompting as dp
@@ -70,7 +71,12 @@ ALL_TRUE_FLAGS = GenericPromptFlags(
         filter_visible_elements_only=True,
     ),
     action=dp.ActionFlags(
-        multi_actions=True,
+        action_set=bgym.HighLevelActionSetArgs(
+            subsets=["bid"],
+            multiaction=True,
+        ),
+        long_description=True,
+        individual_examples=True,
     ),
     use_plan=True,
     use_criticise=True,
@@ -145,7 +151,7 @@ FLAG_EXPECTED_PROMPT = [
         ("# Abstract Example",),
     ),
     (
-        "action.multi_actions",
+        "action.action_set.multiaction",
         ("One or several actions, separated by new lines",),
     ),
 ]
@@ -199,7 +205,7 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
 
     # Initialize MainPrompt
     prompt = MainPrompt(
-        action_set=dp.make_action_set(flags.action),
+        action_set=flags.action.action_set.make_action_set(),
         obs_history=OBS_HISTORY,
         actions=ACTIONS,
         memories=memories,
