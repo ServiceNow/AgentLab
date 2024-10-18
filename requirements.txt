@@ -16,6 +16,7 @@ contexttimer
 ipython
 pyyaml>=6
 pandas
-gradio
+gradio==4.*
 gitpython # for the reproducibility script
 requests
+matplotlib
