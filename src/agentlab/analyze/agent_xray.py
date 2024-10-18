@@ -20,7 +20,7 @@ from PIL import Image
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.llm.chat_api import make_system_message, make_user_message
-from agentlab.llm.llm_utils import image_to_jpg_base64_url
+from agentlab.experiments.study import get_most_recent_study
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -956,7 +956,7 @@ def get_directory_contents(results_dir: Path):
 
 
 def most_recent_folder(results_dir: Path):
-    return inspect_results.get_most_recent_study(results_dir).name
+    return get_most_recent_study(results_dir).name
 
 
 def refresh_exp_dir_choices(exp_dir_choice):

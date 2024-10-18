@@ -42,9 +42,8 @@ class Study:
             The reproducibility information for the study.
     """
 
-    # exp_args_list: list[ExpArgs] = None
-    benchmark: Benchmark = None
     agent_args: list[AgentArgs] = None
+    benchmark: Benchmark = None
     dir: Path = None
     suffix: str = ""  # used for adding a personnal comment to the study name
     uuid: str = None
@@ -56,6 +55,9 @@ class Study:
             self.benchmark = bgym.BENCHMARKS[self.benchmark]()
         if isinstance(self.dir, str):
             self.dir = Path(self.dir)
+        self.make_exp_args_list()
+
+    def make_exp_args_list(self):
         self.exp_args_list = _agents_on_benchmark(self.agent_args, self.benchmark)
 
     def find_incomplete(self, relaunch_mode="incomplete_or_error"):
@@ -137,6 +139,9 @@ class Study:
 
     def save(self):
         """Pickle the study to the directory"""
+
+        # TODO perhaps remove exp_args_list before pickling and when loading bring them from the individual directories
+
         self.make_dir()
 
         with gzip.open(self.dir / "study.pkl.gz", "wb") as f:

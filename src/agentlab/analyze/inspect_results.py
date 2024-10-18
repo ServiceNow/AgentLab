@@ -16,7 +16,6 @@ from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp
 from IPython.display import display
 from tqdm import tqdm
 
-from agentlab.experiments.study import get_most_recent_study
 
 from agentlab.analyze.error_categorization import (
     ERR_CLASS_MAP,

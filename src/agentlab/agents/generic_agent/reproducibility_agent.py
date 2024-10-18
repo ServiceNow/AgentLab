@@ -133,7 +133,9 @@ def reproduce_study(original_study_dir: Path | str):
 
     original_study_dir = Path(original_study_dir)
 
-    study_name = f"reproducibility_of_{original_study_dir.name}"
+    study = Study.load(original_study_dir)
+    study.dir = None
+    study.make_dir()
 
     exp_args_list = []
     for exp_result in yield_all_exp_results(original_study_dir, progress_fn=None):
@@ -146,11 +148,8 @@ def reproduce_study(original_study_dir: Path | str):
             )
         )
 
-    return Study(
-        exp_args_list=exp_args_list,
-        benchmark_name="repro_study",
-        agent_names=[agent_args.agent_name],
-    )
+    study.exp_args_list = exp_args_list
+    return study
 
 
 def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):
