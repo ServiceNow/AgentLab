@@ -24,14 +24,14 @@ if TYPE_CHECKING:
 
 
 def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
-    new_messages = []
+    new_messages = Discussion()
     for m in messages:
         if isinstance(m, dict):
-            new_messages.append(m)
+            new_messages.add_message(m)
         elif isinstance(m, str):
-            new_messages.append({"role": "<unknown role>", "content": m})
+            new_messages.add_message({"role": "<unknown role>", "content": m})
         elif isinstance(m, BaseMessage):
-            new_messages.append(convert_message_to_dict(m))
+            new_messages.add_message(convert_message_to_dict(m))
         else:
             raise ValueError(f"Unknown message type: {type(m)}")
     return new_messages
@@ -82,7 +82,7 @@ def retry(
     while tries < n_retry:
         answer = chat(messages)
         # TODO: could we change this to not use inplace modifications ?
-        messages.add_message(**answer)
+        messages.append(answer)
         try:
             return parser(answer["content"])
         except ParseError as parsing_error:
@@ -90,7 +90,7 @@ def retry(
             if log:
                 msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer['content']}\n[User]:\n{str(parsing_error)}"
                 logging.info(msg)
-            messages.add_message(role="user", content=str(parsing_error))
+            messages.append(dict(role="user", content=str(parsing_error)))
 
     raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
 
@@ -390,6 +390,10 @@ class Discussion:
             messages = [messages]
         self.messages = messages
 
+    @property
+    def last_message(self):
+        return self.messages[-1]
+
     def __str__(self) -> str:
         return "\n".join(str(m) for m in self.messages)
 
@@ -400,11 +404,20 @@ class Discussion:
         return self.messages
 
     def add_message(
-        self, message: BaseMessage = None, role: str = None, content: Union[str, list[dict]] = None
+        self,
+        message: BaseMessage | dict = None,
+        role: str = None,
+        content: Union[str, list[dict]] = None,
     ):
         if message is None:
             message = BaseMessage(role, content)
+        else:
+            if isinstance(message, dict):
+                message = BaseMessage(**message)
         self.messages.append(message)
+
+    def append(self, message: BaseMessage | dict):
+        self.add_message(message)
 
     def __add__(self, other: Union[str, BaseMessage, "Discussion"]):
         if isinstance(other, BaseMessage):
