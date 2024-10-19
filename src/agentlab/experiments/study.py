@@ -65,7 +65,7 @@ class Study:
         self.exp_args_list = find_incomplete(self.dir, relaunch_mode=relaunch_mode)
 
     def set_reproducibility_info(self, strict_reproducibility=False):
-        """Gether relevant information that may affect the reproducibility of the experiment
+        """Gather relevant information that may affect the reproducibility of the experiment
 
         e.g.: versions of BrowserGym, benchmark, AgentLab..."""
         agent_names = [a.agent_name for a in self.agent_args]
