@@ -171,6 +171,7 @@ def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, P
 def get_reproducibility_info(
     agent_names: str | list[str],
     benchmark: bgym.Benchmark,
+    study_id: str = "",
     comment=None,
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
@@ -193,6 +194,7 @@ def get_reproducibility_info(
         "git_user": _get_git_username(_get_repo(agentlab)),
         "agent_names": agent_names,
         "benchmark": benchmark.name,
+        "study_id": study_id,
         "comment": comment,
         "benchmark_version": _get_benchmark_version(benchmark),
         "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),

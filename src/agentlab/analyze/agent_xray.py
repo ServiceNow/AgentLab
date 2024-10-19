@@ -152,6 +152,12 @@ th {
     white-space: normal !important;
     word-wrap: break-word !important;
 }
+#task_table {
+    height: 500px !important;
+}
+#seed_table {
+    height: 500px !important;
+}
 """
 
 
@@ -236,7 +242,9 @@ clicking the refresh button.
                                 )
                             refresh_results_button = gr.Button("↺", scale=0, size="sm")
 
-                        task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        task_table = gr.DataFrame(
+                            height=500, show_label=False, interactive=False, elem_id="task_table"
+                        )
 
                     with gr.Column(scale=2):
                         with gr.Accordion("Seed Selector (click for help)", open=False):
@@ -249,7 +257,9 @@ clicking the refresh button.
     the order."""
                             )
 
-                        seed_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        seed_table = gr.DataFrame(
+                            height=500, show_label=False, interactive=False, elem_id="seed_table"
+                        )
 
             with gr.Tab("Constants and Variables"):
                 with gr.Row():

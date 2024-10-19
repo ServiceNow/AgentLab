@@ -18,7 +18,7 @@ def test_get_reproducibility_info(benchmark_name):
     benchmark = bgym.BENCHMARKS[benchmark_name]()
 
     info = reproducibility_util.get_reproducibility_info(
-        "test_agent", benchmark, ignore_changes=True
+        "test_agent", benchmark, "test_id", ignore_changes=True
     )
 
     print("reproducibility info:")

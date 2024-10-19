@@ -23,15 +23,14 @@ logging.getLogger().setLevel(logging.INFO)
 agent_args = [AGENT_4o_MINI]
 # agent_args = [AGENT_4o]
 
-benchmark = bgym.BENCHMARKS["miniwob_tiny_test"]()
 
 # ## select the benchmark to run on
-# benchmark = "miniwob_tiny_test"
-# # benchmark = "miniwob"
-# # benchmark = "workarena.l1"
-# # benchmark = "workarena.l2"
-# # benchmark = "workarena.l3"
-# # benchmark = "webarena"
+benchmark = "miniwob_tiny_test"
+# benchmark = "miniwob_all"
+# benchmark = "workarena_l1"
+# benchmark = "workarena_l2"
+# benchmark = "workarena_l3"
+# benchmark = "webarena"
 
 # Set reproducibility_mode = True for reproducibility
 # this will "ask" agents to be deterministic. Also, it will prevent you from launching if you have

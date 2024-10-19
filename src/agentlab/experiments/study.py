@@ -48,6 +48,7 @@ class Study:
     suffix: str = ""  # used for adding a personnal comment to the study name
     uuid: str = None
     reproducibility_info: dict = None
+    logging_level: int = logging.INFO
 
     def __post_init__(self):
         self.uuid = str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
@@ -58,7 +59,9 @@ class Study:
         self.make_exp_args_list()
 
     def make_exp_args_list(self):
-        self.exp_args_list = _agents_on_benchmark(self.agent_args, self.benchmark)
+        self.exp_args_list = _agents_on_benchmark(
+            self.agent_args, self.benchmark, logging_level=self.logging_level
+        )
 
     def find_incomplete(self, relaunch_mode="incomplete_or_error"):
         """Find incomplete or errored experiments in the study directory for relaunching."""
@@ -70,7 +73,7 @@ class Study:
         e.g.: versions of BrowserGym, benchmark, AgentLab..."""
         agent_names = [a.agent_name for a in self.agent_args]
         info = repro.get_reproducibility_info(
-            agent_names, self.benchmark, ignore_changes=not strict_reproducibility
+            agent_names, self.benchmark, self.uuid, ignore_changes=not strict_reproducibility
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(self.reproducibility_info, info)
@@ -235,12 +238,19 @@ def _agents_on_benchmark(
     agents: list[AgentArgs] | AgentArgs,
     benchmark: bgym.Benchmark,
     demo_mode=False,
+    logging_level: int = logging.INFO,
 ):
     """Run one or multiple agents on a benchmark.
 
     Args:
         agents: list[AgentArgs] | AgentArgs
             The agent configuration(s) to run.
+        benchmark: bgym.Benchmark
+            The benchmark to run the agents on.
+        demo_mode: bool
+            If True, the experiments will be run in demo mode.
+        logging_level: int
+            The logging level for individual jobs.
 
     Returns:
         study: Study
@@ -260,7 +270,7 @@ def _agents_on_benchmark(
         ExpArgs(
             agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
-            logging_level=logging.DEBUG,
+            logging_level=logging_level,
         )
     )
 
