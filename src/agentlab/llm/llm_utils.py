@@ -359,13 +359,14 @@ class BaseMessage(dict):
 
     def to_markdown(self):
         if isinstance(self["content"], str):
-            return self["content"]
+            return f"\n```\n{self['content']}\n```\n"
         res = []
         for elem in self["content"]:
+            # add texts between ticks and images
             if elem["type"] == "text":
-                res.append(elem["text"])
+                res.append(f"\n```\n{elem['text']}\n```\n")
             elif elem["type"] == "image":
-                res.append(f"![]({elem['url']})")
+                res.append(f"![image]({elem['url']})")
         return "\n".join(res)
 
 
@@ -444,13 +445,13 @@ class Discussion:
             raise ValueError(f"Cannot add a {type(other)} to a Discussion.")
 
     def add_content(self, type: str, content: Any):
-        self.messages[-1].add_content(type, content)
+        self.last_message.add_content(type, content)
 
     def add_text(self, text: str):
-        self.messages[-1].add_text(text)
+        self.last_message.add_text(text)
 
     def add_image(self, image: np.ndarray | Image.Image | str, detail: str = None):
-        self.messages[-1].add_image(image, detail)
+        self.last_message.add_image(image, detail)
 
     def __iter__(self):
         return iter(self.messages)
@@ -462,7 +463,7 @@ class Discussion:
         return self.messages[key]
 
     def to_markdown(self):
-        return "\n".join([m.to_markdown() for m in self.messages])
+        return "\n".join([f"Message {i}\n{m.to_markdown()}\n" for i, m in enumerate(self.messages)])
 
 
 if __name__ == "__main__":
