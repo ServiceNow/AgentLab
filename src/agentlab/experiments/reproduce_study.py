@@ -5,18 +5,14 @@ llm. Load the study in agent-xray and look at the Agent Info HTML to compare
 the diff in HTML format.
 """
 
-import logging
-
 from agentlab.agents.generic_agent.reproducibility_agent import reproduce_study
 from agentlab.experiments.exp_utils import RESULTS_DIR
-
-logging.getLogger().setLevel(logging.INFO)
 
 
 if __name__ == "__main__":
 
-    old_study = "2024-06-02_18-16-17_final_run"
-    # old_study = "2024-09-12_08-39-16_GenericAgent-gpt-4o-mini_on_miniwob_tiny_test"
+    # old_study = "2024-06-03_13-53-50_final_run_workarena_L1_llama3-70b"
+    old_study = "2024-06-03_12-28-51_final_run_miniwob_llama3-70b"
 
     study = reproduce_study(RESULTS_DIR / old_study)
     n_jobs = 1

@@ -246,9 +246,9 @@ def get_std_err(df, metric):
     if np.all(np.isin(data, [0, 1])):
         mean = np.mean(data)
         std_err = np.sqrt(mean * (1 - mean) / len(data))
+        return mean, std_err
     else:
         return get_sample_std_err(df, metric)
-    return mean, std_err
 
 
 def get_sample_std_err(df, metric):
@@ -259,7 +259,7 @@ def get_sample_std_err(df, metric):
     mean = np.mean(data)
     std_err = np.std(data, ddof=1) / np.sqrt(len(data))
     if np.isnan(std_err):
-        std_err = 0
+        std_err = np.float64(0)
     return mean, std_err
 
 
