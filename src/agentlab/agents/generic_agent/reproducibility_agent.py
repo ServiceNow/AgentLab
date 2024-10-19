@@ -26,7 +26,7 @@ from langchain_community.adapters.openai import convert_message_to_dict
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.experiments.study_generators import Study
 from agentlab.llm.chat_api import make_assistant_message
-from agentlab.llm.llm_utils import messages_to_dict
+from agentlab.llm.llm_utils import Discussion, messages_to_dict
 
 from .generic_agent import GenericAgent, GenericAgentArgs
 
@@ -43,7 +43,7 @@ class ReproChatModel:
         self.old_messages = old_messages
         self.delay = delay
 
-    def __call__(self, messages: list):
+    def __call__(self, messages: list | Discussion):
         self.new_messages = copy(messages)
 
         if len(messages) >= len(self.old_messages):
@@ -95,7 +95,7 @@ class ReproAgent(GenericAgent):
         # same answers
         step = len(self.actions)
         step_info = self.exp_result.get_step_info(step)
-        old_chat_messages = step_info.agent_info.get("chat_messages", None)
+        old_chat_messages = step_info.agent_info.get("chat_messages", None)  # type: Discussion
 
         if old_chat_messages is None:
             err_msg = self.exp_result.summary_info["err_msg"]
@@ -135,6 +135,8 @@ def _make_agent_stats(action, agent_info, step_info, old_chat_messages, new_chat
 
 
 def _format_messages(messages: list[dict]):
+    if isinstance(messages, Discussion):
+        return messages.to_string()
     messages = messages_to_dict(messages)
     return "\n".join(f"{m['role']} message:\n{m['content']}\n" for m in messages)
 
