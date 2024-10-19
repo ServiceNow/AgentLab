@@ -4,11 +4,18 @@ from typing import TYPE_CHECKING, Any
 
 import bgym
 
+from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
-from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
+from agentlab.llm.llm_utils import (
+    Discussion,
+    HumanMessage,
+    ParseError,
+    SystemMessage,
+    extract_code_blocks,
+    retry,
+)
 from agentlab.llm.tracking import cost_tracker_decorator
-from agentlab.agents.agent_args import AgentArgs
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import BaseModelArgs
@@ -51,17 +58,12 @@ class MostBasicAgent(bgym.Agent):
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
-        system_prompt = f"""
-You are a web assistant.
-"""
-        prompt = f"""
+        messages = Discussion(SystemMessage("You are a web assistant."))
+        messages += HumanMessage(
+            f"""
 You are helping a user to accomplish the following goal on a website:
 
 {obs["goal"]}
-
-Here is the current state of the website, in the form of an html:
-
-{obs["dom_txt"]}
 
 To do so, you can interact with the environment using the following actions:
 
@@ -69,7 +71,11 @@ To do so, you can interact with the environment using the following actions:
 
 The inputs to those functions are the bids given in the html.
 
-The action you provide must be in between triple ticks.
+Here is the current state of the website, in the form of an html:
+
+{obs["pruned_html"]}
+
+The action you provide must be in between triple ticks and leverage the 'bid=' information provided in the html.
 Here is an example of how to use the bid action:
 
 ```
@@ -79,15 +85,13 @@ click('a314')
 Please provide a single action at a time and wait for the next observation. Provide only a single action per step. 
 Focus on the bid that are given in the html, and use them to perform the actions.
 """
+        )
         if self.use_chain_of_thought:
-            prompt += f"""
+            messages.add_text(
+                f"""
 Provide a chain of thoughts reasoning to decompose the task into smaller steps. And execute only the next step.
 """
-
-        messages = [
-            make_system_message(system_prompt),
-            make_user_message(prompt),
-        ]
+            )
 
         def parser(response: str) -> tuple[dict, bool, str]:
             blocks = extract_code_blocks(response)
@@ -108,7 +112,7 @@ Provide a chain of thoughts reasoning to decompose the task into smaller steps. 
                 think=thought,
                 chat_messages=messages,
                 # put any stats that you care about as long as it is a number or a dict of numbers
-                stats={"prompt_length": len(prompt), "response_length": len(thought)},
+                stats={"prompt_length": len(messages), "response_length": len(thought)},
                 markdown_page="Add any txt information here, including base 64 images, to display in xray",
                 extra_info={"chat_model_args": asdict(self.chat_model_args)},
             ),
@@ -146,6 +150,12 @@ exp_args = [
         logging_level=logging.INFO,
     ),
 ]
+
+AGENT_4o_MINI = MostBasicAgentArgs(
+    temperature=0.3,
+    use_chain_of_thought=True,
+    chat_model_args=chat_model_args,
+)
 
 
 def experiment_config():
