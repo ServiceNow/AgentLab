@@ -79,7 +79,7 @@ class MainPrompt(dp.Shrinkable):
         def time_for_caution():
             # no need for caution if we're in single action mode
             return flags.be_cautious and (
-                flags.action.multi_actions or flags.action.action_set == "python"
+                flags.action.action_set.multiaction or flags.action.action_set == "python"
             )
 
         self.be_cautious = dp.BeCautious(visible=time_for_caution)
@@ -242,77 +242,3 @@ explore the page to find a way to activate the form.
 
     def _parse_answer(self, text_answer):
         return parse_html_tags_raise(text_answer, optional_keys=["action_draft", "criticise"])
-
-
-if __name__ == "__main__":
-    html_template = """
-    <html>
-    <body>
-    <div>
-    Hello World.
-    Step {}.
-    </div>
-    </body>
-    </html>
-    """
-
-    OBS_HISTORY = [
-        {
-            "goal": "do this and that",
-            "pruned_html": html_template.format(1),
-            "axtree_txt": "[1] Click me",
-            "last_action_error": "",
-            "focused_element_bid": "32",
-        },
-        {
-            "goal": "do this and that",
-            "pruned_html": html_template.format(2),
-            "axtree_txt": "[1] Click me",
-            "last_action_error": "",
-            "focused_element_bid": "32",
-        },
-        {
-            "goal": "do this and that",
-            "pruned_html": html_template.format(3),
-            "axtree_txt": "[1] Click me",
-            "last_action_error": "Hey, there is an error now",
-            "focused_element_bid": "32",
-        },
-    ]
-    ACTIONS = ["click('41')", "click('42')"]
-    MEMORIES = ["memory A", "memory B"]
-    THOUGHTS = ["thought A", "thought B"]
-
-    flags = dp.ObsFlags(
-        use_html=True,
-        use_ax_tree=True,
-        use_plan=True,
-        use_criticise=True,
-        use_thinking=True,
-        use_error_logs=True,
-        use_past_error_logs=True,
-        use_history=True,
-        use_action_history=True,
-        use_memory=True,
-        use_diff=True,
-        html_type="pruned_html",
-        use_concrete_example=True,
-        use_abstract_example=True,
-        multi_actions=True,
-        use_screenshot=False,
-    )
-
-    print(
-        MainPrompt(
-            action_set=dp.make_action_set(
-                "bid", is_strict=False, multiaction=True, demo_mode="off"
-            ),
-            obs_history=OBS_HISTORY,
-            actions=ACTIONS,
-            memories=MEMORIES,
-            thoughts=THOUGHTS,
-            previous_plan="No plan yet",
-            step=0,
-            flags=flags,
-        ).prompt
-    )

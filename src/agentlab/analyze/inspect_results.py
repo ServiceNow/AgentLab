@@ -16,6 +16,7 @@ from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp
 from IPython.display import display
 from tqdm import tqdm
 
+
 from agentlab.analyze.error_categorization import (
     ERR_CLASS_MAP,
     is_critical_server_error,
@@ -245,9 +246,9 @@ def get_std_err(df, metric):
     if np.all(np.isin(data, [0, 1])):
         mean = np.mean(data)
         std_err = np.sqrt(mean * (1 - mean) / len(data))
+        return mean, std_err
     else:
         return get_sample_std_err(df, metric)
-    return mean, std_err
 
 
 def get_sample_std_err(df, metric):
@@ -258,7 +259,7 @@ def get_sample_std_err(df, metric):
     mean = np.mean(data)
     std_err = np.std(data, ddof=1) / np.sqrt(len(data))
     if np.isnan(std_err):
-        std_err = 0
+        std_err = np.float64(0)
     return mean, std_err
 
 
@@ -507,41 +508,6 @@ def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: 
         flag_report = flag_report.round(round_digits)
 
     return flag_report
-
-
-def get_most_recent_folder(
-    root_dir: Path = None, date_format: str = "%Y-%m-%d_%H-%M-%S", contains=None
-):
-    """Return the most recent directory based on the date in the folder name.
-
-    Args:
-        root_dir: The directory to search in
-        date_format: The format of the date in the folder name
-        contains: If not None, only consider folders that contains this string
-
-    Returns:
-        Path: The most recent folder satisfying the conditions
-    """
-
-    if root_dir is None:
-        root_dir = RESULTS_DIR
-
-    most_recent_folder = None
-    most_recent_time = datetime.min
-
-    for item in root_dir.iterdir():
-        if item.is_dir() and not item.name.startswith("_"):
-            if contains is not None and contains not in item.name:
-                continue
-            try:
-                folder_date = datetime.strptime("_".join(item.name.split("_")[:2]), date_format)
-                if folder_date > most_recent_time:
-                    most_recent_time = folder_date
-                    most_recent_folder = item
-            except (ValueError, IndexError):
-                continue
-
-    return most_recent_folder
 
 
 def display_report(

@@ -79,8 +79,8 @@ def run_experiments(
         logging.info("Experiment finished.")
 
 
-def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
-    """Return exp_args_list and study_dir
+def find_incomplete(study_dir: str | Path, relaunch_mode="incomplete_only"):
+    """Return incomplete experiments
 
     Args:
         study_dir: Path
@@ -107,7 +107,7 @@ def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
 
     logging.info(message)
 
-    return exp_args_list, study_dir
+    return exp_args_list
 
 
 def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):

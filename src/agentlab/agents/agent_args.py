@@ -1,9 +1,10 @@
 from bgym import AbstractAgentArgs
+import bgym
 
 
 class AgentArgs(AbstractAgentArgs):
 
-    def set_benchmark(self, benchmark: str, demo_mode: bool):
+    def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode: bool):
         """Optional method to set benchmark specific flags.
 
         This allows the agent to have minor adjustments based on the benchmark.

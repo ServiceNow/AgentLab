@@ -24,7 +24,7 @@ from langchain.schema import AIMessage, BaseMessage
 from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.experiments.study_generators import Study
+from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import make_assistant_message
 from agentlab.llm.llm_utils import messages_to_dict
 
@@ -144,7 +144,9 @@ def reproduce_study(original_study_dir: Path | str, log_level=logging.INFO):
 
     original_study_dir = Path(original_study_dir)
 
-    study_name = f"reproducibility_of_{original_study_dir.name}"
+    study = Study.load(original_study_dir)
+    study.dir = None
+    study.make_dir()
 
     exp_args_list: list[ExpArgs] = []
     for exp_result in yield_all_exp_results(original_study_dir, progress_fn=None):
