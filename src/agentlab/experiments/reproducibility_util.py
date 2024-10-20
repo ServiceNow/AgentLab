@@ -177,6 +177,7 @@ def get_reproducibility_info(
         "*/reproducibility_script.py",
         "*reproducibility_journal.csv",
         "*main.py",
+        "*inspect_results.ipynb",
     ),
     ignore_changes=False,
 ):
