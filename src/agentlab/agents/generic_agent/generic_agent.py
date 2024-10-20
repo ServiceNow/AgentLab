@@ -1,7 +1,9 @@
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
+import bgym
 from browsergym.experiments.agent import Agent, AgentInfo
 
 from agentlab.agents import dynamic_prompting as dp
@@ -25,13 +27,22 @@ class GenericAgentArgs(AgentArgs):
         except AttributeError:
             pass
 
-    def set_benchmark(self, benchmark, demo_mode):
+    def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode):
         """Override Some flags based on the benchmark."""
-        if benchmark == "miniwob":
+        if benchmark.name.startswith("miniwob"):
             self.flags.obs.use_html = True
 
+        self.flags.action.action_set = deepcopy(benchmark.high_level_action_set_args)
+
+        # for backward compatibility with old traces
+        if self.flags.action.multi_actions is not None:
+            self.flags.action.action_set.multiaction = self.flags.action.multi_actions
+        if self.flags.action.is_strict is not None:
+            self.flags.action.action_set.strict = self.flags.action.is_strict
+
+        # verify if we can remove this
         if demo_mode:
-            self.flags.action.demo_mode = "all_blue"
+            self.action_set.demo_mode = "all_blue"
 
     def set_reproducibility_mode(self):
         self.chat_model_args.temperature = 0
@@ -62,7 +73,7 @@ class GenericAgent(Agent):
         self.max_retry = max_retry
 
         self.flags = flags
-        self.action_set = dp.make_action_set(self.flags.action)
+        self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
         self._check_flag_constancy()
