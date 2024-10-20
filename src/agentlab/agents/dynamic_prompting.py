@@ -1,5 +1,4 @@
 import abc
-import difflib
 import logging
 import platform
 import time
@@ -9,6 +8,7 @@ from textwrap import dedent
 from typing import Literal
 from warnings import warn
 
+import bgym
 from browsergym.core.action.base import AbstractActionSet
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.core.action.python import PythonActionSet
@@ -95,12 +95,13 @@ class ObsFlags(Flags):
 
 @dataclass
 class ActionFlags(Flags):
-    multi_actions: bool = False
-    action_set: str = "bid"
-    is_strict: bool = False
-    demo_mode: Literal["off", "default", "all_blue", "only_visible_elements"] = "off"
+    action_set: bgym.HighLevelActionSetArgs = None  # should be set by the set_benchmark method
     long_description: bool = True
     individual_examples: bool = False
+
+    # for backward compatibility
+    multi_actions: bool = None
+    is_strict: bool = None
 
 
 class PromptElement:
@@ -588,24 +589,24 @@ elements in the page is through bid which are specified in your observations.
         return ans_dict
 
 
-def make_action_set(action_flags: ActionFlags) -> AbstractActionSet:
+# def make_action_set(action_flags: ActionFlags) -> AbstractActionSet:
 
-    if action_flags.action_set == "python":
-        action_set = PythonActionSet(strict=action_flags.is_strict)
-        if action_flags.demo_mode != "off":
-            warn(
-                f'Action_set "python" is incompatible with demo_mode={repr(action_flags.demo_mode)}.'
-            )
-        return action_set
+#     if action_flags.action_set == "python":
+#         action_set = PythonActionSet(strict=action_flags.is_strict)
+#         if action_flags.demo_mode != "off":
+#             warn(
+#                 f'Action_set "python" is incompatible with demo_mode={repr(action_flags.demo_mode)}.'
+#             )
+#         return action_set
 
-    action_set = HighLevelActionSet(
-        subsets=list(set(["chat"] + ["infeas"] + action_flags.action_set.split("+"))),
-        multiaction=action_flags.multi_actions,
-        strict=action_flags.is_strict,
-        demo_mode=action_flags.demo_mode,
-    )
+#     action_set = HighLevelActionSet(
+#         subsets=list(set(["chat"] + ["infeas"] + action_flags.action_set.split("+"))),
+#         multiaction=action_flags.multi_actions,
+#         strict=action_flags.is_strict,
+#         demo_mode=action_flags.demo_mode,
+#     )
 
-    return action_set
+#     return action_set
 
 
 class Think(PromptElement):

@@ -19,8 +19,9 @@ from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
-from agentlab.llm.llm_utils import Discussion, image_to_jpg_base64_url
+from agentlab.llm.llm_utils import Discussion
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -152,6 +153,12 @@ th {
     white-space: normal !important;
     word-wrap: break-word !important;
 }
+#task_table {
+    height: 500px !important;
+}
+#seed_table {
+    height: 500px !important;
+}
 """
 
 
@@ -236,7 +243,9 @@ clicking the refresh button.
                                 )
                             refresh_results_button = gr.Button("↺", scale=0, size="sm")
 
-                        task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        task_table = gr.DataFrame(
+                            height=500, show_label=False, interactive=False, elem_id="task_table"
+                        )
 
                     with gr.Column(scale=2):
                         with gr.Accordion("Seed Selector (click for help)", open=False):
@@ -249,7 +258,9 @@ clicking the refresh button.
     the order."""
                             )
 
-                        seed_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        seed_table = gr.DataFrame(
+                            height=500, show_label=False, interactive=False, elem_id="seed_table"
+                        )
 
             with gr.Tab("Constants and Variables"):
                 with gr.Row():
@@ -960,7 +971,7 @@ def get_directory_contents(results_dir: Path):
 
 
 def most_recent_folder(results_dir: Path):
-    return inspect_results.get_most_recent_folder(results_dir).name
+    return get_most_recent_study(results_dir).name
 
 
 def refresh_exp_dir_choices(exp_dir_choice):
