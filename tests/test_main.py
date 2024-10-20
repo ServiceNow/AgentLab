@@ -15,7 +15,7 @@ def test_main_script_execution():
 
     # just make sure it's in the right state
     main = __import__(path.stem)
-    assert main.benchmark.name == "miniwob_tiny_test"
+    assert main.benchmark == "miniwob_tiny_test"
     assert main.reproducibility_mode == False
     assert main.relaunch == False
     assert main.n_jobs <= 10
