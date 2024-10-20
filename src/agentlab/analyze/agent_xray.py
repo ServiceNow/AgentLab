@@ -584,7 +584,7 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     if isinstance(chat_messages, Discussion):
         return chat_messages.to_markdown()
-    messages = [] #TODO(ThibaultLSDC) remove this at some point
+    messages = []  # TODO(ThibaultLSDC) remove this at some point
     for i, m in enumerate(chat_messages):
         if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
             m = m.content
