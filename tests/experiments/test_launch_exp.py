@@ -7,22 +7,20 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import relaunch_study, run_experiments
-from agentlab.experiments.study_generators import run_agents_on_benchmark
+from agentlab.experiments.launch_exp import find_incomplete, run_experiments
+from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
 
 def test_relaunch_study():
     study_dir = Path(__file__).parent.parent / "data" / "test_study"
-    exp_args_list, study_dir_ = relaunch_study(study_dir, relaunch_mode="incomplete_only")
+    exp_args_list = find_incomplete(study_dir, relaunch_mode="incomplete_only")
 
-    assert study_dir_ == study_dir
     assert len(exp_args_list) == 1
     assert exp_args_list[0].env_args.task_name == "miniwob.ascending-numbers"
 
-    exp_args_list, study_dir_ = relaunch_study(study_dir, relaunch_mode="incomplete_or_error")
+    exp_args_list = find_incomplete(study_dir, relaunch_mode="incomplete_or_error")
 
-    assert study_dir_ == study_dir
     assert len(exp_args_list) == 2
 
 
@@ -76,7 +74,7 @@ def test_4o_mini_on_miniwob_tiny_test():
     """Run with `pytest -m pricy`."""
     with tempfile.TemporaryDirectory() as tmp_dir:
 
-        study = run_agents_on_benchmark(agents=AGENT_4o_MINI, benchmark="miniwob_tiny_test")
+        study = Study(agent_args=[AGENT_4o_MINI], benchmark="miniwob_tiny_test", dir=tmp_dir)
 
         study.run(n_jobs=4)
 
@@ -96,6 +94,7 @@ def test_4o_mini_on_miniwob_tiny_test():
 
 
 if __name__ == "__main__":
-    test_4o_mini_on_miniwob_tiny_test()
+    test_relaunch_study()
+    # test_4o_mini_on_miniwob_tiny_test()
     # test_launch_system()
     # test_launch_system_sequntial()
