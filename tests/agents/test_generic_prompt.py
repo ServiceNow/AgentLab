@@ -172,10 +172,10 @@ def test_shrinking_observation():
         flags=flags,
     )
 
-    prompt = prompt_maker.prompt.to_string()
-    new_prompt = dp.fit_tokens(
-        prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7
-    ).to_string()
+    prompt = str(prompt_maker.prompt)
+    new_prompt = str(
+        dp.fit_tokens(prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7)
+    )
     assert count_tokens(new_prompt) < count_tokens(prompt)
     assert "[1] Click me" in prompt
     assert "[1] Click me" in new_prompt
@@ -204,16 +204,18 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
         memories = MEMORIES
 
     # Initialize MainPrompt
-    prompt = MainPrompt(
-        action_set=flags.action.action_set.make_action_set(),
-        obs_history=OBS_HISTORY,
-        actions=ACTIONS,
-        memories=memories,
-        thoughts=THOUGHTS,
-        previous_plan="1- think\n2- do it",
-        step=2,
-        flags=flags,
-    ).prompt.to_string()
+    prompt = str(
+        MainPrompt(
+            action_set=flags.action.action_set.make_action_set(),
+            obs_history=OBS_HISTORY,
+            actions=ACTIONS,
+            memories=memories,
+            thoughts=THOUGHTS,
+            previous_plan="1- think\n2- do it",
+            step=2,
+            flags=flags,
+        ).prompt
+    )
 
     # Verify all elements are not present
     for expected in expected_prompts:
@@ -224,16 +226,18 @@ def test_main_prompt_elements_present():
     # Make sure the flag is enabled
 
     # Initialize MainPrompt
-    prompt = MainPrompt(
-        action_set=dp.HighLevelActionSet(),
-        obs_history=OBS_HISTORY,
-        actions=ACTIONS,
-        memories=MEMORIES,
-        thoughts=THOUGHTS,
-        previous_plan="1- think\n2- do it",
-        step=2,
-        flags=ALL_TRUE_FLAGS,
-    ).prompt.to_string()
+    prompt = str(
+        MainPrompt(
+            action_set=dp.HighLevelActionSet(),
+            obs_history=OBS_HISTORY,
+            actions=ACTIONS,
+            memories=MEMORIES,
+            thoughts=THOUGHTS,
+            previous_plan="1- think\n2- do it",
+            step=2,
+            flags=ALL_TRUE_FLAGS,
+        ).prompt
+    )
     # Verify all elements are not present
     for _, expected_prompts in FLAG_EXPECTED_PROMPT:
         for expected in expected_prompts:
