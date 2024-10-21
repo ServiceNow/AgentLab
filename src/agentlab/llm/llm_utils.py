@@ -422,37 +422,16 @@ class Discussion:
     def append(self, message: BaseMessage | dict):
         self.add_message(message)
 
-    def __add__(self, other: Union[str, BaseMessage, "Discussion"]):
-        if isinstance(other, BaseMessage):
-            res = deepcopy(self)
-            res.add_message(other)
-            return res
-        elif isinstance(other, Discussion):
-            res = deepcopy(self)
-            res.messages.extend(other.messages)
-            return res
-        else:
-            raise ValueError(f"Cannot add a {type(other)} to a Discussion.")
-
-    def __radd__(self, other: Union[str, BaseMessage, "Discussion"]):
-        if isinstance(other, BaseMessage):
-            res = deepcopy(self)
-            res.messages.insert(0, other)
-            return res
-        elif isinstance(other, Discussion):
-            res = deepcopy(other)
-            res.messages.extend(self.messages)
-            return res
-        else:
-            raise ValueError(f"Cannot add a {type(other)} to a Discussion.")
-
     def add_content(self, type: str, content: Any):
+        """Add content to the last message."""
         self.last_message.add_content(type, content)
 
     def add_text(self, text: str):
+        """Add text to the last message."""
         self.last_message.add_text(text)
 
     def add_image(self, image: np.ndarray | Image.Image | str, detail: str = None):
+        """Add an image to the last message."""
         self.last_message.add_image(image, detail)
 
     def __iter__(self):

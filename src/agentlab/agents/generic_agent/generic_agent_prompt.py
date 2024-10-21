@@ -5,7 +5,7 @@ from browsergym.core import action
 from browsergym.core.action.base import AbstractActionSet
 
 from agentlab.agents import dynamic_prompting as dp
-from agentlab.llm.llm_utils import Discussion, HumanMessage, parse_html_tags_raise
+from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
 
 
 @dataclass
@@ -92,9 +92,8 @@ class MainPrompt(dp.Shrinkable):
         self.memory = Memory(visible=lambda: flags.use_memory)
 
     @property
-    def _prompt(self) -> Discussion:
-        prompt = Discussion()
-        prompt += HumanMessage(
+    def _prompt(self) -> HumanMessage:
+        prompt = HumanMessage(
             f"""\
 {self.instructions.prompt}\
 {self.obs.prompt}\
