@@ -15,6 +15,7 @@ from browsergym.core.action.python import PythonActionSet
 from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, overlay_som, prune_html
 
 from agentlab.llm.llm_utils import (
+    BaseMessage,
     ParseError,
     count_tokens,
     extract_code_blocks,
@@ -122,7 +123,7 @@ class PromptElement:
         self._visible = visible
 
     @property
-    def prompt(self):
+    def prompt(self) -> str | BaseMessage:
         """Avoid overriding this method. Override _prompt instead."""
         if self.is_visible:
             return self._prompt
@@ -253,7 +254,14 @@ def fit_tokens(
         if isinstance(prompt, str):
             prompt_str = prompt
         elif isinstance(prompt, list):
+            # warn deprecated
+            warn(
+                "Using list of prompts is deprecated. Use a Discussion object instead.",
+                DeprecationWarning,
+            )
             prompt_str = "\n".join([p["text"] for p in prompt if p["type"] == "text"])
+        elif isinstance(prompt, BaseMessage):
+            prompt_str = str(prompt)
         else:
             raise ValueError(f"Unrecognized type for prompt: {type(prompt)}")
         n_token = count_tokens(prompt_str, model=model_name)
@@ -405,21 +413,14 @@ class Observation(Shrinkable):
 
 """
 
-    def add_screenshot(self, prompt):
+    def add_screenshot(self, prompt: BaseMessage) -> BaseMessage:
         if self.flags.use_screenshot:
-            if isinstance(prompt, str):
-                prompt = [{"type": "text", "text": prompt}]
             if self.flags.use_som:
                 screenshot = self.obs["screenshot_som"]
             else:
                 screenshot = self.obs["screenshot"]
             img_url = image_to_jpg_base64_url(screenshot)
-            prompt.append(
-                {
-                    "type": "image_url",
-                    "image_url": {"url": img_url, "detail": self.flags.openai_vision_detail},
-                }
-            )
+            prompt.add_image(img_url, detail=self.flags.openai_vision_detail)
         return prompt
 
 

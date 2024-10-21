@@ -9,7 +9,7 @@ from browsergym.experiments.agent import Agent, AgentInfo
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
-from agentlab.llm.llm_utils import ParseError, retry
+from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
@@ -99,9 +99,9 @@ class GenericAgent(Agent):
 
         max_prompt_tokens, max_trunc_itr = self._get_maxes()
 
-        system_prompt = dp.SystemPrompt().prompt
+        system_prompt = SystemMessage(dp.SystemPrompt().prompt)
 
-        prompt = dp.fit_tokens(
+        human_prompt = dp.fit_tokens(
             shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
             model_name=self.chat_model_args.model_name,
@@ -112,10 +112,7 @@ class GenericAgent(Agent):
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
 
-            chat_messages = [
-                make_system_message(system_prompt),
-                make_user_message(prompt),
-            ]
+            chat_messages = Discussion([system_prompt, human_prompt])
             ans_dict = retry(
                 self.chat_llm,
                 chat_messages,
