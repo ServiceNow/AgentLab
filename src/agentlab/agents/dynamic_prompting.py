@@ -254,6 +254,11 @@ def fit_tokens(
         if isinstance(prompt, str):
             prompt_str = prompt
         elif isinstance(prompt, list):
+            # warn deprecated
+            warn(
+                "Using list of prompts is deprecated. Use a Discussion object instead.",
+                DeprecationWarning,
+            )
             prompt_str = "\n".join([p["text"] for p in prompt if p["type"] == "text"])
         elif isinstance(prompt, BaseMessage):
             prompt_str = str(prompt)
