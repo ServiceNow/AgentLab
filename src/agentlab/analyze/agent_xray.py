@@ -590,11 +590,28 @@ def update_chat_messages():
         return chat_messages.to_markdown()
     messages = []  # TODO(ThibaultLSDC) remove this at some point
     for i, m in enumerate(chat_messages):
+        msg_str = f"# Message {i}\n```\n{m}\n```\n\n"
+        # breakpoint()
         if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
-            m = m.content
+            msg_str = f"# Message {i}\n```\n{m.content}\n```\n\n"
         elif isinstance(m, dict):
-            m = m.get("content", "No Content")
-        messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
+            content = m.get("content", "<No Content>")
+            role = m.get("role", "<Unknown>")
+            if isinstance(content, list):
+                content_str = ""
+                for part in content:
+                    if isinstance(part, str):
+                        content_str += part + "\n"
+                    
+                    elif isinstance(part, dict) and part.get("type", None) == "text":
+                        content_str += part.get("text", "<No Text>") + "\n"
+                        
+                
+                content = content_str
+                    
+            msg_str = f"# Message {i} (role: {role})\n```\n{content}\n```\n\n"
+        
+        messages.append(msg_str)
     return "\n".join(messages)
 
 
