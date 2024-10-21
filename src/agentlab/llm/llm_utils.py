@@ -386,9 +386,11 @@ class AIMessage(BaseMessage):
 
 
 class Discussion:
-    def __init__(self, messages: Union[list[BaseMessage], BaseMessage] = []):
+    def __init__(self, messages: Union[list[BaseMessage], BaseMessage] = None):
         if isinstance(messages, BaseMessage):
             messages = [messages]
+        elif messages is None:
+            messages = []
         self.messages = messages
 
     @property
