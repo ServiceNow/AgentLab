@@ -89,7 +89,6 @@ class GenericAgent(Agent):
         main_prompt = MainPrompt(
             action_set=self.action_set,
             obs_history=self.obs_history,
-            goal_object=obs["goal_object"],
             actions=self.actions,
             memories=self.memories,
             thoughts=self.thoughts,
@@ -268,5 +267,6 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     if action is not None:
         output += f"\n<action>\n{action}\n</action>"
 
+    return system_prompt, instruction_prompt, output
     return system_prompt, instruction_prompt, output
     return system_prompt, instruction_prompt, output
