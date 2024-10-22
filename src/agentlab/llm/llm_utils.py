@@ -365,8 +365,13 @@ class BaseMessage(dict):
             # add texts between ticks and images
             if elem["type"] == "text":
                 res.append(f"\n```\n{elem['text']}\n```\n")
-            elif elem["type"] == "image":
-                res.append(f"![image]({elem['url']})")
+            elif elem["type"] == "image_url":
+                img_str = (
+                    elem["image_url"]
+                    if isinstance(elem["image_url"], str)
+                    else elem["image_url"]["url"]
+                )
+                res.append(f"![image]({img_str})")
         return "\n".join(res)
 
 
