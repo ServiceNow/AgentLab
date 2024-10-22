@@ -242,38 +242,9 @@ console.log("Hello, world!");
     assert llm_utils.extract_code_blocks(text) == expected_output
 
 
-def test_message_merge_only_text():
-    content = [
-        {"type": "text", "text": "Hello, world!"},
-        {"type": "text", "text": "This is a test."},
-    ]
-    message = llm_utils.BaseMessage(role="system", content=content)
-    message.merge()
-    assert len(message["content"]) == 1
-    assert message["content"][0]["text"] == "Hello, world!\nThis is a test."
-
-
-def test_message_merge_text_image():
-    content = [
-        {"type": "text", "text": "Hello, world!"},
-        {"type": "text", "text": "This is a test."},
-        {"type": "image_url", "image_url": "this is a base64 image"},
-        {"type": "text", "text": "This is another test."},
-        {"type": "text", "text": "Goodbye, world!"},
-    ]
-    message = llm_utils.BaseMessage(role="system", content=content)
-    message.merge()
-    assert len(message["content"]) == 3
-    assert message["content"][0]["text"] == "Hello, world!\nThis is a test."
-    assert message["content"][1]["image_url"] == "this is a base64 image"
-    assert message["content"][2]["text"] == "This is another test.\nGoodbye, world!"
-
-
 if __name__ == "__main__":
     # test_retry_parallel()
     # test_rate_limit_max_wait_time()
     # test_successful_parse_before_max_retries()
     # test_unsuccessful_parse_before_max_retries()
-    # test_extract_code_blocks()
-    # test_message_merge_only_text()
-    test_message_merge_text_image()
+    test_extract_code_blocks()

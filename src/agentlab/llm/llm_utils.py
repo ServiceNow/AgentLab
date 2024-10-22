@@ -326,7 +326,7 @@ def image_to_jpg_base64_url(image: np.ndarray | Image.Image):
 class BaseMessage(dict):
     def __init__(self, role: str, content: Union[str, list[dict]]):
         self["role"] = role
-        self["content"] = deepcopy(content)
+        self["content"] = content
 
     def __str__(self) -> str:
         if isinstance(self["content"], str):
@@ -365,29 +365,9 @@ class BaseMessage(dict):
             # add texts between ticks and images
             if elem["type"] == "text":
                 res.append(f"\n```\n{elem['text']}\n```\n")
-            elif elem["type"] == "image_url":
-                img_str = (
-                    elem["image_url"]
-                    if isinstance(elem["image_url"], str)
-                    else elem["image_url"]["url"]
-                )
-                res.append(f"![image]({img_str})")
+            elif elem["type"] == "image":
+                res.append(f"![image]({elem['url']})")
         return "\n".join(res)
-
-    def merge(self):
-        """Merges content elements of type 'text' if they are adjacent."""
-        if isinstance(self["content"], str):
-            return
-        new_content = []
-        for elem in self["content"]:
-            if elem["type"] == "text":
-                if new_content and new_content[-1]["type"] == "text":
-                    new_content[-1]["text"] += "\n" + elem["text"]
-                else:
-                    new_content.append(elem)
-            else:
-                new_content.append(elem)
-        self["content"] = new_content
 
 
 class SystemMessage(BaseMessage):
@@ -417,19 +397,13 @@ class Discussion:
     def last_message(self):
         return self.messages[-1]
 
-    def merge(self):
-        for m in self.messages:
-            m.merge()
-
     def __str__(self) -> str:
         return "\n".join(str(m) for m in self.messages)
 
     def to_string(self):
-        self.merge()
         return str(self)
 
     def to_openai(self):
-        self.merge()
         return self.messages
 
     def add_message(
@@ -470,7 +444,6 @@ class Discussion:
         return self.messages[key]
 
     def to_markdown(self):
-        self.merge()
         return "\n".join([f"Message {i}\n{m.to_markdown()}\n" for i, m in enumerate(self.messages)])
 
 

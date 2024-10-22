@@ -51,7 +51,6 @@ class MainPrompt(dp.Shrinkable):
         self,
         action_set: AbstractActionSet,
         obs_history: list[dict],
-        goal_object: list[dict],
         actions: list[str],
         memories: list[str],
         thoughts: list[str],
@@ -72,7 +71,7 @@ class MainPrompt(dp.Shrinkable):
                     "Agent is in goal mode, but multiple user messages are present in the chat. Consider switching to `enable_chat=True`."
                 )
             self.instructions = dp.GoalInstructions(
-                goal_object, extra_instructions=flags.extra_instructions
+                obs_history[-1]["goal"], extra_instructions=flags.extra_instructions
             )
 
         self.obs = dp.Observation(obs_history[-1], self.flags.obs)
@@ -94,9 +93,9 @@ class MainPrompt(dp.Shrinkable):
 
     @property
     def _prompt(self) -> HumanMessage:
-        prompt = HumanMessage(self.instructions.prompt)
-        prompt.add_text(
+        prompt = HumanMessage(
             f"""\
+{self.instructions.prompt}\
 {self.obs.prompt}\
 {self.history.prompt}\
 {self.action_prompt.prompt}\
