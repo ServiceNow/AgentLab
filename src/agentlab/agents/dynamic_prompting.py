@@ -366,16 +366,45 @@ None
 """
 
 
+class Tabs(PromptElement):
+    def __init__(self, obs, visible: bool = True, prefix="") -> None:
+        super().__init__(visible=visible)
+
+        prompt_pieces = [f"\n{prefix}Currently open tabs:"]
+        for page_index, (page_url, page_title) in enumerate(
+            zip(obs["open_pages_urls"], obs["open_pages_titles"])
+        ):
+            active_or_not = " (active tab)" if page_index == obs["active_page_index"] else ""
+            prompt_piece = f"""\
+Tab {page_index}{active_or_not}:
+    Title: {page_title}
+    URL: {page_url}
+"""
+            prompt_pieces.append(prompt_piece)
+        self._prompt = "\n".join(prompt_pieces)
+
+
+def has_tab_action(action_set: bgym.HighLevelActionSetArgs):
+    return "tab" in action_set.subsets
+
+
 class Observation(Shrinkable):
     """Observation of the current step.
 
     Contains the html, the accessibility tree and the error logs.
     """
 
-    def __init__(self, obs, flags: ObsFlags) -> None:
+    def __init__(self, obs, flags: ObsFlags, use_tabs=False) -> None:
         super().__init__()
         self.flags = flags
         self.obs = obs
+
+        self.tabs = Tabs(
+            obs,
+            visible=use_tabs,
+            prefix="## ",
+        )
+
         self.html = HTML(
             obs[flags.html_type],
             visible_elements_only=flags.filter_visible_elements_only,
@@ -409,7 +438,7 @@ class Observation(Shrinkable):
     def _prompt(self) -> str:
         return f"""
 # Observation of current step:
-{self.html.prompt}{self.ax_tree.prompt}{self.focused_element.prompt}{self.error.prompt}
+{self.tabs}{self.html.prompt}{self.ax_tree.prompt}{self.focused_element.prompt}{self.error.prompt}
 
 """
 
