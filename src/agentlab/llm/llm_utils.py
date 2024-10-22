@@ -417,13 +417,19 @@ class Discussion:
     def last_message(self):
         return self.messages[-1]
 
+    def merge(self):
+        for m in self.messages:
+            m.merge()
+
     def __str__(self) -> str:
         return "\n".join(str(m) for m in self.messages)
 
     def to_string(self):
+        self.merge()
         return str(self)
 
     def to_openai(self):
+        self.merge()
         return self.messages
 
     def add_message(
@@ -464,6 +470,7 @@ class Discussion:
         return self.messages[key]
 
     def to_markdown(self):
+        self.merge()
         return "\n".join([f"Message {i}\n{m.to_markdown()}\n" for i, m in enumerate(self.messages)])
 
 
