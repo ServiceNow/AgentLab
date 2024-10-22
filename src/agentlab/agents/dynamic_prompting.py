@@ -443,24 +443,36 @@ that everything was filled correctly.\n"""
 
 
 class GoalInstructions(PromptElement):
-    def __init__(self, goal, visible: bool = True, extra_instructions=None) -> None:
+    def __init__(self, goal_object, visible: bool = True, extra_instructions=None) -> None:
         super().__init__(visible)
-        self._prompt = f"""\
+        self._prompt = [
+            dict(
+                type="text",
+                text=f"""\
 # Instructions
 Review the current state of the page and all other information to find the best
 possible next action to accomplish your goal. Your answer will be interpreted
 and executed by a program, make sure to follow the formatting instructions.
 
 ## Goal:
-{goal}
-"""
+""",
+            )
+        ]
+
+        self._prompt += goal_object
+
         if extra_instructions:
-            self._prompt += f"""
+            self._prompt += [
+                dict(
+                    type="text",
+                    text=f"""
 
 ## Extra instructions:
 
 {extra_instructions}
-"""
+""",
+                )
+            ]
 
 
 class ChatInstructions(PromptElement):
