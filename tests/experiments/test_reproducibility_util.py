@@ -11,7 +11,7 @@ import bgym
 
 @pytest.mark.parametrize(
     "benchmark_name",
-    ["miniwob_all", "workarena_l1", "webarena", "visualwebarena"],
+    ["miniwob", "workarena_l1", "webarena", "visualwebarena"],
 )
 def test_get_reproducibility_info(benchmark_name):
 
