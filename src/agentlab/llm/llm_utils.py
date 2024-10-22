@@ -374,6 +374,21 @@ class BaseMessage(dict):
                 res.append(f"![image]({img_str})")
         return "\n".join(res)
 
+    def merge(self):
+        """Merges content elements of type 'text' if they are adjacent."""
+        if isinstance(self["content"], str):
+            return
+        new_content = []
+        for elem in self["content"]:
+            if elem["type"] == "text":
+                if new_content and new_content[-1]["type"] == "text":
+                    new_content[-1]["text"] += "\n" + elem["text"]
+                else:
+                    new_content.append(elem)
+            else:
+                new_content.append(elem)
+        self["content"] = new_content
+
 
 class SystemMessage(BaseMessage):
     def __init__(self, content: Union[str, list[dict]]):
