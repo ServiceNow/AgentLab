@@ -369,12 +369,17 @@ None
 class Tabs(PromptElement):
     def __init__(self, obs, visible: bool = True, prefix="") -> None:
         super().__init__(visible=visible)
+        self.obs = obs
+        self.prefix = prefix
 
-        prompt_pieces = [f"\n{prefix}Currently open tabs:"]
+    @property
+    def _prompt(self) -> str:
+        # by implementing this as a property, it's only coputed if visible
+        prompt_pieces = [f"\n{self.prefix}Currently open tabs:"]
         for page_index, (page_url, page_title) in enumerate(
-            zip(obs["open_pages_urls"], obs["open_pages_titles"])
+            zip(self.obs["open_pages_urls"], self.obs["open_pages_titles"])
         ):
-            active_or_not = " (active tab)" if page_index == obs["active_page_index"] else ""
+            active_or_not = " (active tab)" if page_index == self.obs["active_page_index"] else ""
             prompt_piece = f"""\
 Tab {page_index}{active_or_not}:
     Title: {page_title}
