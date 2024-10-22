@@ -50,7 +50,6 @@ OBS_HISTORY = [
         "last_action_error": "Hey, there is an error now",
     },
 ]
-GOAL_OBJECT = [{"type": "text", "text": "do this and that"}]
 ACTIONS = ["click('41')", "click('42')"]
 MEMORIES = ["memory A", "memory B"]
 THOUGHTS = ["thought A", "thought B"]
@@ -168,7 +167,6 @@ def test_shrinking_observation():
     prompt_maker = MainPrompt(
         action_set=dp.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
-        goal_object=GOAL_OBJECT,
         actions=ACTIONS,
         memories=MEMORIES,
         thoughts=THOUGHTS,
@@ -213,7 +211,6 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
         MainPrompt(
             action_set=flags.action.action_set.make_action_set(),
             obs_history=OBS_HISTORY,
-            goal_object=GOAL_OBJECT,
             actions=ACTIONS,
             memories=memories,
             thoughts=THOUGHTS,
@@ -236,7 +233,6 @@ def test_main_prompt_elements_present():
         MainPrompt(
             action_set=dp.HighLevelActionSet(),
             obs_history=OBS_HISTORY,
-            goal_object=GOAL_OBJECT,
             actions=ACTIONS,
             memories=MEMORIES,
             thoughts=THOUGHTS,
@@ -256,6 +252,7 @@ if __name__ == "__main__":
     test_shrinking_observation()
     test_main_prompt_elements_present()
     for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
         test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
         test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
         test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
