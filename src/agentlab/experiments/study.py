@@ -172,6 +172,12 @@ class Study:
             with gzip.open(dir / "study.pkl.gz", "rb") as f:
                 study = pickle.load(f)  # type: Study
             study.dir = dir
+
+            # just a check
+            for i, exp_args in enumerate(study.exp_args_list):
+                if exp_args.order != i:
+                    logging.warning("The order of the experiments is not correct.")
+
         return study
 
     @staticmethod
@@ -270,6 +276,12 @@ def _agents_on_benchmark(
     if not isinstance(agents, (list, tuple)):
         agents = [agents]
 
+    if benchmark.name.startswith("visualwebarena") or benchmark.name.startswith("webarena"):
+        if len(agents) > 1:
+            raise ValueError(
+                f"Only one agent can be run on {benchmark.name} since the instance requires manual reset after each evaluation."
+            )
+
     for agent in agents:
         agent.set_benchmark(benchmark, demo_mode)  # the agent can adapt (lightly?) to the benchmark
 
@@ -277,13 +289,31 @@ def _agents_on_benchmark(
     if demo_mode:
         set_demo_mode(env_args_list)
 
-    return args.expand_cross_product(
+    exp_args_list = args.expand_cross_product(
         ExpArgs(
             agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
             logging_level=logging_level,
         )
-    )
+    )  # type: list[ExpArgs]
+
+    for i, exp_args in enumerate(exp_args_list):
+        exp_args.order = i
+
+    _flag_sequential_exp(exp_args_list, benchmark)
+
+    return exp_args_list
+
+
+def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
+    if benchmark.name.startswith("visualwebarena"):
+        sequential_subset = benchmark.subset_from_glob("requires_reset", "True")
+        sequential_subset = set(
+            [env_args.task_name for env_args in sequential_subset.env_args_list]
+        )
+        for exp_args in exp_args_list:
+            if exp_args.env_args.task_name in sequential_subset:
+                exp_args.sequential = True
 
 
 # def ablation_study(start_agent: AgentArgs, changes, benchmark: str, demo_mode=False):
