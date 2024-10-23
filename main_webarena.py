@@ -24,7 +24,7 @@ agent_args = [get_base_agent("openai/gpt-4o-mini-2024-07-18")]
 # benchmark = "workarena_l1"
 # benchmark = "workarena_l2"
 # benchmark = "workarena_l3"
-benchmark = "webarena"
+benchmark = "visualwebarena"
 
 # Set reproducibility_mode = True for reproducibility
 # this will "ask" agents to be deterministic. Also, it will prevent you from launching if you have
