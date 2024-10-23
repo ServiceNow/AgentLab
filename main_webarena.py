@@ -33,7 +33,7 @@ reproducibility_mode = True
 
 # Set relaunch = True to relaunch an existing study, this will continue incomplete
 # experiments and relaunch errored experiments
-relaunch = False
+relaunch = True
 
 ## Number of parallel jobs
 n_jobs = 1  # Make sure to use 1 job when debugging in VSCode
