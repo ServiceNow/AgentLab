@@ -1,12 +1,14 @@
-from pathlib import Path
+import json
 import tempfile
 import time
+from pathlib import Path
+
+import bgym
+import pytest
+
+from agentlab.agents.generic_agent import AGENT_4o_MINI
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util
-from agentlab.agents.generic_agent import AGENT_4o_MINI
-import pytest
-import json
-import bgym
 
 
 @pytest.mark.parametrize(
@@ -15,7 +17,7 @@ import bgym
 )
 def test_get_reproducibility_info(benchmark_name):
 
-    benchmark = bgym.BENCHMARKS[benchmark_name]()
+    benchmark = bgym.DEFAULT_BENCHMARKS[benchmark_name]()
 
     info = reproducibility_util.get_reproducibility_info(
         "test_agent", benchmark, "test_id", ignore_changes=True
