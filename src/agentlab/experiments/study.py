@@ -1,19 +1,19 @@
-from dataclasses import dataclass
-from datetime import datetime
 import gzip
 import logging
-from pathlib import Path
 import pickle
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
-from bgym import ExpArgs, EnvArgs, Benchmark
 import bgym
+from bgym import Benchmark, EnvArgs, ExpArgs
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import args
-from agentlab.experiments.launch_exp import run_experiments, find_incomplete
-from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments import reproducibility_util as repro
+from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.launch_exp import find_incomplete, run_experiments
 
 
 @dataclass
@@ -25,7 +25,7 @@ class Study:
     Attributes:
         benchmark: Benchmark | str
             The benchmark to evaluate the agents on. If a string is provided, it will be
-            converted to the corresponding benchmark using bgym.BENCHMARKS.
+            converted to the corresponding benchmark using bgym.DEFAULT_BENCHMARKS.
 
         agent_args: list[AgentArgs]
             The list of agents to evaluate.
@@ -54,7 +54,7 @@ class Study:
     def __post_init__(self):
         self.uuid = str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
         if isinstance(self.benchmark, str):
-            self.benchmark = bgym.BENCHMARKS[self.benchmark]()
+            self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark]()
         if isinstance(self.dir, str):
             self.dir = Path(self.dir)
         self.make_exp_args_list()
