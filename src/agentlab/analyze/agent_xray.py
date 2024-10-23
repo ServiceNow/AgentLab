@@ -153,12 +153,6 @@ th {
     white-space: normal !important;
     word-wrap: break-word !important;
 }
-#task_table {
-    height: 500px !important;
-}
-#seed_table {
-    height: 500px !important;
-}
 """
 
 
@@ -227,7 +221,7 @@ clicking the refresh button.
     content. You have to sort back with the Idx column to align the click with
     the order."""
                     )
-                agent_table = gr.Dataframe(max_height=500, show_label=False, interactive=False)
+                agent_table = gr.DataFrame(max_height=500, show_label=False, interactive=False)
             with gr.Tab("Select Task and Seed", id="Select Task"):
                 with gr.Row():
                     with gr.Column(scale=4):
@@ -243,7 +237,7 @@ clicking the refresh button.
                                 )
                             refresh_results_button = gr.Button("↺", scale=0, size="sm")
 
-                        task_table = gr.Dataframe(
+                        task_table = gr.DataFrame(
                             max_height=500,
                             show_label=False,
                             interactive=False,
@@ -261,7 +255,7 @@ clicking the refresh button.
     the order."""
                             )
 
-                        seed_table = gr.Dataframe(
+                        seed_table = gr.DataFrame(
                             max_height=500,
                             show_label=False,
                             interactive=False,
@@ -278,7 +272,7 @@ clicking the refresh button.
     **all** agents. They are displayed as a table with the name and value of the
     constant."""
                             )
-                        constants = gr.Dataframe(
+                        constants = gr.DataFrame(
                             max_height=500, show_label=False, interactive=False
                         )
                     with gr.Column(scale=2):
@@ -289,11 +283,11 @@ clicking the refresh button.
     They are displayed as a table with the name, value and count of unique
     values. A maximum of 3 different values are displayed."""
                             )
-                        variables = gr.Dataframe(
+                        variables = gr.DataFrame(
                             max_height=500, show_label=False, interactive=False
                         )
             with gr.Tab("Global Stats"):
-                global_stats = gr.Dataframe(max_height=500, show_label=False, interactive=False)
+                global_stats = gr.DataFrame(max_height=500, show_label=False, interactive=False)
 
         with gr.Row():
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
@@ -366,7 +360,7 @@ clicking the refresh button.
                 logs = gr.Code(language=None, **code_args)
 
             with gr.Tab("Stats") as tab_stats:
-                stats = gr.Dataframe(max_height=500, show_label=False, interactive=False)
+                stats = gr.DataFrame(max_height=500, show_label=False, interactive=False)
 
             with gr.Tab("Agent Info HTML") as tab_agent_info_html:
                 with gr.Row():

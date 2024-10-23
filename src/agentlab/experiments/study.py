@@ -23,8 +23,9 @@ class Study:
     This is part of the high level API to help keep experiments organized and reproducible.
 
     Attributes:
-        benchmark: Benchmark
-            The benchmark to evaluate the agents on.
+        benchmark: Benchmark | str
+            The benchmark to evaluate the agents on. If a string is provided, it will be
+            converted to the corresponding benchmark using bgym.BENCHMARKS.
 
         agent_args: list[AgentArgs]
             The list of agents to evaluate.
@@ -43,7 +44,7 @@ class Study:
     """
 
     agent_args: list[AgentArgs] = None
-    benchmark: Benchmark = None
+    benchmark: Benchmark | str = None
     dir: Path = None
     suffix: str = ""  # used for adding a personnal comment to the study name
     uuid: str = None
@@ -157,10 +158,20 @@ class Study:
 
     @staticmethod
     def load(dir: Path) -> "Study":
-        with gzip.open(dir / "study.pkl.gz", "rb") as f:
-            study = pickle.load(f)  # type: Study
-
-        study.dir = dir
+        dir = Path(dir)
+        study_path = dir / "study.pkl.gz"
+        if not study_path.exists() and dir.is_dir():
+            # For backward compatibility
+            first_result = next(
+                inspect_results.yield_all_exp_results(savedir_base=dir, progress_fn=None)
+            )
+            benchmark_name = first_result.exp_args.env_args.task_name.split(".")[0]
+            agent_args = first_result.exp_args.agent_args
+            study = Study(agent_args=agent_args, benchmark=benchmark_name, dir=dir)
+        else:
+            with gzip.open(dir / "study.pkl.gz", "rb") as f:
+                study = pickle.load(f)  # type: Study
+            study.dir = dir
         return study
 
     @staticmethod

@@ -17,6 +17,7 @@ from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
 
+import bgym
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from bs4 import BeautifulSoup
@@ -24,6 +25,7 @@ from langchain.schema import AIMessage, BaseMessage
 from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.agents.dynamic_prompting import ActionFlags
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import make_assistant_message
 from agentlab.llm.llm_utils import Discussion, messages_to_dict
@@ -141,18 +143,29 @@ def _format_messages(messages: list[dict]):
     return "\n".join(f"{m['role']} message:\n{m['content']}\n" for m in messages)
 
 
+def _make_backward_compatible(agent_args: GenericAgentArgs):
+    action_set = agent_args.flags.action.action_set
+    if isinstance(action_set, (str, list)):
+        if isinstance(action_set, str):
+            action_set = action_set.split("+")
+
+        agent_args.flags.action.action_set = bgym.HighLevelActionSetArgs(
+            subsets=action_set,
+            multiaction=agent_args.flags.action.multi_actions,
+        )
+
+    return agent_args
+
+
 def reproduce_study(original_study_dir: Path | str, log_level=logging.INFO):
     """Reproduce a study by running the same experiments with the same agent."""
 
     original_study_dir = Path(original_study_dir)
 
-    study = Study.load(original_study_dir)
-    study.dir = None
-    study.make_dir()
-
     exp_args_list: list[ExpArgs] = []
     for exp_result in yield_all_exp_results(original_study_dir, progress_fn=None):
-        agent_args = make_repro_agent(exp_result.exp_args.agent_args, exp_dir=exp_result.exp_dir)
+        agent_args = _make_backward_compatible(exp_result.exp_args.agent_args)
+        agent_args = make_repro_agent(agent_args, exp_dir=exp_result.exp_dir)
         exp_args_list.append(
             ExpArgs(
                 agent_args=agent_args,
@@ -160,13 +173,18 @@ def reproduce_study(original_study_dir: Path | str, log_level=logging.INFO):
                 logging_level=log_level,
             )
         )
+
+    # infer benchmark name from task list for backward compatible
     benchmark_name = exp_args_list[0].env_args.task_name.split(".")[0]
 
-    return Study(
-        exp_args_list=exp_args_list,
-        benchmark_name=benchmark_name,
-        agent_names=[agent_args.agent_name],
+    study = Study(
+        benchmark=benchmark_name,
+        agent_args=[agent_args],
     )
+    # this exp_args_list has a different agent_args for each experiment as repro_agent takes the exp_dir as argument
+    # so we overwrite exp_args_list with the one we created above
+    study.exp_args_list = exp_args_list
+    return study
 
 
 def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):
