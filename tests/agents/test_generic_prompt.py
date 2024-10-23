@@ -24,6 +24,7 @@ some extra text to make the html longer
 OBS_HISTORY = [
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(1),
         "axtree_txt": "[1] Click me",
@@ -32,6 +33,7 @@ OBS_HISTORY = [
     },
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(2),
         "axtree_txt": "[1] Click me",
@@ -40,6 +42,7 @@ OBS_HISTORY = [
     },
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(3),
         "axtree_txt": "[1] Click me",
@@ -249,4 +252,10 @@ if __name__ == "__main__":
     test_shrinking_observation()
     test_main_prompt_elements_present()
     for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
         test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)

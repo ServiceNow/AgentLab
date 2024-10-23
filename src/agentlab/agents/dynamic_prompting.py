@@ -366,16 +366,50 @@ None
 """
 
 
+class Tabs(PromptElement):
+    def __init__(self, obs, visible: bool = True, prefix="") -> None:
+        super().__init__(visible=visible)
+        self.obs = obs
+        self.prefix = prefix
+
+    @property
+    def _prompt(self) -> str:
+        # by implementing this as a property, it's only coputed if visible
+        prompt_pieces = [f"\n{self.prefix}Currently open tabs:"]
+        for page_index, (page_url, page_title) in enumerate(
+            zip(self.obs["open_pages_urls"], self.obs["open_pages_titles"])
+        ):
+            active_or_not = " (active tab)" if page_index == self.obs["active_page_index"] else ""
+            prompt_piece = f"""\
+Tab {page_index}{active_or_not}:
+    Title: {page_title}
+    URL: {page_url}
+"""
+            prompt_pieces.append(prompt_piece)
+        self._prompt = "\n".join(prompt_pieces)
+
+
+def has_tab_action(action_set: bgym.HighLevelActionSetArgs):
+    return "tab" in action_set.subsets
+
+
 class Observation(Shrinkable):
     """Observation of the current step.
 
     Contains the html, the accessibility tree and the error logs.
     """
 
-    def __init__(self, obs, flags: ObsFlags) -> None:
+    def __init__(self, obs, flags: ObsFlags, use_tabs=False) -> None:
         super().__init__()
         self.flags = flags
         self.obs = obs
+
+        self.tabs = Tabs(
+            obs,
+            visible=use_tabs,
+            prefix="## ",
+        )
+
         self.html = HTML(
             obs[flags.html_type],
             visible_elements_only=flags.filter_visible_elements_only,
@@ -409,7 +443,7 @@ class Observation(Shrinkable):
     def _prompt(self) -> str:
         return f"""
 # Observation of current step:
-{self.html.prompt}{self.ax_tree.prompt}{self.focused_element.prompt}{self.error.prompt}
+{self.tabs}{self.html.prompt}{self.ax_tree.prompt}{self.focused_element.prompt}{self.error.prompt}
 
 """
 
@@ -443,24 +477,36 @@ that everything was filled correctly.\n"""
 
 
 class GoalInstructions(PromptElement):
-    def __init__(self, goal, visible: bool = True, extra_instructions=None) -> None:
+    def __init__(self, goal_object, visible: bool = True, extra_instructions=None) -> None:
         super().__init__(visible)
-        self._prompt = f"""\
+        self._prompt = [
+            dict(
+                type="text",
+                text=f"""\
 # Instructions
 Review the current state of the page and all other information to find the best
 possible next action to accomplish your goal. Your answer will be interpreted
 and executed by a program, make sure to follow the formatting instructions.
 
 ## Goal:
-{goal}
-"""
+""",
+            )
+        ]
+
+        self._prompt += goal_object
+
         if extra_instructions:
-            self._prompt += f"""
+            self._prompt += [
+                dict(
+                    type="text",
+                    text=f"""
 
 ## Extra instructions:
 
 {extra_instructions}
-"""
+""",
+                )
+            ]
 
 
 class ChatInstructions(PromptElement):

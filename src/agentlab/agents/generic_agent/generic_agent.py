@@ -268,3 +268,5 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
         output += f"\n<action>\n{action}\n</action>"
 
     return system_prompt, instruction_prompt, output
+    return system_prompt, instruction_prompt, output
+    return system_prompt, instruction_prompt, output
