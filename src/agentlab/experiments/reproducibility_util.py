@@ -262,14 +262,10 @@ def _verify_report(report_df: pd.DataFrame, agent_names=list[str], strict_reprod
     unique_agent_names = report_df["agent.agent_name"].unique()
     if set(agent_names) != set(unique_agent_names):
         raise ValueError(
-            f"Agent names in the report {unique_agent_names} do not match the agent names {agent_names}.",
-            raise_error=strict_reproducibility,
+            f"Agent names in the report {unique_agent_names} do not match the agent names {agent_names}."
         )
     if len(set(agent_names)) != len(agent_names):
-        raise ValueError(
-            f"Duplicate agent names {agent_names}.",
-            raise_error=strict_reproducibility,
-        )
+        raise ValueError(f"Duplicate agent names {agent_names}.")
 
     report_df = report_df.set_index("agent.agent_name", inplace=False)
 
