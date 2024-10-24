@@ -14,7 +14,8 @@ from agentlab.experiments import args
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.launch_exp import find_incomplete, run_experiments
-logger = logging.getLogger("agentlab_"+__name__)
+
+logger = logging.getLogger("agentlab_" + __name__)
 
 
 @dataclass
@@ -63,7 +64,10 @@ class Study:
 
     def make_exp_args_list(self):
         self.exp_args_list = _agents_on_benchmark(
-            self.agent_args, self.benchmark, logging_level=self.logging_level, logging_level_stdout=self.logging_level_stdout
+            self.agent_args,
+            self.benchmark,
+            logging_level=self.logging_level,
+            logging_level_stdout=self.logging_level_stdout,
         )
 
     def find_incomplete(self, relaunch_mode="incomplete_or_error"):
@@ -108,11 +112,12 @@ class Study:
         if self.exp_args_list is None:
             raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
 
-
         logger.info("Preparing backends...")
         self.benchmark.prepare_backends()
         logger.info("Backends ready.")
-        self.set_reproducibility_info(strict_reproducibility=strict_reproducibility, comment=comment)
+        self.set_reproducibility_info(
+            strict_reproducibility=strict_reproducibility, comment=comment
+        )
         self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
@@ -169,9 +174,6 @@ class Study:
         return inspect_results.get_study_summary(
             self.dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
         )
-
-
-
 
     def load(dir: Path) -> "Study":
         dir = Path(dir)
