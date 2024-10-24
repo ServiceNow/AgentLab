@@ -13,6 +13,7 @@ from openai import AzureOpenAI, OpenAI
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.huggingface_utils import HFBaseChatModel
+from agentlab.llm.llm_utils import Discussion
 
 
 def make_system_message(content: str) -> dict:
@@ -31,7 +32,10 @@ class CheatMiniWoBLLM(AbstractChatModel):
     """For unit-testing purposes only. It only work with miniwob.click-test task."""
 
     def __call__(self, messages) -> str:
-        prompt = messages[-1]["content"]
+        if isinstance(messages, Discussion):
+            prompt = messages.to_string()
+        else:
+            prompt = messages[1].get("content", "")
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:

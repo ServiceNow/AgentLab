@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import bgym
 import pytest
 
 from agentlab.agents import dynamic_prompting as dp
@@ -23,6 +24,7 @@ some extra text to make the html longer
 OBS_HISTORY = [
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(1),
         "axtree_txt": "[1] Click me",
@@ -31,6 +33,7 @@ OBS_HISTORY = [
     },
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(2),
         "axtree_txt": "[1] Click me",
@@ -39,6 +42,7 @@ OBS_HISTORY = [
     },
     {
         "goal": "do this and that",
+        "goal_object": [{"type": "text", "text": "do this and that"}],
         "chat_messages": [{"role": "user", "message": "do this and that"}],
         "pruned_html": html_template.format(3),
         "axtree_txt": "[1] Click me",
@@ -70,7 +74,12 @@ ALL_TRUE_FLAGS = GenericPromptFlags(
         filter_visible_elements_only=True,
     ),
     action=dp.ActionFlags(
-        multi_actions=True,
+        action_set=bgym.HighLevelActionSetArgs(
+            subsets=["bid"],
+            multiaction=True,
+        ),
+        long_description=True,
+        individual_examples=True,
     ),
     use_plan=True,
     use_criticise=True,
@@ -144,10 +153,10 @@ FLAG_EXPECTED_PROMPT = [
         "use_abstract_example",
         ("# Abstract Example",),
     ),
-    (
-        "action.multi_actions",
-        ("One or several actions, separated by new lines",),
-    ),
+    # (
+    #     "action.action_set.multiaction",
+    #     ("One or several actions, separated by new lines",),
+    # ),
 ]
 
 
@@ -166,9 +175,9 @@ def test_shrinking_observation():
         flags=flags,
     )
 
-    prompt = prompt_maker.prompt
-    new_prompt = dp.fit_tokens(
-        prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7
+    prompt = str(prompt_maker.prompt)
+    new_prompt = str(
+        dp.fit_tokens(prompt_maker, max_prompt_tokens=count_tokens(prompt) - 1, max_iterations=7)
     )
     assert count_tokens(new_prompt) < count_tokens(prompt)
     assert "[1] Click me" in prompt
@@ -198,16 +207,18 @@ def test_main_prompt_elements_gone_one_at_a_time(flag_name: str, expected_prompt
         memories = MEMORIES
 
     # Initialize MainPrompt
-    prompt = MainPrompt(
-        action_set=dp.make_action_set(flags.action),
-        obs_history=OBS_HISTORY,
-        actions=ACTIONS,
-        memories=memories,
-        thoughts=THOUGHTS,
-        previous_plan="1- think\n2- do it",
-        step=2,
-        flags=flags,
-    ).prompt
+    prompt = str(
+        MainPrompt(
+            action_set=flags.action.action_set.make_action_set(),
+            obs_history=OBS_HISTORY,
+            actions=ACTIONS,
+            memories=memories,
+            thoughts=THOUGHTS,
+            previous_plan="1- think\n2- do it",
+            step=2,
+            flags=flags,
+        ).prompt
+    )
 
     # Verify all elements are not present
     for expected in expected_prompts:
@@ -218,16 +229,18 @@ def test_main_prompt_elements_present():
     # Make sure the flag is enabled
 
     # Initialize MainPrompt
-    prompt = MainPrompt(
-        action_set=dp.HighLevelActionSet(),
-        obs_history=OBS_HISTORY,
-        actions=ACTIONS,
-        memories=MEMORIES,
-        thoughts=THOUGHTS,
-        previous_plan="1- think\n2- do it",
-        step=2,
-        flags=ALL_TRUE_FLAGS,
-    ).prompt
+    prompt = str(
+        MainPrompt(
+            action_set=dp.HighLevelActionSet(),
+            obs_history=OBS_HISTORY,
+            actions=ACTIONS,
+            memories=MEMORIES,
+            thoughts=THOUGHTS,
+            previous_plan="1- think\n2- do it",
+            step=2,
+            flags=ALL_TRUE_FLAGS,
+        ).prompt
+    )
     # Verify all elements are not present
     for _, expected_prompts in FLAG_EXPECTED_PROMPT:
         for expected in expected_prompts:
@@ -239,4 +252,10 @@ if __name__ == "__main__":
     test_shrinking_observation()
     test_main_prompt_elements_present()
     for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
         test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)

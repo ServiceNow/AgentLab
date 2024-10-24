@@ -56,6 +56,15 @@ def run_experiments(
         if parallel_backend == "joblib":
             from joblib import Parallel, delayed
 
+            # split sequential
+            sequential_exp_args, exp_args_list = _split_sequential_exp(exp_args_list)
+
+            logging.info(
+                f"Running {len(sequential_exp_args)} in sequential first. The remaining {len(exp_args_list)} will be run in parallel."
+            )
+            for exp_args in sequential_exp_args:
+                exp_args.run()
+
             Parallel(n_jobs=n_jobs, prefer="processes")(
                 delayed(exp_args.run)() for exp_args in exp_args_list
             )
@@ -79,8 +88,8 @@ def run_experiments(
         logging.info("Experiment finished.")
 
 
-def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
-    """Return exp_args_list and study_dir
+def find_incomplete(study_dir: str | Path, relaunch_mode="incomplete_only"):
+    """Return incomplete experiments
 
     Args:
         study_dir: Path
@@ -98,16 +107,19 @@ def relaunch_study(study_dir: str | Path, relaunch_mode="incomplete_only"):
         )
     exp_args_list = list(_yield_incomplete_experiments(study_dir, relaunch_mode=relaunch_mode))
 
+    # sort according to exp_args.order
+    exp_args_list.sort(key=lambda exp_args: exp_args.order if exp_args.order is not None else 0)
+
     if len(exp_args_list) == 0:
         logging.info(f"No incomplete experiments found in {study_dir}.")
-        return [], study_dir
+        return exp_args_list
 
     message = f"Make sure the processes that were running are all stopped. Otherwise, "
     f"there will be concurrent writing in the same directories.\n"
 
     logging.info(message)
 
-    return exp_args_list, study_dir
+    return exp_args_list
 
 
 def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
@@ -140,3 +152,16 @@ def split_path(path: str):
         path = path.replace("/", ".")
     module_name, obj_name = path.rsplit(".", 1)
     return module_name, obj_name
+
+
+def _split_sequential_exp(exp_args_list: list[ExpArgs]) -> tuple[list[ExpArgs], list[ExpArgs]]:
+    """split exp_args that are flagged as sequential from those that are not"""
+    sequential_exp_args = []
+    parallel_exp_args = []
+    for exp_args in exp_args_list:
+        if getattr(exp_args, "sequential", False):
+            sequential_exp_args.append(exp_args)
+        else:
+            parallel_exp_args.append(exp_args)
+
+    return sequential_exp_args, parallel_exp_args

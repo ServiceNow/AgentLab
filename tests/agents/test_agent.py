@@ -11,6 +11,7 @@ from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import launch_exp
 from agentlab.llm.chat_api import BaseModelArgs, CheatMiniWoBLLMArgs
+from agentlab.llm.llm_utils import Discussion
 
 
 def test_generic_agent():
@@ -55,7 +56,10 @@ class CheatMiniWoBLLM_ParseRetry:
             self.retry_count += 1
             return dict(role="assistant", content="I'm retrying")
 
-        prompt = messages[1].get("content", "")
+        if isinstance(messages, Discussion):
+            prompt = messages.to_string()
+        else:
+            prompt = messages[1].get("content", "")
         match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
         if match:
@@ -93,7 +97,10 @@ class CheatLLM_LLMError:
 
     def __call__(self, messages) -> str:
         if self.success:
-            prompt = messages[1].get("content", "")
+            if isinstance(messages, Discussion):
+                prompt = messages.to_string()
+            else:
+                prompt = messages[1].get("content", "")
             match = re.search(r"^\s*\[(\d+)\].*button", prompt, re.MULTILINE | re.IGNORECASE)
 
             if match:
@@ -229,4 +236,4 @@ def test_llm_error_no_success():
 
 if __name__ == "__main__":
     # test_generic_agent()
-    test_llm_error_no_success()
+    test_llm_error_success()

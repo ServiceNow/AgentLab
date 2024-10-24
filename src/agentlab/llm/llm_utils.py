@@ -6,8 +6,9 @@ import logging
 import os
 import re
 import time
+from copy import deepcopy
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
 import numpy as np
@@ -23,14 +24,14 @@ if TYPE_CHECKING:
 
 
 def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
-    new_messages = []
+    new_messages = Discussion()
     for m in messages:
         if isinstance(m, dict):
-            new_messages.append(m)
+            new_messages.add_message(m)
         elif isinstance(m, str):
-            new_messages.append({"role": "<unknown role>", "content": m})
+            new_messages.add_message({"role": "<unknown role>", "content": m})
         elif isinstance(m, BaseMessage):
-            new_messages.append(convert_message_to_dict(m))
+            new_messages.add_message(convert_message_to_dict(m))
         else:
             raise ValueError(f"Unknown message type: {type(m)}")
     return new_messages
@@ -42,7 +43,7 @@ class RetryError(ValueError):
 
 def retry(
     chat: "ChatModel",
-    messages: list[dict],
+    messages: "Discussion",
     n_retry: int,
     parser: callable,
     log: bool = True,
@@ -80,8 +81,8 @@ def retry(
     tries = 0
     while tries < n_retry:
         answer = chat(messages)
-        messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
-
+        # TODO: could we change this to not use inplace modifications ?
+        messages.append(answer)
         try:
             return parser(answer["content"])
         except ParseError as parsing_error:
@@ -320,6 +321,157 @@ def image_to_jpg_base64_url(image: np.ndarray | Image.Image):
 
     image_base64 = base64.b64encode(buffered.getvalue()).decode()
     return f"data:image/jpeg;base64,{image_base64}"
+
+
+class BaseMessage(dict):
+    def __init__(self, role: str, content: Union[str, list[dict]]):
+        self["role"] = role
+        self["content"] = deepcopy(content)
+
+    def __str__(self) -> str:
+        if isinstance(self["content"], str):
+            return self["content"]
+        if not all(elem["type"] == "text" for elem in self["content"]):
+            logging.warning(
+                "The content of the message has images, which are not displayed in the string representation."
+            )
+        return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
+
+    def add_content(self, type: str, content: Any):
+        if isinstance(self["content"], str):
+            text = self["content"]
+            self["content"] = []
+            self["content"].append({"type": "text", "text": text})
+        self["content"].append({"type": type, type: content})
+
+    def add_text(self, text: str):
+        self.add_content("text", text)
+
+    def add_image(self, image: np.ndarray | Image.Image | str, detail: str = None):
+        if not isinstance(image, str):
+            image_url = image_to_jpg_base64_url(image)
+        else:
+            image_url = image
+        if detail:
+            self.add_content("image", {"url": image_url, "detail": detail})
+        else:
+            self.add_content("image", image_url)
+
+    def to_markdown(self):
+        if isinstance(self["content"], str):
+            return f"\n```\n{self['content']}\n```\n"
+        res = []
+        for elem in self["content"]:
+            # add texts between ticks and images
+            if elem["type"] == "text":
+                res.append(f"\n```\n{elem['text']}\n```\n")
+            elif elem["type"] == "image_url":
+                img_str = (
+                    elem["image_url"]
+                    if isinstance(elem["image_url"], str)
+                    else elem["image_url"]["url"]
+                )
+                res.append(f"![image]({img_str})")
+        return "\n".join(res)
+
+    def merge(self):
+        """Merges content elements of type 'text' if they are adjacent."""
+        if isinstance(self["content"], str):
+            return
+        new_content = []
+        for elem in self["content"]:
+            if elem["type"] == "text":
+                if new_content and new_content[-1]["type"] == "text":
+                    new_content[-1]["text"] += "\n" + elem["text"]
+                else:
+                    new_content.append(elem)
+            else:
+                new_content.append(elem)
+        self["content"] = new_content
+
+
+class SystemMessage(BaseMessage):
+    def __init__(self, content: Union[str, list[dict]]):
+        super().__init__("system", content)
+
+
+class HumanMessage(BaseMessage):
+    def __init__(self, content: Union[str, list[dict]]):
+        super().__init__("user", content)
+
+
+class AIMessage(BaseMessage):
+    def __init__(self, content: Union[str, list[dict]]):
+        super().__init__("assistant", content)
+
+
+class Discussion:
+    def __init__(self, messages: Union[list[BaseMessage], BaseMessage] = None):
+        if isinstance(messages, BaseMessage):
+            messages = [messages]
+        elif messages is None:
+            messages = []
+        self.messages = messages
+
+    @property
+    def last_message(self):
+        return self.messages[-1]
+
+    def merge(self):
+        for m in self.messages:
+            m.merge()
+
+    def __str__(self) -> str:
+        return "\n".join(str(m) for m in self.messages)
+
+    def to_string(self):
+        self.merge()
+        return str(self)
+
+    def to_openai(self):
+        self.merge()
+        return self.messages
+
+    def add_message(
+        self,
+        message: BaseMessage | dict = None,
+        role: str = None,
+        content: Union[str, list[dict]] = None,
+    ):
+        if message is None:
+            message = BaseMessage(role, content)
+        else:
+            if isinstance(message, dict):
+                message = BaseMessage(**message)
+        self.messages.append(message)
+
+    def append(self, message: BaseMessage | dict):
+        self.add_message(message)
+
+    def add_content(self, type: str, content: Any):
+        """Add content to the last message."""
+        self.last_message.add_content(type, content)
+
+    def add_text(self, text: str):
+        """Add text to the last message."""
+        self.last_message.add_text(text)
+
+    def add_image(self, image: np.ndarray | Image.Image | str, detail: str = None):
+        """Add an image to the last message."""
+        self.last_message.add_image(image, detail)
+
+    def __iter__(self):
+        return iter(self.messages)
+
+    def __len__(self):
+        return len(self.messages)
+
+    def __getitem__(self, key):
+        return self.messages[key]
+
+    def to_markdown(self):
+        self.merge()
+        return "\n".join([f"Message {i}\n{m.to_markdown()}\n" for i, m in enumerate(self.messages)])
 
 
 if __name__ == "__main__":

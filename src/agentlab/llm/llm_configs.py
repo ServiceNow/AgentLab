@@ -77,6 +77,13 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=40_000,
         max_new_tokens=4_000,
     ),
+    "azure/gpt-4o-mini-2024-07-18": AzureModelArgs(
+        model_name="gpt-4o-mini",
+        deployment_name="gpt-4o-mini-2024-07-18",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4_000,
+    ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
         model_name="meta-llama/Meta-Llama-3-70B-Instruct",
@@ -150,6 +157,13 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=32_000,
         max_input_tokens=30_000,
         max_new_tokens=2_000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/o1-mini-2024-09-12": OpenRouterModelArgs(
+        model_name="openai/o1-mini-2024-09-12",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,
+        max_new_tokens=4000,
         temperature=1e-1,
     ),
 }
