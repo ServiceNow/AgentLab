@@ -15,6 +15,8 @@ from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.launch_exp import find_incomplete, run_experiments
 
+logger = logging.getLogger("agentlab_" + __name__)
+
 
 @dataclass
 class Study:
@@ -50,6 +52,7 @@ class Study:
     uuid: str = None
     reproducibility_info: dict = None
     logging_level: int = logging.INFO
+    logging_level_stdout: int = logging.INFO
 
     def __post_init__(self):
         self.uuid = str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
@@ -61,26 +64,37 @@ class Study:
 
     def make_exp_args_list(self):
         self.exp_args_list = _agents_on_benchmark(
-            self.agent_args, self.benchmark, logging_level=self.logging_level
+            self.agent_args,
+            self.benchmark,
+            logging_level=self.logging_level,
+            logging_level_stdout=self.logging_level_stdout,
         )
 
     def find_incomplete(self, relaunch_mode="incomplete_or_error"):
         """Find incomplete or errored experiments in the study directory for relaunching."""
         self.exp_args_list = find_incomplete(self.dir, relaunch_mode=relaunch_mode)
 
-    def set_reproducibility_info(self, strict_reproducibility=False):
+    def load_exp_args_list(self):
+        logger.info(f"Loading experiments from {self.dir}")
+        self.exp_args_list = list(inspect_results.yield_all_exp_results(savedir_base=self.dir))
+
+    def set_reproducibility_info(self, strict_reproducibility=False, comment=None):
         """Gather relevant information that may affect the reproducibility of the experiment
 
         e.g.: versions of BrowserGym, benchmark, AgentLab..."""
         agent_names = [a.agent_name for a in self.agent_args]
         info = repro.get_reproducibility_info(
-            agent_names, self.benchmark, self.uuid, ignore_changes=not strict_reproducibility
+            agent_names,
+            self.benchmark,
+            self.uuid,
+            ignore_changes=not strict_reproducibility,
+            comment=comment,
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(self.reproducibility_info, info)
         self.reproducibility_info = info
 
-    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
+    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False, comment=None):
         """Run all experiments in the study in parallel when possible.
 
         Args:
@@ -98,13 +112,18 @@ class Study:
         if self.exp_args_list is None:
             raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
 
-        self.set_reproducibility_info(strict_reproducibility=strict_reproducibility)
+        logger.info("Preparing backends...")
+        self.benchmark.prepare_backends()
+        logger.info("Backends ready.")
+        self.set_reproducibility_info(
+            strict_reproducibility=strict_reproducibility, comment=comment
+        )
         self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
         report_df = self.get_report(ignore_cache=True)
-        logging.info(f"Study {self.name} finished.")
-        logging.info("\n" + str(report_df))
+        logger.info(f"Study {self.name} finished.")
+        logger.info("\n" + str(report_df))
 
     def append_to_journal(self, strict_reproducibility=True):
         """Append the study to the journal.
@@ -156,7 +175,6 @@ class Study:
             self.dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
         )
 
-    @staticmethod
     def load(dir: Path) -> "Study":
         dir = Path(dir)
         study_path = dir / "study.pkl.gz"
@@ -172,6 +190,12 @@ class Study:
             with gzip.open(dir / "study.pkl.gz", "rb") as f:
                 study = pickle.load(f)  # type: Study
             study.dir = dir
+
+            # # just a check
+            # for i, exp_args in enumerate(study.exp_args_list):
+            #     if exp_args.order != i:
+            #         logging.warning(f"The order of the experiments is not correct. {exp_args.order} != {i}")
+
         return study
 
     @staticmethod
@@ -250,6 +274,7 @@ def _agents_on_benchmark(
     benchmark: bgym.Benchmark,
     demo_mode=False,
     logging_level: int = logging.INFO,
+    logging_level_stdout: int = logging.INFO,
 ):
     """Run one or multiple agents on a benchmark.
 
@@ -270,6 +295,12 @@ def _agents_on_benchmark(
     if not isinstance(agents, (list, tuple)):
         agents = [agents]
 
+    if benchmark.name.startswith("visualwebarena") or benchmark.name.startswith("webarena"):
+        if len(agents) > 1:
+            raise ValueError(
+                f"Only one agent can be run on {benchmark.name} since the instance requires manual reset after each evaluation."
+            )
+
     for agent in agents:
         agent.set_benchmark(benchmark, demo_mode)  # the agent can adapt (lightly?) to the benchmark
 
@@ -277,13 +308,32 @@ def _agents_on_benchmark(
     if demo_mode:
         set_demo_mode(env_args_list)
 
-    return args.expand_cross_product(
+    exp_args_list = args.expand_cross_product(
         ExpArgs(
             agent_args=args.CrossProd(agents),
             env_args=args.CrossProd(env_args_list),
             logging_level=logging_level,
+            logging_level_stdout=logging_level_stdout,
         )
-    )
+    )  # type: list[ExpArgs]
+
+    for i, exp_args in enumerate(exp_args_list):
+        exp_args.order = i
+
+    _flag_sequential_exp(exp_args_list, benchmark)
+
+    return exp_args_list
+
+
+def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
+    if benchmark.name.startswith("visualwebarena"):
+        sequential_subset = benchmark.subset_from_glob("requires_reset", "True")
+        sequential_subset = set(
+            [env_args.task_name for env_args in sequential_subset.env_args_list]
+        )
+        for exp_args in exp_args_list:
+            if exp_args.env_args.task_name in sequential_subset:
+                exp_args.sequential = True
 
 
 # def ablation_study(start_agent: AgentArgs, changes, benchmark: str, demo_mode=False):
