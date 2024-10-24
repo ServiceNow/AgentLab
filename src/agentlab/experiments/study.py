@@ -68,19 +68,19 @@ class Study:
         """Find incomplete or errored experiments in the study directory for relaunching."""
         self.exp_args_list = find_incomplete(self.dir, relaunch_mode=relaunch_mode)
 
-    def set_reproducibility_info(self, strict_reproducibility=False):
+    def set_reproducibility_info(self, strict_reproducibility=False, comment=None):
         """Gather relevant information that may affect the reproducibility of the experiment
 
         e.g.: versions of BrowserGym, benchmark, AgentLab..."""
         agent_names = [a.agent_name for a in self.agent_args]
         info = repro.get_reproducibility_info(
-            agent_names, self.benchmark, self.uuid, ignore_changes=not strict_reproducibility
+            agent_names, self.benchmark, self.uuid, ignore_changes=not strict_reproducibility, comment=comment
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(self.reproducibility_info, info)
         self.reproducibility_info = info
 
-    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
+    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False, comment=None):
         """Run all experiments in the study in parallel when possible.
 
         Args:
@@ -98,7 +98,7 @@ class Study:
         if self.exp_args_list is None:
             raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
 
-        self.set_reproducibility_info(strict_reproducibility=strict_reproducibility)
+        self.set_reproducibility_info(strict_reproducibility=strict_reproducibility, comment=comment)
         self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
