@@ -74,7 +74,11 @@ class Study:
         e.g.: versions of BrowserGym, benchmark, AgentLab..."""
         agent_names = [a.agent_name for a in self.agent_args]
         info = repro.get_reproducibility_info(
-            agent_names, self.benchmark, self.uuid, ignore_changes=not strict_reproducibility, comment=comment
+            agent_names,
+            self.benchmark,
+            self.uuid,
+            ignore_changes=not strict_reproducibility,
+            comment=comment,
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(self.reproducibility_info, info)
@@ -98,7 +102,9 @@ class Study:
         if self.exp_args_list is None:
             raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
 
-        self.set_reproducibility_info(strict_reproducibility=strict_reproducibility, comment=comment)
+        self.set_reproducibility_info(
+            strict_reproducibility=strict_reproducibility, comment=comment
+        )
         self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
