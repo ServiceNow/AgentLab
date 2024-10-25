@@ -26,7 +26,7 @@ a custom gradio interface
 This repo is intended for testing and developing new agents, hence we clone and install using the `-e` flag.
 
 ```bash
-git clone git@github.com:ServiceNow/AgentLab.git
+git clone https://github.com/ServiceNow/AgentLab.git
 pip install -e .
 ```
 
