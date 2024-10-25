@@ -1,9 +1,11 @@
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+
 from browsergym.core import action
 from browsergym.core.action.base import AbstractActionSet
+
 from agentlab.agents import dynamic_prompting as dp
-from agentlab.llm.llm_utils import parse_html_tags_raise
+from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
 
 
 @dataclass
@@ -69,17 +71,21 @@ class MainPrompt(dp.Shrinkable):
                     "Agent is in goal mode, but multiple user messages are present in the chat. Consider switching to `enable_chat=True`."
                 )
             self.instructions = dp.GoalInstructions(
-                obs_history[-1]["goal"], extra_instructions=flags.extra_instructions
+                obs_history[-1]["goal_object"], extra_instructions=flags.extra_instructions
             )
 
-        self.obs = dp.Observation(obs_history[-1], self.flags.obs)
+        self.obs = dp.Observation(
+            obs_history[-1],
+            self.flags.obs,
+            use_tabs=dp.has_tab_action(self.flags.action.action_set),
+        )
 
         self.action_prompt = dp.ActionPrompt(action_set, action_flags=flags.action)
 
         def time_for_caution():
             # no need for caution if we're in single action mode
             return flags.be_cautious and (
-                flags.action.multi_actions or flags.action.action_set == "python"
+                flags.action.action_set.multiaction or flags.action.action_set == "python"
             )
 
         self.be_cautious = dp.BeCautious(visible=time_for_caution)
@@ -90,9 +96,10 @@ class MainPrompt(dp.Shrinkable):
         self.memory = Memory(visible=lambda: flags.use_memory)
 
     @property
-    def _prompt(self) -> str:
-        prompt = f"""\
-{self.instructions.prompt}\
+    def _prompt(self) -> HumanMessage:
+        prompt = HumanMessage(self.instructions.prompt)
+        prompt.add_text(
+            f"""\
 {self.obs.prompt}\
 {self.history.prompt}\
 {self.action_prompt.prompt}\
@@ -103,9 +110,11 @@ class MainPrompt(dp.Shrinkable):
 {self.memory.prompt}\
 {self.criticise.prompt}\
 """
+        )
 
         if self.flags.use_abstract_example:
-            prompt += f"""
+            prompt.add_text(
+                f"""
 # Abstract Example
 
 Here is an abstract version of the answer with description of the content of
@@ -117,9 +126,11 @@ answer:
 {self.criticise.abstract_ex}\
 {self.action_prompt.abstract_ex}\
 """
+            )
 
         if self.flags.use_concrete_example:
-            prompt += f"""
+            prompt.add_text(
+                f"""
 # Concrete Example
 
 Here is a concrete example of how to format your answer.
@@ -130,6 +141,7 @@ Make sure to follow the template with proper tags:
 {self.criticise.concrete_ex}\
 {self.action_prompt.concrete_ex}\
 """
+            )
         return self.obs.add_screenshot(prompt)
 
     def shrink(self):
@@ -242,77 +254,3 @@ explore the page to find a way to activate the form.
 
     def _parse_answer(self, text_answer):
         return parse_html_tags_raise(text_answer, optional_keys=["action_draft", "criticise"])
-
-
-if __name__ == "__main__":
-    html_template = """
-    <html>
-    <body>
-    <div>
-    Hello World.
-    Step {}.
-    </div>
-    </body>
-    </html>
-    """
-
-    OBS_HISTORY = [
-        {
-            "goal": "do this and that",
-            "pruned_html": html_template.format(1),
-            "axtree_txt": "[1] Click me",
-            "last_action_error": "",
-            "focused_element_bid": "32",
-        },
-        {
-            "goal": "do this and that",
-            "pruned_html": html_template.format(2),
-            "axtree_txt": "[1] Click me",
-            "last_action_error": "",
-            "focused_element_bid": "32",
-        },
-        {
-            "goal": "do this and that",
-            "pruned_html": html_template.format(3),
-            "axtree_txt": "[1] Click me",
-            "last_action_error": "Hey, there is an error now",
-            "focused_element_bid": "32",
-        },
-    ]
-    ACTIONS = ["click('41')", "click('42')"]
-    MEMORIES = ["memory A", "memory B"]
-    THOUGHTS = ["thought A", "thought B"]
-
-    flags = dp.ObsFlags(
-        use_html=True,
-        use_ax_tree=True,
-        use_plan=True,
-        use_criticise=True,
-        use_thinking=True,
-        use_error_logs=True,
-        use_past_error_logs=True,
-        use_history=True,
-        use_action_history=True,
-        use_memory=True,
-        use_diff=True,
-        html_type="pruned_html",
-        use_concrete_example=True,
-        use_abstract_example=True,
-        multi_actions=True,
-        use_screenshot=False,
-    )
-
-    print(
-        MainPrompt(
-            action_set=dp.make_action_set(
-                "bid", is_strict=False, multiaction=True, demo_mode="off"
-            ),
-            obs_history=OBS_HISTORY,
-            actions=ACTIONS,
-            memories=MEMORIES,
-            thoughts=THOUGHTS,
-            previous_plan="No plan yet",
-            step=0,
-            flags=flags,
-        ).prompt
-    )

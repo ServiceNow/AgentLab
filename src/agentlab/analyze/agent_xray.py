@@ -19,8 +19,9 @@ from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
-from agentlab.llm.llm_utils import image_to_jpg_base64_url
+from agentlab.llm.llm_utils import Discussion
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -220,7 +221,7 @@ clicking the refresh button.
     content. You have to sort back with the Idx column to align the click with
     the order."""
                     )
-                agent_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                agent_table = gr.DataFrame(max_height=500, show_label=False, interactive=False)
             with gr.Tab("Select Task and Seed", id="Select Task"):
                 with gr.Row():
                     with gr.Column(scale=4):
@@ -236,7 +237,12 @@ clicking the refresh button.
                                 )
                             refresh_results_button = gr.Button("↺", scale=0, size="sm")
 
-                        task_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        task_table = gr.DataFrame(
+                            max_height=500,
+                            show_label=False,
+                            interactive=False,
+                            elem_id="task_table",
+                        )
 
                     with gr.Column(scale=2):
                         with gr.Accordion("Seed Selector (click for help)", open=False):
@@ -249,7 +255,12 @@ clicking the refresh button.
     the order."""
                             )
 
-                        seed_table = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        seed_table = gr.DataFrame(
+                            max_height=500,
+                            show_label=False,
+                            interactive=False,
+                            elem_id="seed_table",
+                        )
 
             with gr.Tab("Constants and Variables"):
                 with gr.Row():
@@ -261,7 +272,9 @@ clicking the refresh button.
     **all** agents. They are displayed as a table with the name and value of the
     constant."""
                             )
-                        constants = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        constants = gr.DataFrame(
+                            max_height=500, show_label=False, interactive=False
+                        )
                     with gr.Column(scale=2):
                         with gr.Accordion("Variables", open=False):
                             gr.Markdown(
@@ -270,9 +283,11 @@ clicking the refresh button.
     They are displayed as a table with the name, value and count of unique
     values. A maximum of 3 different values are displayed."""
                             )
-                        variables = gr.DataFrame(height=500, show_label=False, interactive=False)
+                        variables = gr.DataFrame(
+                            max_height=500, show_label=False, interactive=False
+                        )
             with gr.Tab("Global Stats"):
-                global_stats = gr.DataFrame(height=500, show_label=False, interactive=False)
+                global_stats = gr.DataFrame(max_height=500, show_label=False, interactive=False)
 
         with gr.Row():
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
@@ -345,7 +360,7 @@ clicking the refresh button.
                 logs = gr.Code(language=None, **code_args)
 
             with gr.Tab("Stats") as tab_stats:
-                stats = gr.DataFrame(height=500, show_label=False, interactive=False)
+                stats = gr.DataFrame(max_height=500, show_label=False, interactive=False)
 
             with gr.Tab("Agent Info HTML") as tab_agent_info_html:
                 with gr.Row():
@@ -482,7 +497,9 @@ clicking the refresh button.
         tabs.select(tab_select)
 
     demo.queue()
-    demo.launch(server_port=int(os.getenv("AGENTXRAY_APP_PORT", 7899)), share=True)
+
+    do_share = os.getenv("AGENTXRAY_SHARE_GRADIO", "false").lower() == "true"
+    demo.launch(server_port=int(os.getenv("AGENTXRAY_APP_PORT", "7899")), share=do_share)
 
 
 def tab_select(evt: gr.SelectData):
@@ -569,7 +586,9 @@ def update_chat_messages():
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
-    messages = []
+    if isinstance(chat_messages, Discussion):
+        return chat_messages.to_markdown()
+    messages = []  # TODO(ThibaultLSDC) remove this at some point
     for i, m in enumerate(chat_messages):
         if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
             m = m.content
@@ -956,7 +975,7 @@ def get_directory_contents(results_dir: Path):
 
 
 def most_recent_folder(results_dir: Path):
-    return inspect_results.get_most_recent_folder(results_dir).name
+    return get_most_recent_study(results_dir).name
 
 
 def refresh_exp_dir_choices(exp_dir_choice):

@@ -1,13 +1,15 @@
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
 
+import bgym
 from browsergym.experiments.agent import Agent, AgentInfo
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
-from agentlab.llm.llm_utils import ParseError, retry
+from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
@@ -25,13 +27,22 @@ class GenericAgentArgs(AgentArgs):
         except AttributeError:
             pass
 
-    def set_benchmark(self, benchmark, demo_mode):
+    def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode):
         """Override Some flags based on the benchmark."""
-        if benchmark == "miniwob":
+        if benchmark.name.startswith("miniwob"):
             self.flags.obs.use_html = True
 
+        self.flags.action.action_set = deepcopy(benchmark.high_level_action_set_args)
+
+        # for backward compatibility with old traces
+        if self.flags.action.multi_actions is not None:
+            self.flags.action.action_set.multiaction = self.flags.action.multi_actions
+        if self.flags.action.is_strict is not None:
+            self.flags.action.action_set.strict = self.flags.action.is_strict
+
+        # verify if we can remove this
         if demo_mode:
-            self.flags.action.demo_mode = "all_blue"
+            self.action_set.demo_mode = "all_blue"
 
     def set_reproducibility_mode(self):
         self.chat_model_args.temperature = 0
@@ -62,13 +73,13 @@ class GenericAgent(Agent):
         self.max_retry = max_retry
 
         self.flags = flags
-        self.action_set = dp.make_action_set(self.flags.action)
+        self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
         self._check_flag_constancy()
         self.reset(seed=None)
 
-        self.system_prompt = dp.SystemPrompt().prompt
+        self.system_prompt = SystemMessage(dp.SystemPrompt().prompt)
         self.main_prompt_cls = MainPrompt
 
     def obs_preprocessor(self, obs: dict) -> dict:
@@ -90,7 +101,8 @@ class GenericAgent(Agent):
         )
 
         max_prompt_tokens, max_trunc_itr = self._get_maxes()
-        prompt = dp.fit_tokens(
+
+        human_prompt = dp.fit_tokens(
             shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
             model_name=self.chat_model_args.model_name,
@@ -101,10 +113,7 @@ class GenericAgent(Agent):
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
 
-            chat_messages = [
-                make_system_message(system_prompt),
-                make_user_message(prompt),
-            ]
+            chat_messages = Discussion([system_prompt, human_prompt])
             ans_dict = retry(
                 self.chat_llm,
                 chat_messages,
@@ -259,4 +268,6 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     if action is not None:
         output += f"\n<action>\n{action}\n</action>"
 
+    return system_prompt, instruction_prompt, output
+    return system_prompt, instruction_prompt, output
     return system_prompt, instruction_prompt, output

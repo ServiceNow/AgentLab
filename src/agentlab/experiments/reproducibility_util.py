@@ -1,27 +1,30 @@
 import csv
-import json
 import logging
 import os
 import platform
-from copy import deepcopy
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
 
+import bgym
 import pandas as pd
-from browsergym.experiments.loop import ExpArgs
 from git import InvalidGitRepositoryError, Repo
 from git.config import GitConfigParser
 
 import agentlab
-from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 
 
 def _get_repo(module):
     return Repo(Path(module.__file__).resolve().parent, search_parent_directories=True)
 
 
-def _get_benchmark_version(benchmark_name):
+def _get_benchmark_version(benchmark: bgym.Benchmark) -> str:
+    benchmark_name = benchmark.name
+
+    if hasattr(benchmark, "get_version"):
+        return benchmark.get_version()
+
+    # in between 2 pull requests
     if benchmark_name.startswith("miniwob"):
         return metadata.distribution("browsergym.miniwob").version
     elif benchmark_name.startswith("workarena"):
@@ -35,6 +38,8 @@ def _get_benchmark_version(benchmark_name):
             return metadata.distribution("weblinx_browsergym").version
         except metadata.PackageNotFoundError:
             return "0.0.1rc1"
+    elif benchmark_name.startswith("assistantbench"):
+        return metadata.distribution("browsergym.assistantbench").version
     else:
         raise ValueError(f"Unknown benchmark {benchmark_name}")
 
@@ -166,13 +171,15 @@ def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, P
 
 
 def get_reproducibility_info(
-    agent_name: str | list[str],
-    benchmark_name,
+    agent_names: str | list[str],
+    benchmark: bgym.Benchmark,
+    study_id: str = "",
     comment=None,
     changes_white_list=(  # Files that are often modified during experiments but do not affect reproducibility
         "*/reproducibility_script.py",
         "*reproducibility_journal.csv",
         "*main.py",
+        "*inspect_results.ipynb",
     ),
     ignore_changes=False,
 ):
@@ -183,15 +190,16 @@ def get_reproducibility_info(
 
     import agentlab
 
-    if isinstance(agent_name, str):
-        agent_name = [agent_name]
+    if isinstance(agent_names, str):
+        agent_names = [agent_names]
 
     info = {
         "git_user": _get_git_username(_get_repo(agentlab)),
-        "agent_names": agent_name,
-        "benchmark": benchmark_name,
+        "agent_names": agent_names,
+        "benchmark": benchmark.name,
+        "study_id": study_id,
         "comment": comment,
-        "benchmark_version": _get_benchmark_version(benchmark_name),
+        "benchmark_version": _get_benchmark_version(benchmark),
         "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
         "os": f"{platform.system()} ({platform.version()})",
         "python_version": platform.python_version(),
@@ -226,7 +234,7 @@ def get_reproducibility_info(
     return info
 
 
-def _assert_compatible(info: dict, old_info: dict, raise_if_incompatible=True):
+def assert_compatible(info: dict, old_info: dict, raise_if_incompatible=True):
     """Make sure that the two info dicts are compatible."""
     # TODO may need to adapt if there are multiple agents, and the re-run on
     # error only has a subset of agents. Hence old_info.agent_name != info.agent_name
@@ -234,81 +242,12 @@ def _assert_compatible(info: dict, old_info: dict, raise_if_incompatible=True):
         if key in ("date", "avg_reward", "std_err", "n_completed", "n_err"):
             continue
         if info[key] != old_info[key]:
-            if not raise_if_incompatible:
-                logging.warning(
-                    f"Reproducibility info already exist and is not compatible."
-                    f"Key {key} has changed from {old_info[key]} to {info[key]}."
-                )
-            else:
-                raise ValueError(
-                    f"Reproducibility info already exist and is not compatible."
-                    f"Key {key} has changed from {old_info[key]} to {info[key]}."
-                    f"Set strict_reproducibility=False to bypass this error."
-                )
-
-
-# def _benchmark_from_task_name(task_name: str):
-#     """Extract the benchmark from the task name.
-#     TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
-#     """
-#     return task_name.split(".")[0]
-
-
-# def infer_agent(exp_args_list: list[ExpArgs]):
-#     return list(set(exp_args.agent_args.agent_name for exp_args in exp_args_list))
-
-
-# def infer_benchmark(exp_args_list: list[ExpArgs]):
-#     bench_name = set(
-#         _benchmark_from_task_name(exp_args.env_args.task_name) for exp_args in exp_args_list
-#     )
-#     if len(bench_name) > 1:
-#         raise ValueError(
-#             f"Multiple benchmarks in the same study are not well supported: {bench_name}."
-#             "Comment out the reproducibility part of the code to proceed at your own risk."
-#         )
-
-#     return bench_name.pop()
-
-
-# def write_reproducibility_info(
-#     study_dir, agent_name, benchmark_name, comment=None, strict_reproducibility=True
-# ):
-#     info = get_reproducibility_info(
-#         agent_name, benchmark_name, comment, ignore_changes=not strict_reproducibility
-#     )
-#     return save_reproducibility_info(study_dir, info, strict_reproducibility)
-
-
-def save_reproducibility_info(study_dir, info, strict_reproducibility=True):
-    """
-    Save a JSON file containing reproducibility information to the specified directory.
-    """
-
-    info_path = Path(study_dir) / "reproducibility_info.json"
-
-    if info_path.exists():
-        with open(info_path, "r") as f:
-            existing_info = json.load(f)
-        _assert_compatible(info, existing_info, raise_if_incompatible=strict_reproducibility)
-        logging.info(
-            "Reproducibility info already exists and is compatible. Overwriting the old one."
-        )
-
-    with open(info_path, "w") as f:
-        json.dump(info, f, indent=4)
-
-    info_str = json.dumps(info, indent=4)
-    logging.info(f"Reproducibility info saved to {info_path}. Info: {info_str}")
-
-    return info
-
-
-def load_reproducibility_info(study_dir) -> dict[str]:
-    """Retrieve the reproducibility info from the study directory."""
-    info_path = Path(study_dir) / "reproducibility_info.json"
-    with open(info_path, "r") as f:
-        return json.load(f)
+            _raise_or_warn(
+                f"Reproducibility info already exist and is not compatible."
+                f"Key {key} has changed from {old_info[key]} to {info[key]}."
+                f"Set strict_reproducibility=False to bypass this error.",
+                raise_error=raise_if_incompatible,
+            )
 
 
 def _raise_or_warn(msg, raise_error=True):
@@ -325,14 +264,10 @@ def _verify_report(report_df: pd.DataFrame, agent_names=list[str], strict_reprod
     unique_agent_names = report_df["agent.agent_name"].unique()
     if set(agent_names) != set(unique_agent_names):
         raise ValueError(
-            f"Agent names in the report {unique_agent_names} do not match the agent names {agent_names}.",
-            raise_error=strict_reproducibility,
+            f"Agent names in the report {unique_agent_names} do not match the agent names {agent_names}."
         )
     if len(set(agent_names)) != len(agent_names):
-        raise ValueError(
-            f"Duplicate agent names {agent_names}.",
-            raise_error=strict_reproducibility,
-        )
+        raise ValueError(f"Duplicate agent names {agent_names}.")
 
     report_df = report_df.set_index("agent.agent_name", inplace=False)
 
