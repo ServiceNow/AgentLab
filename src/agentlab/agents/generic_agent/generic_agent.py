@@ -68,14 +68,17 @@ class GenericAgent(Agent):
         self._check_flag_constancy()
         self.reset(seed=None)
 
+        self.system_prompt = dp.SystemPrompt().prompt
+        self.main_prompt_cls = MainPrompt
+
     def obs_preprocessor(self, obs: dict) -> dict:
         return self._obs_preprocessor(obs)
 
     @cost_tracker_decorator
     def get_action(self, obs):
-
+        system_prompt = self.system_prompt
         self.obs_history.append(obs)
-        main_prompt = MainPrompt(
+        main_prompt = self.main_prompt_cls(
             action_set=self.action_set,
             obs_history=self.obs_history,
             actions=self.actions,
@@ -87,9 +90,6 @@ class GenericAgent(Agent):
         )
 
         max_prompt_tokens, max_trunc_itr = self._get_maxes()
-
-        system_prompt = dp.SystemPrompt().prompt
-
         prompt = dp.fit_tokens(
             shrinkable=main_prompt,
             max_prompt_tokens=max_prompt_tokens,
