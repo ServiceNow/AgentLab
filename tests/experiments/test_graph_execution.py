@@ -7,7 +7,7 @@ from agentlab.experiments.graph_execution import (
 from time import time, sleep
 from browsergym.experiments.loop import ExpArgs, EnvArgs
 
-TASK_TIME = 5
+TASK_TIME = 3
 
 
 # Mock implementation of the ExpArgs class with timestamp checks
