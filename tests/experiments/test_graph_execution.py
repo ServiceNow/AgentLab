@@ -7,7 +7,7 @@ from agentlab.experiments.graph_execution import (
 from time import time, sleep
 from browsergym.experiments.loop import ExpArgs, EnvArgs
 
-TASK_TIME = 3
+TASK_TIME = 5
 
 
 # Mock implementation of the ExpArgs class with timestamp checks
@@ -52,8 +52,9 @@ def test_execute_task_graph():
     assert exp_args_list[2].end_time < exp_args_list[3].start_time
 
     # Verify that parallel tasks (task2 and task3) started within a short time of each other
-    # parallel_start_diff = abs(exp_args_list[1].start_time - exp_args_list[2].start_time)
-    # assert parallel_start_diff < 1.5  # Allow for a small delay
+    parallel_start_diff = abs(exp_args_list[1].start_time - exp_args_list[2].start_time)
+    print(f"parallel_start_diff: {parallel_start_diff}")
+    assert parallel_start_diff < 1.5  # Allow for a small delay
 
     # Ensure that the entire task graph took the expected amount of time
     total_time = exp_args_list[-1].end_time - exp_args_list[0].start_time

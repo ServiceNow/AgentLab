@@ -1,5 +1,5 @@
 from dask import compute, delayed
-from browsergym.experiments.loop import ExpArgs
+from bgym import ExpArgs
 from distributed import LocalCluster, Client
 
 
@@ -52,7 +52,7 @@ def execute_task_graph(exp_args_list: list[ExpArgs]):
     return {task_id: result for task_id, result in zip(task_ids, results)}
 
 
-def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[list] = None):
+def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, list[str]] = None):
     """Add dependencies to a list of ExpArgs.
 
     Args:

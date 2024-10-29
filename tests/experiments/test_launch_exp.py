@@ -7,7 +7,7 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments
+from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
@@ -16,12 +16,12 @@ def test_relaunch_study():
     study_dir = Path(__file__).parent.parent / "data" / "test_study"
     exp_args_list = find_incomplete(study_dir, relaunch_mode="incomplete_only")
 
-    assert len(exp_args_list) == 1
+    assert non_dummy_count(exp_args_list) == 1
     assert exp_args_list[0].env_args.task_name == "miniwob.ascending-numbers"
 
     exp_args_list = find_incomplete(study_dir, relaunch_mode="incomplete_or_error")
 
-    assert len(exp_args_list) == 2
+    assert non_dummy_count(exp_args_list) == 2
 
 
 @pytest.mark.repeat(3)  # there was stochastic bug caused by asyncio loop not started

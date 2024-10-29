@@ -2,6 +2,7 @@ import logging
 from importlib import import_module
 from pathlib import Path
 
+import bgym
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
 
@@ -105,12 +106,13 @@ def find_incomplete(study_dir: str | Path, relaunch_mode="incomplete_only"):
         raise ValueError(
             f"You asked to relaunch an existing experiment but {study_dir} does not exist."
         )
-    exp_args_list = list(_yield_incomplete_experiments(study_dir, relaunch_mode=relaunch_mode))
 
+    exp_result_list = list(yield_all_exp_results(study_dir, progress_fn=None))
+    exp_args_list = [_hide_completed(exp_result, relaunch_mode) for exp_result in exp_result_list]
     # sort according to exp_args.order
     exp_args_list.sort(key=lambda exp_args: exp_args.order if exp_args.order is not None else 0)
 
-    if len(exp_args_list) == 0:
+    if non_dummy_count(exp_args_list) == 0:
         logging.info(f"No incomplete experiments found in {study_dir}.")
         return exp_args_list
 
@@ -122,28 +124,31 @@ def find_incomplete(study_dir: str | Path, relaunch_mode="incomplete_only"):
     return exp_args_list
 
 
-def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
-    """Find all incomplete experiments and relaunch them."""
-    # TODO(make relanch_mode a callable, for flexibility)
-    for exp_result in yield_all_exp_results(exp_root, progress_fn=None):  # type: ExpArgs
-        try:
-            # TODO  implement has_finished instead of dealing with FileNotFoundError
-            summary_info = exp_result.summary_info
+def non_dummy_count(exp_args_list: list[ExpArgs]) -> int:
+    return sum([not exp_args.is_dummy for exp_args in exp_args_list])
 
-        except FileNotFoundError:
-            yield exp_result.exp_args
-            continue
 
-        if relaunch_mode == "incomplete_only":
-            continue
+def _hide_completed(exp_result: bgym.ExpResult, relaunch_mode: str):
+    """Hide completed experiments from the list.
 
-        err_msg = summary_info.get("err_msg", None)
+    This little hack, allows an elegant way to keep the task dependencies
+    while skipping the tasks that are completed.
+    """
 
-        if err_msg is not None:
-            if relaunch_mode == "incomplete_or_error":
-                yield exp_result.exp_args
-            else:
-                raise ValueError(f"Unknown relaunch_mode: {relaunch_mode}")
+    hide = False
+    if exp_result.status == "done":
+        hide = True
+    if exp_result.status == "error" and relaunch_mode == "incomplete_only":
+        hide = True
+
+    exp_args = exp_result.exp_args
+    exp_args.is_dummy = hide  # just to keep track
+    if hide:
+        # make those function do nothing since they are finished.
+        exp_args.run = lambda *args: None
+        exp_args.prepare = lambda *args: None
+
+    return exp_args
 
 
 def split_path(path: str):

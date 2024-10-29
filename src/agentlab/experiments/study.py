@@ -4,6 +4,7 @@ import pickle
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import uuid
 
 import bgym
 from bgym import Benchmark, EnvArgs, ExpArgs
@@ -55,7 +56,7 @@ class Study:
     logging_level_stdout: int = logging.INFO
 
     def __post_init__(self):
-        self.uuid = str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        self.uuid = uuid.uuid4()
         if isinstance(self.benchmark, str):
             self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark]()
         if isinstance(self.dir, str):
