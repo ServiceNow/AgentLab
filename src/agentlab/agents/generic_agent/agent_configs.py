@@ -151,6 +151,27 @@ AGENT_LLAMA31_70B = GenericAgentArgs(
     flags=FLAGS_LLAMA3_70B,
 )
 
+FLAGS_LLAMA3_70B_HALF = FLAGS_LLAMA3_70B.copy()
+FLAGS_LLAMA3_70B_HALF.max_prompt_tokens = 64_000
+AGENT_LLAMA31_70B_HALF = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+    flags=FLAGS_LLAMA3_70B_HALF,
+)
+
+FLAGS_LLAMA3_70B_QUARTER = FLAGS_LLAMA3_70B.copy()
+FLAGS_LLAMA3_70B_QUARTER.max_prompt_tokens = 32_000
+AGENT_LLAMA31_70B_QUARTER = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+    flags=FLAGS_LLAMA3_70B_QUARTER,
+)
+
+FLAGS_LLAMA3_70B_10PCT = FLAGS_LLAMA3_70B.copy()
+FLAGS_LLAMA3_70B_10PCT.max_prompt_tokens = 12_800
+AGENT_LLAMA31_70B_10PCT = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+    flags=FLAGS_LLAMA3_70B_10PCT,
+)
+
 FLAGS_8B = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
@@ -244,6 +265,29 @@ AGENT_4o = GenericAgentArgs(
     flags=FLAGS_GPT_4o,
 )
 
+FLAGS_GPT_4o_HALF = FLAGS_GPT_4o.copy()
+FLAGS_GPT_4o_HALF.max_prompt_tokens = 64_000
+
+AGENT_4o_HALF = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=FLAGS_GPT_4o_HALF,
+)
+
+FLAGS_GPT_4o_QUARTER = FLAGS_GPT_4o.copy()
+FLAGS_GPT_4o_QUARTER.max_prompt_tokens = 32_000
+AGENT_4o_QUARTER = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=FLAGS_GPT_4o_QUARTER,
+)
+
+FLAGS_GPT_4o_10PCT = FLAGS_GPT_4o.copy()
+FLAGS_GPT_4o_10PCT.max_prompt_tokens = 12_800
+AGENT_4o_10PCT = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=FLAGS_GPT_4o_10PCT,
+)
+
+
 AGENT_4o_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
     flags=FLAGS_GPT_4o,
@@ -253,6 +297,7 @@ AGENT_4o_MINI = GenericAgentArgs(
 FLAGS_GPT_4o_VISION = FLAGS_GPT_4o.copy()
 FLAGS_GPT_4o_VISION.obs.use_screenshot = True
 FLAGS_GPT_4o_VISION.obs.use_som = True
+
 
 AGENT_4o_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],

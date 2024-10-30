@@ -40,7 +40,7 @@ CHAT_MODEL_ARGS_DICT = {
     "openai/gpt-4o-2024-05-13": OpenAIModelArgs(
         model_name="gpt-4o-2024-05-13",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,  # make sure we don't bust budget
+        max_input_tokens=128_000,  # make sure we don't bust budget
         max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
@@ -120,7 +120,7 @@ CHAT_MODEL_ARGS_DICT = {
     "openrouter/meta-llama/llama-3.1-70b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-70b-instruct",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
+        max_input_tokens=128_000,
         max_new_tokens=4000,
         temperature=1e-1,
     ),
