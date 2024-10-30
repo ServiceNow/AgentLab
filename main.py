@@ -16,7 +16,6 @@ from agentlab.agents.generic_agent import (
     AGENT_4o_10PCT,
     AGENT_4o_MINI,
     AGENT_LLAMA3_70B,
-    AGENT_LLAMA3_70B,
     AGENT_LLAMA3_70B_HALF,
     AGENT_LLAMA3_70B_QUARTER,
     AGENT_LLAMA3_70B_10PCT,
