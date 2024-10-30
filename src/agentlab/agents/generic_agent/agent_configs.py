@@ -146,29 +146,25 @@ AGENT_LLAMA3_70B = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
     flags=FLAGS_LLAMA3_70B,
 )
-AGENT_LLAMA31_70B = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
-    flags=FLAGS_LLAMA3_70B,
-)
 
 FLAGS_LLAMA3_70B_HALF = FLAGS_LLAMA3_70B.copy()
 FLAGS_LLAMA3_70B_HALF.max_prompt_tokens = 64_000
-AGENT_LLAMA31_70B_HALF = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+AGENT_LLAMA3_70B_HALF = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
     flags=FLAGS_LLAMA3_70B_HALF,
 )
 
 FLAGS_LLAMA3_70B_QUARTER = FLAGS_LLAMA3_70B.copy()
 FLAGS_LLAMA3_70B_QUARTER.max_prompt_tokens = 32_000
-AGENT_LLAMA31_70B_QUARTER = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+AGENT_LLAMA3_70B_QUARTER = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
     flags=FLAGS_LLAMA3_70B_QUARTER,
 )
 
 FLAGS_LLAMA3_70B_10PCT = FLAGS_LLAMA3_70B.copy()
 FLAGS_LLAMA3_70B_10PCT.max_prompt_tokens = 12_800
-AGENT_LLAMA31_70B_10PCT = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3.1-70b-instruct"],
+AGENT_LLAMA3_70B_10PCT = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
     flags=FLAGS_LLAMA3_70B_10PCT,
 )
 

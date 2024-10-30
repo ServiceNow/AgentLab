@@ -16,10 +16,10 @@ from agentlab.agents.generic_agent import (
     AGENT_4o_10PCT,
     AGENT_4o_MINI,
     AGENT_LLAMA3_70B,
-    AGENT_LLAMA31_70B,
-    AGENT_LLAMA31_70B_HALF,
-    AGENT_LLAMA31_70B_QUARTER,
-    AGENT_LLAMA31_70B_10PCT,
+    AGENT_LLAMA3_70B,
+    AGENT_LLAMA3_70B_HALF,
+    AGENT_LLAMA3_70B_QUARTER,
+    AGENT_LLAMA3_70B_10PCT,
 )
 from agentlab.experiments.study import Study
 
@@ -27,14 +27,14 @@ logging.getLogger().setLevel(logging.INFO)
 
 # choose your agent or provide a new agent
 agent_args = [
-    AGENT_4o,
-    AGENT_4o_HALF,
-    AGENT_4o_QUARTER,
-    AGENT_4o_10PCT,
-    AGENT_LLAMA31_70B,
-    AGENT_LLAMA31_70B_HALF,
-    AGENT_LLAMA31_70B_QUARTER,
-    AGENT_LLAMA31_70B_10PCT,
+    # AGENT_4o,
+    # AGENT_4o_HALF,
+    # AGENT_4o_QUARTER,
+    # AGENT_4o_10PCT,
+    AGENT_LLAMA3_70B,
+    AGENT_LLAMA3_70B_HALF,
+    AGENT_LLAMA3_70B_QUARTER,
+    AGENT_LLAMA3_70B_10PCT,
 ]
 # agent_args = [AGENT_4o]
 
@@ -57,7 +57,7 @@ reproducibility_mode = True
 relaunch = False
 
 ## Number of parallel jobs
-n_jobs = 5  # Make sure to use 1 job when debugging in VSCode
+n_jobs = -1  # Make sure to use 1 job when debugging in VSCode
 # n_jobs = -1  # to use all available cores
 
 
