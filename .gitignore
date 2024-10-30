@@ -161,35 +161,10 @@ cython_debug/
 **/.DS_Store
 
 .vscode
-allowed_selenium.json
 
-# Torchtune
-finetuning/torchtune
-
-# PyLLMD repo for finetuning
-pyllmd_tune/research-pyllmd/
-pyllmd_tune/data/
-
-
-datasets/*
 _sandbox.py
-node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-
 
 results/
 
-# personal (optimass)
-ICML_deadline/
-mass_utils/
-pyllmd_tune/
-
-# don't ignore the miniwob_tasks_all.csv file
-!miniwob_tasks_all.csv
+# gradio
+.gradio/
