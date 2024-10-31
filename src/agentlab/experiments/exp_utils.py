@@ -73,6 +73,50 @@ def timeout_manager(seconds: int = None):
             signal.signal(signal.SIGALRM, previous_handler)
 
 
+def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, list[str]] = None):
+    """Add dependencies to a list of ExpArgs.
+
+    Args:
+        exp_args_list: list[ExpArgs]
+            A list of experiments to run.
+        task_dependencies: dict
+            A dictionary mapping task names to a list of task names that they
+            depend on. If None or empty, no dependencies are added.
+
+    Returns:
+        list[ExpArgs]
+            The modified exp_args_list with dependencies added.
+    """
+
+    if task_dependencies is None or all([len(dep) == 0 for dep in task_dependencies.values()]):
+        # nothing to be done
+        return exp_args_list
+
+    exp_args_map = {exp_args.env_args.task_name: exp_args for exp_args in exp_args_list}
+    if len(exp_args_map) != len(exp_args_list):
+        raise ValueError(
+            (
+                "Task names are not unique in exp_args_map, "
+                "you can't run multiple seeds with task dependencies."
+            )
+        )
+
+    for task_name in exp_args_map.keys():
+        if task_name not in task_dependencies:
+            raise ValueError(f"Task {task_name} is missing from task_dependencies")
+
+    # turn dependencies from task names to exp_ids
+    for task_name, exp_args in exp_args_map.items():
+
+        exp_args.depends_on = tuple(
+            exp_args_map[dep_name].exp_id
+            for dep_name in task_dependencies[task_name]
+            if dep_name in exp_args_map  # ignore dependencies that are not to be run
+        )
+
+    return exp_args_list
+
+
 # Mock implementation of the ExpArgs class with timestamp checks for unit testing
 class MockedExpArgs:
     def __init__(self, exp_id, depends_on=None):

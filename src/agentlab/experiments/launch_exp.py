@@ -65,14 +65,15 @@ def run_experiments(
                 for exp_args in exp_args_list
             )
 
-        elif parallel_backend == "dask":
-            from agentlab.experiments.graph_execution_dask import (
-                execute_task_graph,
-                make_dask_client,
-            )
+        # dask will be deprecated, as there was issues. use ray instead
+        # elif parallel_backend == "dask":
+        #     from agentlab.experiments.graph_execution_dask import (
+        #         execute_task_graph,
+        #         make_dask_client,
+        #     )
 
-            with make_dask_client(n_worker=n_jobs):
-                execute_task_graph(exp_args_list)
+        #     with make_dask_client(n_worker=n_jobs):
+        #         execute_task_graph(exp_args_list)
         elif parallel_backend == "ray":
             from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
 

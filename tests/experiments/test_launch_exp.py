@@ -24,8 +24,7 @@ def test_relaunch_study():
     assert non_dummy_count(exp_args_list) == 2
 
 
-@pytest.mark.repeat(3)  # there was stochastic bug caused by asyncio loop not started
-def test_launch_system(backend="dask", cause_timeout=False):
+def _test_launch_system(backend="ray", cause_timeout=False):
 
     if cause_timeout:
         wait_time = 10
@@ -81,19 +80,19 @@ def test_launch_system(backend="dask", cause_timeout=False):
 
 
 def test_launch_system_joblib():
-    test_launch_system(backend="joblib")
+    _test_launch_system(backend="joblib")
 
 
 def test_launch_system_sequntial():
-    test_launch_system(backend="sequential")
+    _test_launch_system(backend="sequential")
 
 
 def test_launch_system_ray():
-    test_launch_system(backend="ray")
+    _test_launch_system(backend="ray")
 
 
 def test_timeout_ray():
-    test_launch_system(backend="ray", cause_timeout=True)
+    _test_launch_system(backend="ray", cause_timeout=True)
 
 
 @pytest.mark.pricy
