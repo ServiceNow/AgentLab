@@ -14,7 +14,7 @@ from agentlab.analyze import inspect_results
 from agentlab.experiments import args
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments
+from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
 
 logger = logging.getLogger("agentlab_" + __name__)
 
@@ -54,6 +54,7 @@ class Study:
     reproducibility_info: dict = None
     logging_level: int = logging.DEBUG
     logging_level_stdout: int = logging.WARNING
+    comment: str = None  # Extra comments from the authors of this study
 
     def __post_init__(self):
         self.uuid = uuid.uuid4()
@@ -83,6 +84,7 @@ class Study:
                 dummy exp_args to keep the task dependencies.
         """
         self.exp_args_list = find_incomplete(self.dir, include_errors=include_errors)
+        return non_dummy_count(self.exp_args_list)
 
     def load_exp_args_list(self):
         logger.info(f"Loading experiments from {self.dir}")
@@ -106,7 +108,32 @@ class Study:
             )
         self.reproducibility_info = info
 
-    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False, comment=None):
+    def run(
+        self,
+        n_jobs=1,
+        parallel_backend="joblib",
+        strict_reproducibility=False,
+        n_relaunch=3,
+        relaunch_errors=True,
+    ):
+
+        n_exp = len(self.exp_args_list)
+
+        for i in range(n_relaunch):
+            logger.info(f"Launching study {self.name} - trial {i + 1}/ {n_relaunch}")
+            self._run(n_jobs, parallel_backend, strict_reproducibility)
+
+            report_df = self.get_report(ignore_cache=True)
+
+            n_incomplete = self.find_incomplete(include_errors=relaunch_errors)
+
+            if n_incomplete == 0:
+                break
+
+        logger.info(f"Study {self.name} finished.")
+        logger.info("\n" + str(report_df))
+
+    def _run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
         """Run all experiments in the study in parallel when possible.
 
         Args:
@@ -128,14 +155,11 @@ class Study:
         self.benchmark.prepare_backends()
         logger.info("Backends ready.")
         self.set_reproducibility_info(
-            strict_reproducibility=strict_reproducibility, comment=comment
+            strict_reproducibility=strict_reproducibility, comment=self.comment
         )
         self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
-        report_df = self.get_report(ignore_cache=True)
-        logger.info(f"Study {self.name} finished.")
-        logger.info("\n" + str(report_df))
 
     def append_to_journal(self, strict_reproducibility=True):
         """Append the study to the journal.
@@ -153,6 +177,9 @@ class Study:
             self.get_report(),
             strict_reproducibility=strict_reproducibility,
         )
+
+    def get_error_report(self):
+        return inspect_results.get_study_summary(self.dir, ignore_cache=True, ignore_stale=False)
 
     @property
     def name(self):
