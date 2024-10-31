@@ -26,7 +26,7 @@ agent_args = [AGENT_4o_MINI]
 
 # ## select the benchmark to run on
 benchmark = "miniwob_tiny_test"
-# benchmark = "miniwob_all"
+# benchmark = "miniwob"
 # benchmark = "workarena_l1"
 # benchmark = "workarena_l2"
 # benchmark = "workarena_l3"
@@ -54,12 +54,16 @@ if __name__ == "__main__":  # necessary for dask backend
     if relaunch:
         #  relaunch an existing study
         study = Study.load_most_recent()
-        study.find_incomplete(relaunch_mode="incomplete_or_error")
+        study.find_incomplete(include_errors=True)
 
     else:
-        study = Study(agent_args, benchmark)
+        study = Study(agent_args, benchmark, logging_level_stdout=logging.INFO)
 
-    study.run(n_jobs=n_jobs, parallel_backend="joblib", strict_reproducibility=reproducibility_mode)
+    study.run(
+        n_jobs=n_jobs,
+        parallel_backend="ray",
+        strict_reproducibility=reproducibility_mode,
+    )
 
     if reproducibility_mode:
         study.append_to_journal(strict_reproducibility=True)

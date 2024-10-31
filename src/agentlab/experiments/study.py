@@ -52,8 +52,8 @@ class Study:
     suffix: str = ""  # used for adding a personnal comment to the study name
     uuid: str = None
     reproducibility_info: dict = None
-    logging_level: int = logging.INFO
-    logging_level_stdout: int = logging.INFO
+    logging_level: int = logging.DEBUG
+    logging_level_stdout: int = logging.WARNING
 
     def __post_init__(self):
         self.uuid = uuid.uuid4()
@@ -71,9 +71,18 @@ class Study:
             logging_level_stdout=self.logging_level_stdout,
         )
 
-    def find_incomplete(self, relaunch_mode="incomplete_or_error"):
-        """Find incomplete or errored experiments in the study directory for relaunching."""
-        self.exp_args_list = find_incomplete(self.dir, relaunch_mode=relaunch_mode)
+    def find_incomplete(self, include_errors=True):
+        """Find incomplete or errored experiments in the study directory for relaunching.
+
+        Args:
+            include_errors: bool
+                If True, include errored experiments in the list.
+
+        Returns:
+            list[ExpArgs]: The list of all experiments with completed ones replaced by a
+                dummy exp_args to keep the task dependencies.
+        """
+        self.exp_args_list = find_incomplete(self.dir, include_errors=include_errors)
 
     def load_exp_args_list(self):
         logger.info(f"Loading experiments from {self.dir}")
@@ -92,7 +101,9 @@ class Study:
             comment=comment,
         )
         if self.reproducibility_info is not None:
-            repro.assert_compatible(self.reproducibility_info, info)
+            repro.assert_compatible(
+                self.reproducibility_info, info, raise_if_incompatible=strict_reproducibility
+            )
         self.reproducibility_info = info
 
     def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False, comment=None):
@@ -200,7 +211,7 @@ class Study:
         return study
 
     @staticmethod
-    def load_most_recent(root_dir: Path = None):
+    def load_most_recent(root_dir: Path = None) -> "Study":
         return Study.load(get_most_recent_study(root_dir))
 
 
@@ -237,28 +248,6 @@ def get_most_recent_study(
                 continue
 
     return most_recent_folder
-
-
-# def make_relaunch_study(study_dir, relaunch_mode="incomplete_or_error"):
-#     """Create a study from an existing study directory.
-
-#     It will search for all experiments that needs to be relaunched depending on
-#     `relaunch_mode`.
-
-#     Args:
-#         study_dir: Path
-#             The directory where the experiments are saved.
-#         relaunch_mode: str
-#             Find all incomplete experiments and relaunch them.
-#             - "incomplete_only": relaunch only the incomplete experiments.
-#             - "incomplete_or_error": relaunch incomplete or errors.
-#     """
-#     study = Study(dir=study_dir)
-#     study.exp_args_list, _ = find_incomplete(study.dir, relaunch_mode=relaunch_mode)
-#     info = study.load_reproducibility_info()
-#     study.benchmark_name = info["benchmark"]
-#     study.agent_names = info["agent_names"]
-#     return study
 
 
 def set_demo_mode(env_args_list: list[EnvArgs]):

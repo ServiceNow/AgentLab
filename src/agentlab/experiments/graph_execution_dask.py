@@ -1,9 +1,21 @@
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+from contextlib import contextmanager
+import threading
 from dask import compute, delayed
 from bgym import ExpArgs
 from distributed import LocalCluster, Client
+from agentlab.experiments.exp_utils import _episode_timeout
+
+# from agentlab.experiments.exp_utils import run_exp
 
 
-def _run(exp_arg: ExpArgs, *dependencies):
+def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=30):
+    """Run exp_args.run() with a timeout and handle dependencies."""
+    # dask can't use the timeout_manager define in exp_utils.py
+    # ValueError: signal only works in main thread of the main interpreter
+    # most alternative I try doesn't work
+    episode_timeout = _episode_timeout(exp_arg, avg_step_timeout=avg_step_timeout)
     return exp_arg.run()
 
 
@@ -40,7 +52,7 @@ def execute_task_graph(exp_args_list: list[ExpArgs]):
     def get_task(exp_arg: ExpArgs):
         if exp_arg.exp_id not in tasks:
             dependencies = [get_task(exp_args_map[dep_key]) for dep_key in exp_arg.depends_on]
-            tasks[exp_arg.exp_id] = delayed(_run)(exp_arg, *dependencies)
+            tasks[exp_arg.exp_id] = delayed(run_exp)(exp_arg, *dependencies)
         return tasks[exp_arg.exp_id]
 
     for exp_arg in exp_args_list:

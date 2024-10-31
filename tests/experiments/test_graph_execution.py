@@ -1,5 +1,5 @@
 import pytest
-from agentlab.experiments.graph_execution import (
+from agentlab.experiments.graph_execution_dask import (
     execute_task_graph,
     add_dependencies,
     make_dask_client,
@@ -17,6 +17,7 @@ class MockedExpArgs:
         self.depends_on = depends_on if depends_on else []
         self.start_time = None
         self.end_time = None
+        self.env_args = None
 
     def run(self):
         self.start_time = time()
