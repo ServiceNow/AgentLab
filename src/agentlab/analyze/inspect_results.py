@@ -586,7 +586,7 @@ def map_err_key(err_msg: str):
         return err_msg
 
     # remove logs from the message if any
-    err_msg = err_msg[:err_msg.find("=== logs ===")].rstrip()
+    err_msg = err_msg[: err_msg.find("=== logs ===")].rstrip()
     regex_replacements = [
         (
             r"your messages resulted in \d+ tokens",
@@ -621,13 +621,15 @@ def error_report(df: pd.DataFrame, max_stack_trace=10, use_log=False):
         exp_result_list = [get_exp_result(row.exp_dir) for _, row in sub_df.iterrows()]
         exp_result_list = sorted(exp_result_list, key=lambda x: x.exp_args.env_args.task_name)
         for exp_result in exp_result_list:
-            report.append(f"* {exp_result.exp_args.env_args.task_name} seed: {exp_result.exp_args.env_args.task_seed}")
+            report.append(
+                f"* {exp_result.exp_args.env_args.task_name} seed: {exp_result.exp_args.env_args.task_seed}"
+            )
 
         report.append(f"\nShowing Max {max_stack_trace} stack traces:\n")
         for exp_result in exp_result_list:
             if idx >= max_stack_trace:
                 break
-            
+
             if not use_log:
                 # print task name and stack trace
                 stack_trace = exp_result.summary_info.get("stack_trace", "")
@@ -640,15 +642,15 @@ def error_report(df: pd.DataFrame, max_stack_trace=10, use_log=False):
 
             idx += 1
 
-
     return "\n".join(report)
+
 
 def _format_log(exp_result: ExpResult, head_lines=10, tail_lines=50):
     """Extract head and tail of the log. Try to find the traceback."""
     log = exp_result.logs
     if log is None:
         return "No log found"
-    
+
     log_lines = log.split("\n")
     # first 10 lines:
     log_head = "\n".join(log_lines[:head_lines])
@@ -659,13 +661,8 @@ def _format_log(exp_result: ExpResult, head_lines=10, tail_lines=50):
         log_tail = log[tail_idx:]
     except ValueError:
         log_tail = "\n".join(log_lines[-tail_lines:])
-        
+
     return log_head + "\n...\n...truncated middle of the log\n...\n" + log_tail
-
-
-    
-
-
 
 
 def categorize_error(row):
