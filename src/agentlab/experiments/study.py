@@ -8,6 +8,7 @@ import uuid
 
 import bgym
 from bgym import Benchmark, EnvArgs, ExpArgs
+from requests import ReadTimeout
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
@@ -177,7 +178,11 @@ class Study:
             raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
 
         logger.info("Preparing backends...")
-        self.benchmark.prepare_backends()
+        try:
+            self.benchmark.prepare_backends()
+        except ReadTimeout:
+            logger.warning("Backend preparation timed out. Continuing anyway.")
+
         logger.info("Backends ready.")
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
