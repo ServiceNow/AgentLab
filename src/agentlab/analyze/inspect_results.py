@@ -613,7 +613,8 @@ def error_report(df: pd.DataFrame, max_stack_trace=10, use_log=False):
     report = []
     for err_key, count in unique_counts.items():
         report.append("-------------------")
-        report.append(f"## {count}x : {err_key.replace('\n', '<br>')}\n")
+        report.append(f"## {count}x : " + err_key.replace("\n", "<br>") + "\n")
+
         # find sub_df with this error message
         sub_df = df[df["err_key"] == err_key]
         idx = 0
