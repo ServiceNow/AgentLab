@@ -162,6 +162,7 @@ def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
 
     exp_args = exp_result.exp_args
     exp_args.is_dummy = hide  # just to keep track
+    exp_args.status = exp_result.status
     if hide:
         # make those function do nothing since they are finished.
         exp_args.run = noop
@@ -170,7 +171,7 @@ def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
     return exp_args
 
 
-# TODO remove this function once dask backend is stable
+# TODO remove this function once ray backend is stable
 def _split_sequential_exp(exp_args_list: list[ExpArgs]) -> tuple[list[ExpArgs], list[ExpArgs]]:
     """split exp_args that are flagged as sequential from those that are not"""
     sequential_exp_args = []

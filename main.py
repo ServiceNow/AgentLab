@@ -6,7 +6,6 @@ Copy this script and modify at will, but don't push your changes to the
 repository.
 """
 
-import bgym
 import logging
 from agentlab.agents.generic_agent import (
     RANDOM_SEARCH_AGENT,
@@ -57,12 +56,13 @@ if __name__ == "__main__":  # necessary for dask backend
         study.find_incomplete(include_errors=True)
 
     else:
-        study = Study(agent_args, benchmark, logging_level_stdout=logging.INFO)
+        study = Study(agent_args, benchmark, logging_level_stdout=logging.WARNING)
 
     study.run(
         n_jobs=n_jobs,
         parallel_backend="ray",
         strict_reproducibility=reproducibility_mode,
+        n_relaunch=3,
     )
 
     if reproducibility_mode:

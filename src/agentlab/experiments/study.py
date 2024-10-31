@@ -13,7 +13,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import args
 from agentlab.experiments import reproducibility_util as repro
-from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
 
 logger = logging.getLogger("agentlab_" + __name__)
@@ -84,7 +84,11 @@ class Study:
                 dummy exp_args to keep the task dependencies.
         """
         self.exp_args_list = find_incomplete(self.dir, include_errors=include_errors)
-        return non_dummy_count(self.exp_args_list)
+        n_incomplete = non_dummy_count(self.exp_args_list)
+        n_error = [
+            getattr(exp_args, "status", "incomplete") == "error" for exp_args in self.exp_args_list
+        ].count(True)
+        return n_incomplete, n_error
 
     def load_exp_args_list(self):
         logger.info(f"Loading experiments from {self.dir}")
@@ -117,21 +121,42 @@ class Study:
         relaunch_errors=True,
     ):
 
+        self.set_reproducibility_info(
+            strict_reproducibility=strict_reproducibility, comment=self.comment
+        )
+        self.save()
+
         n_exp = len(self.exp_args_list)
+        last_error_count = None
 
         for i in range(n_relaunch):
-            logger.info(f"Launching study {self.name} - trial {i + 1}/ {n_relaunch}")
+            logger.info(f"Launching study {self.name} - trial {i + 1} / {n_relaunch}")
             self._run(n_jobs, parallel_backend, strict_reproducibility)
 
-            report_df = self.get_report(ignore_cache=True)
+            suffix = f"trial_{i + 1}_of_{n_relaunch}"
+            _, summary_df, error_report = self.get_results(suffix=suffix)
+            logger.info("\n" + error_report)
+            logger.info("\n" + str(summary_df))
 
-            n_incomplete = self.find_incomplete(include_errors=relaunch_errors)
+            n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
+
+            if n_error / n_exp > 0.3:
+                logger.warning(f"More than 30% of the experiments errored. Stopping the study.")
+                return
+
+            if last_error_count is not None and n_error >= last_error_count:
+                logger.warning(
+                    f"Last trial did not reduce the number of errors. Stopping the study."
+                )
+                return
 
             if n_incomplete == 0:
-                break
+                logger.info(f"Study {self.name} finished.")
+                return
 
-        logger.info(f"Study {self.name} finished.")
-        logger.info("\n" + str(report_df))
+        logger.warning(
+            f"Study {self.name} did not finish after {n_relaunch} trials. There are {n_incomplete} incomplete experiments."
+        )
 
     def _run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
         """Run all experiments in the study in parallel when possible.
@@ -154,10 +179,6 @@ class Study:
         logger.info("Preparing backends...")
         self.benchmark.prepare_backends()
         logger.info("Backends ready.")
-        self.set_reproducibility_info(
-            strict_reproducibility=strict_reproducibility, comment=self.comment
-        )
-        self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
 
@@ -178,8 +199,17 @@ class Study:
             strict_reproducibility=strict_reproducibility,
         )
 
-    def get_error_report(self):
-        return inspect_results.get_study_summary(self.dir, ignore_cache=True, ignore_stale=False)
+    def get_results(self, suffix=""):
+        result_df = inspect_results.load_result_df(self.dir)
+        error_report = inspect_results.error_report(result_df, max_stack_trace=3, use_log=True)
+        summary_df = inspect_results.summarize_study(result_df)
+
+        suffix = f"_{suffix}" if suffix else ""
+        result_df.to_csv(self.dir / f"result_df{suffix}.csv")
+        summary_df.to_csv(self.dir / f"summary_df{suffix}.csv")
+        (self.dir / f"error_report{suffix}.md").write_text(error_report)
+
+        return result_df, summary_df, error_report
 
     @property
     def name(self):
@@ -337,20 +367,24 @@ def _agents_on_benchmark(
     for i, exp_args in enumerate(exp_args_list):
         exp_args.order = i
 
-    _flag_sequential_exp(exp_args_list, benchmark)
+    # not required with ray, but keeping around if we would need it for visualwebareana on joblib
+    # _flag_sequential_exp(exp_args_list, benchmark)
+
+    # populate the depends_on field based on the task dependencies in the benchmark
+    exp_args_list = add_dependencies(exp_args_list, benchmark.dependency_graph_over_tasks())
 
     return exp_args_list
 
 
-def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
-    if benchmark.name.startswith("visualwebarena"):
-        sequential_subset = benchmark.subset_from_glob("requires_reset", "True")
-        sequential_subset = set(
-            [env_args.task_name for env_args in sequential_subset.env_args_list]
-        )
-        for exp_args in exp_args_list:
-            if exp_args.env_args.task_name in sequential_subset:
-                exp_args.sequential = True
+# def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
+#     if benchmark.name.startswith("visualwebarena"):
+#         sequential_subset = benchmark.subset_from_glob("requires_reset", "True")
+#         sequential_subset = set(
+#             [env_args.task_name for env_args in sequential_subset.env_args_list]
+#         )
+#         for exp_args in exp_args_list:
+#             if exp_args.env_args.task_name in sequential_subset:
+#                 exp_args.sequential = True
 
 
 # def ablation_study(start_agent: AgentArgs, changes, benchmark: str, demo_mode=False):
