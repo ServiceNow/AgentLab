@@ -9,6 +9,9 @@ import signal
 import sys
 from time import time, sleep
 
+logger = logging.getLogger("agentlab."+__name__)  # Get logger based on module name
+
+
 # TODO move this to a more appropriate place
 RESULTS_DIR = os.environ.get("AGENTLAB_EXP_ROOT", None)
 if RESULTS_DIR is None:
@@ -22,14 +25,14 @@ else:
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=30):
+def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=60):
     """Run exp_args.run() with a timeout and handle dependencies."""
     episode_timeout = _episode_timeout(exp_arg, avg_step_timeout=avg_step_timeout)
     with timeout_manager(seconds=episode_timeout):
         return exp_arg.run()
 
 
-def _episode_timeout(exp_arg: ExpArgs, avg_step_timeout=30):
+def _episode_timeout(exp_arg: ExpArgs, avg_step_timeout=60):
     """Some logic to determine the episode timeout."""
     max_steps = getattr(exp_arg.env_args, "max_steps", None)
     if max_steps is None:
@@ -44,34 +47,31 @@ def _episode_timeout(exp_arg: ExpArgs, avg_step_timeout=30):
 
 @contextmanager
 def timeout_manager(seconds: int = None):
-    """Context manager to handle timeouts."""
-
-    # Check if we're on Windows
+    """Context manager to handle timeouts."""    
     if seconds is None or sys.platform == "win32":
         try:
             yield
         finally:
             pass
-    else:
-        seconds = max(1, int(seconds))
+        return
 
-        def handler(signum, frame):
-            print("before raising timeout")
-            raise TimeoutError(f"Operation timed out after {seconds} seconds")
+    def alarm_handler(signum, frame):
+        
+        logger.warning(f"Operation timed out after {seconds}s, sending SIGINT and raising TimeoutError.")
+        # send sigint
+        os.kill(os.getpid(), signal.SIGINT)
 
-        print(f"Setting timeout to {seconds} seconds.")
-        # Register the signal handler
-        previous_handler = signal.signal(signal.SIGALRM, handler)
-        # Set the alarm
-        signal.alarm(seconds)
+        # Still raise TimeoutError for immediate handling
+        raise TimeoutError(f"Operation timed out after {seconds} seconds")
 
-        try:
-            yield
-        finally:
-            # Cleanup: cancel alarm and restore previous handler
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, previous_handler)
+    previous_handler = signal.signal(signal.SIGALRM, alarm_handler)
+    signal.alarm(seconds)
 
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
 def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, list[str]] = None):
     """Add dependencies to a list of ExpArgs.
@@ -92,6 +92,9 @@ def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, 
         # nothing to be done
         return exp_args_list
 
+    for exp_args in exp_args_list:
+        exp_args.make_id() # makes sure there is an exp_id
+
     exp_args_map = {exp_args.env_args.task_name: exp_args for exp_args in exp_args_list}
     if len(exp_args_map) != len(exp_args_list):
         raise ValueError(
@@ -107,7 +110,6 @@ def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, 
 
     # turn dependencies from task names to exp_ids
     for task_name, exp_args in exp_args_map.items():
-
         exp_args.depends_on = tuple(
             exp_args_map[dep_name].exp_id
             for dep_name in task_dependencies[task_name]

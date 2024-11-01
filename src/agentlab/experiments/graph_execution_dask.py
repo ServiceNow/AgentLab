@@ -10,7 +10,7 @@ from agentlab.experiments.exp_utils import _episode_timeout
 # from agentlab.experiments.exp_utils import run_exp
 
 
-def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=30):
+def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=60):
     """Run exp_args.run() with a timeout and handle dependencies."""
     # dask can't use the timeout_manager define in exp_utils.py
     # ValueError: signal only works in main thread of the main interpreter

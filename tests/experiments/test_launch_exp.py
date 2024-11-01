@@ -122,5 +122,5 @@ def test_4o_mini_on_miniwob_tiny_test():
 if __name__ == "__main__":
     test_timeout_ray()
     # test_4o_mini_on_miniwob_tiny_test()
-    # test_launch_system()
+    # test_launch_system_ray()
     # test_launch_system_sequntial()

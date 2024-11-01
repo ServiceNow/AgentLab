@@ -11,7 +11,7 @@ from agentlab.experiments.exp_utils import run_exp
 run_exp = ray.remote(run_exp)
 
 
-def execute_task_graph(exp_args_list: list[bgym.ExpArgs], avg_step_timeout=30):
+def execute_task_graph(exp_args_list: list[bgym.ExpArgs], avg_step_timeout=60):
     """Execute a task graph in parallel while respecting dependencies using Ray."""
 
     exp_args_map = {exp_args.exp_id: exp_args for exp_args in exp_args_list}
