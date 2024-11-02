@@ -56,6 +56,7 @@ class Study:
     logging_level: int = logging.DEBUG
     logging_level_stdout: int = logging.WARNING
     comment: str = None  # Extra comments from the authors of this study
+    ignore_dependencies: bool = False
 
     def __post_init__(self):
         self.uuid = uuid.uuid4()
@@ -71,6 +72,7 @@ class Study:
             self.benchmark,
             logging_level=self.logging_level,
             logging_level_stdout=self.logging_level_stdout,
+            ignore_dependencies=self.ignore_dependencies,
         )
 
     def find_incomplete(self, include_errors=True):
@@ -327,6 +329,7 @@ def _agents_on_benchmark(
     demo_mode=False,
     logging_level: int = logging.INFO,
     logging_level_stdout: int = logging.INFO,
+    ignore_dependencies=False,
 ):
     """Run one or multiple agents on a benchmark.
 
@@ -375,8 +378,9 @@ def _agents_on_benchmark(
     # not required with ray, but keeping around if we would need it for visualwebareana on joblib
     # _flag_sequential_exp(exp_args_list, benchmark)
 
-    # populate the depends_on field based on the task dependencies in the benchmark
-    exp_args_list = add_dependencies(exp_args_list, benchmark.dependency_graph_over_tasks())
+    if not ignore_dependencies:
+        # populate the depends_on field based on the task dependencies in the benchmark
+        exp_args_list = add_dependencies(exp_args_list, benchmark.dependency_graph_over_tasks())
 
     return exp_args_list
 
