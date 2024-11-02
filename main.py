@@ -52,7 +52,7 @@ if __name__ == "__main__":  # necessary for dask backend
 
     if relaunch:
         #  relaunch an existing study
-        study = Study.load_most_recent()
+        study = Study.load_most_recent(contains=None)
         study.find_incomplete(include_errors=True)
 
     else:
