@@ -275,8 +275,8 @@ class Study:
         return study
 
     @staticmethod
-    def load_most_recent(root_dir: Path = None) -> "Study":
-        return Study.load(get_most_recent_study(root_dir))
+    def load_most_recent(root_dir: Path = None, contains=None) -> "Study":
+        return Study.load(get_most_recent_study(root_dir, contains=contains))
 
 
 def get_most_recent_study(
