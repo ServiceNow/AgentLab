@@ -305,8 +305,8 @@ def compress_chains(G):
     return G_compressed
 
 
-# benchmark = bgym.DEFAULT_BENCHMARKS["webarena"]()
-benchmark = bgym.DEFAULT_BENCHMARKS["visualwebarena"]()
+benchmark = bgym.DEFAULT_BENCHMARKS["webarena"]()
+# benchmark = bgym.DEFAULT_BENCHMARKS["visualwebarena"]()
 
 dep_graph = benchmark.dependency_graph_over_tasks()
 dep_graph = clean_dict(dep_graph)
