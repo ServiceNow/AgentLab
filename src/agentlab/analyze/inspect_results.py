@@ -653,6 +653,9 @@ def _format_log(exp_result: ExpResult, head_lines=10, tail_lines=50):
         return "No log found"
 
     log_lines = log.split("\n")
+    if len(log_lines) <= head_lines + tail_lines:
+        return log
+
     # first 10 lines:
     log_head = "\n".join(log_lines[:head_lines])
 
