@@ -378,7 +378,7 @@ def _agents_on_benchmark(
         exp_args_list = add_dependencies(exp_args_list, benchmark.dependency_graph_over_tasks())
     else:
         logger.warning(
-            f"Ignoring dependencies for benchmar {benchmark.name}. This could lead to different results."
+            f"Ignoring dependencies for benchmark {benchmark.name}. This could lead to different results."
         )
 
     return exp_args_list
