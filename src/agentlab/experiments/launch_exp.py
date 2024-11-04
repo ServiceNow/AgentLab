@@ -11,7 +11,7 @@ def run_experiments(
     n_jobs,
     exp_args_list: list[ExpArgs],
     study_dir,
-    parallel_backend="joblib",
+    parallel_backend="ray",
     avg_step_timeout=60,
 ):
     """Run a list of ExpArgs in parallel.
@@ -78,7 +78,7 @@ def run_experiments(
         elif parallel_backend == "ray":
             from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
 
-            context = ray.init(num_cpus=n_jobs, dashboard_host="127.0.0.1", dashboard_port=8265)
+            ray.init(num_cpus=n_jobs)
             try:
                 execute_task_graph(exp_args_list, avg_step_timeout=avg_step_timeout)
             finally:
