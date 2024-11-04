@@ -16,7 +16,7 @@ from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
 
-logger = logging.getLogger("agentlab_" + __name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

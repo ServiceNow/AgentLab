@@ -9,7 +9,7 @@ import signal
 import sys
 from time import time, sleep
 
-logger = logging.getLogger("agentlab." + __name__)  # Get logger based on module name
+logger = logging.getLogger(__name__)  # Get logger based on module name
 
 
 # TODO move this to a more appropriate place

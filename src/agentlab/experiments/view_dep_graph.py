@@ -47,9 +47,9 @@ def plot_graph(G, ax, title=None, node_color="lightblue", node_size=40, font_siz
     # Use a simple layout for better performance
     # pos = nx.spring_layout(G, k=0.1, iterations=100)
 
-    # pos = nx.kamada_kawai_layout(G)
+    pos = nx.kamada_kawai_layout(G)
 
-    pos = nx.spectral_layout(G)
+    # pos = nx.spectral_layout(G)
 
     def name_to_size(name):
         if "-" in name:
@@ -83,7 +83,7 @@ def plot_graph(G, ax, title=None, node_color="lightblue", node_size=40, font_siz
 
 
 def plot_components_grid(
-    components, max_cols=4, node_color="lightblue", node_size=1000, font_size=8
+    components, max_cols=4, node_color="lightblue", node_size=2000, font_size=10
 ):
     """
     Plot components in a grid layout.
@@ -305,8 +305,8 @@ def compress_chains(G):
     return G_compressed
 
 
-benchmark = bgym.DEFAULT_BENCHMARKS["webarena"]()
-# benchmark = bgym.DEFAULT_BENCHMARKS["visualwebarena"]()
+# benchmark = bgym.DEFAULT_BENCHMARKS["webarena"]()
+benchmark = bgym.DEFAULT_BENCHMARKS["visualwebarena"]()
 
 dep_graph = benchmark.dependency_graph_over_tasks()
 dep_graph = clean_dict(dep_graph)
