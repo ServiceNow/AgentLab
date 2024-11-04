@@ -51,7 +51,7 @@ def timeout_manager(seconds: int = None):
 
     if isinstance(seconds, float):
         seconds = max(1, int(seconds))  # make sure seconds is at least 1
-        
+
     if seconds is None or sys.platform == "win32":
         try:
             logger.warning("Timeouts are not supported on Windows.")
