@@ -180,11 +180,7 @@ class Study:
             raise ValueError("exp_args_list is None. Please set exp_args_list before running.")
 
         logger.info("Preparing backends...")
-        try:
-            self.benchmark.prepare_backends()
-        except ReadTimeout:
-            logger.warning("Backend preparation timed out. Continuing anyway.")
-
+        self.benchmark.prepare_backends()
         logger.info("Backends ready.")
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
@@ -382,8 +378,9 @@ def _agents_on_benchmark(
         # populate the depends_on field based on the task dependencies in the benchmark
         exp_args_list = add_dependencies(exp_args_list, benchmark.dependency_graph_over_tasks())
     else:
-        logger.warning(f"Ignoring dependencies for benchmar {benchmark.name}. This could lead to different results.")
-        
+        logger.warning(
+            f"Ignoring dependencies for benchmar {benchmark.name}. This could lead to different results."
+        )
 
     return exp_args_list
 
