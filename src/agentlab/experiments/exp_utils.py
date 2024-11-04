@@ -50,6 +50,7 @@ def timeout_manager(seconds: int = None):
     """Context manager to handle timeouts."""
     if seconds is None or sys.platform == "win32":
         try:
+            logger.warning("Timeouts are not supported on Windows.")
             yield
         finally:
             pass

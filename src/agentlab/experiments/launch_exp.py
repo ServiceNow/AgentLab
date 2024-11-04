@@ -27,7 +27,8 @@ def run_experiments(
         exp_dir: Path
             Directory where the experiments will be saved.
         parallel_backend: str
-            Parallel backend to use. Either "joblib", "dask" or "sequential".
+            Parallel backend to use. Either "joblib", "ray" or "sequential".
+            The only backend that supports webarena graph dependencies correctly is ray or sequential.
         avg_step_timeout: int
             Will raise a TimeoutError if the episode is not finished after env_args.max_steps * avg_step_timeout seconds.
     """
@@ -51,7 +52,8 @@ def run_experiments(
         if parallel_backend == "joblib":
             from joblib import Parallel, delayed
 
-            # split sequential
+
+            # split sequential (should be no longer needed with dependencies)
             sequential_exp_args, exp_args_list = _split_sequential_exp(exp_args_list)
 
             logging.info(

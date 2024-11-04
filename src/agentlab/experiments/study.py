@@ -138,7 +138,6 @@ class Study:
 
             suffix = f"trial_{i + 1}_of_{n_relaunch}"
             _, summary_df, error_report = self.get_results(suffix=suffix)
-            logger.info("\n" + error_report)
             logger.info("\n" + str(summary_df))
 
             n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
@@ -202,15 +201,16 @@ class Study:
             strict_reproducibility=strict_reproducibility,
         )
 
-    def get_results(self, suffix=""):
+    def get_results(self, suffix="", also_save=True):
         result_df = inspect_results.load_result_df(self.dir)
         error_report = inspect_results.error_report(result_df, max_stack_trace=3, use_log=True)
         summary_df = inspect_results.summarize_study(result_df)
 
-        suffix = f"_{suffix}" if suffix else ""
-        result_df.to_csv(self.dir / f"result_df{suffix}.csv")
-        summary_df.to_csv(self.dir / f"summary_df{suffix}.csv")
-        (self.dir / f"error_report{suffix}.md").write_text(error_report)
+        if also_save:
+            suffix = f"_{suffix}" if suffix else ""
+            result_df.to_csv(self.dir / f"result_df{suffix}.csv")
+            summary_df.to_csv(self.dir / f"summary_df{suffix}.csv")
+            (self.dir / f"error_report{suffix}.md").write_text(error_report)
 
         return result_df, summary_df, error_report
 
