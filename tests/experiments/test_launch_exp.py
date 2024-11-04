@@ -31,7 +31,7 @@ def _test_launch_system(backend="ray", cause_timeout=False):
         avg_step_timeout = 0.5
     else:
         wait_time = 0
-        avg_step_timeout = 30
+        avg_step_timeout = 10
 
     exp_args_list = []
     for seed in range(3):
@@ -91,7 +91,7 @@ def test_launch_system_ray():
     _test_launch_system(backend="ray")
 
 
-def test_timeout_ray():
+def _test_timeout_ray():
     _test_launch_system(backend="ray", cause_timeout=True)
 
 
@@ -120,7 +120,7 @@ def test_4o_mini_on_miniwob_tiny_test():
 
 
 if __name__ == "__main__":
-    test_timeout_ray()
+    _test_timeout_ray()
     # test_4o_mini_on_miniwob_tiny_test()
     # test_launch_system_ray()
     # test_launch_system_sequntial()
