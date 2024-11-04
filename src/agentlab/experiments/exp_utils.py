@@ -48,6 +48,9 @@ def _episode_timeout(exp_arg: ExpArgs, avg_step_timeout=60):
 @contextmanager
 def timeout_manager(seconds: int = None):
     """Context manager to handle timeouts."""
+
+    seconds = max(1, int(seconds))  # make sure seconds is at least 1
+
     if seconds is None or sys.platform == "win32":
         try:
             logger.warning("Timeouts are not supported on Windows.")
