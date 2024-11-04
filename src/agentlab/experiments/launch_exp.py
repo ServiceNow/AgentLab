@@ -52,7 +52,6 @@ def run_experiments(
         if parallel_backend == "joblib":
             from joblib import Parallel, delayed
 
-
             # split sequential (should be no longer needed with dependencies)
             sequential_exp_args, exp_args_list = _split_sequential_exp(exp_args_list)
 

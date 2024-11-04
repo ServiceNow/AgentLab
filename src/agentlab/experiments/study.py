@@ -8,7 +8,6 @@ import uuid
 
 import bgym
 from bgym import Benchmark, EnvArgs, ExpArgs
-from requests import ReadTimeout
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
