@@ -110,8 +110,13 @@ def expand_cross_product(obj: Any | list[Any]):
         paths, cprod_objects = zip(*cprod_paths)
         combinations = product(*[cprod_obj.elements for cprod_obj in cprod_objects])
 
+        # create a base object with empty fields to make fast deep copies from
+        base_obj = copy.deepcopy(obj)
+        for path in paths:
+            _set_value(base_obj, path, None)
+
         for combo in combinations:
-            new_obj = copy.copy(obj)
+            new_obj = copy.deepcopy(base_obj)
             for path, value in zip(paths, combo):
                 _set_value(new_obj, path, value)
             result.append(new_obj)
