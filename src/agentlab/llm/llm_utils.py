@@ -9,7 +9,6 @@ import time
 from copy import deepcopy
 from functools import cache
 from typing import TYPE_CHECKING
-from copy import deepcopy
 from typing import Any, Union
 from warnings import warn
 
