@@ -38,6 +38,8 @@ def _get_benchmark_version(benchmark: bgym.Benchmark) -> str:
             return metadata.distribution("weblinx_browsergym").version
         except metadata.PackageNotFoundError:
             return "0.0.1rc1"
+    elif benchmark_name.startswith("assistantbench"):
+        return metadata.distribution("browsergym.assistantbench").version
     else:
         raise ValueError(f"Unknown benchmark {benchmark_name}")
 
