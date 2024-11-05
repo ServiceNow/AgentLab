@@ -151,6 +151,7 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=40_000,
         max_new_tokens=4000,
         temperature=1e-1,
+        vision_support=True,
     ),
     "openrouter/qwen/qwen-2-72b-instruct": OpenRouterModelArgs(
         model_name="qwen/qwen-2-72b-instruct",
