@@ -111,7 +111,7 @@ def expand_cross_product(obj: Any | list[Any]):
         combinations = product(*[cprod_obj.elements for cprod_obj in cprod_objects])
 
         for combo in combinations:
-            new_obj = copy.deepcopy(obj)
+            new_obj = copy.copy(obj)
             for path, value in zip(paths, combo):
                 _set_value(new_obj, path, value)
             result.append(new_obj)
