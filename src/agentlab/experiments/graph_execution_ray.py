@@ -36,6 +36,7 @@ def execute_task_graph(exp_args_list: list[bgym.ExpArgs], avg_step_timeout=60):
         get_task(exp_arg)
 
     max_timeout = max([_episode_timeout(exp_args, avg_step_timeout) for exp_args in exp_args_list])
+    
     return poll_for_timeout(task_map, max_timeout, poll_interval=max_timeout * 0.1)
 
 
@@ -57,7 +58,7 @@ def poll_for_timeout(tasks: dict[str, ray.ObjectRef], timeout: float, poll_inter
             # print(f"Task {task.task_id().hex()} elapsed time: {elapsed_time}")
             if elapsed_time is not None and elapsed_time > timeout:
                 msg = f"Task {task.task_id().hex()} hase been running for {elapsed_time}s, more than the timeout: {timeout}s."
-                if elapsed_time < timeout + 60:
+                if elapsed_time < timeout + 60 + poll_interval:
                     logger.warning(msg + " Cancelling task.")
                     ray.cancel(task, force=False, recursive=False)
                 else:
