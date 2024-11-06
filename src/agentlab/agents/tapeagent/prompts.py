@@ -45,100 +45,10 @@ that everything was filled correctly.
 {hints}
 """
 
-### Baseline Prompts ###
-
-BASELINE_SYSTEM_PROMPT = """\
-You are an agent trying to solve a web task based on the content of the page and
-user instructions. You can interact with the page and explore, and send messages to the user. Each time you
-submit an action it will be sent to the browser and you will receive a new page."""
-
-GOAL_INSTRUCTIONS = """
-# Instructions
-Review the current state of the page and all other information to find the best
-possible next action to accomplish your goal. Your answer will be interpreted
-and executed by a program, make sure to follow the formatting instructions.
-
-## Goal:
-{goal}
-"""
-
-HINTS = """\
-Note:
-* Some tasks may be game like and may require to interact with the mouse position
-in x, y coordinates.
-* Some text field might have auto completion. To see it, you have to type a few
-characters and wait until next step.
-* If you have to cut and paste, don't forget to select the text first.
-* Coordinate inside an SVG are relative to it's top left corner.
-* Make sure to use bid to identify elements when using commands.
-* Interacting with combobox, dropdowns and auto-complete fields can be tricky,
-sometimes you need to use select_option, while other times you need to use fill
-or click and wait for the reaction of the page.
-"""
-
-BE_CAUTIOUS = """
-Be very cautious. Avoid submitting anything before verifying the effect of your
-actions. Take the time to explore the effect of safe actions first. For example
-you can fill a few elements of a form, but don't click submit before verifying
-that everything was filled correctly.
-"""
-
-ABSTRACT_EXAMPLE = """
-# Abstract Example
-
-Here is an abstract version of the answer with description of the content of
-each step. Only one single action can be executed after the thoughts. You can only use one action at a time.
-Make sure you follow this structure, but replace the step fields content with your
-answer:
-[
-    {
-        "kind": "reasoning_thought",
-        "reasoning": "<Think step by step. If you need to make calculations such as coordinates, write them here. Describe the effect that your previous action had on the current content of the page.>"
-    },
-    {
-        "kind": "<some_of_the_allowed_action>",
-        "<field_name>": "<field_content>"
-    }
-]
-"""
-CONCRETE_EXAMPLE = """
-# Concrete Example
-
-Here is a concrete example of how to format your answer.
-Make sure to follow the template with proper steps:
-[
-    {
-        "kind": "reasoning_thought",
-        "reasoning": "From previous action I tried to set the value of year to "2022",\
-using select_option, but it doesn't appear to be in the form. It may be a\
-dynamic dropdown, I will try using click with the bid "a324" and look at the\
-response from the page."
-    },
-    {
-        "kind": "click_action",
-        "bid": "a324"
-    }
-]
-"""
-BASELINE_STEPS_PROMPT = """# Action space:
-Note: This action set allows you to interact with your environment. The primary way of referring to
-elements in the page is through bid which are specified in your observations.
-"""
-
-MAC_HINT = "\nNote: you are on mac so you should use Meta instead of Control for Control+C etc.\n"
-
 
 class PromptRegistry:
     system_prompt = SYSTEM_PROMPT
-    baseline_system_prompt = BASELINE_SYSTEM_PROMPT
     allowed_steps = ALLOWED_STEPS
-    baseline_steps_prompt = BASELINE_STEPS_PROMPT
-    goal_instructions = GOAL_INSTRUCTIONS
-    hints = HINTS
-    be_cautious = BE_CAUTIOUS
-    concrete_example = CONCRETE_EXAMPLE
-    abstract_example = ABSTRACT_EXAMPLE
-    mac_hint = MAC_HINT
     reflect = REFLECT
     act = ACT
     start = START
