@@ -27,9 +27,11 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=60):
     """Run exp_args.run() with a timeout and handle dependencies."""
-    episode_timeout = _episode_timeout(exp_arg, avg_step_timeout=avg_step_timeout)
-    with timeout_manager(seconds=episode_timeout):
-        return exp_arg.run()
+    # episode_timeout = _episode_timeout(exp_arg, avg_step_timeout=avg_step_timeout)
+    # logger.warning(f"Running {exp_arg.exp_id} with timeout of {episode_timeout} seconds.")
+    # with timeout_manager(seconds=episode_timeout):
+    # this timeout method is not robust enough. using ray.cancel instead
+    return exp_arg.run()
 
 
 def _episode_timeout(exp_arg: ExpArgs, avg_step_timeout=60):
@@ -62,13 +64,12 @@ def timeout_manager(seconds: int = None):
 
     def alarm_handler(signum, frame):
 
-        logger.warning(
-            f"Operation timed out after {seconds}s, sending SIGINT and raising TimeoutError."
-        )
+        logger.warning(f"Operation timed out after {seconds}s, raising TimeoutError.")
         # send sigint
-        os.kill(os.getpid(), signal.SIGINT)
+        # os.kill(os.getpid(), signal.SIGINT) # this doesn't seem to do much I don't know why
 
         # Still raise TimeoutError for immediate handling
+        # This works, but it doesn't seem enough to kill the job
         raise TimeoutError(f"Operation timed out after {seconds} seconds")
 
     previous_handler = signal.signal(signal.SIGALRM, alarm_handler)
