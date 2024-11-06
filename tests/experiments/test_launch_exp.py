@@ -7,34 +7,41 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments
+from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
 
 def test_relaunch_study():
     study_dir = Path(__file__).parent.parent / "data" / "test_study"
-    exp_args_list = find_incomplete(study_dir, relaunch_mode="incomplete_only")
+    exp_args_list = find_incomplete(study_dir, include_errors=False)
 
-    assert len(exp_args_list) == 1
+    assert non_dummy_count(exp_args_list) == 1
     assert exp_args_list[0].env_args.task_name == "miniwob.ascending-numbers"
 
-    exp_args_list = find_incomplete(study_dir, relaunch_mode="incomplete_or_error")
+    exp_args_list = find_incomplete(study_dir, include_errors=True)
 
-    assert len(exp_args_list) == 2
+    assert non_dummy_count(exp_args_list) == 2
 
 
-@pytest.mark.repeat(3)  # there was stochastic bug caused by asyncio loop not started
-def test_launch_system(backend="dask"):
+def _test_launch_system(backend="ray", cause_timeout=False):
+
+    if cause_timeout:
+        wait_time = 10
+        avg_step_timeout = 0.5
+    else:
+        wait_time = 0
+        avg_step_timeout = 10
+
     exp_args_list = []
     for seed in range(3):
         exp_args_list.append(
             ExpArgs(
                 agent_args=GenericAgentArgs(
-                    chat_model_args=CheatMiniWoBLLMArgs(),
+                    chat_model_args=CheatMiniWoBLLMArgs(wait_time=wait_time),
                     flags=FLAGS_GPT_3_5,
                 ),
-                env_args=EnvArgs(task_name="miniwob.click-test", task_seed=seed),
+                env_args=EnvArgs(task_name="miniwob.click-test", task_seed=seed, max_steps=5),
             )
         )
 
@@ -42,7 +49,11 @@ def test_launch_system(backend="dask"):
 
         study_dir = Path(tmp_dir) / "generic_agent_test"
         run_experiments(
-            n_jobs=2, exp_args_list=exp_args_list, study_dir=study_dir, parallel_backend=backend
+            n_jobs=2,
+            exp_args_list=exp_args_list,
+            study_dir=study_dir,
+            parallel_backend=backend,
+            avg_step_timeout=avg_step_timeout,
         )
 
         results_df = inspect_results.load_result_df(study_dir, progress_fn=None)
@@ -51,22 +62,37 @@ def test_launch_system(backend="dask"):
         for _, row in results_df.iterrows():
             if row.stack_trace is not None:
                 print(row.stack_trace)
-            assert row.err_msg is None
-            assert row.cum_reward == 1.0
+            if cause_timeout:
+                assert row.err_msg is not None
+                assert "Timeout" in row.err_msg
+                assert row.cum_reward == 0
+            else:
+                assert row.err_msg is None
+                assert row.cum_reward == 1.0
 
         study_summary = inspect_results.summarize_study(results_df)
         assert len(study_summary) == 1
         assert study_summary.std_err.iloc[0] == 0
         assert study_summary.n_completed.iloc[0] == "3/3"
-        assert study_summary.avg_reward.iloc[0] == 1.0
+
+        if not cause_timeout:
+            assert study_summary.avg_reward.iloc[0] == 1.0
 
 
 def test_launch_system_joblib():
-    test_launch_system(backend="joblib")
+    _test_launch_system(backend="joblib")
 
 
 def test_launch_system_sequntial():
-    test_launch_system(backend="sequential")
+    _test_launch_system(backend="sequential")
+
+
+def test_launch_system_ray():
+    _test_launch_system(backend="ray")
+
+
+def _test_timeout_ray():
+    _test_launch_system(backend="ray", cause_timeout=True)
 
 
 @pytest.mark.pricy
@@ -94,7 +120,7 @@ def test_4o_mini_on_miniwob_tiny_test():
 
 
 if __name__ == "__main__":
-    test_relaunch_study()
+    _test_timeout_ray()
     # test_4o_mini_on_miniwob_tiny_test()
-    # test_launch_system()
+    # test_launch_system_ray()
     # test_launch_system_sequntial()

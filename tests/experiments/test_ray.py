@@ -1,34 +1,10 @@
+import bgym
 import pytest
-from agentlab.experiments.graph_execution import (
-    execute_task_graph,
-    add_dependencies,
-    make_dask_client,
-)
-from time import time, sleep
-from browsergym.experiments.loop import ExpArgs, EnvArgs
+import ray
+from agentlab.experiments.graph_execution_ray import execute_task_graph
+from agentlab.experiments.exp_utils import MockedExpArgs, add_dependencies
 
 TASK_TIME = 3
-
-
-# Mock implementation of the ExpArgs class with timestamp checks
-class MockedExpArgs:
-    def __init__(self, exp_id, depends_on=None):
-        self.exp_id = exp_id
-        self.depends_on = depends_on if depends_on else []
-        self.start_time = None
-        self.end_time = None
-
-    def run(self):
-        self.start_time = time()
-
-        # # simulate playright code, (this was causing issues due to python async loop)
-        # import playwright.sync_api
-
-        # pw = playwright.sync_api.sync_playwright().start()
-        # pw.selectors.set_test_id_attribute("mytestid")
-        sleep(TASK_TIME)  # Simulate task execution time
-        self.end_time = time()
-        return self
 
 
 def test_execute_task_graph():
@@ -40,8 +16,9 @@ def test_execute_task_graph():
         MockedExpArgs(exp_id="task4", depends_on=["task2", "task3"]),
     ]
 
-    with make_dask_client(n_worker=5):
-        results = execute_task_graph(exp_args_list)
+    ray.init(num_cpus=4)
+    results = execute_task_graph(exp_args_list)
+    ray.shutdown()
 
     exp_args_list = [results[task_id] for task_id in ["task1", "task2", "task3", "task4"]]
 
@@ -52,8 +29,9 @@ def test_execute_task_graph():
     assert exp_args_list[2].end_time < exp_args_list[3].start_time
 
     # Verify that parallel tasks (task2 and task3) started within a short time of each other
-    # parallel_start_diff = abs(exp_args_list[1].start_time - exp_args_list[2].start_time)
-    # assert parallel_start_diff < 1.5  # Allow for a small delay
+    parallel_start_diff = abs(exp_args_list[1].start_time - exp_args_list[2].start_time)
+    print(f"parallel_start_diff: {parallel_start_diff}")
+    assert parallel_start_diff < 1.5  # Allow for a small delay
 
     # Ensure that the entire task graph took the expected amount of time
     total_time = exp_args_list[-1].end_time - exp_args_list[0].start_time
@@ -66,7 +44,9 @@ def test_add_dependencies():
     # Prepare a simple list of ExpArgs
 
     def make_exp_args(task_name, exp_id):
-        return ExpArgs(agent_args=None, env_args=EnvArgs(task_name=task_name), exp_id=exp_id)
+        return bgym.ExpArgs(
+            agent_args=None, env_args=bgym.EnvArgs(task_name=task_name), exp_id=exp_id
+        )
 
     exp_args_list = [
         make_exp_args("task1", "1"),
