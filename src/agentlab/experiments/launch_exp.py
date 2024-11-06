@@ -50,8 +50,11 @@ def run_experiments(n_jobs, exp_args_list: list[ExpArgs], exp_dir, parallel_back
     logging.info(f"Saving experiments to {exp_dir}")
     wait_funcs = []
     for exp_args in exp_args_list:
-        server_info, wait_func = exp_args.agent_args.prepare()
-        wait_funcs.append(wait_func)
+        # server_info, wait_func = exp_args.agent_args.prepare()
+        output = exp_args.agent_args.prepare()
+        if isinstance(output, tuple):
+            _, wait_func = output
+            wait_funcs.append(wait_func)
         exp_args.prepare(exp_root=exp_dir)
 
     # logging.info(f"Saving experiments to {exp_dir}")
