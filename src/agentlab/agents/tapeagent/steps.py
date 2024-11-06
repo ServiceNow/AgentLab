@@ -2,8 +2,17 @@ from typing import Annotated, Literal, TypeAlias, Union
 
 from pydantic import Field
 
-from tapeagents.core import Action, LLMOutputParsingFailureAction, Observation, SetNextNode, StopStep, Tape, Thought
+from tapeagents.core import (
+    Action,
+    LLMOutputParsingFailureAction,
+    Observation,
+    SetNextNode,
+    StopStep,
+    Tape,
+    Thought,
+)
 from tapeagents.dialog_tape import DialogContext
+
 
 ################### Base Step Classes ###################
 class WorkArenaThought(Thought):
@@ -75,7 +84,9 @@ class ReflectionThought(WorkArenaThought):
     todo_list: list[str] = Field(
         description="detailed list of things to do to accomplish the task, down to the fields level"
     )
-    next_action: str = Field(description="describe the next action to be performed and expected effect on the page")
+    next_action: str = Field(
+        description="describe the next action to be performed and expected effect on the page"
+    )
     page_line: str = Field(
         description="verbatim quote of the line of the page that contains required element. Empty if next action is not related to specific page element"
     )
@@ -88,7 +99,9 @@ class ClickAction(WorkArenaAction):
 
     kind: Literal["click_action"] = "click_action"
     bid: str = Field(description="BID of the element to click")
-    button: Literal["left", "middle", "right"] = Field(description="button to click", default="left")
+    button: Literal["left", "middle", "right"] = Field(
+        description="button to click", default="left"
+    )
     modifiers: list[Literal["Alt", "Control", "Meta", "Shift"]] = Field(
         description="modifier keys to press", default_factory=list
     )
@@ -206,9 +219,11 @@ class FinalAnswerAction(WorkArenaAction, StopStep):
     kind: Literal["final_answer_action"] = "final_answer_action"
     text: str = Field(description="final answer to the user")
 
+
 class ActionExecutionFailure(WorkArenaObservation):
     kind: Literal["action_execution_failure"] = "action_execution_failure"
     error: str
+
 
 WorkArenaStep = Union[
     WorkArenaTask,

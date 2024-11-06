@@ -125,7 +125,10 @@ def flatten_axtree(
                     if (
                         not (
                             bid is None
-                            or (hide_bid_if_invisible and extra_properties.get(bid, {}).get("visibility", 0) < 0.5)
+                            or (
+                                hide_bid_if_invisible
+                                and extra_properties.get(bid, {}).get("visibility", 0) < 0.5
+                            )
                         )
                         and node_role in nodes_with_bid
                     ):
@@ -147,7 +150,9 @@ def flatten_axtree(
             # mark this to save some tokens
             child_depth = depth if skip_node else (depth + 1)
             child_str = dfs(
-                node_id_to_idx[child_node_id], child_depth, parent_node_filtered=filter_node or skip_node
+                node_id_to_idx[child_node_id],
+                child_depth,
+                parent_node_filtered=filter_node or skip_node,
             )
             if child_str and node_role != "link":
                 if tree_str:

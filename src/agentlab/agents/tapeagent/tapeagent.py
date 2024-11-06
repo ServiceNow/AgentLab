@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TapeAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs
@@ -66,21 +67,27 @@ class WorkArenaNode(MonoNode):
     agent_step_cls = WorkArenaAgentStep
 
     def get_steps_description(self, tape: WorkArenaTape, agent: Any) -> str:
-        return self.steps_prompt.format(allowed_steps=get_step_schemas_from_union_type(self.agent_step_cls))
+        return self.steps_prompt.format(
+            allowed_steps=get_step_schemas_from_union_type(self.agent_step_cls)
+        )
 
     def prepare_tape(self, tape: WorkArenaTape, max_chars: int = 100):
         """
         Trim all page observations except the last two.
         """
         tape = super().prepare_tape(tape)
-        page_positions = [i for i, step in enumerate(tape.steps) if isinstance(step, PageObservation)]
+        page_positions = [
+            i for i, step in enumerate(tape.steps) if isinstance(step, PageObservation)
+        ]
         if len(page_positions) < 3:
             return tape
         prev_page_position = page_positions[-2]
         steps = []
         for step in tape.steps[:prev_page_position]:
             if isinstance(step, PageObservation):
-                short_text = f"{step.text[:max_chars]}\n..." if len(step.text) > max_chars else step.text
+                short_text = (
+                    f"{step.text[:max_chars]}\n..." if len(step.text) > max_chars else step.text
+                )
                 new_step = step.model_copy(update=dict(text=short_text))
             else:
                 new_step = step
@@ -91,6 +98,7 @@ class WorkArenaNode(MonoNode):
 
 class GuidedTapeAgent(bgym.Agent):
     steps: WorkArenaTape
+
     def __init__(self, llm: LiteLLM):
         self.tapeagent = TapeAgent.create(
             llm,
@@ -100,17 +108,18 @@ class GuidedTapeAgent(bgym.Agent):
                 WorkArenaNode(name="act", guidance=PromptRegistry.act, next_node="reflect"),
             ],
             max_iterations=2,
-        ) 
+        )
         self.steps = WorkArenaTape(steps=[])
-
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> tuple[str, dict]:
         # update tape with new observation
-        text = flatten_axtree(obs["axtree_object"], filter_visible_only=True, ignore_navigation=False)
-        obs_step = PageObservation(text=text, current_page=1,total_pages=1)
+        text = flatten_axtree(
+            obs["axtree_object"], filter_visible_only=True, ignore_navigation=False
+        )
+        obs_step = PageObservation(text=text, current_page=1, total_pages=1)
         self.tape = self.tape.append(obs_step)
-        if not len(self.steps): # first observation
+        if not len(self.steps):  # first observation
             self.tape = self.tape.append(WorkArenaTask(task=obs["goal"]))
 
         # run agent and collect thoughts and last action
@@ -128,14 +137,16 @@ class GuidedTapeAgent(bgym.Agent):
                 break
             elif isinstance(step, ReflectionThought):
                 thoughts.append(step.llm_dict())
-        
+
         # convert action step to an action string with function call
         assert action
         action_str = ""
         if isinstance(action, GotoPageAction):
             action_str = f"goto('{action.url}')"
         elif isinstance(action, ClickAction):
-            action_str = f"click('{action.bid}', button='{action.button}', modifiers={action.modifiers})"
+            action_str = (
+                f"click('{action.bid}', button='{action.button}', modifiers={action.modifiers})"
+            )
         elif isinstance(action, SelectOptionAction):
             action_str = f"select_option('{action.bid}', '{action.option}')"
         elif isinstance(action, HoverAction):
@@ -151,7 +162,7 @@ class GuidedTapeAgent(bgym.Agent):
             action_str = "go_forward()"
         else:
             raise ValueError(f"Unknown action type: {action}")
-            
+
         return (
             action_str,
             bgym.AgentInfo(
@@ -163,4 +174,3 @@ class GuidedTapeAgent(bgym.Agent):
                 stats={},
             ),
         )
-
