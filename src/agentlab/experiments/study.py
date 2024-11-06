@@ -358,14 +358,26 @@ def _agents_on_benchmark(
     if demo_mode:
         set_demo_mode(env_args_list)
 
-    exp_args_list = args.expand_cross_product(
-        ExpArgs(
-            agent_args=args.CrossProd(agents),
-            env_args=args.CrossProd(env_args_list),
-            logging_level=logging_level,
-            logging_level_stdout=logging_level_stdout,
-        )
-    )  # type: list[ExpArgs]
+    # exp_args_list = args.expand_cross_product(
+    #     ExpArgs(
+    #         agent_args=args.CrossProd(agents),
+    #         env_args=args.CrossProd(env_args_list),
+    #         logging_level=logging_level,
+    #         logging_level_stdout=logging_level_stdout,
+    #     )
+    # )  # type: list[ExpArgs]
+
+    exp_args_list = []
+
+    for agent in agents:
+        for env_args in env_args_list:
+            exp_args = ExpArgs(
+                agent_args=agent,
+                env_args=env_args,
+                logging_level=logging_level,
+                logging_level_stdout=logging_level_stdout,
+            )
+            exp_args_list.append(exp_args)
 
     for i, exp_args in enumerate(exp_args_list):
         exp_args.order = i
