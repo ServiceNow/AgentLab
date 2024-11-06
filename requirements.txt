@@ -20,3 +20,4 @@ gradio>=5
 gitpython # for the reproducibility script
 requests
 matplotlib
+ray[default]

@@ -4,6 +4,7 @@ import pickle
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import uuid
 
 import bgym
 from bgym import Benchmark, EnvArgs, ExpArgs
@@ -12,10 +13,10 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import args
 from agentlab.experiments import reproducibility_util as repro
-from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments
+from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
+from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
 
-logger = logging.getLogger("agentlab_" + __name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -51,11 +52,13 @@ class Study:
     suffix: str = ""  # used for adding a personnal comment to the study name
     uuid: str = None
     reproducibility_info: dict = None
-    logging_level: int = logging.INFO
-    logging_level_stdout: int = logging.INFO
+    logging_level: int = logging.DEBUG
+    logging_level_stdout: int = logging.WARNING
+    comment: str = None  # Extra comments from the authors of this study
+    ignore_dependencies: bool = False
 
     def __post_init__(self):
-        self.uuid = str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        self.uuid = uuid.uuid4()
         if isinstance(self.benchmark, str):
             self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark]()
         if isinstance(self.dir, str):
@@ -68,11 +71,26 @@ class Study:
             self.benchmark,
             logging_level=self.logging_level,
             logging_level_stdout=self.logging_level_stdout,
+            ignore_dependencies=self.ignore_dependencies,
         )
 
-    def find_incomplete(self, relaunch_mode="incomplete_or_error"):
-        """Find incomplete or errored experiments in the study directory for relaunching."""
-        self.exp_args_list = find_incomplete(self.dir, relaunch_mode=relaunch_mode)
+    def find_incomplete(self, include_errors=True):
+        """Find incomplete or errored experiments in the study directory for relaunching.
+
+        Args:
+            include_errors: bool
+                If True, include errored experiments in the list.
+
+        Returns:
+            list[ExpArgs]: The list of all experiments with completed ones replaced by a
+                dummy exp_args to keep the task dependencies.
+        """
+        self.exp_args_list = find_incomplete(self.dir, include_errors=include_errors)
+        n_incomplete = non_dummy_count(self.exp_args_list)
+        n_error = [
+            getattr(exp_args, "status", "incomplete") == "error" for exp_args in self.exp_args_list
+        ].count(True)
+        return n_incomplete, n_error
 
     def load_exp_args_list(self):
         logger.info(f"Loading experiments from {self.dir}")
@@ -91,10 +109,57 @@ class Study:
             comment=comment,
         )
         if self.reproducibility_info is not None:
-            repro.assert_compatible(self.reproducibility_info, info)
+            repro.assert_compatible(
+                self.reproducibility_info, info, raise_if_incompatible=strict_reproducibility
+            )
         self.reproducibility_info = info
 
-    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False, comment=None):
+    def run(
+        self,
+        n_jobs=1,
+        parallel_backend="joblib",
+        strict_reproducibility=False,
+        n_relaunch=3,
+        relaunch_errors=True,
+    ):
+
+        self.set_reproducibility_info(
+            strict_reproducibility=strict_reproducibility, comment=self.comment
+        )
+        self.save()
+
+        n_exp = len(self.exp_args_list)
+        last_error_count = None
+
+        for i in range(n_relaunch):
+            logger.info(f"Launching study {self.name} - trial {i + 1} / {n_relaunch}")
+            self._run(n_jobs, parallel_backend, strict_reproducibility)
+
+            suffix = f"trial_{i + 1}_of_{n_relaunch}"
+            _, summary_df, error_report = self.get_results(suffix=suffix)
+            logger.info("\n" + str(summary_df))
+
+            n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
+
+            if n_error / n_exp > 0.3:
+                logger.warning(f"More than 30% of the experiments errored. Stopping the study.")
+                return
+
+            if last_error_count is not None and n_error >= last_error_count:
+                logger.warning(
+                    f"Last trial did not reduce the number of errors. Stopping the study."
+                )
+                return
+
+            if n_incomplete == 0:
+                logger.info(f"Study {self.name} finished.")
+                return
+
+        logger.warning(
+            f"Study {self.name} did not finish after {n_relaunch} trials. There are {n_incomplete} incomplete experiments."
+        )
+
+    def _run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
         """Run all experiments in the study in parallel when possible.
 
         Args:
@@ -115,15 +180,8 @@ class Study:
         logger.info("Preparing backends...")
         self.benchmark.prepare_backends()
         logger.info("Backends ready.")
-        self.set_reproducibility_info(
-            strict_reproducibility=strict_reproducibility, comment=comment
-        )
-        self.save()
 
         run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
-        report_df = self.get_report(ignore_cache=True)
-        logger.info(f"Study {self.name} finished.")
-        logger.info("\n" + str(report_df))
 
     def append_to_journal(self, strict_reproducibility=True):
         """Append the study to the journal.
@@ -141,6 +199,19 @@ class Study:
             self.get_report(),
             strict_reproducibility=strict_reproducibility,
         )
+
+    def get_results(self, suffix="", also_save=True):
+        result_df = inspect_results.load_result_df(self.dir)
+        error_report = inspect_results.error_report(result_df, max_stack_trace=3, use_log=True)
+        summary_df = inspect_results.summarize_study(result_df)
+
+        if also_save:
+            suffix = f"_{suffix}" if suffix else ""
+            result_df.to_csv(self.dir / f"result_df{suffix}.csv")
+            summary_df.to_csv(self.dir / f"summary_df{suffix}.csv")
+            (self.dir / f"error_report{suffix}.md").write_text(error_report)
+
+        return result_df, summary_df, error_report
 
     @property
     def name(self):
@@ -199,8 +270,8 @@ class Study:
         return study
 
     @staticmethod
-    def load_most_recent(root_dir: Path = None):
-        return Study.load(get_most_recent_study(root_dir))
+    def load_most_recent(root_dir: Path = None, contains=None) -> "Study":
+        return Study.load(get_most_recent_study(root_dir, contains=contains))
 
 
 def get_most_recent_study(
@@ -238,28 +309,6 @@ def get_most_recent_study(
     return most_recent_folder
 
 
-# def make_relaunch_study(study_dir, relaunch_mode="incomplete_or_error"):
-#     """Create a study from an existing study directory.
-
-#     It will search for all experiments that needs to be relaunched depending on
-#     `relaunch_mode`.
-
-#     Args:
-#         study_dir: Path
-#             The directory where the experiments are saved.
-#         relaunch_mode: str
-#             Find all incomplete experiments and relaunch them.
-#             - "incomplete_only": relaunch only the incomplete experiments.
-#             - "incomplete_or_error": relaunch incomplete or errors.
-#     """
-#     study = Study(dir=study_dir)
-#     study.exp_args_list, _ = find_incomplete(study.dir, relaunch_mode=relaunch_mode)
-#     info = study.load_reproducibility_info()
-#     study.benchmark_name = info["benchmark"]
-#     study.agent_names = info["agent_names"]
-#     return study
-
-
 def set_demo_mode(env_args_list: list[EnvArgs]):
 
     for env_args in env_args_list:
@@ -275,6 +324,7 @@ def _agents_on_benchmark(
     demo_mode=False,
     logging_level: int = logging.INFO,
     logging_level_stdout: int = logging.INFO,
+    ignore_dependencies=False,
 ):
     """Run one or multiple agents on a benchmark.
 
@@ -320,20 +370,29 @@ def _agents_on_benchmark(
     for i, exp_args in enumerate(exp_args_list):
         exp_args.order = i
 
-    _flag_sequential_exp(exp_args_list, benchmark)
+    # not required with ray, but keeping around if we would need it for visualwebareana on joblib
+    # _flag_sequential_exp(exp_args_list, benchmark)
+
+    if not ignore_dependencies:
+        # populate the depends_on field based on the task dependencies in the benchmark
+        exp_args_list = add_dependencies(exp_args_list, benchmark.dependency_graph_over_tasks())
+    else:
+        logger.warning(
+            f"Ignoring dependencies for benchmark {benchmark.name}. This could lead to different results."
+        )
 
     return exp_args_list
 
 
-def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
-    if benchmark.name.startswith("visualwebarena"):
-        sequential_subset = benchmark.subset_from_glob("requires_reset", "True")
-        sequential_subset = set(
-            [env_args.task_name for env_args in sequential_subset.env_args_list]
-        )
-        for exp_args in exp_args_list:
-            if exp_args.env_args.task_name in sequential_subset:
-                exp_args.sequential = True
+# def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
+#     if benchmark.name.startswith("visualwebarena"):
+#         sequential_subset = benchmark.subset_from_glob("requires_reset", "True")
+#         sequential_subset = set(
+#             [env_args.task_name for env_args in sequential_subset.env_args_list]
+#         )
+#         for exp_args in exp_args_list:
+#             if exp_args.env_args.task_name in sequential_subset:
+#                 exp_args.sequential = True
 
 
 # def ablation_study(start_agent: AgentArgs, changes, benchmark: str, demo_mode=False):
