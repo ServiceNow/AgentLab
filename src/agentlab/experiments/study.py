@@ -246,6 +246,7 @@ class Study:
             self.dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
         )
 
+    @staticmethod
     def load(dir: Path) -> "Study":
         dir = Path(dir)
         study_path = dir / "study.pkl.gz"
