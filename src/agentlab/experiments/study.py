@@ -245,6 +245,10 @@ class Study:
         return inspect_results.get_study_summary(
             self.dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
         )
+    
+    def override_max_steps(self, max_steps):
+        for exp_args in self.exp_args_list:
+            exp_args.env_args.max_steps = max_steps
 
     @staticmethod
     def load(dir: Path) -> "Study":
