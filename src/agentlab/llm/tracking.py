@@ -62,7 +62,8 @@ def cost_tracker_decorator(get_action):
     return wrapper
 
 
-def _get_pricing_openrouter():
+@cache
+def get_pricing_openrouter():
     api_key = os.getenv("OPENROUTER_API_KEY")
     assert api_key, "OpenRouter API key is required"
     # query api to get model metadata
@@ -78,13 +79,6 @@ def _get_pricing_openrouter():
         model["id"]: {k: float(v) for k, v in model["pricing"].items()}
         for model in model_metadata["data"]
     }
-
-
-OPENROUTER_PRICING = _get_pricing_openrouter()
-
-
-def get_pricing_openrouter():
-    return OPENROUTER_PRICING
 
 
 def get_pricing_openai():
