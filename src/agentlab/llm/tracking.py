@@ -1,3 +1,4 @@
+from functools import cache
 import os
 import threading
 from contextlib import contextmanager
@@ -61,6 +62,7 @@ def cost_tracker_decorator(get_action):
     return wrapper
 
 
+@cache
 def get_pricing_openrouter():
     api_key = os.getenv("OPENROUTER_API_KEY")
     assert api_key, "OpenRouter API key is required"
