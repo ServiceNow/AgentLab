@@ -1,18 +1,22 @@
 from dataclasses import asdict, dataclass
 import logging
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 import bgym
 
+try:
+    from tapeagents.llms import LiteLLM
+except ImportError as e:
+    print("Please run install_tapeagents.sh to install tapeagents first.")
+    raise e
 
-from tapeagents.agent import Agent as TapeAgent
-from tapeagents.nodes import MonoNode
-from tapeagents.utils import get_step_schemas_from_union_type
-from tapeagent.llms import LiteLLM
-from .prompts import PromptRegistry
-from .steps import (
+import sys
+sys.path.append(str(Path(__file__).parent.resolve() / "TapeAgents"))
+
+from examples.workarena.agent import WorkArenaAgent
+from examples.workarena.steps import (
     PageObservation,
-    WorkArenaAgentStep,
     WorkArenaTape,
     WorkArenaTask,
     Action,
@@ -30,17 +34,15 @@ from .utils import flatten_axtree
 
 from agentlab.llm.tracking import cost_tracker_decorator
 from agentlab.agents.agent_args import AgentArgs
-
-if TYPE_CHECKING:
-    from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.chat_api import BaseModelArgs
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class TapeAgentArgs(AgentArgs):
-    chat_model_args: BaseModelArgs
     agent_name: str = "GuidedTapeAgent"
+    chat_model_args: BaseModelArgs = None
 
     def make_agent(self) -> bgym.Agent:
         llm = LiteLLM(
@@ -60,55 +62,11 @@ class TapeAgentArgs(AgentArgs):
     def close(self):
         return self.chat_model_args.close_server()
 
-
-class WorkArenaNode(MonoNode):
-    system_prompt: str = PromptRegistry.system_prompt
-    steps_prompt: str = PromptRegistry.allowed_steps
-    agent_step_cls = WorkArenaAgentStep
-
-    def get_steps_description(self, tape: WorkArenaTape, agent: Any) -> str:
-        return self.steps_prompt.format(
-            allowed_steps=get_step_schemas_from_union_type(self.agent_step_cls)
-        )
-
-    def prepare_tape(self, tape: WorkArenaTape, max_chars: int = 100):
-        """
-        Trim all page observations except the last two.
-        """
-        tape = super().prepare_tape(tape)
-        page_positions = [
-            i for i, step in enumerate(tape.steps) if isinstance(step, PageObservation)
-        ]
-        if len(page_positions) < 3:
-            return tape
-        prev_page_position = page_positions[-2]
-        steps = []
-        for step in tape.steps[:prev_page_position]:
-            if isinstance(step, PageObservation):
-                short_text = (
-                    f"{step.text[:max_chars]}\n..." if len(step.text) > max_chars else step.text
-                )
-                new_step = step.model_copy(update=dict(text=short_text))
-            else:
-                new_step = step
-            steps.append(new_step)
-        steps += tape.steps[prev_page_position:]
-        return tape.model_copy(update=dict(steps=steps))
-
-
 class GuidedTapeAgent(bgym.Agent):
     steps: WorkArenaTape
 
     def __init__(self, llm: LiteLLM):
-        self.tapeagent = TapeAgent.create(
-            llm,
-            nodes=[
-                WorkArenaNode(name="set_goal", guidance=PromptRegistry.start),
-                WorkArenaNode(name="reflect", guidance=PromptRegistry.reflect),
-                WorkArenaNode(name="act", guidance=PromptRegistry.act, next_node="reflect"),
-            ],
-            max_iterations=2,
-        )
+        self.tapeagent = WorkArenaAgent.create(llm)
         self.steps = WorkArenaTape(steps=[])
 
     @cost_tracker_decorator
