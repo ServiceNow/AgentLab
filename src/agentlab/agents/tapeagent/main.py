@@ -1,13 +1,9 @@
-import logging
-
 from agentlab.agents.tapeagent.tapeagent import TapeAgentArgs
 from agentlab.experiments import study_generators
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
-logging.getLogger().setLevel(logging.INFO)
 
-
-def main(benchmark: str, n_jobs: int, reproducibility:bool):
+def main(benchmark: str, n_jobs: int, reproducibility: bool):
     agent_args = TapeAgentArgs(
         chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"]
     )

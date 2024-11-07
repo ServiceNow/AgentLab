@@ -1,10 +1,10 @@
 #!/bin/bash
 
 if [ ! -d "TapeAgents" ]; then
-    # Clone the repository
-    git clone https://github.com/ServiceNow/TapeAgents.git
+    # Clone the repository to this directory
+    git clone https://github.com/ServiceNow/TapeAgents.git "$(dirname "$0")/TapeAgents"
     # Install the package in editable mode
-    pip install -e TapeAgents
+    pip install -e "$(dirname "$0")/TapeAgents"
 else
     echo "TapeAgents directory already exists. Skipping installation."
 fi

@@ -1,7 +1,6 @@
 from browsergym.utils.obs import IGNORED_AXTREE_PROPERTIES, _process_bid
 
 IGNORED_ROLES = []  # ["contentinfo", "LineBreak", "banner", "Iframe"]
-NAVIGATION_ROLES = ["complementary", "navigation"]
 
 NODES_WITH_BID = [
     "button",
@@ -33,26 +32,24 @@ def flatten_axtree(
     coord_decimals: int = 0,
     ignored_roles=IGNORED_ROLES,
     ignored_properties=IGNORED_AXTREE_PROPERTIES,
-    ignore_navigation: bool = False,
+    remove_redundant_static_text: bool = True,
     hide_bid_if_invisible: bool = False,
     hide_all_children: bool = False,
-    nodes_with_bid: list[str] = NODES_WITH_BID,
 ) -> str:
     """Formats the accessibility tree into a string text"""
-    if ignore_navigation:
-        ignored_roles += NAVIGATION_ROLES
     extra_properties = extra_properties or {}
     node_id_to_idx = {}
     for idx, node in enumerate(AX_tree["nodes"]):
         node_id_to_idx[node["nodeId"]] = idx
 
-    def dfs(node_idx: int, depth: int, parent_node_filtered: bool) -> str:
+    def dfs(node_idx: int, depth: int, parent_node_filtered: bool, parent_node_name: str) -> str:
         tree_str = ""
         node = AX_tree["nodes"][node_idx]
-        indent = "  " * depth
-        skip_node = False
-        filter_node = False
+        indent = " " * depth
+        skip_node = False  # node will not be printed, with no effect on children nodes
+        filter_node = False  # node will not be printed, possibly along with its children nodes
         node_role = node["role"]["value"]
+        node_name = ""
 
         if node_role in ignored_roles:
             return tree_str
@@ -66,8 +63,11 @@ def flatten_axtree(
             else:
                 node_value = None
 
+            # extract bid
+            bid = node.get("browsergym_id", None)
+
+            # extract node attributes
             attributes = []
-            bid = None
             for property in node.get("properties", []):
                 if "value" not in property:
                     continue
@@ -77,9 +77,7 @@ def flatten_axtree(
                 prop_name = property["name"]
                 prop_value = property["value"]["value"]
 
-                if prop_name == "browsergym_id":
-                    bid = prop_value
-                elif prop_name in ignored_properties:
+                if prop_name in ignored_properties:
                     continue
                 elif prop_name in ("required", "focused", "atomic"):
                     if prop_value:
@@ -89,7 +87,16 @@ def flatten_axtree(
 
             if node_role == "generic" and not attributes:
                 skip_node = True
-            elif node_role != "StaticText":
+
+            if hide_all_children and parent_node_filtered:
+                skip_node = True
+
+            if node_role == "StaticText":
+                if parent_node_filtered:
+                    skip_node = True
+                elif remove_redundant_static_text and node_name in parent_node_name:
+                    skip_node = True
+            else:
                 filter_node, extra_attributes_to_print = _process_bid(
                     bid,
                     extra_properties=extra_properties,
@@ -112,7 +119,9 @@ def flatten_axtree(
 
             # actually print the node string
             if not skip_node:
-                if node_role == "paragraph":
+                if node_role == "generic" and not node_name:
+                    node_str = f"{node_role}"
+                elif node_role == "paragraph":
                     node_str = ""
                 elif node_role == "StaticText":
                     node_str = node_name.strip()
@@ -130,7 +139,7 @@ def flatten_axtree(
                                 and extra_properties.get(bid, {}).get("visibility", 0) < 0.5
                             )
                         )
-                        and node_role in nodes_with_bid
+                        and node_role in NODES_WITH_BID
                     ):
                         node_str = f"BID:{bid} " + node_str
 
@@ -153,12 +162,13 @@ def flatten_axtree(
                 node_id_to_idx[child_node_id],
                 child_depth,
                 parent_node_filtered=filter_node or skip_node,
+                parent_node_name=node_name,
             )
-            if child_str and node_role != "link":
+            if child_str:
                 if tree_str:
                     tree_str += "\n"
                 tree_str += child_str
 
         return tree_str
 
-    return dfs(0, 0, False)
+    return dfs(0, 0, False, "")

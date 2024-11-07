@@ -1,9 +1,13 @@
-from dataclasses import asdict, dataclass
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import bgym
+
+from agentlab.agents.agent_args import AgentArgs
+from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.tracking import cost_tracker_decorator
 
 try:
     from tapeagents.llms import LiteLLM
@@ -12,36 +16,34 @@ except ImportError as e:
     raise e
 
 import sys
+
 sys.path.append(str(Path(__file__).parent.resolve() / "TapeAgents"))
 
 from examples.workarena.agent import WorkArenaAgent
 from examples.workarena.steps import (
-    PageObservation,
-    WorkArenaTape,
-    WorkArenaTask,
-    Action,
-    GotoPageAction,
+    WorkArenaAction,
     ClickAction,
-    SelectOptionAction,
-    HoverAction,
-    InputTextAction,
-    PressAction,
     GoBackAction,
     GoForwardAction,
-    ReflectionThought,
+    GotoPageAction,
+    HoverAction,
+    InputTextAction,
+    PageObservation,
+    PressAction,
+    SelectOptionAction,
+    WorkArenaTape,
+    WorkArenaTask,
 )
+
 from .utils import flatten_axtree
 
-from agentlab.llm.tracking import cost_tracker_decorator
-from agentlab.agents.agent_args import AgentArgs
-from agentlab.llm.chat_api import BaseModelArgs
-
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
 class TapeAgentArgs(AgentArgs):
-    agent_name: str = "GuidedTapeAgent"
+    agent_name: str = "WorkarenaTapeAgent"
     chat_model_args: BaseModelArgs = None
 
     def make_agent(self) -> bgym.Agent:
@@ -51,7 +53,7 @@ class TapeAgentArgs(AgentArgs):
             context_size=self.chat_model_args.max_total_tokens,
             parameters={"temperature": self.chat_model_args.temperature},
         )
-        return GuidedTapeAgent(llm)
+        return WorkarenaTapeAgent(llm)
 
     def set_reproducibility_mode(self):
         self.chat_model_args.temperature = 0
@@ -62,42 +64,61 @@ class TapeAgentArgs(AgentArgs):
     def close(self):
         return self.chat_model_args.close_server()
 
-class GuidedTapeAgent(bgym.Agent):
-    steps: WorkArenaTape
+
+class WorkarenaTapeAgent(bgym.Agent):
+    tape: WorkArenaTape
 
     def __init__(self, llm: LiteLLM):
         self.tapeagent = WorkArenaAgent.create(llm)
-        self.steps = WorkArenaTape(steps=[])
+        self.tape = WorkArenaTape()
+
+    def obs_preprocessor(self, obs: dict) -> dict:
+        axtree = obs.pop("axtree_object")
+        obs["axtree_txt"] = flatten_axtree(axtree, filter_visible_only=True)
+        return obs
 
     @cost_tracker_decorator
-    def get_action(self, obs: Any) -> tuple[str, dict]:
-        # update tape with new observation
-        text = flatten_axtree(
-            obs["axtree_object"], filter_visible_only=True, ignore_navigation=False
-        )
-        obs_step = PageObservation(text=text, current_page=1, total_pages=1)
-        self.tape = self.tape.append(obs_step)
-        if not len(self.steps):  # first observation
-            self.tape = self.tape.append(WorkArenaTask(task=obs["goal"]))
-
+    def get_action(self, obs: Any) -> tuple[str, bgym.AgentInfo]:
+        self.update_tape(obs)
         # run agent and collect thoughts and last action
-        thoughts = []
         tape_segment = []
-        action = None
+        action = ""
+        logger.info(f"Run tape with {len(self.tape)} steps")
         for event in self.tapeagent.run(self.tape):
             if not event.step:
                 continue
             step = event.step
-            tape_segment.append(step.llm_dict())
-            self.tape = self.tape.append(step)
-            if isinstance(step, Action):
-                action = step
-                break
-            elif isinstance(step, ReflectionThought):
-                thoughts.append(step.llm_dict())
+            tape_segment.append(step)
+            logger.info(f"Generated step: {step.llm_view()}")
+            if isinstance(step, WorkArenaAction):
+                action = self.step_to_action(step)
+        self.tape += tape_segment
 
-        # convert action step to an action string with function call
         assert action
+        logger.info(f"Action string: {action}")
+        return (
+            action,
+            bgym.AgentInfo(
+                extra_info={"tape_segment": [step.model_dump() for step in tape_segment]},
+                stats={},
+            ),
+        )
+
+    def update_tape(self, obs: dict):
+        """
+        Update tape with new observation
+        """
+        obs_step = PageObservation(text=obs["axtree_txt"], current_page=1, total_pages=1)
+        logger.info(f"OBS:\n{obs_step.text}\n")
+        self.tape = self.tape.append(obs_step)
+        if len(self.tape) == 1:  # first observation
+            logger.info("First observation, adding goal to tape")
+            self.tape = self.tape.append(WorkArenaTask(task=obs["goal"]))
+
+    def step_to_action(self, action: WorkArenaAction) -> str:
+        """
+        Convert action step to an action string with function call
+        """
         action_str = ""
         if isinstance(action, GotoPageAction):
             action_str = f"goto('{action.url}')"
@@ -120,15 +141,4 @@ class GuidedTapeAgent(bgym.Agent):
             action_str = "go_forward()"
         else:
             raise ValueError(f"Unknown action type: {action}")
-
-        return (
-            action_str,
-            bgym.AgentInfo(
-                extra_info={
-                    "chat_model_args": asdict(self.chat_model_args),
-                    "tape_segment": tape_segment,
-                    "thoughts:": thoughts,
-                },
-                stats={},
-            ),
-        )
+        return action_str
