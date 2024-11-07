@@ -122,6 +122,7 @@ def get_benchmark_env_args(
         "workarena.l2": 50,
         "workarena.l3": 50,
         "webarena": 15,
+        "webarena_debug": 15,
         "miniwob": 10,
         "miniwob_tiny_test": 5,
         "weblinx": None,
@@ -178,6 +179,15 @@ def get_benchmark_env_args(
         from browsergym.webarena import ALL_WEBARENA_TASK_IDS
 
         env_args_list = _make_env_args(ALL_WEBARENA_TASK_IDS, max_steps, n_repeat, rng)
+    elif benchmark_name == "webarena_debug":
+        from browsergym.webarena import ALL_WEBARENA_TASK_IDS
+
+        env_args_list = _make_env_args(
+            [t for i, t in enumerate(ALL_WEBARENA_TASK_IDS) if i % 16 == 0],
+            max_steps,
+            n_repeat,
+            rng,
+        )
     elif benchmark_name.startswith("miniwob"):
         miniwob_benchmarks_map = {
             "miniwob": MINIWOB_ALL,

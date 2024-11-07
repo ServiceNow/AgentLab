@@ -245,7 +245,7 @@ class ChatModel(AbstractChatModel):
             **client_args,
         )
 
-    def __call__(self, messages: list[dict]) -> dict:
+    def __call__(self, messages: list[dict], num_samples=1, temperature=None) -> dict:
         # Initialize retry tracking attributes
         self.retries = 0
         self.success = False
@@ -255,12 +255,14 @@ class ChatModel(AbstractChatModel):
         e = None
         for itr in range(self.max_retry):
             self.retries += 1
+            temp_to_use = temperature if temperature is not None else self.temperature
             try:
                 completion = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
-                    temperature=self.temperature,
+                    temperature=temp_to_use,
                     max_tokens=self.max_tokens,
+                    n=num_samples,
                 )
                 self.success = True
                 break
@@ -273,7 +275,6 @@ class ChatModel(AbstractChatModel):
                 f"Failed to get a response from the API after {self.max_retry} retries\n"
                 f"Last error: {error_type}"
             )
-
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
@@ -283,7 +284,10 @@ class ChatModel(AbstractChatModel):
         ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return make_assistant_message(completion.choices[0].message.content)
+        if num_samples > 1:
+            return [make_assistant_message(c.message.content) for c in completion.choices]
+        else:
+            return make_assistant_message(completion.choices[0].message.content)
 
     def get_stats(self):
         return {

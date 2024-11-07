@@ -40,6 +40,38 @@ class RetryError(ValueError):
     pass
 
 
+def retry_multiple(
+    chat: "ChatModel",
+    messages: list[dict],
+    n_retry: int,
+    parser: callable,
+    log: bool = True,
+    num_samples: int = 10,
+):
+    """Same as retry except we will generate multiple samples for each retry. And issue a parse error if none of the samples are valid."""
+    tries = 0
+    while tries < n_retry:
+        answer_list = chat(messages, num_samples=num_samples, temperature=1.0)
+        # try to parse each answer
+        parsed_answers = []
+        errors = []
+        for answer in answer_list:
+            try:
+                parsed_answers.append(parser(answer["content"]))
+            except ParseError as parsing_error:
+                errors.append(str(parsing_error))
+        # if we have a valid answer, return it
+        if parsed_answers:
+            return parsed_answers, tries
+        else:
+            tries += 1
+            if log:
+                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer_list}\n[User]:\n{errors}"
+                logging.info(msg)
+            messages.append(dict(role="user", content=str(errors)))
+    raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
+
+
 def retry(
     chat: "ChatModel",
     messages: list[dict],
@@ -69,6 +101,7 @@ def retry(
             after RateLimtError. will try to parse the wait time from the error
             message.
         rate_limit_max_wait_time (int): the maximum wait time in seconds
+        num_samples (int): number of samples to generate for each retry.
 
     Returns:
         dict: the parsed value, with a string at key "action".
@@ -81,7 +114,6 @@ def retry(
     while tries < n_retry:
         answer = chat(messages)
         messages.append(answer)  # TODO: could we change this to not use inplace modifications ?
-
         try:
             return parser(answer["content"])
         except ParseError as parsing_error:
