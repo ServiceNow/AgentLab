@@ -16,7 +16,7 @@ contexttimer
 ipython
 pyyaml>=6
 pandas
-gradio>=5
+gradio>=5.5 # issue with DataFrame scrolling before 5.5
 gitpython # for the reproducibility script
 requests
 matplotlib
