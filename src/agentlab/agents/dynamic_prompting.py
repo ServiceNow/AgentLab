@@ -443,7 +443,7 @@ class Observation(Shrinkable):
     def _prompt(self) -> str:
         return f"""
 # Observation of current step:
-{self.tabs}{self.html.prompt}{self.ax_tree.prompt}{self.focused_element.prompt}{self.error.prompt}
+{self.tabs.prompt}{self.html.prompt}{self.ax_tree.prompt}{self.focused_element.prompt}{self.error.prompt}
 
 """
 
