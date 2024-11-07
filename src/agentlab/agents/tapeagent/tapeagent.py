@@ -74,7 +74,7 @@ class WorkarenaTapeAgent(bgym.Agent):
 
     def obs_preprocessor(self, obs: dict) -> dict:
         axtree = obs.pop("axtree_object")
-        obs["axtree_txt"] = flatten_axtree(axtree, filter_visible_only=True)
+        obs["axtree_txt"] = flatten_axtree(axtree)
         return obs
 
     @cost_tracker_decorator

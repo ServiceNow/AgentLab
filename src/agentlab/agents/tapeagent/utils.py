@@ -1,7 +1,5 @@
 from browsergym.utils.obs import IGNORED_AXTREE_PROPERTIES, _process_bid
 
-IGNORED_ROLES = []  # ["contentinfo", "LineBreak", "banner", "Iframe"]
-
 NODES_WITH_BID = [
     "button",
     "link",
@@ -26,11 +24,10 @@ def flatten_axtree(
     with_center_coords: bool = False,
     with_bounding_box_coords: bool = False,
     with_som: bool = False,
-    filter_visible_only: bool = False,
+    filter_visible_only: bool = True,
     filter_with_bid_only: bool = False,
     filter_som_only: bool = False,
     coord_decimals: int = 0,
-    ignored_roles=IGNORED_ROLES,
     ignored_properties=IGNORED_AXTREE_PROPERTIES,
     remove_redundant_static_text: bool = True,
     hide_bid_if_invisible: bool = False,
@@ -51,9 +48,7 @@ def flatten_axtree(
         node_role = node["role"]["value"]
         node_name = ""
 
-        if node_role in ignored_roles:
-            return tree_str
-        elif "name" not in node:
+        if "name" not in node:
             skip_node = True
             pass
         else:
