@@ -184,8 +184,6 @@ clicking the refresh button.
 
     2. **Select Task**: Select the task you want to analyze, this will trigger
        an update of the available seeds.
-       **IMPORTANT NOTE**: Due to a gradio bug, if you sort the columns of the table, the task
-       selection will not correspond to the right one.
 
     3. **Select the Seed**: You might have multiple repetition for a given task,
        you will be able to select the seed you want to analyze.
@@ -216,10 +214,9 @@ clicking the refresh button.
                         """\
     Click on a row to select an agent. It will trigger the update of other
     fields.
-
-    **GRADIO BUG**: If you sort the columns the click will not match the
-    content. You have to sort back with the Idx column to align the click with
-    the order."""
+    
+    The update mechanism is somewhat flacky, please help figure out why (or is it just gradio?).
+    """
                     )
                 agent_table = gr.DataFrame(max_height=500, show_label=False, interactive=False)
             with gr.Tab("Select Task and Seed", id="Select Task"):
@@ -231,9 +228,8 @@ clicking the refresh button.
                                     """\
         Click on a row to select a task. It will trigger the update of other fields.
 
-        **GRADIO BUG**: If you sort the columns the click will not match the
-        content. You have to sort back with the Idx column to align the click with
-        the order."""
+        The update mechanism is somewhat flacky, please help figure out why (or is it just gradio?).
+        """
                                 )
                             refresh_results_button = gr.Button("↺", scale=0, size="sm")
 
@@ -250,9 +246,8 @@ clicking the refresh button.
                                 """\
     Click on a row to select a seed. It will trigger the update of other fields.
 
-    **GRADIO BUG**: If you sort the columns the click will not match the
-    content. You have to sort back with the Idx column to align the click with
-    the order."""
+    The update mechanism is somewhat flacky, please help figure out why (or is it just gradio?).
+    """
                             )
 
                         seed_table = gr.DataFrame(
@@ -824,22 +819,22 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
         )
 
     seed_df = result_df.apply(extract_columns, axis=1)
-    seed_df["Idx"] = seed_df.index
     return seed_df
 
 
 def on_select_agent(evt: gr.SelectData, df: pd.DataFrame):
-    global info
+    # TODO try to find a clever way to solve the sort bug here
     return info.get_agent_id(df.iloc[evt.index[0]])
 
 
 def on_select_task(evt: gr.SelectData, df: pd.DataFrame, agent_id: list[tuple]):
-    return (agent_id, df.iloc[evt.index[0]][TASK_NAME_KEY])
+    # get col index
+    col_idx = df.columns.get_loc(TASK_NAME_KEY)
+    return (agent_id, evt.row_value[col_idx])
 
 
 def update_seeds(agent_task_id: tuple):
     agent_id, task_name = agent_task_id
-    global info
     seed_df = get_seeds_df(info.agent_df, task_name)
     first_seed = seed_df.iloc[0]["seed"]
     return seed_df, EpisodeId(agent_id=agent_id, task_name=task_name, seed=first_seed)
@@ -847,7 +842,8 @@ def update_seeds(agent_task_id: tuple):
 
 def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, agent_task_id: tuple):
     agent_id, task_name = agent_task_id
-    seed = df.iloc[evt.index[0]]["seed"]
+    col_idx = df.columns.get_loc("seed")
+    seed = evt.row_value[col_idx]  # seed should be the first column
     return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed)
 
 
@@ -933,6 +929,7 @@ def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
     if exp_dir == select_dir_instructions:
         return None, None
 
+    exp_dir = exp_dir.split(" - ")[0]
     global info
 
     if len(exp_dir) == 0:
@@ -943,10 +940,13 @@ def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
     info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
     info.result_df = remove_args_from_col(info.result_df)
 
-    agent_report = display_table(get_agent_report(info.result_df))
+    study_summary = inspect_results.summarize_study(info.result_df)
+    # save study_summary
+    study_summary.to_csv(info.exp_list_dir / "summary_df.csv", index=False)
+    agent_report = display_table(study_summary)
+
     info.agent_id_keys = agent_report.index.names
     agent_report.reset_index(inplace=True)
-    agent_report["Idx"] = agent_report.index
 
     agent_id = info.get_agent_id(agent_report.iloc[0])
 
@@ -960,7 +960,6 @@ def new_agent_id(agent_id: list[tuple]):
 
     info.tasks_df = inspect_results.reduce_episodes(info.agent_df).reset_index()
     info.tasks_df = info.tasks_df.drop(columns=["std_err"])
-    info.tasks_df["Idx"] = info.tasks_df.index
 
     # task name of first element
     task_name = info.tasks_df.iloc[0][TASK_NAME_KEY]
@@ -968,10 +967,30 @@ def new_agent_id(agent_id: list[tuple]):
 
 
 def get_directory_contents(results_dir: Path):
-    directories = sorted(
-        [str(file.name) for file in results_dir.iterdir() if file.is_dir()], reverse=True
-    )
-    return [select_dir_instructions] + directories
+    exp_descriptions = []
+    for dir in results_dir.iterdir():
+        if not dir.is_dir():
+            continue
+
+        exp_description = dir.name
+        # get summary*.csv files and find the most recent
+        summary_files = list(dir.glob("summary*.csv"))
+        if len(summary_files) != 0:
+            most_recent_summary = max(summary_files, key=os.path.getctime)
+            summary_df = pd.read_csv(most_recent_summary)
+
+            # get row with max avg_reward
+            max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax()]
+            reward = max_reward_row["avg_reward"] * 100
+            completed = max_reward_row["n_completed"]
+            n_err = max_reward_row["n_err"]
+            exp_description += (
+                f" - avg-reward: {reward:.1f}% - completed: {completed} - errors: {n_err}"
+            )
+
+        exp_descriptions.append(exp_description)
+
+    return [select_dir_instructions] + sorted(exp_descriptions, reverse=True)
 
 
 def most_recent_folder(results_dir: Path):

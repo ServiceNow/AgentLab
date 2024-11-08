@@ -295,6 +295,7 @@ def summarize(sub_df, use_bootstrap=False):
             avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
             n_completed=f"{n_completed}/{len(sub_df)}",
             n_err=err.sum(skipna=True),
+            cum_cost=sub_df["stats.cum_cost"].sum(skipna=True).round(4),
         )
 
     return pd.Series(record)
