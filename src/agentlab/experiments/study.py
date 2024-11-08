@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 
 import bgym
-import slugify
 from bgym import Benchmark, EnvArgs, ExpArgs
+from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
