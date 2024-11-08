@@ -297,7 +297,7 @@ def summarize(sub_df, use_bootstrap=False):
             n_err=err.sum(skipna=True),
         )
         if "stats.cum_cost" in sub_df:
-            record["cum_cost"]=sub_df["stats.cum_cost"].sum(skipna=True).round(4),
+            record["cum_cost"] = (sub_df["stats.cum_cost"].sum(skipna=True).round(4),)
 
     return pd.Series(record)
 
