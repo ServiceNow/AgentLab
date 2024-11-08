@@ -1,12 +1,14 @@
 import gzip
 import logging
 import pickle
+import re
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-import uuid
 
 import bgym
+import slugify
 from bgym import Benchmark, EnvArgs, ExpArgs
 
 from agentlab.agents.agent_args import AgentArgs
@@ -14,7 +16,11 @@ from agentlab.analyze import inspect_results
 from agentlab.experiments import args
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
+from agentlab.experiments.launch_exp import (
+    find_incomplete,
+    non_dummy_count,
+    run_experiments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +226,9 @@ class Study:
             study_name = f"{agent_names[0]}_on_{self.benchmark.name}"
         else:
             study_name = f"{len(agent_names)}_agents_on_{self.benchmark.name}"
+
+        study_name = slugify(study_name, max_length=50, allow_unicode=True)
+
         if self.suffix:
             study_name += f"_{self.suffix}"
         return study_name
