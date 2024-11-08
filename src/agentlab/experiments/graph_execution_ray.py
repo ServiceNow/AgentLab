@@ -38,7 +38,7 @@ def execute_task_graph(exp_args_list: list[bgym.ExpArgs], avg_step_timeout=60):
         get_task(exp_arg)
 
     max_timeout = max([_episode_timeout(exp_args, avg_step_timeout) for exp_args in exp_args_list])
-    
+
     return poll_for_timeout(task_map, max_timeout, poll_interval=max_timeout * 0.1)
 
 
