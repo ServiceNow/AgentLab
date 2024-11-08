@@ -32,6 +32,7 @@ class GenericAgentArgs(AgentArgs):
         if benchmark.name.startswith("miniwob"):
             self.flags.obs.use_html = True
 
+        self.flags.obs.use_tabs = benchmark.is_multi_tab
         self.flags.action.action_set = deepcopy(benchmark.high_level_action_set_args)
 
         # for backward compatibility with old traces
@@ -267,6 +268,4 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
     if action is not None:
         output += f"\n<action>\n{action}\n</action>"
 
-    return system_prompt, instruction_prompt, output
-    return system_prompt, instruction_prompt, output
     return system_prompt, instruction_prompt, output
