@@ -11,6 +11,7 @@ from agentlab.llm.tracking import cost_tracker_decorator
 
 try:
     from tapeagents.llms import LiteLLM
+    from tapeagents.tools.gym_browser import flatten_axtree
 except ImportError as e:
     print("Please run install_tapeagents.sh to install tapeagents first.")
     raise e
@@ -37,7 +38,6 @@ from examples.workarena.steps import (
     StopStep,
 )
 
-from .utils import flatten_axtree
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -111,6 +111,7 @@ class WorkarenaTapeAgent(bgym.Agent):
         Update tape with new observation
         """
         obs_step = PageObservation(text=obs["axtree_txt"], current_page=1, total_pages=1)
+        logger.info(f"OBS:\n{obs_step.text}\n")
         self.tape = self.tape.append(obs_step)
         if len(self.tape) == 1:  # first observation
             logger.info("First observation, adding goal to tape")
