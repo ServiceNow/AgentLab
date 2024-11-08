@@ -2,12 +2,14 @@
 
 # # Disable Ray log deduplication
 # os.environ["RAY_DEDUP_LOGS"] = "0"
-import time
-import ray
-import bgym
-from agentlab.experiments.exp_utils import run_exp, _episode_timeout
-from ray.util import state
 import logging
+import time
+
+import bgym
+import ray
+from ray.util import state
+
+from agentlab.experiments.exp_utils import _episode_timeout, run_exp
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,7 @@ def execute_task_graph(exp_args_list: list[bgym.ExpArgs], avg_step_timeout=60):
         get_task(exp_arg)
 
     max_timeout = max([_episode_timeout(exp_args, avg_step_timeout) for exp_args in exp_args_list])
-    
+
     return poll_for_timeout(task_map, max_timeout, poll_interval=max_timeout * 0.1)
 
 
