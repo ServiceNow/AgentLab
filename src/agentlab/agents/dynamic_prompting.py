@@ -385,7 +385,7 @@ Tab {page_index}{active_or_not}:
     URL: {page_url}
 """
             prompt_pieces.append(prompt_piece)
-        return  "\n".join(prompt_pieces)
+        return "\n".join(prompt_pieces)
 
 
 class Observation(Shrinkable):

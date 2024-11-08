@@ -32,15 +32,18 @@ base_obs = {
 }
 
 OBS_HISTORY = [
-    base_obs | {
+    base_obs
+    | {
         "pruned_html": html_template.format(1),
         "last_action_error": "",
     },
-    base_obs | {
+    base_obs
+    | {
         "pruned_html": html_template.format(2),
         "last_action_error": "Hey, this is an error in the past",
     },
-    base_obs | {
+    base_obs
+    | {
         "pruned_html": html_template.format(3),
         "last_action_error": "Hey, there is an error now",
     },
@@ -102,7 +105,7 @@ FLAG_EXPECTED_PROMPT = [
     ),
     (
         "obs.use_tabs",
-        ("Currently open tabs:","(active tab)"),
+        ("Currently open tabs:", "(active tab)"),
     ),
     (
         "obs.use_focused_element",
@@ -253,4 +256,3 @@ if __name__ == "__main__":
     test_main_prompt_elements_present()
     # for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
     #     test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-  
