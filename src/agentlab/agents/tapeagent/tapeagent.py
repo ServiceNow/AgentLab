@@ -33,6 +33,7 @@ from examples.workarena.steps import (
     SelectOptionAction,
     WorkArenaTape,
     WorkArenaTask,
+    StopStep,
 )
 
 from .utils import flatten_axtree
@@ -115,7 +116,7 @@ class WorkarenaTapeAgent(bgym.Agent):
             logger.info("First observation, adding goal to tape")
             self.tape = self.tape.append(WorkArenaTask(task=obs["goal"]))
 
-    def step_to_action(self, action: WorkArenaAction) -> str:
+    def step_to_action(self, action: WorkArenaAction) -> str | None:
         """
         Convert action step to an action string with function call
         """
@@ -139,6 +140,9 @@ class WorkarenaTapeAgent(bgym.Agent):
             action_str = "go_back()"
         elif isinstance(action, GoForwardAction):
             action_str = "go_forward()"
+        elif isinstance(action, StopStep):
+            logger.info("Stopping the loop")
+            action_str = None
         else:
             raise ValueError(f"Unknown action type: {action}")
         return action_str
