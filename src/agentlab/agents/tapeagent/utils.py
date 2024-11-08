@@ -134,7 +134,6 @@ def flatten_axtree(
                                 and extra_properties.get(bid, {}).get("visibility", 0) < 0.5
                             )
                         )
-                        and node_role in NODES_WITH_BID
                     ):
                         node_str = f"BID:{bid} " + node_str
 

@@ -31,6 +31,7 @@ from examples.workarena.steps import (
     PageObservation,
     PressAction,
     SelectOptionAction,
+    ScrollAction,
     WorkArenaTape,
     WorkArenaTask,
     StopStep,
@@ -110,7 +111,6 @@ class WorkarenaTapeAgent(bgym.Agent):
         Update tape with new observation
         """
         obs_step = PageObservation(text=obs["axtree_txt"], current_page=1, total_pages=1)
-        logger.info(f"OBS:\n{obs_step.text}\n")
         self.tape = self.tape.append(obs_step)
         if len(self.tape) == 1:  # first observation
             logger.info("First observation, adding goal to tape")
@@ -143,6 +143,8 @@ class WorkarenaTapeAgent(bgym.Agent):
         elif isinstance(action, StopStep):
             logger.info("Stopping the loop")
             action_str = None
+        elif isinstance(action, ScrollAction):
+            action_str = "noop()" # TODO: implement scroll action
         else:
             raise ValueError(f"Unknown action type: {action}")
         return action_str
