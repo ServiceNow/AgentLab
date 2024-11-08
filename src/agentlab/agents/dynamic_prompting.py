@@ -10,8 +10,6 @@ from warnings import warn
 
 import bgym
 from browsergym.core.action.base import AbstractActionSet
-from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.core.action.python import PythonActionSet
 from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, overlay_som, prune_html
 
 from agentlab.llm.llm_utils import (
@@ -71,6 +69,7 @@ class ObsFlags(Flags):
 
     use_html: bool = True
     use_ax_tree: bool = False
+    use_tabs: bool = False
     use_focused_element: bool = False
     use_error_logs: bool = False
     use_history: bool = False
@@ -386,11 +385,7 @@ Tab {page_index}{active_or_not}:
     URL: {page_url}
 """
             prompt_pieces.append(prompt_piece)
-        self._prompt = "\n".join(prompt_pieces)
-
-
-def has_tab_action(action_set: bgym.HighLevelActionSetArgs):
-    return "tab" in action_set.subsets
+        return  "\n".join(prompt_pieces)
 
 
 class Observation(Shrinkable):
@@ -399,14 +394,14 @@ class Observation(Shrinkable):
     Contains the html, the accessibility tree and the error logs.
     """
 
-    def __init__(self, obs, flags: ObsFlags, use_tabs=False) -> None:
+    def __init__(self, obs, flags: ObsFlags) -> None:
         super().__init__()
         self.flags = flags
         self.obs = obs
 
         self.tabs = Tabs(
             obs,
-            visible=use_tabs,
+            visible=lambda: flags.use_tabs,
             prefix="## ",
         )
 

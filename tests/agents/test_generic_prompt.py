@@ -20,33 +20,28 @@ some extra text to make the html longer
 </html>
 """
 
+base_obs = {
+    "goal": "do this and that",
+    "goal_object": [{"type": "text", "text": "do this and that"}],
+    "chat_messages": [{"role": "user", "message": "do this and that"}],
+    "axtree_txt": "[1] Click me",
+    "focused_element_bid": "45-256",
+    "open_pages_urls": ["https://example.com"],
+    "open_pages_titles": ["Example"],
+    "active_page_index": 0,
+}
 
 OBS_HISTORY = [
-    {
-        "goal": "do this and that",
-        "goal_object": [{"type": "text", "text": "do this and that"}],
-        "chat_messages": [{"role": "user", "message": "do this and that"}],
+    base_obs | {
         "pruned_html": html_template.format(1),
-        "axtree_txt": "[1] Click me",
-        "focused_element_bid": "45-256",
         "last_action_error": "",
     },
-    {
-        "goal": "do this and that",
-        "goal_object": [{"type": "text", "text": "do this and that"}],
-        "chat_messages": [{"role": "user", "message": "do this and that"}],
+    base_obs | {
         "pruned_html": html_template.format(2),
-        "axtree_txt": "[1] Click me",
-        "focused_element_bid": "45-256",
         "last_action_error": "Hey, this is an error in the past",
     },
-    {
-        "goal": "do this and that",
-        "goal_object": [{"type": "text", "text": "do this and that"}],
-        "chat_messages": [{"role": "user", "message": "do this and that"}],
+    base_obs | {
         "pruned_html": html_template.format(3),
-        "axtree_txt": "[1] Click me",
-        "focused_element_bid": "45-256",
         "last_action_error": "Hey, there is an error now",
     },
 ]
@@ -58,6 +53,7 @@ ALL_TRUE_FLAGS = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=True,
         use_ax_tree=True,
+        use_tabs=True,
         use_focused_element=True,
         use_error_logs=True,
         use_history=True,
@@ -103,6 +99,10 @@ FLAG_EXPECTED_PROMPT = [
     (
         "obs.use_ax_tree",
         ("AXTree:", "Click me"),
+    ),
+    (
+        "obs.use_tabs",
+        ("Currently open tabs:","(active tab)"),
     ),
     (
         "obs.use_focused_element",
@@ -251,11 +251,6 @@ if __name__ == "__main__":
     # for debugging
     test_shrinking_observation()
     test_main_prompt_elements_present()
-    for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
-        test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+    # for flag, expected_prompts in FLAG_EXPECTED_PROMPT:
+    #     test_main_prompt_elements_gone_one_at_a_time(flag, expected_prompts)
+  
