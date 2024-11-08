@@ -77,7 +77,6 @@ class MainPrompt(dp.Shrinkable):
         self.obs = dp.Observation(
             obs_history[-1],
             self.flags.obs,
-            use_tabs=dp.has_tab_action(self.flags.action.action_set),
         )
 
         self.action_prompt = dp.ActionPrompt(action_set, action_flags=flags.action)
