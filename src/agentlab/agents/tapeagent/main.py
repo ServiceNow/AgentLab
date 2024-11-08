@@ -15,6 +15,6 @@ def main(benchmark: str, n_jobs: int, reproducibility: bool):
 
 
 if __name__ == "__main__":  # necessary for dask backend
-    n_jobs = 1  # 1 when debugging in VSCode, -1 to use all available cores
+    n_jobs = 8  # 1 when debugging in VSCode, -1 to use all available cores
     benchmark = "workarena.l1"
-    main(benchmark, n_jobs, reproducibility=False)
+    main(benchmark, n_jobs, reproducibility=True)

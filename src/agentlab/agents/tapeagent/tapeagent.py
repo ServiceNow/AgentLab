@@ -9,6 +9,8 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.tracking import cost_tracker_decorator
 
+##############################
+#  TODO: replace this hacky imports with after releasing tapeagents and tapeagents[examples] to pypi
 try:
     from tapeagents.llms import LiteLLM
     from tapeagents.tools.gym_browser import flatten_axtree
@@ -19,6 +21,7 @@ except ImportError as e:
 import sys
 
 sys.path.append(str(Path(__file__).parent.resolve() / "TapeAgents"))
+##############################
 
 from examples.workarena.agent import WorkArenaAgent
 from examples.workarena.steps import (
