@@ -58,6 +58,9 @@ jobs:
       - name: Check MiniWob availability
         run: curl -I "http://localhost:8080/miniwob/" || echo "MiniWob not reachable"
 
+      - name: Pre-download nltk ressources
+        run: python -c "import nltk; nltk.download('punkt_tab')"
+
       - name: Run AgentLab Unit Tests
         env:
           MINIWOB_URL: "http://localhost:8080/miniwob/"

@@ -20,28 +20,28 @@ CHAT_MODEL_ARGS_DICT = {
     "openai/gpt-4o-mini-2024-07-18": OpenAIModelArgs(
         model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         vision_support=True,
     ),
     "openai/gpt-4-1106-preview": OpenAIModelArgs(
         model_name="gpt-4-1106-preview",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,  # make sure we don't bust budget
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
     ),
     "openai/gpt-4-vision-preview": OpenAIModelArgs(
         model_name="gpt-4-vision-preview",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,  # make sure we don't bust budget
-        max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
     "openai/gpt-4o-2024-05-13": OpenAIModelArgs(
         model_name="gpt-4o-2024-05-13",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,  # make sure we don't bust budget
-        max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
     "openai/gpt-3.5-turbo-0125": OpenAIModelArgs(
@@ -67,22 +67,25 @@ CHAT_MODEL_ARGS_DICT = {
         model_name="gpt-4o",
         deployment_name="gpt-4o-2024-05-13",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4_000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
+        vision_support=True,
     ),
     "azure/gpt-4o-2024-08-06": AzureModelArgs(
         model_name="gpt-4o",
         deployment_name="gpt-4o-2024-08-06",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4_000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
+        vision_support=True,
     ),
     "azure/gpt-4o-mini-2024-07-18": AzureModelArgs(
         model_name="gpt-4o-mini",
         deployment_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4_000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
+        vision_support=True,
     ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
@@ -113,43 +116,43 @@ CHAT_MODEL_ARGS_DICT = {
     "openrouter/meta-llama/llama-3.1-405b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-405b-instruct",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         temperature=1e-1,
     ),
     "openrouter/meta-llama/llama-3.1-70b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-70b-instruct",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         temperature=1e-1,
     ),
     "openrouter/meta-llama/llama-3-70b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3-70b-instruct",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         temperature=1e-1,
     ),
     "openrouter/meta-llama/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct:free",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         temperature=1e-1,
     ),
     "openrouter/meta-llama/llama-3.1-8b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         temperature=1e-1,
     ),
     "openrouter/anthropic/claude-3.5-sonnet:beta": OpenRouterModelArgs(
         model_name="anthropic/claude-3.5-sonnet:beta",
         max_total_tokens=200_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=160_000,
+        max_new_tokens=40_000,
         temperature=1e-1,
         vision_support=True,
     ),
@@ -163,8 +166,8 @@ CHAT_MODEL_ARGS_DICT = {
     "openrouter/openai/o1-mini-2024-09-12": OpenRouterModelArgs(
         model_name="openai/o1-mini-2024-09-12",
         max_total_tokens=128_000,
-        max_input_tokens=40_000,
-        max_new_tokens=4000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
         temperature=1e-1,
     ),
 }
