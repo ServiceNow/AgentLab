@@ -208,6 +208,10 @@ def handle_error(error, itr, min_retry_wait_time, max_retry):
     return error_type
 
 
+class OpenRouterError(openai.OpenAIError):
+    pass
+
+
 class ChatModel(AbstractChatModel):
     def __init__(
         self,
@@ -274,6 +278,12 @@ class ChatModel(AbstractChatModel):
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )
+
+                if completion.usage is None:
+                    raise OpenRouterError(
+                        "The completion object does not contain usage information. This is likely a bug in the OpenRouter API."
+                    )
+
                 self.success = True
                 break
             except openai.OpenAIError as e:
