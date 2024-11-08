@@ -165,7 +165,7 @@ def test_shrinking_observation():
     flags.obs.use_html = True
 
     prompt_maker = MainPrompt(
-        action_set=dp.HighLevelActionSet(),
+        action_set=bgym.HighLevelActionSet(),
         obs_history=OBS_HISTORY,
         actions=ACTIONS,
         memories=MEMORIES,
@@ -231,7 +231,7 @@ def test_main_prompt_elements_present():
     # Initialize MainPrompt
     prompt = str(
         MainPrompt(
-            action_set=dp.HighLevelActionSet(),
+            action_set=bgym.HighLevelActionSet(),
             obs_history=OBS_HISTORY,
             actions=ACTIONS,
             memories=MEMORIES,
