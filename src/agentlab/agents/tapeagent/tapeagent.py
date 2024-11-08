@@ -84,7 +84,7 @@ class WorkarenaTapeAgent(bgym.Agent):
         self.update_tape(obs)
         # run agent and collect thoughts and last action
         tape_segment = []
-        action = ""
+        action = None
         logger.info(f"Run tape with {len(self.tape)} steps")
         for event in self.tapeagent.run(self.tape):
             if not event.step:
@@ -96,7 +96,6 @@ class WorkarenaTapeAgent(bgym.Agent):
                 action = self.step_to_action(step)
         self.tape += tape_segment
 
-        assert action
         logger.info(f"Action string: {action}")
         return (
             action,
@@ -111,7 +110,6 @@ class WorkarenaTapeAgent(bgym.Agent):
         Update tape with new observation
         """
         obs_step = PageObservation(text=obs["axtree_txt"], current_page=1, total_pages=1)
-        logger.info(f"OBS:\n{obs_step.text}\n")
         self.tape = self.tape.append(obs_step)
         if len(self.tape) == 1:  # first observation
             logger.info("First observation, adding goal to tape")
@@ -145,7 +143,7 @@ class WorkarenaTapeAgent(bgym.Agent):
             logger.info("Stopping the loop")
             action_str = None
         elif isinstance(action, ScrollAction):
-            action_str = "noop()" # TODO: implement scroll action
+            action_str = "noop()"  # TODO: implement scroll action
         else:
             raise ValueError(f"Unknown action type: {action}")
         return action_str
