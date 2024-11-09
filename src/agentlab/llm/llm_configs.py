@@ -21,7 +21,7 @@ CHAT_MODEL_ARGS_DICT = {
         model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16384,
         vision_support=True,
     ),
     "openai/gpt-4-1106-preview": OpenAIModelArgs(
@@ -84,7 +84,7 @@ CHAT_MODEL_ARGS_DICT = {
         deployment_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16384,
         vision_support=True,
     ),
     # ---------------- OSS LLMs ----------------#
@@ -167,7 +167,7 @@ CHAT_MODEL_ARGS_DICT = {
         model_name="openai/o1-mini-2024-09-12",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16384,
         temperature=1e-1,
     ),
 }
