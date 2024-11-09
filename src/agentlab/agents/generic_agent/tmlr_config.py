@@ -40,7 +40,7 @@ BASE_FLAGS = GenericPromptFlags(
     use_abstract_example=True,
     use_hints=True,
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
 )

@@ -1,4 +1,5 @@
 import bgym
+
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.experiments import args
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
@@ -41,7 +42,7 @@ FLAGS_CUSTOM = GenericPromptFlags(
     use_abstract_example=True,
     use_hints=True,
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
 )
@@ -89,7 +90,7 @@ FLAGS_GPT_3_5 = GenericPromptFlags(
     use_abstract_example=True,  # useful
     use_hints=True,  # useful
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
 )
@@ -136,7 +137,7 @@ FLAGS_LLAMA3_70B = GenericPromptFlags(
     use_abstract_example=True,
     use_hints=True,
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
     add_missparsed_messages=True,
@@ -186,7 +187,7 @@ FLAGS_8B = GenericPromptFlags(
     use_abstract_example=True,
     use_hints=True,
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
     add_missparsed_messages=True,
@@ -234,7 +235,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
     use_abstract_example=True,
     use_hints=True,
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
 )
@@ -298,7 +299,7 @@ DEFAULT_RS_FLAGS = GenericPromptFlags(
     use_hints=args.Choice([True, False], p=[0.7, 0.3]),
     be_cautious=args.Choice([True, False]),
     enable_chat=False,
-    max_prompt_tokens=None,
+    max_prompt_tokens=40_000,
     extra_instructions=None,
 )
 
