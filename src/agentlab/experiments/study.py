@@ -227,7 +227,7 @@ class Study:
         else:
             study_name = f"{len(agent_names)}_agents_on_{self.benchmark.name}"
 
-        study_name = slugify(study_name, max_length=50, allow_unicode=True)
+        study_name = slugify(study_name, max_length=100, allow_unicode=True)
 
         if self.suffix:
             study_name += f"_{self.suffix}"
