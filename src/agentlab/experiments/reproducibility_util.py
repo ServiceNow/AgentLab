@@ -35,6 +35,8 @@ def _get_benchmark_version(benchmark_name):
             return metadata.distribution("weblinx_browsergym").version
         except metadata.PackageNotFoundError:
             return "0.0.1rc1"
+    elif benchmark_name.startswith("nnetnav"):
+        return "1.0"
     else:
         raise ValueError(f"Unknown benchmark {benchmark_name}")
 

@@ -20,6 +20,7 @@ def run_experiments(
     exp_args_list: list[ExpArgs],
     study_dir,
     parallel_backend="joblib",
+    save_transition_history=False,
 ):
     """Run a list of ExpArgs in parallel.
 
@@ -35,6 +36,8 @@ def run_experiments(
             Directory where the experiments will be saved.
         parallel_backend: str
             Parallel backend to use. Either "joblib", "dask" or "sequential".
+        save_transition_history: bool
+            If True, save the transition history from the agent.
     """
 
     if len(exp_args_list) == 0:

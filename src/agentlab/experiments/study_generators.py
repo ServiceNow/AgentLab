@@ -44,7 +44,12 @@ class Study:
     dir: Path = None
     suffix: str = ""  # used for adding a personnal comment to the study name
 
-    def run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
+    def run(
+        self,
+        n_jobs=1,
+        parallel_backend="joblib",
+        strict_reproducibility=False,
+    ):
         """Run all experiments in the study in parallel when possible.
 
         Args:
@@ -64,7 +69,12 @@ class Study:
         self.make_dir()
         self.write_reproducibility_info(strict_reproducibility=strict_reproducibility)
 
-        run_experiments(n_jobs, self.exp_args_list, self.dir, parallel_backend=parallel_backend)
+        run_experiments(
+            n_jobs,
+            self.exp_args_list,
+            self.dir,
+            parallel_backend=parallel_backend,
+        )
         report_df = self.get_report(ignore_cache=True)
         logging.info(f"Study {self.name} finished.")
         logging.info("\n" + str(report_df))
