@@ -21,27 +21,27 @@ CHAT_MODEL_ARGS_DICT = {
         model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16_384,
         vision_support=True,
     ),
     "openai/gpt-4-1106-preview": OpenAIModelArgs(
         model_name="gpt-4-1106-preview",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=4_096,
     ),
     "openai/gpt-4-vision-preview": OpenAIModelArgs(
         model_name="gpt-4-vision-preview",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,  # I think this model has very small default value if we don't set max_new_tokens
+        max_new_tokens=16_384,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
     "openai/gpt-4o-2024-05-13": OpenAIModelArgs(
         model_name="gpt-4o-2024-05-13",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,  # I think this model has very small default value if we don't set max_new_tokens
+        max_new_tokens=4_096,  # I think this model has very small default value if we don't set max_new_tokens
         vision_support=True,
     ),
     "openai/gpt-3.5-turbo-0125": OpenAIModelArgs(
@@ -68,7 +68,7 @@ CHAT_MODEL_ARGS_DICT = {
         deployment_name="gpt-4o-2024-05-13",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16_384,
         vision_support=True,
     ),
     "azure/gpt-4o-2024-08-06": AzureModelArgs(
@@ -76,7 +76,7 @@ CHAT_MODEL_ARGS_DICT = {
         deployment_name="gpt-4o-2024-08-06",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16_384,
         vision_support=True,
     ),
     "azure/gpt-4o-mini-2024-07-18": AzureModelArgs(
@@ -84,7 +84,7 @@ CHAT_MODEL_ARGS_DICT = {
         deployment_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=100_000,
-        max_new_tokens=28_000,
+        max_new_tokens=16_384,
         vision_support=True,
     ),
     # ---------------- OSS LLMs ----------------#
