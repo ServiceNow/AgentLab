@@ -21,3 +21,4 @@ gitpython # for the reproducibility script
 requests
 matplotlib
 ray[default]
+python-slugify

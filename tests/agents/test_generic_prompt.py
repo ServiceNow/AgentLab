@@ -5,7 +5,10 @@ import pytest
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
-from agentlab.agents.generic_agent.generic_agent_prompt import GenericPromptFlags, MainPrompt
+from agentlab.agents.generic_agent.generic_agent_prompt import (
+    GenericPromptFlags,
+    MainPrompt,
+)
 from agentlab.llm.llm_utils import count_tokens
 
 html_template = """
