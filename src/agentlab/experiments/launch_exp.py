@@ -40,9 +40,9 @@ def run_experiments(
     study_dir = Path(study_dir)
     study_dir.mkdir(parents=True, exist_ok=True)
 
-    if n_jobs == 1 and parallel_backend != "sequential":
-        logging.warning("Only 1 job, switching to sequential backend.")
-        parallel_backend = "sequential"
+    # if n_jobs == 1 and parallel_backend != "sequential":
+    #     logging.warning("Only 1 job, switching to sequential backend.")
+    #     parallel_backend = "sequential"
 
     logging.info(f"Saving experiments to {study_dir}")
     for exp_args in exp_args_list:

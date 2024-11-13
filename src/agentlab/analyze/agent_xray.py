@@ -142,6 +142,10 @@ css = """
     max-height: 400px;
     overflow-y: auto;
 }
+.error-report {
+    max-height: 700px;
+    overflow-y: auto;
+}
 .my-code-view {
     max-height: 300px;
     overflow-y: auto;
@@ -284,6 +288,8 @@ clicking the refresh button.
             with gr.Tab("Global Stats"):
                 global_stats = gr.DataFrame(max_height=500, show_label=False, interactive=False)
 
+            with gr.Tab("Error Report"):
+                error_report = gr.Markdown(elem_classes="error-report", show_copy_button=True)
         with gr.Row():
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
             action_info = gr.Markdown(label="Action Info", elem_classes="my-markdown")
@@ -411,7 +417,7 @@ clicking the refresh button.
         exp_dir_choice.change(
             fn=new_exp_dir,
             inputs=exp_dir_choice,
-            outputs=[agent_table, agent_id, constants, variables, global_stats],
+            outputs=[agent_table, agent_id, constants, variables, global_stats, error_report],
         )
 
         agent_table.select(fn=on_select_agent, inputs=agent_table, outputs=[agent_id])
@@ -918,11 +924,17 @@ def get_agent_report(result_df: pd.DataFrame):
 
 
 def update_global_stats():
-    global info
     stats = inspect_results.global_report(info.result_df, reduce_fn=inspect_results.summarize_stats)
     stats.reset_index(inplace=True)
     return stats
 
+
+def update_error_report():
+    report_files = list(info.exp_list_dir.glob("error_report*.md"))
+    if len(report_files) == 0:
+        return "No error report found"
+    report_files = sorted(report_files, key=os.path.getctime, reverse=True)
+    return report_files[0].read_text()
 
 def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
 
@@ -930,7 +942,6 @@ def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
         return None, None
 
     exp_dir = exp_dir.split(" - ")[0]
-    global info
 
     if len(exp_dir) == 0:
         info.exp_list_dir = None
@@ -951,7 +962,7 @@ def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
     agent_id = info.get_agent_id(agent_report.iloc[0])
 
     constants, variables = format_constant_and_variables()
-    return agent_report, agent_id, constants, variables, update_global_stats()
+    return agent_report, agent_id, constants, variables, update_global_stats(), update_error_report()
 
 
 def new_agent_id(agent_id: list[tuple]):
