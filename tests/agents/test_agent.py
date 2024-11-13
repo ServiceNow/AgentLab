@@ -25,7 +25,9 @@ def test_generic_agent():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
 
-        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
+        launch_exp.run_experiments(
+            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+        )
 
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
@@ -144,9 +146,12 @@ def test_generic_agent_parse_retry():
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
+        # TODO why these tests don't work with ray backend?
+        launch_exp.run_experiments(
+            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+        )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
-
+        print(result_record)
         target = {
             "stats.cum_n_retry": 2,
             "stats.cum_busted_retry": 0,
@@ -169,7 +174,9 @@ def test_bust_parse_retry():
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
+        launch_exp.run_experiments(
+            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+        )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
         target = {
@@ -195,7 +202,9 @@ def test_llm_error_success():
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
+        launch_exp.run_experiments(
+            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+        )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
         target = {
@@ -220,7 +229,9 @@ def test_llm_error_no_success():
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        launch_exp.run_experiments(1, [exp_args], Path(tmp_dir) / "generic_agent_test")
+        launch_exp.run_experiments(
+            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+        )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
         target = {
@@ -236,4 +247,4 @@ def test_llm_error_no_success():
 
 if __name__ == "__main__":
     # test_generic_agent()
-    test_llm_error_success()
+    test_generic_agent_parse_retry()

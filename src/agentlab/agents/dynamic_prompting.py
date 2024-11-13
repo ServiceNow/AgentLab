@@ -10,12 +10,7 @@ from warnings import warn
 
 import bgym
 from browsergym.core.action.base import AbstractActionSet
-from browsergym.utils.obs import (
-    flatten_axtree_to_str,
-    flatten_dom_to_str,
-    overlay_som,
-    prune_html,
-)
+from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, overlay_som, prune_html
 
 from agentlab.llm.llm_utils import (
     BaseMessage,

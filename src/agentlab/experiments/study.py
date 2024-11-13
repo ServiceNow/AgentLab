@@ -123,7 +123,7 @@ class Study:
     def run(
         self,
         n_jobs=1,
-        parallel_backend="joblib",
+        parallel_backend="ray",
         strict_reproducibility=False,
         n_relaunch=3,
         relaunch_errors=True,
