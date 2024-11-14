@@ -28,7 +28,7 @@ def execute_task_graph(exp_args_list: list[bgym.ExpArgs], avg_step_timeout=60):
             dependency_tasks = [get_task(exp_args_map[dep_key]) for dep_key in exp_arg.depends_on]
 
             # Create new task that depends on the dependency results
-            task_map[exp_arg.exp_id] = run_exp.remote(
+            task_map[exp_arg.exp_id] = run_exp.options(name=f"{exp_arg.exp_name}").remote(
                 exp_arg, *dependency_tasks, avg_step_timeout=avg_step_timeout
             )
         return task_map[exp_arg.exp_id]

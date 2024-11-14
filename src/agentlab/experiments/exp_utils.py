@@ -1,13 +1,13 @@
-import os
-from pathlib import Path
-from browsergym.experiments.loop import _move_old_exp, yield_all_exp_results
-from tqdm import tqdm
 import logging
-from browsergym.experiments.loop import ExpArgs
-from contextlib import contextmanager
+import os
 import signal
 import sys
-from time import time, sleep
+from contextlib import contextmanager
+from pathlib import Path
+from time import sleep, time
+
+from browsergym.experiments.loop import ExpArgs, _move_old_exp, yield_all_exp_results
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)  # Get logger based on module name
 
@@ -130,6 +130,7 @@ def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, 
 class MockedExpArgs:
     def __init__(self, exp_id, depends_on=None):
         self.exp_id = exp_id
+        self.exp_name = f"exp_{exp_id}"
         self.depends_on = depends_on if depends_on else []
         self.start_time = None
         self.end_time = None
