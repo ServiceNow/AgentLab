@@ -2,7 +2,6 @@ import base64
 import dataclasses
 import io
 import re
-import tempfile
 from io import BytesIO
 
 from browsergym.core.action.highlevel import HighLevelActionSet
@@ -11,8 +10,9 @@ from browsergym.utils.obs import flatten_axtree_to_str, overlay_som
 from PIL import Image
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
-from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
+from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
+from agentlab.llm.llm_utils import Discussion, HumanMessage, ParseError, SystemMessage, retry
 
 
 def pil_to_b64(img: Image.Image) -> str:
@@ -74,10 +74,20 @@ Review the current state of the page and all other information to find the best
 possible next action to accomplish your goal. Your answer will be interpreted
 and executed by a program, make sure to follow the formatting instructions."""
 
-        user_prompt = f"""\
-# Goal:
-{obs["goal_object"][0]["text"]}
+        prompt = Discussion(SystemMessage(system_prompt))
 
+        prompt.append(
+            HumanMessage(
+                f"""\
+# Goal:
+"""
+            )
+        )
+        for goal in obs["goal_object"]:
+            prompt.add_content(goal["type"], goal[goal["type"]])
+
+        prompt.add_text(
+            f"""
 # Current Accessibility Tree:
 {obs["axtree_txt"]}
 
@@ -95,31 +105,12 @@ If you have completed the task, use the chat to return an answer. For example, i
 ```send_msg_to_user("blue")```
 "
 """
-        # prompt
-        user_msgs = [{"type": "text", "text": user_prompt}]
+        )
 
-        # screenshot
-        user_msgs = [
-            {
-                "type": "text",
-                "text": "IMAGES: current page screenshot",
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": pil_to_b64(
-                        Image.fromarray(overlay_som(obs["screenshot"], obs["extra_properties"]))
-                    )
-                },
-            },
-        ]
-        # additional images
-        user_msgs.extend(obs["goal_object"][1:])
-
-        messages = [
-            make_system_message(system_prompt),
-            make_user_message(user_prompt),
-        ]
+        prompt.add_text("IMAGES: current page screenshot")
+        prompt.add_image(
+            pil_to_b64(Image.fromarray(overlay_som(obs["screenshot"], obs["extra_properties"])))
+        )
 
         def parser(response: str) -> tuple[dict, bool, str]:
             pattern = r"```((.|\\n)*?)```"
@@ -130,12 +121,12 @@ If you have completed the task, use the chat to return an answer. For example, i
             thought = response
             return {"action": action, "think": thought}
 
-        response = retry(self.chat_llm, messages, n_retry=self.n_retry, parser=parser)
+        response = retry(self.chat_llm, prompt, n_retry=self.n_retry, parser=parser)
 
         action = response.get("action", None)
-        stats = dict(response.usage)
+        stats = self.chat_llm.get_stats()
         return action, AgentInfo(
-            chat_messages=messages,
+            chat_messages=prompt.to_markdown(),
             think=response.get("think", None),
             stats=stats,
         )
@@ -155,10 +146,10 @@ class VWAAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
 
     def make_agent(self):
-        return VWAAgent()
+        return VWAAgent(chat_model_args=self.chat_model_args, n_retry=3)
 
 
-CONFIG = VWAAgentArgs(model_name="gpt-4-1106-vision-preview")
+CONFIG = VWAAgentArgs(CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"])
 
 
 def main():
