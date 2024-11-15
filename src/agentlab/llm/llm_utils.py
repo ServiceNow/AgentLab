@@ -8,8 +8,7 @@ import re
 import time
 from copy import deepcopy
 from functools import cache
-from typing import TYPE_CHECKING
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
 import numpy as np
@@ -356,7 +355,7 @@ class BaseMessage(dict):
         if detail:
             self.add_content("image_url", {"url": image_url, "detail": detail})
         else:
-            self.add_content("image_url", image_url)
+            self.add_content("image_url", {"url": image_url})
 
     def to_markdown(self):
         if isinstance(self["content"], str):
