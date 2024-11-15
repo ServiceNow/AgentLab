@@ -446,8 +446,12 @@ class Observation(Shrinkable):
         if self.flags.use_screenshot:
             if self.flags.use_som:
                 screenshot = self.obs["screenshot_som"]
+                prompt.add_text(
+                    "\n## Screenshot:\nHere is a screenshot of the page, it is annotated with bounding boxes and corresponding bids:"
+                )
             else:
                 screenshot = self.obs["screenshot"]
+                prompt.add_text("\n## Screenshot:\nHere is a screenshot of the page:")
             img_url = image_to_jpg_base64_url(screenshot)
             prompt.add_image(img_url, detail=self.flags.openai_vision_detail)
         return prompt
