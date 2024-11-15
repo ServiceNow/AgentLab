@@ -993,20 +993,23 @@ def get_directory_contents(results_dir: Path):
             continue
 
         exp_description = dir.name
-        # get summary*.csv files and find the most recent
-        summary_files = list(dir.glob("summary*.csv"))
-        if len(summary_files) != 0:
-            most_recent_summary = max(summary_files, key=os.path.getctime)
-            summary_df = pd.read_csv(most_recent_summary)
+        try:
+            # get summary*.csv files and find the most recent
+            summary_files = list(dir.glob("summary*.csv"))
+            if len(summary_files) != 0:
+                most_recent_summary = max(summary_files, key=os.path.getctime)
+                summary_df = pd.read_csv(most_recent_summary)
 
-            # get row with max avg_reward
-            max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax()]
-            reward = max_reward_row["avg_reward"] * 100
-            completed = max_reward_row["n_completed"]
-            n_err = max_reward_row["n_err"]
-            exp_description += (
-                f" - avg-reward: {reward:.1f}% - completed: {completed} - errors: {n_err}"
-            )
+                # get row with max avg_reward
+                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax()]
+                reward = max_reward_row["avg_reward"] * 100
+                completed = max_reward_row["n_completed"]
+                n_err = max_reward_row["n_err"]
+                exp_description += (
+                    f" - avg-reward: {reward:.1f}% - completed: {completed} - errors: {n_err}"
+                )
+        except Exception as e:
+            print(f"Error while reading summary file: {e}")
 
         exp_descriptions.append(exp_description)
 
