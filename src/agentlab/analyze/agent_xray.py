@@ -21,6 +21,7 @@ from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
+from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
 
 select_dir_instructions = "Select Experiment Directory"
@@ -740,7 +741,7 @@ def get_episode_info(info: Info):
         steps_info = info.exp_result.steps_info
         step_info = steps_info[info.step]
         try:
-            goal = step_info.obs["goal"]
+            goal = step_info.obs["goal_object"]
         except KeyError:
             goal = None
         try:
@@ -757,7 +758,7 @@ def get_episode_info(info: Info):
 
 **Goal:**
 
-{code(goal)}
+{code(str(AgentLabBaseMessage('', goal)))}
 
 **Task info:**
 
