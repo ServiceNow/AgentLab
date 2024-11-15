@@ -3,6 +3,7 @@ import argparse
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.launch_exp import import_object
 
@@ -13,6 +14,9 @@ def make_exp_args(agent_args: AgentArgs, start_url="https://www.google.com"):
         agent_args.flags.action.demo_mode = "default"
     except AttributeError:
         pass
+
+    if isinstance(agent_args, GenericAgentArgs):
+        agent_args.flags.enable_chat = True
 
     exp_args = ExpArgs(
         agent_args=agent_args,
