@@ -348,9 +348,13 @@ def summarize(sub_df, use_bootstrap=False, separate_val_test=True):
             n_err=err.sum(skipna=True),
         )
         if separate_val_test:
-            record["avg_reward_valid"] = sub_df["cum_reward_valid"].mean(skipna=True).round(3)
+            record["avg_reward_valid"] = sub_df["cum_reward_valid"].mean(skipna=True)
+            if not np.isnan(record["avg_reward_valid"]):
+                record["avg_reward_valid"] = record["avg_reward_valid"].round(3)
             record["std_err_valid"] = std_reward_valid
-            record["avg_reward_test"] = sub_df["cum_reward_test"].mean(skipna=True).round(3)
+            record["avg_reward_test"] = sub_df["cum_reward_test"].mean(skipna=True)
+            if not np.isnan(record["avg_reward_test"]):
+                record["avg_reward_test"] = record["avg_reward_test"].round(3)
             record["std_err_test"] = std_reward_test
 
     return pd.Series(record)
