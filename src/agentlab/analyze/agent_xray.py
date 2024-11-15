@@ -936,6 +936,7 @@ def update_error_report():
     report_files = sorted(report_files, key=os.path.getctime, reverse=True)
     return report_files[0].read_text()
 
+
 def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
 
     if exp_dir == select_dir_instructions:
@@ -962,7 +963,14 @@ def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
     agent_id = info.get_agent_id(agent_report.iloc[0])
 
     constants, variables = format_constant_and_variables()
-    return agent_report, agent_id, constants, variables, update_global_stats(), update_error_report()
+    return (
+        agent_report,
+        agent_id,
+        constants,
+        variables,
+        update_global_stats(),
+        update_error_report(),
+    )
 
 
 def new_agent_id(agent_id: list[tuple]):
