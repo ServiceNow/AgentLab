@@ -1,8 +1,10 @@
 
 
-<a href="https://github.com/user-attachments/assets/1bd2f6b2-bce0-43c7-846b-837fd3c6480a">
-  <img src="https://github.com/user-attachments/assets/1bd2f6b2-bce0-43c7-846b-837fd3c6480a" width="1000" />
+<a href="https://github.com/user-attachments/assets/fa71f769-6d7b-427a-978b-82aa13a6265f">
+  <img src="https://github.com/user-attachments/assets/fa71f769-6d7b-427a-978b-82aa13a6265f" width="1000" />
 </a>
+
+
 
 AgentLab is a framework for developing and evaluating agents on a variety of
 benchmarks supported by [BrowserGym](https://github.com/ServiceNow/BrowserGym).
