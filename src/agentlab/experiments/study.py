@@ -1,7 +1,7 @@
+from abc import ABC, abstractmethod
 import gzip
 import logging
 import pickle
-import re
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -14,16 +14,100 @@ from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments import args
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 
+
 logger = logging.getLogger(__name__)
 
 
+def make_study(
+    agent_args: list[AgentArgs],
+    benchmark: bgym.Benchmark,
+    logging_level_stdout=logging.WARNING,
+    suffix="",
+    comment=None,
+    ignore_dependencies=False,
+):
+
+    if isinstance(benchmark, str):
+        benchmark = bgym.DEFAULT_BENCHMARKS[benchmark]()
+
+    """Make a study from a list of agents and a benchmark."""
+    if "webarena" in benchmark.name and len(agent_args) > 1:
+        logger.warning(
+            "*WebArena* requires manual reset after each evaluation. Running through SequentialStudies."
+        )
+        studies = []
+        for agent in agent_args:
+            studies.append(
+                Study(
+                    [agent],
+                    benchmark,
+                    logging_level=logging_level_stdout,
+                    suffix=suffix,
+                    comment=comment,
+                    ignore_dependencies=ignore_dependencies,
+                )
+            )
+
+        return SequentialStudies(studies)
+    else:
+        return Study(
+            agent_args,
+            benchmark,
+            logging_level=logging_level_stdout,
+            suffix=suffix,
+            comment=comment,
+            ignore_dependencies=ignore_dependencies,
+        )
+
+
+class AbstractStudy(ABC):
+    dir: Path = None
+    suffix: str = ""
+
+    @abstractmethod
+    def find_incomplete(self, include_errors=True):
+        """Search for missing"""
+
+    @abstractmethod
+    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+        """Run the study"""
+
+    def make_dir(self, exp_root=RESULTS_DIR):
+        if self.dir is None:
+            dir_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{self.name}"
+
+            self.dir = Path(exp_root) / dir_name
+        self.dir.mkdir(parents=True, exist_ok=True)
+
+    def save(self, exp_root=RESULTS_DIR):
+        """Pickle the study to the directory"""
+        # TODO perhaps remove exp_args_list before pickling and when loading bring them from the individual directories
+
+        self.make_dir(exp_root=exp_root)
+        with gzip.open(self.dir / "study.pkl.gz", "wb") as f:
+            pickle.dump(self, f)
+
+    def get_results(self, suffix="", also_save=True):
+        """Recursively load all results from the study directory and summarize them."""
+        result_df = inspect_results.load_result_df(self.dir)
+        error_report = inspect_results.error_report(result_df, max_stack_trace=3, use_log=True)
+        summary_df = inspect_results.summarize_study(result_df)
+
+        if also_save:
+            suffix = f"_{suffix}" if suffix else ""
+            result_df.to_csv(self.dir / f"result_df{suffix}.csv")
+            summary_df.to_csv(self.dir / f"summary_df{suffix}.csv")
+            (self.dir / f"error_report{suffix}.md").write_text(error_report)
+
+        return result_df, summary_df, error_report
+
+
 @dataclass
-class Study:
+class Study(AbstractStudy):
     """A study coresponds to one or multiple agents evaluated on a benchmark.
 
     This is part of the high level API to help keep experiments organized and reproducible.
@@ -139,7 +223,7 @@ class Study:
             self._run(n_jobs, parallel_backend, strict_reproducibility)
 
             suffix = f"trial_{i + 1}_of_{n_relaunch}"
-            _, summary_df, error_report = self.get_results(suffix=suffix)
+            _, summary_df, _ = self.get_results(suffix=suffix)
             logger.info("\n" + str(summary_df))
 
             n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
@@ -197,60 +281,17 @@ class Study:
             ValueError: If the reproducibility information is not compatible
                 with the report.
         """
+        _, summary_df, _ = self.get_results()
         repro.append_to_journal(
             self.reproducibility_info,
-            self.get_report(),
+            summary_df,
             strict_reproducibility=strict_reproducibility,
         )
-
-    def get_results(self, suffix="", also_save=True):
-        result_df = inspect_results.load_result_df(self.dir)
-        error_report = inspect_results.error_report(result_df, max_stack_trace=3, use_log=True)
-        summary_df = inspect_results.summarize_study(result_df)
-
-        if also_save:
-            suffix = f"_{suffix}" if suffix else ""
-            result_df.to_csv(self.dir / f"result_df{suffix}.csv")
-            summary_df.to_csv(self.dir / f"summary_df{suffix}.csv")
-            (self.dir / f"error_report{suffix}.md").write_text(error_report)
-
-        return result_df, summary_df, error_report
 
     @property
     def name(self):
         agent_names = [a.agent_name for a in self.agent_args]
-        if len(agent_names) == 1:
-            study_name = f"{agent_names[0]}_on_{self.benchmark.name}"
-        else:
-            study_name = f"{len(agent_names)}_agents_on_{self.benchmark.name}"
-
-        study_name = slugify(study_name, max_length=100, allow_unicode=True)
-
-        if self.suffix:
-            study_name += f"_{self.suffix}"
-        return study_name
-
-    def make_dir(self, exp_root=RESULTS_DIR):
-        if self.dir is None:
-            dir_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{self.name}"
-
-            self.dir = Path(exp_root) / dir_name
-        self.dir.mkdir(parents=True, exist_ok=True)
-
-    def save(self):
-        """Pickle the study to the directory"""
-
-        # TODO perhaps remove exp_args_list before pickling and when loading bring them from the individual directories
-
-        self.make_dir()
-
-        with gzip.open(self.dir / "study.pkl.gz", "wb") as f:
-            pickle.dump(self, f)
-
-    def get_report(self, ignore_cache=False, ignore_stale=False):
-        return inspect_results.get_study_summary(
-            self.dir, ignore_cache=ignore_cache, ignore_stale=ignore_stale
-        )
+        return _make_study_name(agent_names, [self.benchmark.name], self.suffix)
 
     def override_max_steps(self, max_steps):
         for exp_args in self.exp_args_list:
@@ -283,6 +324,64 @@ class Study:
     @staticmethod
     def load_most_recent(root_dir: Path = None, contains=None) -> "Study":
         return Study.load(get_most_recent_study(root_dir, contains=contains))
+
+
+def _make_study_name(agent_names, benchmark_names, suffix=None):
+    """Make a study name from the agent and benchmark names."""
+    if len(agent_names) == 1:
+        agent_name = agent_names[0]
+    else:
+        agent_name = f"{len(agent_names)}_agents"
+
+    if len(benchmark_names) == 1:
+        benchmark_name = benchmark_names[0]
+    else:
+        benchmark_name = f"{len(benchmark_names)}_benchmarks"
+
+    study_name = f"{agent_name}_on_{benchmark_name}_{suffix if suffix else ''}"
+
+    return slugify(study_name, max_length=200, allow_unicode=True)
+
+
+@dataclass
+class SequentialStudies(AbstractStudy):
+    """
+    Sequential execution of multiple studies.
+
+    This is required for e.g. WebArena, where a server reset is required between evaluations of each agent.
+    """
+
+    studies: list[Study]
+
+    @property
+    def name(self):
+        """The name of the study."""
+        agent_names = [a.agent_name for study in self.studies for a in study.agent_args]
+        benchmark_names = [study.benchmark.name for study in self.studies]
+        return _make_study_name(agent_names, benchmark_names, self.suffix)
+
+    def find_incomplete(self, include_errors=True):
+        for study in self.studies:
+            study.find_incomplete(include_errors=include_errors)
+
+    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+
+        self.save()
+
+        for study in self.studies:
+            study.make_dir(exp_root=self.dir)
+            study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
+        _, summary_df, _ = self.get_results()
+        logger.info("\n" + str(summary_df))
+        logger.info(f"SequentialStudies {self.name} finished.")
+
+    def override_max_steps(self, max_steps):
+        for study in self.studies:
+            study.override_max_steps(max_steps)
+
+    def append_to_journal(self, strict_reproducibility=True):
+        for study in self.studies:
+            study.append_to_journal(strict_reproducibility=strict_reproducibility)
 
 
 def get_most_recent_study(
