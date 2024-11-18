@@ -332,7 +332,7 @@ class BaseMessage(dict):
         if isinstance(self["content"], str):
             return self["content"]
         if not all(elem["type"] == "text" for elem in self["content"]):
-            logging.warning(
+            logging.info(
                 "The content of the message has images, which are not displayed in the string representation."
             )
         return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
