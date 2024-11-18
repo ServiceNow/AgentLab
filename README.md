@@ -4,13 +4,28 @@
   <img src="https://github.com/user-attachments/assets/1bd2f6b2-bce0-43c7-846b-837fd3c6480a" width="1000" />
 </a>
 
+
+
+
 AgentLab is a framework for developing and evaluating agents on a variety of
 benchmarks supported by [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 This includes:
-* WebArena
-* WorkArena.L1, L2, L3
-* VisualWebArena (coming soon...)
-* MiniWoB
+* [WebArena](https://webarena.dev/)
+* [WorkArena](https://github.com/ServiceNow/WorkArena) L1, L2, L3
+* [WebLinx](https://mcgill-nlp.github.io/weblinx/)
+* [VisualWebArena](https://github.com/web-arena-x/visualwebarena)
+* Assistant Bench
+* GAIA
+* Mind2Web-live (coming soon ...)
+* [MiniWoB](https://miniwob.farama.org/index.html)
+
+AgentLab Features:
+* Easy large scale parallel agent experiments using [ray](https://www.ray.io/)
+* Building blocks for making agents
+* Unified LLM api for OpenRouter, OpenAI, Azure, Self hosted using TGI.
+* Prefered way for running benchmarks like WebArena
+* Various Reproducibility features
+* Unified LeaderBoard
 
 The framework enables the desing of rich hyperparameter spaces and the launch of
 parallel experiments using ablation studies or random searches. It also provides
