@@ -369,10 +369,12 @@ class SequentialStudies(AbstractStudy):
 
     def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
 
+        for study in self.studies:
+            study.make_dir(exp_root=self.dir)
+
         self.save()
 
         for study in self.studies:
-            study.make_dir(exp_root=self.dir)
             study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
         _, summary_df, _ = self.get_results()
         logger.info("\n" + str(summary_df))
