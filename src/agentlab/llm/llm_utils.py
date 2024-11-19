@@ -247,7 +247,7 @@ class ParseError(Exception):
 
 
 def extract_code_blocks(text) -> list[tuple[str, str]]:
-    pattern = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+    pattern = re.compile(r"```(\w*\n)?(.*?)```", re.DOTALL)
 
     matches = pattern.findall(text)
     return [(match[0], match[1].strip()) for match in matches]

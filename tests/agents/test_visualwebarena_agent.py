@@ -4,9 +4,7 @@ import tempfile
 import pytest
 from browsergym.experiments.loop import EnvArgs, ExpArgs
 
-from agentlab.agents.webarena_basic_agent.webarena_basic_agent import (
-    WebArenaBasicAgentArgs,
-)
+from agentlab.agents.visualwebarena.agent import VisualWebArenaAgentArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 
@@ -24,7 +22,7 @@ def test_agent():
 
         exp_args = [
             ExpArgs(
-                agent_args=WebArenaBasicAgentArgs(
+                agent_args=VisualWebArenaAgentArgs(
                     temperature=0.1,
                     chat_model_args=chat_model_args,
                 ),
@@ -32,7 +30,7 @@ def test_agent():
                 logging_level=logging.INFO,
             ),
             ExpArgs(
-                agent_args=WebArenaBasicAgentArgs(
+                agent_args=VisualWebArenaAgentArgs(
                     temperature=0.0,
                     chat_model_args=chat_model_args,
                 ),
