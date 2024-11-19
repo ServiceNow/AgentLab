@@ -260,7 +260,7 @@ def fit_tokens(
             )
             prompt_str = "\n".join([p["text"] for p in prompt if p["type"] == "text"])
         elif isinstance(prompt, BaseMessage):
-            prompt_str = str(prompt)
+            prompt_str = prompt.__str__(warn_if_image=False)
         else:
             raise ValueError(f"Unrecognized type for prompt: {type(prompt)}")
         n_token = count_tokens(prompt_str, model=model_name)
