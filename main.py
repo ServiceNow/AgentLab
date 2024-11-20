@@ -7,12 +7,13 @@ repository.
 """
 
 import logging
+
 from agentlab.agents.generic_agent import (
+    AGENT_LLAMA3_70B,
+    AGENT_LLAMA31_70B,
     RANDOM_SEARCH_AGENT,
     AGENT_4o,
     AGENT_4o_MINI,
-    AGENT_LLAMA3_70B,
-    AGENT_LLAMA31_70B,
 )
 from agentlab.experiments.study import Study
 
