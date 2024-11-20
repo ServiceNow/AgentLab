@@ -6,6 +6,7 @@ from io import BytesIO
 from logging import warning
 from pathlib import Path
 
+from finetuning.data import data_collection_library
 import gradio as gr
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -1139,7 +1140,8 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
 
 
 def main():
-    run_gradio(RESULTS_DIR)
+    # run_gradio(RESULTS_DIR)
+    run_gradio(data_collection_library.WORKARENA_V1_TRACES_PATHS[0])
 
 
 if __name__ == "__main__":

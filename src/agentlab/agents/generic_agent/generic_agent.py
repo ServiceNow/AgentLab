@@ -1,3 +1,5 @@
+import logging
+import re
 from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
@@ -8,6 +10,9 @@ from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
 from agentlab.llm.llm_utils import ParseError, retry
+from agentlab.agents.utils import openai_monitored_agent
+from agentlab.llm.chat_api import BaseModelArgs
+from agentlab.llm.llm_utils import RetryError, retry_raise, ParseError
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
@@ -260,3 +265,128 @@ def get_action_post_hoc(agent: GenericAgent, obs: dict, ans_dict: dict):
         output += f"\n<action>\n{action}\n</action>"
 
     return system_prompt, instruction_prompt, output
+
+
+def get_action_post_hoc(agent: GenericAgent, step_info):
+    """
+    Get the action post-hoc for the agent.
+
+    This function is used to get the action after the agent has already been run.
+    Its goal is to recreate the prompt and the output of the agent a posteriori.
+    The purpose is to build datasets for training the agents.
+
+    Args:
+        agent (GenericAgent): The agent for which the action is being determined.
+        obs (dict): The observation dictionary to append to the agent's history.
+        ans_dict (dict): The answer dictionary containing the plan, step, memory, think, and action.
+
+    Returns:
+        Tuple[str, str]: The complete prompt used for the agent and the reconstructed output based on the answer dictionary.
+    """
+    system_prompt = dp.SystemPrompt().prompt
+
+    agent.obs_history.append(step_info.obs)
+
+    main_prompt = MainPrompt(
+        action_set=agent.action_set,
+        obs_history=agent.obs_history,
+        actions=agent.actions,
+        memories=agent.memories,
+        thoughts=agent.thoughts,
+        previous_plan=agent.plan,
+        step=agent.plan_step,
+        flags=agent.flags,
+    )
+
+    max_prompt_tokens, max_trunc_itr = agent._get_maxes()
+
+    fit_function = partial(
+        dp.fit_tokens,
+        max_prompt_tokens=max_prompt_tokens,
+        model_name=agent.chat_model_args.model_name,
+        max_iterations=max_trunc_itr,
+    )
+
+    instruction_prompt = fit_function(shrinkable=main_prompt)
+
+    if isinstance(instruction_prompt, list):
+        # NOTE: this is when we have images
+        instruction_prompt = instruction_prompt[0]["text"]
+
+    def parser(text):
+        try:
+            ans_dict = main_prompt._parse_answer(text)
+        except ParseError as e:
+            # these parse errors will be caught by the retry function and
+            # the chat_llm will have a chance to recover
+            return None, False, str(e)
+        return ans_dict, True, ""
+
+    og_agent_output = step_info.agent_info["chat_messages"][-1].content
+    if og_agent_output.startswith("assistant\n"):
+        og_agent_output = og_agent_output[10:]
+
+    ans_dict = parser(og_agent_output)[0]
+
+    # self.plan = ans_dict.get("plan", self.plan)
+    # self.plan_step = ans_dict.get("step", self.plan_step)
+    # self.actions.append(ans_dict["action"])
+    # self.memories.append(ans_dict.get("memory", None))
+    # self.thoughts.append(ans_dict.get("think", None))
+
+    agent_output = ""
+
+    # TODO: validate this
+    thought = ans_dict.get("think", None)
+    agent.thoughts.append(thought)
+    if thought is not None:
+        agent_output += f"\n<think>\n{thought}\n</think>\n"
+
+    agent.plan = ans_dict.get("plan", agent.plan)
+    if agent.plan != "No plan yet":
+        agent_output += f"\n<plan>\n{agent.plan}\n</plan>\n"
+
+    agent.plan_step = ans_dict.get("step", agent.plan_step)
+    if agent.plan_step != -1:
+        agent_output += f"\n<step>{agent.plan_step}</step>\n"
+
+    memory = ans_dict.get("memory", None)
+    agent.memories.append(memory)
+    if memory is not None:
+        agent_output += f"\n<memory>\n{memory}\n</memory>\n"
+
+    action = step_info.action
+    agent.actions.append(action)
+    if action is not None:
+        agent_output += f"\n<action>\n{action}\n</action>"
+
+    def find_bid(string):
+        # Try to find 'a' followed by digits within single or double quotes
+        match = re.search(r"[\"'](a\d+)[\"']", string)
+
+        # If not found, search digits within single or double quotes
+        if not match:
+            match = re.search(r"[\"'](\d+)[\"']", string)
+
+        # Return the matched pattern or None if no match found
+        if match:
+            return match.group(1)  # Return the match inside the quotes
+        else:
+            return None
+
+    # TODO: finish this
+    bid = find_bid(action)
+    if bid is not None:
+        if bid not in instruction_prompt:
+            logging.info("Bid is not in the instruction prompt.")
+            return "missing_bid"
+
+    # NOTE: keep in mind the original agent output can be more verbose
+    if agent_output not in og_agent_output:
+        logging.info("Agent output does exactly not match the last chat message.")
+        if not set(agent_output.split()).issubset(set(og_agent_output.split())):
+            logging.info("Agent output does not match the last chat message.")
+            return "action_output_mismatch"
+
+    # TODO: make sure the bid is in the prompt
+    return (system_prompt, instruction_prompt, agent_output)

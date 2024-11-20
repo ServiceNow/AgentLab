@@ -60,7 +60,9 @@ def run_experiments(
             from joblib import Parallel, delayed
 
             Parallel(n_jobs=n_jobs, prefer="processes")(
-                delayed(exp_args.run)() for exp_args in exp_args_list
+                # delayed(exp_args.run)() for exp_args in exp_args_list
+                delayed(wait_and_run)(exp_arg, wait_func)
+                for exp_arg, wait_func in zip(exp_args_list, wait_funcs)
             )
 
         elif parallel_backend == "dask":
@@ -69,8 +71,9 @@ def run_experiments(
             with make_dask_client(n_worker=n_jobs):
                 execute_task_graph(exp_args_list)
         elif parallel_backend == "sequential":
-            for exp_args in exp_args_list:
-                exp_args.run()
+            for exp_args, wait_func in zip(exp_args_list, wait_funcs):
+                wait_and_run(exp_args, wait_func)
+                # exp_args.run()
         else:
             raise ValueError(f"Unknown parallel_backend: {parallel_backend}")
     finally:
@@ -122,7 +125,11 @@ def _yield_incomplete_experiments(exp_root, relaunch_mode="incomplete_only"):
             summary_info = exp_result.summary_info
 
         except FileNotFoundError:
-            yield exp_result.exp_args
+            # yield exp_result.exp_args
+            try:
+                yield exp_result.exp_args
+            except Exception as e:
+                logging.error(f"Error with exp_result.exp_args: {e}")
             continue
 
         if relaunch_mode == "incomplete_only":
