@@ -1,9 +1,9 @@
 import base64
 import importlib.resources
 import io
-import re
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
+from functools import partial
 from typing import Any, Literal
 
 import numpy as np
@@ -13,18 +13,18 @@ from browsergym.experiments import Agent, AgentInfo
 from browsergym.experiments.benchmark import Benchmark, HighLevelActionSetArgs
 from browsergym.utils.obs import overlay_som
 
-from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.base_api import AbstractChatModel
 from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import ParseError, extract_code_blocks, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
+from ..agent_args import AgentArgs
 from . import few_shots
 from .prompts import TEMPLATES
 
-VisualWebArenaObservationType = Literal["axtree", "axtree_som", "axtree_screenshot"]
 FEW_SHOT_FILES = importlib.resources.files(few_shots)
+VisualWebArenaObservationType = Literal["axtree", "axtree_som", "axtree_screenshot"]
 
 
 def image_data_to_uri(
@@ -51,7 +51,7 @@ def image_data_to_uri(
 
 @dataclass
 class VisualWebArenaAgentArgs(AgentArgs):
-    agent_name: str = "WebArenaAgent"
+    agent_name: str = "VisualWebArenaAgent"
     temperature: float = 0.1
     chat_model_args: BaseModelArgs = None
     action_set_args: HighLevelActionSetArgs = None
@@ -60,7 +60,7 @@ class VisualWebArenaAgentArgs(AgentArgs):
 
     def __post_init__(self):
         self.agent_name = (
-            f"WebArenaAgent-{self.observation_type}-{self.chat_model_args.model_name}".replace(
+            f"{self.agent_name}-{self.observation_type}-{self.chat_model_args.model_name}".replace(
                 "/", "_"
             )
         )
@@ -273,17 +273,39 @@ OBJECTIVE:
         )
 
 
-AGENT_4o_MINI = VisualWebArenaAgentArgs(
+# A WebArena agent is a VisualWebArena agent with only axtree observation
+WebArenaAgent = partial(
+    VisualWebArenaAgentArgs,
+    agent_name="WebArenaAgent",
+    observation_type="axtree",
+)
+
+WA_AGENT_4O_MINI = WebArenaAgent(
     temperature=0.1,
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
 )
 
-AGENT_4o = VisualWebArenaAgentArgs(
+WA_AGENT_4O = WebArenaAgent(
+    temperature=0.1,
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
+)
+
+WA_AGENT_SONNET = WebArenaAgent(
+    temperature=0.1,
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
+)
+
+VWA_AGENT_4O_MINI = VisualWebArenaAgentArgs(
+    temperature=0.1,
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
+)
+
+VWA_AGENT_4O = VisualWebArenaAgentArgs(
     temperature=0.1,
     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-2024-08-06"],
 )
 
-AGENT_SONNET = VisualWebArenaAgentArgs(
+VWA_AGENT_SONNET = VisualWebArenaAgentArgs(
     temperature=0.1,
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
 )
