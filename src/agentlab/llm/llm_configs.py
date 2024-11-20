@@ -70,6 +70,13 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=40_000,
         max_new_tokens=4_000,
     ),
+    "azure/gpt-4o-mini-2024-07-18": AzureModelArgs(
+        model_name="gpt-4o-mini",
+        deployment_name="gpt-4o-mini-2024-07-18",
+        max_total_tokens=16_384,
+        max_input_tokens=15_000,
+        max_new_tokens=1_000,
+    ),
     "azure/gpt-4o-2024-08-06": AzureModelArgs(
         model_name="gpt-4o",
         deployment_name="gpt-4o-2024-08-06",
