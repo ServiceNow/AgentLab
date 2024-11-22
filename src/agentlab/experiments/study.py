@@ -35,24 +35,19 @@ def make_study(
             The agent configuration(s) to run. *IMPORTANT*: these objects will be pickled and
             unpickled.  Make sure they are imported from a package that is accessible from
             PYTHONPATH. Otherwise, it won't load in agentlab-xray.
-
         benchmark: bgym.Benchmark | str
             The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
-
         logging_level_stdout: int
             The logging level for the stdout of the main script. Each job will have its own logging
             level that will save into file and can be seen in agentlab-xray.
-
         suffix: str
             A suffix to add to the study name. This can be useful to keep track of your experiments.
             By default the study name contains agent name, benchmark name and date.
-
         comment: str
             Extra comments from the authors of this study to be stored in the reproducibility
             information. Leave any extra information that can explain why results could be different
             than expected.
-
         ignore_dependencies: bool
             If True, ignore the dependencies of the tasks in the benchmark. *Use with caution.* So
             far, only WebArena and VisualWebArena have dependencies between tasks to minimize the
