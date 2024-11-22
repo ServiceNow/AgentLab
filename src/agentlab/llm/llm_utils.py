@@ -329,14 +329,18 @@ class BaseMessage(dict):
         self["role"] = role
         self["content"] = deepcopy(content)
 
-    def __str__(self) -> str:
+    def __str__(self, no_warning=False) -> str:
         if isinstance(self["content"], str):
             return self["content"]
         if not all(elem["type"] == "text" for elem in self["content"]):
-            logging.warning(
-                "The content of the message has images, which are not displayed in the string representation."
-            )
+            if not no_warning:
+                logging.warning(
+                    "The content of the message has images, which are not displayed in the string representation."
+                )
         return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
+
+    def get_text(self):
+        return str(self, no_warning=True)
 
     def add_content(self, type: str, content: Any):
         if isinstance(self["content"], str):
