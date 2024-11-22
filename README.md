@@ -5,7 +5,7 @@
 /> </a>
 
 &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🎯 Benchmarks](#🎯-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🎯 Benchmarks](#supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🛠️ Setup](#🛠️-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#🚀-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
