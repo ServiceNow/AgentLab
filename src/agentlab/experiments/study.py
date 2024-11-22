@@ -3,6 +3,7 @@ import gzip
 import logging
 import pickle
 import uuid
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -15,11 +16,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import (
-    find_incomplete,
-    non_dummy_count,
-    run_experiments,
-)
+from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 
 
 logger = logging.getLogger(__name__)
@@ -541,7 +538,7 @@ def _agents_on_benchmark(
             The logging level for individual jobs.
 
     Returns:
-        study: Study
+        list[ExpArgs]: The list of experiments to run.
     """
 
     if not isinstance(agents, (list, tuple)):

@@ -8,8 +8,7 @@ import re
 import time
 from copy import deepcopy
 from functools import cache
-from typing import TYPE_CHECKING
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
 import numpy as np
@@ -248,10 +247,10 @@ class ParseError(Exception):
 
 
 def extract_code_blocks(text) -> list[tuple[str, str]]:
-    pattern = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+    pattern = re.compile(r"```(\w*\n)?(.*?)```", re.DOTALL)
 
     matches = pattern.findall(text)
-    return [(match[0], match[1].strip()) for match in matches]
+    return [(match[0].strip(), match[1].strip()) for match in matches]
 
 
 def parse_html_tags_raise(text, keys=(), optional_keys=(), merge_multiple=False):
@@ -329,14 +328,16 @@ class BaseMessage(dict):
         self["role"] = role
         self["content"] = deepcopy(content)
 
-    def __str__(self, no_warning=False) -> str:
+    def __str__(self, warn_if_image=False) -> str:
         if isinstance(self["content"], str):
             return self["content"]
         if not all(elem["type"] == "text" for elem in self["content"]):
-            if not no_warning:
-                logging.warning(
-                    "The content of the message has images, which are not displayed in the string representation."
-                )
+            msg = "The content of the message has images, which are not displayed in the string representation."
+            if warn_if_image:
+                logging.warning(msg)
+            else:
+                logging.info(msg)
+
         return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
 
     def get_text(self):
@@ -360,7 +361,7 @@ class BaseMessage(dict):
         if detail:
             self.add_content("image_url", {"url": image_url, "detail": detail})
         else:
-            self.add_content("image_url", image_url)
+            self.add_content("image_url", {"url": image_url})
 
     def to_markdown(self):
         if isinstance(self["content"], str):

@@ -231,12 +231,14 @@ Another block of code:
 ```javascript
 console.log("Hello, world!");
 ```
+An inline code block ```click()```
 """
 
     expected_output = [
         ("python", 'def hello_world():\n    print("Hello, world!")'),
         ("", "More code without a language."),
         ("javascript", 'console.log("Hello, world!");'),
+        ("", "click()"),
     ]
 
     assert llm_utils.extract_code_blocks(text) == expected_output

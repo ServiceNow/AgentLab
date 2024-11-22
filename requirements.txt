@@ -22,3 +22,4 @@ requests
 matplotlib
 ray[default]
 python-slugify
+pillow
