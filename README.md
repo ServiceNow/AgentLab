@@ -214,10 +214,10 @@ agentlab/agents/ with the name of your agent.
 Several factors can influence reproducibility of results in the context of evaluating agents on
 dynamic benchmarks.
 
-### Factors affecting roproducibility
+### Factors affecting reproducibility
 * **Software version**: Different version of Playwright or any package in the software stack could
   influence the behavior of the benchmark or the agent.
-* **API based LLMs silently changing**: Even for a fixed version, a LLM may be updated e.g. to
+* **API based LLMs silently changing**: Even for a fixed version, an LLM may be updated e.g. to
   incorporate latest web knowledge.
 * **Live websites**:
   * WorkArena: The demo instance is mostly fixed in time to a specific version but ServiceNow
