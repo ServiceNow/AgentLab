@@ -16,7 +16,6 @@ from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp
 from IPython.display import display
 from tqdm import tqdm
 
-
 from agentlab.analyze.error_categorization import (
     ERR_CLASS_MAP,
     is_critical_server_error,
@@ -83,9 +82,7 @@ def set_index_from_variables(
         index_black_list: List of wildard patterns to match variables that
             should be excluded from the index.
         task_key: The key to use as the first level of the index.
-        force_at_leaste_one_variable: If True, force at least one variable in the
-            index. If no variable is found, the index will be set to
-            task_key + "agent.agent_name".
+        add_agent_and_benchmark: If True, add agent.agent_name and env.benchmark
     """
     df.reset_index(inplace=True)
     constants, variables, _ = get_constants_and_variables(df)
@@ -141,6 +138,7 @@ def load_result_df(
             should be included in the index.
         index_black_list: List of wildard patterns to match variables that
             should be excluded from the index.
+        remove_args_suffix: If True, remove the _args suffix from the columns
 
     Returns:
         pd.DataFrame: The result dataframe
@@ -777,17 +775,13 @@ def report_different_errors(sub_df):
 
 
 def _benchmark_from_task_name(task_name: str):
-    """Extract the benchmark from the task name.
-    TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
-    """
+    """Extract the benchmark from the task name."""
+    # TODO should be more robost, e.g. handle workarna.L1, workarena.L2, etc.
     return task_name.split(".")[0]
 
 
 def summarize_study(result_df: pd.DataFrame) -> pd.DataFrame:
-    """Create a summary of the study.
-
-    Similar to global report, but handles single agent differently.
-    """
+    """Create a summary of the study. Similar to global report, but handles single agent differently."""
 
     levels = list(range(result_df.index.nlevels))
     return result_df.groupby(level=levels[1:]).apply(summarize)

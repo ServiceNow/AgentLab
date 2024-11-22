@@ -188,6 +188,12 @@ ACTION: {action}
         Replica of VisualWebArena agent
         https://github.com/web-arena-x/visualwebarena/blob/89f5af29305c3d1e9f97ce4421462060a70c9a03/agent/prompts/prompt_constructor.py#L211
         https://github.com/web-arena-x/visualwebarena/blob/89f5af29305c3d1e9f97ce4421462060a70c9a03/agent/prompts/prompt_constructor.py#L272
+
+        Args:
+            obs (Any): Observation from the environment
+
+        Returns:
+            tuple[str, dict]: Action and AgentInfo
         """
         user_messages = []
 

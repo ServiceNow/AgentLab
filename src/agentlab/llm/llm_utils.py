@@ -63,20 +63,15 @@ def retry(
         messages (list): the list of messages so far. This list will be modified with
             the new messages and the retry messages.
         n_retry (int): the maximum number of sequential retries.
-        parser (function): a function taking a message and retruning a parsed value,
+        parser (callable): a function taking a message and retruning a parsed value,
             or raising a ParseError
         log (bool): whether to log the retry messages.
-        min_retry_wait_time (float): the minimum wait time in seconds
-            after RateLimtError. will try to parse the wait time from the error
-            message.
-        rate_limit_max_wait_time (int): the maximum wait time in seconds
 
     Returns:
         dict: the parsed value, with a string at key "action".
 
     Raises:
-        RetryError: if the parser could not parse a valid value after n_retry retries.
-        RateLimitError: if the requests exceed the rate limit.
+        ParseError: if the parser could not parse the response after n_retry retries.
     """
     tries = 0
     while tries < n_retry:
