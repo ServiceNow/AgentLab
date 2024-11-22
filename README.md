@@ -9,11 +9,16 @@
 [🛠️ Setup](#🛠️-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#🚀-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
-[🔍 AgentXray](#🔍-agentxray) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🔍 Analyse Results](#🔍-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Make Your Own Agent](#implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
 [↻ Reproducibility](#↻-reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
 
-<video controls style="max-width: 800px;">
+[![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/agentlab?style=flat-square)](https://pypistats.org/packages/agentlab)
+[![GitHub star chart](https://img.shields.io/github/stars/ServiceNow/AgentLab?style=flat-square)](https://star-history.com/#ServiceNow/AgentLab)
+
+
+<video controls style="max-width: 700px;">
   <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
   Your browser does not support the video tag.
 </video>
@@ -23,11 +28,11 @@ AgentLab is a framework for developing and evaluating agents on a variety of
 [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 
 AgentLab Features:
-* Easy large scale parallel agent experiments using [ray](https://www.ray.io/)
-* Building blocks for making agents
-* Unified LLM api for OpenRouter, OpenAI, Azure, or self hosted using TGI.
+* Easy large scale parallel [agent experiments](#🚀-launch-experiments) using [ray](https://www.ray.io/)
+* Building blocks for making agents over BrowserGym
+* Unified LLM API for OpenRouter, OpenAI, Azure, or self hosted using TGI.
 * Prefered way for running benchmarks like WebArena
-* Various Reproducibility features
+* Various [reproducibility features](#reproducibility-features)
 * Unified LeaderBoard (soon)
 
 ## 🎯 Supported Benchmarks
@@ -131,8 +136,7 @@ experiments.
 ### Debugging
 
 For debugging, run experiments with `n_jobs=1` and use VSCode's debug mode. This allows you to pause
-execution at breakpoints. To prevent the debugger from stopping on errors while running multiple
-experiments in VSCode, set `enable_debug = False` in `ExpArgs`.
+execution at breakpoints.
 
 ### About Parallel Jobs
 
@@ -155,13 +159,27 @@ each agent. AgentLab currently does not support evaluations across multiple inst
 either create a quick script to handle this or submit a PR to AgentLab. For a smoother parallel
 experience, consider using benchmarks like WorkArena instead.
 
+## 🔍 Analyse Results
 
-## 🔍 AgentXray
-While your experiments are running, you can inspect the results using:
+### Loading Results
+
+The class [`ExpResult`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d99d9a3169d7b1fde79f909c55c9ba7/browsergym/experiments/src/browsergym/experiments/loop.py#L595) provides a lazy loader for all the information of a specific experiment. You can use [`yield_all_exp_results`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d99d9a3169d7b1fde79f909c55c9ba7/browsergym/experiments/src/browsergym/experiments/loop.py#L872) to recursivley find all results in a directory. Finally [`load_result_df`](https://github.com/ServiceNow/AgentLab/blob/be1998c5fad5bda47ba50497ec3899aae03e85ec/src/agentlab/analyze/inspect_results.py#L119C5-L119C19) gathers all the summary information in a single dataframe. See [`inspect_results.ipynb`](src/agentlab/analyze/inspect_results.ipynb) for example usage.
+
+```python
+from agentlab.analyze import inspect_results
+result_df = inspect_results.load_result_df("path/to/your/study")
+```
+
+
+### AgentXray
+Inspect the behaviour of your agent using xray. You can load previous or ongoing experiments. The refresh mechanism is currently a bit clunky, but you can refresh the page, refresh the experiment directory list and select again your experiment to see an updated version of your currently running experiments.
+
 
 ```bash
 agentlab-xray
 ```
+
+**⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
 
 
 <video controls style="max-width: 800px;">
