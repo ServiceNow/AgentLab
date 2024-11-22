@@ -5,13 +5,13 @@
 /> </a>
 
 &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🎯 Benchmarks](#supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🛠️ Setup](#setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Assistant](#ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🚀 Launch Experiments](#launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
-[🔍 Analyse Results](#analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Make Your Own Agent](#implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
-[↻ Reproducibility](#reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
+[🎯 Benchmarks](#-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🛠️ Setup](#-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
+[🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Make Your Own Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
+[↻ Reproducibility](#-reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
 
 [![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/agentlab?style=flat-square)](https://pypistats.org/packages/agentlab)
@@ -36,7 +36,7 @@ AgentLab Features:
 * Various [reproducibility features](#reproducibility-features)
 * Unified LeaderBoard (soon)
 
-## Supported Benchmarks
+## 🎯 Supported Benchmarks
 | Benchmark | Setup  <br> Link | # Task <br> Template| Seed  <br> Diversity | Max  <br> Step | Multi-tab | Hosted Method | BrowserGym <br> Leaderboard |
 |-----------|------------|---------|----------------|-----------|-----------|---------------|----------------------|
 | [WebArena](https://webarena.dev/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena/README.md) | 812 | None | 30 | yes | self hosted (docker) | soon |
@@ -49,7 +49,7 @@ AgentLab Features:
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
-## Setup agentlab
+## 🛠️ Setup agentlab
 
 ```bash
 pip install agentlab
@@ -80,7 +80,7 @@ export AZURE_OPENAI_ENDPOINT=<your endpoint> # if using azure models
 ```
 </details>
 
-## UI-Assistant 
+## 🤖 UI-Assistant 
 Use an assistant to work for you (at your own cost and risk).
 
 ```bash
@@ -93,7 +93,7 @@ Try your own agent:
 agentlab-assistant --agent_config="module.path.to.your.AgentArgs"
 ```
 
-## Launch experiments
+## 🚀 Launch experiments
 
 ```python
 # Import your agent configuration extending bgym.AgentArgs class
@@ -160,7 +160,7 @@ each agent. AgentLab currently does not support evaluations across multiple inst
 either create a quick script to handle this or submit a PR to AgentLab. For a smoother parallel
 experience, consider using benchmarks like WorkArena instead.
 
-## Analyse Results
+## 🔍 Analyse Results
 
 ### Loading Results
 
@@ -201,7 +201,7 @@ In the following order, select:
 Once this is selected, you can see the trace of your agent on the given task. Click on the profiling
 image to select a step and observe the action taken by the agent.
 
-## Implement a new Agent
+## 🤖 Implement a new Agent
 
 Get inspiration from the `MostBasicAgent` in
 [agentlab/agents/most_basic_agent/most_basic_agent.py](src/agentlab/agents/most_basic_agent/most_basic_agent.py).
@@ -211,7 +211,7 @@ For a better integration with the tools, make sure to implement most functions i
 If you think your agent should be included directly in AgenLab, let use know and it can be added in
 agentlab/agents/ with the name of your agent.  
 
-## Reproducibility
+## ↻ Reproducibility
 Several factors can influence reproducibility of results in the context of evaluating agents on
 dynamic benchmarks.
 
