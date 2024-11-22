@@ -1,174 +1,178 @@
 
 
-<a href="https://github.com/user-attachments/assets/fa71f769-6d7b-427a-978b-82aa13a6265f">
-  <img src="https://github.com/user-attachments/assets/fa71f769-6d7b-427a-978b-82aa13a6265f" width="1000" />
-</a>
+<a href="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d"> <img
+  src="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d" width="800"
+/> </a>
 
+&nbsp;&nbsp;|&nbsp;&nbsp; 
+[🎯 Benchmarks](#🎯-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🛠️ Setup](#🛠️-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Assistant](#ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🚀 Launch Experiments](#🚀-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
+[🔍 AgentXray](#🔍-agentxray) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Make Your Own Agent](#implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
+[↻ Reproducibility](#↻-reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
+
+<video controls style="max-width: 800px;">
+  <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 
 AgentLab is a framework for developing and evaluating agents on a variety of
-benchmarks supported by [BrowserGym](https://github.com/ServiceNow/BrowserGym).
-This includes:
-* [WebArena](https://webarena.dev/)
-* [WorkArena](https://github.com/ServiceNow/WorkArena) L1, L2, L3
-* [WebLinx](https://mcgill-nlp.github.io/weblinx/)
-* [VisualWebArena](https://github.com/web-arena-x/visualwebarena)
-* Assistant Bench
-* GAIA
-* Mind2Web-live (coming soon ...)
-* [MiniWoB](https://miniwob.farama.org/index.html)
+[benchmarks](#🎯-supported-benchmarks) supported by
+[BrowserGym](https://github.com/ServiceNow/BrowserGym).
 
 AgentLab Features:
 * Easy large scale parallel agent experiments using [ray](https://www.ray.io/)
 * Building blocks for making agents
-* Unified LLM api for OpenRouter, OpenAI, Azure, Self hosted using TGI.
+* Unified LLM api for OpenRouter, OpenAI, Azure, or self hosted using TGI.
 * Prefered way for running benchmarks like WebArena
 * Various Reproducibility features
-* Unified LeaderBoard
+* Unified LeaderBoard (soon)
 
-The framework enables the desing of rich hyperparameter spaces and the launch of
-parallel experiments using ablation studies or random searches. It also provides
-agent_xray, a visualization tool to inspect the results of the experiments using
-a custom gradio interface
-
-<a href="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d">
-  <img src="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d" width="250" />
-</a>
-
-## Install agentlab
-
-This repo is intended for testing and developing new agents, hence we clone and install using the `-e` flag.
+## 🎯 Supported Benchmarks
+| Benchmark | Setup  <br> Link | # Task <br> Template| Seed  <br> Diversity | Max  <br> Step | Multi-tab | Hosted Method | BrowserGym <br> Leaderboard |
+|-----------|------------|---------|----------------|-----------|-----------|---------------|----------------------|
+| [WebArena](https://webarena.dev/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena/README.md) | 812 | None | 30 | yes | self hosted (docker) | soon |
+| [WorkArena](https://github.com/ServiceNow/WorkArena) L1 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 33 | High | 30 | no | demo instance | soon |
+| [WorkArena](https://github.com/ServiceNow/WorkArena) L2 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
+| [WorkArena](https://github.com/ServiceNow/WorkArena) L3 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
+| [WebLinx](https://mcgill-nlp.github.io/weblinx/) | - | 31586 | None | 1 | no | self hosted (dataset) | soon |
+| [VisualWebArena](https://github.com/web-arena-x/visualwebarena) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/visualwebarena/README.md) | 910 | None | 30 | yes | self hosted (docker) | soon |
+| [Assistant Bench](https://assistantbench.github.io/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/assistantbench/README.md) | 214 | None | 30 | yes | live web | soon |
+| [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
+| [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
+| [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
+## 🛠️ Setup agentlab
 
 ```bash
-git clone git@github.com:ServiceNow/AgentLab.git
-pip install -e .
+pip install agentlab
 ```
 
-## Set Environment Variables
+Make sure to prepare the required benchmark according to instructions provided in the [setup
+column](#🎯-supported-benchmarks).
 
 ```bash
 export AGENTLAB_EXP_ROOT=<root directory of experiment results>  # defaults to $HOME/agentlab_results
 export OPENAI_API_KEY=<your openai api key> # if openai models are used
-export HUGGINGFACEHUB_API_TOKEN=<your huggingfacehub api token> # if huggingface models are used
 ```
 
-## Use an assistant to work for you (at your own cost and risk)
+<details>
+<summary>Setup OpenRouter API</summary>
+
+```bash
+export OPENROUTER_API_KEY=<your openrouter api key> # if openrouter models are used
+```
+</details>
+
+<details>
+<summary>Setup Azure API</summary>
+
+```bash
+export AZURE_OPENAI_API_KEY=<your azure api key> # if using azure models
+export AZURE_OPENAI_ENDPOINT=<your endpoint> # if using azure models
+```
+</details>
+
+## UI-Assistant 
+Use an assistant to work for you (at your own cost and risk).
+
 ```bash
 agentlab-assistant --start_url https://www.google.com
 ```
 
-## Prepare Benchmarks
-Depending on which benchmark you use, there are some prerequisites
-
-<details>
-<summary>MiniWoB</summary>
+Try your own agent: 
 
 ```bash
-export MINIWOB_URL="file://$HOME/dev/miniwob-plusplus/miniwob/html/miniwob/"
+agentlab-assistant --agent_config="module.path.to.your.AgentArgs"
 ```
-</details>
 
-<details>
+## 🚀 Launch experiments
 
-<summary>WorkArena</summary>
-
-See [detailed instructions on workarena github](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started)
-
-At a glance: 
-1) [Sign in](https://developer.servicenow.com/) and reqeuest a `washington` instance.
-2) Once the instance is ready, you should see `<your instance URL>` and `<your-instance-password>`
-3) Add these to your `.bashrc` (or `.zshrc`) and `source` it (note: make sure that
-  all variables are in single quotes unless you happen to have a password with a
-  single quote in it)
-    ```bash
-    export SNOW_INSTANCE_URL='https://<your-instance-number>.service-now.com/'
-    export SNOW_INSTANCE_UNAME='admin'
-    export SNOW_INSTANCE_PWD='<your-instance-password>'
-    ```
-4) finally run these commands:
-  
-    ```bash
-    pip install browsergym-workarena
-    playwright install
-    workarena-install
-    ```
-
-
-</details>
-
-<details>
-<summary>WebArena on AWS</summary>
-TODO
-</details>
-
-<details>
-<summary>WebArena on Azure</summary>
-TODO
-</details>
-
-
-
-
-
-## Launch experiments
-
-Create your agent or import an existing one:
 ```python
-from agentlab.agents.generic_agent.agent_configs import AGENT_4o
+# Import your agent configuration extending bgym.AgentArgs class
+# Make sure this object is imported from a module accessible in PYTHONPATH to properly unpickle
+from agentlab.agents.generic_agent import AGENT_4o_MINI 
+
+from agentlab.experiments.study import make_study
+
+study = make_study(
+    benchmark="miniwob",  # or "webarena", "workarnea_l1" ...
+    agent_args=[AGENT_4o_MINI],
+    comment="My first study",
+)
+
+study.run(n_jobs=5)
 ```
 
-Run the agent on a benchmark:
+Relaunching incomplete or errored tasks
+
 ```python
-study_name, exp_args_list = run_agents_on_benchmark(AGENT_4o, benchmark)
-study_dir = make_study_dir(RESULTS_DIR, study_name)
-run_experiments(n_jobs, exp_args_list, study_dir)
+from agentlab.experiments.study import Study
+study = Study.load("/path/to/your/study/dir")
+study.find_incomplete(include_errors=True)
+study.run()
 ```
 
-use [main.py](main.py) to launch experiments with a variety
-of options. This is like a lazy CLI that is actually more convenient than a CLI.
-Just comment and uncomment the lines you need or modify at will (but don't push
-to the repo).
-
-<details>
-
-<summary>Debugging</summary>
-
-For debugging, run experiments using `n_jobs=1` and use VSCode debug mode. This
-will allow you to stop on breakpoints. To prevent the debugger from stopping
-on errors when running multiple experiments directly in VSCode, set
-`enable_debug = False` in `ExpArgs` 
-</details>
+See [main.py](main.py) to launch experiments with a variety of options. This is like a lazy CLI that
+is actually more convenient. Just comment and uncomment the lines you need or modify at will (but
+don't push to the repo).
 
 
+### Job Timeouts
+
+The complexity of the wild web, Playwright, and asyncio can sometimes cause jobs to hang. This
+disables workers until the study is terminated and relaunched. If you are running jobs sequentially
+or with a small number of workers, this could halt your entire study until you manually kill and
+relaunch it. In the Ray parallel backend, we've implemented a system to automatically terminate jobs
+exceeding a specified timeout. This feature is particularly useful when task hanging limits your
+experiments. 
+
+### Debugging
+
+For debugging, run experiments with `n_jobs=1` and use VSCode's debug mode. This allows you to pause
+execution at breakpoints. To prevent the debugger from stopping on errors while running multiple
+experiments in VSCode, set `enable_debug = False` in `ExpArgs`.
+
+### About Parallel Jobs
+
+Running one agent on one task corresponds to a single job. Conducting ablation studies or random
+searches across hundreds of tasks with multiple seeds can generate more than 10,000 jobs. Efficient
+parallel execution is therefore critical. Agents typically wait for responses from the LLM server or
+updates from the web server. As a result, you can run 10–50 jobs in parallel on a single computer,
+depending on available RAM.
+
+⚠️ **Note for (Visual)WebArena**: These benchmarks have task dependencies designed to minimize
+"corrupting" the instance between tasks. For example, an agent on task 323 could alter the instance
+state, making task 201 impossible. To address this, the Ray backend accounts for task dependencies,
+enabling some degree of parallelism. On WebArena, you can disable dependencies to increase
+parallelism, but this might reduce performance by 1–2%.
+
+⚠️ **Instance Reset for (Visual)WebArena**: Before evaluating an agent, the instance is
+automatically reset, a process that takes about 5 minutes. When evaluating multiple agents, the
+`make_study` function returns a `SequentialStudies` object to ensure proper sequential evaluation of
+each agent. AgentLab currently does not support evaluations across multiple instances, but you could
+either create a quick script to handle this or submit a PR to AgentLab. For a smoother parallel
+experience, consider using benchmarks like WorkArena instead.
 
 
-
-<details>
-
-<summary>Parallel jobs</summary>
-
-Running one agent on one task correspond to one job. When conducting ablation
-studies or random searches on hundreds of tasks with multiple seeds, this can
-lead to more than 10000 jobs. It is thus crucial to execute them in parallel.
-The agent usually wait on the LLM server to return the results or the web server
-to update the page. Hence, you can run 10-50 jobs in parallel on a single
-computer depending on how much RAM is available.
-
-</details>
-
-## AgentXray
+## 🔍 AgentXray
 While your experiments are running, you can inspect the results using:
 
 ```bash
 agentlab-xray
 ```
 
-<a href="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d">
-  <img src="https://github.com/user-attachments/assets/20a91e7b-94ef-423d-9091-743eebb4733d" width="250" />
-</a>
 
-You will be able to select the recent experiments in the directory
-`AGENTLAB_EXP_ROOT` and visualize the results in a gradio interface.
+<video controls style="max-width: 800px;">
+  <source src="https://github.com/user-attachments/assets/06c4dac0-b78f-45b7-9405-003da4af6b37" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+
+You will be able to select the recent experiments in the directory `AGENTLAB_EXP_ROOT` and visualize
+the results in a gradio interface.
 
 In the following order, select:
 * The experiment you want to visualize
@@ -176,14 +180,52 @@ In the following order, select:
 * The task
 * And the seed
 
-Once this is selected, you can see the trace of your agent on the given task.
-Click on the profiling image to select a step and observe the action taken by the agent.
+Once this is selected, you can see the trace of your agent on the given task. Click on the profiling
+image to select a step and observe the action taken by the agent.
 
 ## Implement a new Agent
 
-Get inspiration from the `MostBasicAgent` in [agentlab/agents/most_basic_agent/most_basic_agent.py](src/agentlab/agents/most_basic_agent/most_basic_agent.py)
+Get inspiration from the `MostBasicAgent` in
+[agentlab/agents/most_basic_agent/most_basic_agent.py](src/agentlab/agents/most_basic_agent/most_basic_agent.py).
+For a better integration with the tools, make sure to implement most functions in the
+[AgentArgs](src/agentlab/agents/agent_args.py#L5) API and the extended `bgym.AbstractAgentArgs`.
 
-Create a new directory in agentlab/agents/ with the name of your agent. 
+If you think your agent should be included directly in AgenLab, let use know and it can be added in
+agentlab/agents/ with the name of your agent.  
+
+## ↻ Reproducibility
+Several factors can influence reproducibility of results in the context of evaluating agents on
+dynamic benchmarks.
+
+### Factors affecting roproducibility
+* **Software version**: Different version of Playwright or any package in the software stack could
+  influence the behavior of the benchmark or the agent.
+* **API based LLMs silently changing**: Even for a fixed version, a LLM may be updated e.g. to
+  incorporate latest web knowledge.
+* **Live websites**:
+  * WorkArena: The demo instance is mostly fixed in time to a specific version but ServiceNow
+    sometime push minor modifications.
+  * AssistantBench and GAIA: These rely on the agent navigating the open web. The experience may
+    change depending on which country or region, some websites might be in different languages by
+    default.
+* **Stochastic Agents**: Setting temperature of the LLM to 0 can reduce most stochasticity.
+* **Non deterministic tasks**: For a fixed seed, the changes should be minimal
+
+### Reproducibility Features
+* `Study` contains a dict of information about reproducibility, including benchmark version, package
+  version and commit hash
+* The `Study` class allows automatic upload of your results to
+  [`reproducibility_journal.csv`](reproducibility_journal.csv). This makes it easier to populate a
+  large amount of reference points. 
+* **Reproduced results in the leaderboard**. For agents that are repdocudibile, we encourage users
+  to try to reproduce the results and upload them to the leaderboard. There is a special column
+  containing information about all reproduced results of an agent on a benchmark.
+* **ReproducibilityAgent**: You can run this agent on an existing study and it will try to re-run
+  the same actions on the same task seeds. A vsiual diff of the two prompts will be displayed in the
+  AgentInfo HTML tab of AgentXray. You will be able to inspect on some tasks what kind of changes
+  between to two executions. **Note**: this is a beta feature and will need some adaptation for your
+  own agent.
+
 
 ## Misc
 

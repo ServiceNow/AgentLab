@@ -340,6 +340,9 @@ class BaseMessage(dict):
 
         return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
 
+    def get_text(self):
+        return str(self, no_warning=True)
+
     def add_content(self, type: str, content: Any):
         if isinstance(self["content"], str):
             text = self["content"]
