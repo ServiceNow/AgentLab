@@ -177,21 +177,12 @@ result_df = inspect_results.load_result_df("path/to/your/study")
 
 https://github.com/user-attachments/assets/06c4dac0-b78f-45b7-9405-003da4af6b37
 
-
-Inspect the behaviour of your agent using xray. You can load previous or ongoing experiments. The refresh mechanism is currently a bit clunky, but you can refresh the page, refresh the experiment directory list and select again your experiment to see an updated version of your currently running experiments.
-
-
+In a terminal, execute:
 ```bash
 agentlab-xray
 ```
 
-
-**⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
-
-
-
-
-You will be able to select the recent experiments in the directory `AGENTLAB_EXP_ROOT` and visualize
+You can load previous or ongoing experiments in the directory `AGENTLAB_EXP_ROOT` and visualize
 the results in a gradio interface.
 
 In the following order, select:
@@ -203,6 +194,10 @@ In the following order, select:
 Once this is selected, you can see the trace of your agent on the given task. Click on the profiling
 image to select a step and observe the action taken by the agent.
 
+
+**⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
+
+
 ## 🤖 Implement a new Agent
 
 Get inspiration from the `MostBasicAgent` in
@@ -210,7 +205,7 @@ Get inspiration from the `MostBasicAgent` in
 For a better integration with the tools, make sure to implement most functions in the
 [AgentArgs](src/agentlab/agents/agent_args.py#L5) API and the extended `bgym.AbstractAgentArgs`.
 
-If you think your agent should be included directly in AgenLab, let use know and it can be added in
+If you think your agent should be included directly in AgenLab, let us know and it can be added in
 agentlab/agents/ with the name of your agent.  
 
 ## ↻ Reproducibility
