@@ -44,7 +44,7 @@ AgentLab Features:
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L3 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
 | [WebLinx](https://mcgill-nlp.github.io/weblinx/) | - | 31586 | None | 1 | no | self hosted (dataset) | soon |
 | [VisualWebArena](https://github.com/web-arena-x/visualwebarena) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/visualwebarena/README.md) | 910 | None | 30 | yes | self hosted (docker) | soon |
-| [Assistant Bench](https://assistantbench.github.io/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/assistantbench/README.md) | 214 | None | 30 | yes | live web | soon |
+| [AssistantBench](https://assistantbench.github.io/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/assistantbench/README.md) | 214 | None | 30 | yes | live web | soon |
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
