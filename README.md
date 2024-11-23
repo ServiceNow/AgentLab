@@ -6,7 +6,7 @@
 
 &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🎯 Benchmarks](#-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🛠️ Setup](#-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🛠️ Setup](#%EF%B8%8F-setup) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
 [🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
@@ -49,7 +49,7 @@ AgentLab Features:
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
-## 🛠️ Setup agentlab
+## 🛠️ Setup
 
 ```bash
 pip install agentlab
