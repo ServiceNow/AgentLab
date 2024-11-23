@@ -177,12 +177,20 @@ result_df = inspect_results.load_result_df("path/to/your/study")
 
 
 ### AgentXray
+
+
+<video controls style="max-width: 700px;">
+  <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 Inspect the behaviour of your agent using xray. You can load previous or ongoing experiments. The refresh mechanism is currently a bit clunky, but you can refresh the page, refresh the experiment directory list and select again your experiment to see an updated version of your currently running experiments.
 
 
 ```bash
 agentlab-xray
 ```
+
 
 **⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
 
