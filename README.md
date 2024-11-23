@@ -20,10 +20,7 @@
 
 
 
-<video controls style="max-width: 700px;">
-  <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85
 
 AgentLab is a framework for developing and evaluating agents on a variety of
 [benchmarks](#-supported-benchmarks) supported by
