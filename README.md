@@ -235,7 +235,7 @@ dynamic benchmarks.
 * **Reproduced results in the leaderboard**. For agents that are repdocudibile, we encourage users
   to try to reproduce the results and upload them to the leaderboard. There is a special column
   containing information about all reproduced results of an agent on a benchmark.
-* **ReproducibilityAgent**: You can run this agent on an existing study and it will try to re-run
+* **ReproducibilityAgent**: [You can run this agent](src/agentlab/agents/generic_agent/reproducibility_agent.py) on an existing study and it will try to re-run
   the same actions on the same task seeds. A vsiual diff of the two prompts will be displayed in the
   AgentInfo HTML tab of AgentXray. You will be able to inspect on some tasks what kind of changes
   between to two executions. **Note**: this is a beta feature and will need some adaptation for your
