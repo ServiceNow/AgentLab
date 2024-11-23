@@ -2,6 +2,13 @@
 
 ![AgentLab Banner (5)](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
 
+[![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
+[![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/agentlab?style=flat-square)](https://pypistats.org/packages/agentlab)
+[![GitHub star chart](https://img.shields.io/github/stars/ServiceNow/AgentLab?style=flat-square)](https://star-history.com/#ServiceNow/AgentLab)
+[![Code Format](https://github.com/ServiceNow/AgentLab/actions/workflows/code_format.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/code_format.yml)
+[![Tests](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml)
+
 
 [🛠️ Setup](#-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
@@ -11,9 +18,6 @@
 [🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
 [↻ Reproducibility](#-reproducibility) 
 
-[![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/agentlab?style=flat-square)](https://pypistats.org/packages/agentlab)
-[![GitHub star chart](https://img.shields.io/github/stars/ServiceNow/AgentLab?style=flat-square)](https://star-history.com/#ServiceNow/AgentLab)
 
 
 <video controls style="max-width: 700px;">
