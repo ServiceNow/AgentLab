@@ -10,7 +10,7 @@
 [![Tests](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml)
 
 
-[🛠️ Setup](#-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🛠️ Setup](#%EF%B8%8F-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
 [🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
