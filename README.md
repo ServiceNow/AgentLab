@@ -1,27 +1,20 @@
 
 
-<a href="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d"> <img
-  src="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d" width="800"
-/> </a>
+![AgentLab Banner (5)](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
 
-&nbsp;&nbsp;|&nbsp;&nbsp; 
-[🎯 Benchmarks](#-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
+
 [🛠️ Setup](#-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
 [🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Make Your Own Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
-[↻ Reproducibility](#-reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
+&nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
+[↻ Reproducibility](#-reproducibility) 
 
 [![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/agentlab?style=flat-square)](https://pypistats.org/packages/agentlab)
 [![GitHub star chart](https://img.shields.io/github/stars/ServiceNow/AgentLab?style=flat-square)](https://star-history.com/#ServiceNow/AgentLab)
 
-
-<video controls style="max-width: 700px;">
-  <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
 <video controls style="max-width: 700px;">
   <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
