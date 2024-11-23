@@ -29,11 +29,11 @@
 </video>
 
 AgentLab is a framework for developing and evaluating agents on a variety of
-[benchmarks](#🎯-supported-benchmarks) supported by
+[benchmarks](#-supported-benchmarks) supported by
 [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 
 AgentLab Features:
-* Easy large scale parallel [agent experiments](#🚀-launch-experiments) using [ray](https://www.ray.io/)
+* Easy large scale parallel [agent experiments](#-launch-experiments) using [ray](https://www.ray.io/)
 * Building blocks for making agents over BrowserGym
 * Unified LLM API for OpenRouter, OpenAI, Azure, or self hosted using TGI.
 * Prefered way for running benchmarks like WebArena
@@ -41,6 +41,7 @@ AgentLab Features:
 * Unified LeaderBoard (soon)
 
 ## 🎯 Supported Benchmarks
+
 | Benchmark | Setup  <br> Link | # Task <br> Template| Seed  <br> Diversity | Max  <br> Step | Multi-tab | Hosted Method | BrowserGym <br> Leaderboard |
 |-----------|------------|---------|----------------|-----------|-----------|---------------|----------------------|
 | [WebArena](https://webarena.dev/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena/README.md) | 812 | None | 30 | yes | self hosted (docker) | soon |
@@ -53,14 +54,15 @@ AgentLab Features:
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
-## 🛠️ Setup agentlab
+
+## 🛠️ Setup AgentLab
 
 ```bash
 pip install agentlab
 ```
 
 Make sure to prepare the required benchmark according to instructions provided in the [setup
-column](#🎯-supported-benchmarks).
+column](#-supported-benchmarks).
 
 ```bash
 export AGENTLAB_EXP_ROOT=<root directory of experiment results>  # defaults to $HOME/agentlab_results
@@ -85,6 +87,7 @@ export AZURE_OPENAI_ENDPOINT=<your endpoint> # if using azure models
 </details>
 
 ## 🤖 UI-Assistant 
+
 Use an assistant to work for you (at your own cost and risk).
 
 ```bash
