@@ -6,7 +6,7 @@
 
 &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🎯 Benchmarks](#-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🛠️ Setup](#-setup) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🛠️ Setup](#%EF%B8%8F-setup) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
 [🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
