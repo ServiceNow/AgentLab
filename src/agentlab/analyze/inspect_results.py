@@ -16,7 +16,6 @@ from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp
 from IPython.display import display
 from tqdm import tqdm
 
-
 from agentlab.analyze.error_categorization import (
     ERR_CLASS_MAP,
     is_critical_server_error,
