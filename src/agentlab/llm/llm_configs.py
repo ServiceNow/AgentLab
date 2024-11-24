@@ -101,6 +101,14 @@ CHAT_MODEL_ARGS_DICT = {
         backend="huggingface",
         **default_oss_llms_args,
     ),
+    "vllm/meta-llama/Meta-Llama-3-8B-Instruct": SelfHostedModelArgs(
+        model_name="meta-llama/Meta-Llama-3-8B-Instruct",
+        max_total_tokens=16_384,
+        max_input_tokens=16_384 - 512,
+        max_new_tokens=512,
+        backend="vllm",
+        **default_oss_llms_args,
+    ),
     "mistralai/Mixtral-8x22B-Instruct-v0.1": SelfHostedModelArgs(
         model_name="mistralai/Mixtral-8x22B-Instruct-v0.1",
         max_total_tokens=32_000,

@@ -1,5 +1,3 @@
-import logging
-import re
 from dataclasses import asdict, dataclass
 from functools import partial
 from warnings import warn
@@ -10,9 +8,6 @@ from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
 from agentlab.llm.llm_utils import ParseError, retry
-from agentlab.agents.utils import openai_monitored_agent
-from agentlab.llm.chat_api import BaseModelArgs
-from agentlab.llm.llm_utils import RetryError, retry_raise, ParseError
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt

@@ -13,6 +13,10 @@ from openai import AzureOpenAI, OpenAI
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.huggingface_utils import HFBaseChatModel
+from agentlab.llm.langchain_utils import (
+    HuggingFaceAPIChatModel,
+    HuggingFaceURLChatModel,
+)
 
 
 def make_system_message(content: str) -> dict:
@@ -130,6 +134,14 @@ class SelfHostedModelArgs(BaseModelArgs):
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
                 n_retry_server=self.n_retry_server,
+            )
+        elif self.backend == "vllm":
+            return VLLMChatModel(
+                model_name=self.model_name,
+                temperature=self.temperature,
+                max_tokens=self.max_new_tokens,
+                max_retry=4,
+                min_retry_wait_time=60,
             )
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
@@ -296,6 +308,30 @@ class ChatModel(AbstractChatModel):
         }
 
 
+class VLLMChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+    ):
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retry=max_retry,
+            min_retry_wait_time=min_retry_wait_time,
+            api_key_env_var="VLLM_API_KEY",
+            client_class=OpenAI,
+            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            pricing_func=None,
+        )
+
+
 class OpenAIChatModel(ChatModel):
     def __init__(
         self,
@@ -399,4 +435,17 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
         client = InferenceClient(model=model_url, token=token)
         self.llm = partial(
             client.text_generation, temperature=temperature, max_new_tokens=max_new_tokens
+        )
+
+
+@dataclass
+class HuggingFaceModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with a HuggingFace model."""
+
+    def make_model(self):
+        return HuggingFaceAPIChatModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_new_tokens=self.max_new_tokens,
+            n_retry_server=4,
         )
