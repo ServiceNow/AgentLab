@@ -5,8 +5,8 @@ if __name__ == "__main__":
     models = OpenAI().models.list()
     df = pd.DataFrame([dict(model) for model in models.data])
 
-    # Filter GPT models
-    df = df[df["id"].str.contains("gpt")]
+    # Filter GPT models or o1 models
+    df = df[df["id"].str.contains("gpt") | df["id"].str.contains("o1")]
 
     # Convert Unix timestamps to dates (YYYY-MM-DD) and remove time
     df["created"] = pd.to_datetime(df["created"], unit="s").dt.date

@@ -11,7 +11,7 @@ from agentlab.experiments.exp_utils import RESULTS_DIR
 
 if __name__ == "__main__":
 
-    # old_study = "2024-06-03_13-53-50_final_run_workarena_L1_llama3-70b"
+    # replace by your study name
     old_study = "2024-06-03_12-28-51_final_run_miniwob_llama3-70b"
 
     study = reproduce_study(RESULTS_DIR / old_study)

@@ -1,12 +1,10 @@
 import fnmatch
-import io
 import json
 import random
 import re
 import traceback
 import warnings
 from collections import defaultdict
-from datetime import datetime
 from logging import warn
 from pathlib import Path
 
@@ -16,24 +14,13 @@ from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp
 from IPython.display import display
 from tqdm import tqdm
 
-from agentlab.analyze.error_categorization import (
-    ERR_CLASS_MAP,
-    is_critical_server_error,
-    is_minor_server_error,
-)
 from agentlab.experiments.exp_utils import RESULTS_DIR
-from agentlab.utils.bootstrap import bootstrap_matrix, convert_df_to_array
 
 # TODO find a more portable way to code set_task_category_as_index at least
 # handle dynamic imports. We don't want to always import workarena
 # from browsergym.workarena import TASK_CATEGORY_MAP
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
-
-try:
-    import pyperclip
-except ImportError:
-    pyperclip = None
 
 pd.set_option("display.multi_sparse", False)
 
@@ -224,18 +211,6 @@ def report_constant_and_variables(df, show_stack_traces=True):
             print(f"        ...\n")
 
 
-def get_bootstrap(df, metric, reduce_fn=np.nanmean, n_bootstrap=100, group_by=TASK_KEY, prior=0.5):
-    """Get the stratified bootstrap mean and std for the given metric."""
-    grouped_df = df.reset_index(inplace=False).groupby(group_by)
-    array = convert_df_to_array(grouped_df, metric=metric, threshold=0.7)
-    if prior is not None:
-        prior = prior * np.ones((len(array), 1))
-        array = np.concatenate([array, prior], axis=1)
-
-    bootstrapped_values = bootstrap_matrix(array, n_bootstrap=n_bootstrap, reduce_fn=reduce_fn)
-    return np.nanmean(bootstrapped_values), np.nanstd(bootstrapped_values)
-
-
 def get_std_err(df, metric):
     """Get the standard error for a binary metric."""
     # extract non missing values
@@ -262,7 +237,7 @@ def get_sample_std_err(df, metric):
     return mean, std_err
 
 
-def summarize(sub_df, use_bootstrap=False):
+def summarize(sub_df):
     if not "cum_reward" in sub_df:
         record = dict(
             avg_reward=np.nan,
@@ -279,10 +254,7 @@ def summarize(sub_df, use_bootstrap=False):
         if n_completed == 0:
             return None
 
-        if use_bootstrap:
-            _mean_reward, std_reward = get_bootstrap(sub_df, "cum_reward")
-        else:
-            _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
+        _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
 
         # sanity check, if there is an error the reward should be zero
         assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
@@ -464,21 +436,6 @@ def _rename_bool_flags(report: pd.DataFrame, true_str="✓", false_str="-"):
             [[map_bool(i) for i in level] for level in report.index.levels]
         )
     return report
-
-
-def to_clipboard(df: pd.DataFrame):
-    """Copy the dataframe to the clipboard as a tab separated csv."""
-    output = io.StringIO()
-    df.to_csv(output, sep="\t", index=True)
-    csv_string = output.getvalue()
-    if pyperclip is not None:
-        try:
-            pyperclip.copy(csv_string)
-        except Exception as e:
-            warn(f"Failed to copy to clipboard: {e}")
-    # else:
-    #     print("pyperclip is not installed, cannot copy to clipboard.")
-    # return df
 
 
 def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: int = 2):

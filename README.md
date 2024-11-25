@@ -1,5 +1,3 @@
-
-
 ![AgentLab Banner](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
 
 [![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
@@ -8,6 +6,7 @@
 [![GitHub star chart](https://img.shields.io/github/stars/ServiceNow/AgentLab?style=flat-square)](https://star-history.com/#ServiceNow/AgentLab)
 [![Code Format](https://github.com/ServiceNow/AgentLab/actions/workflows/code_format.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/code_format.yml)
 [![Tests](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml)
+
 
 
 [🛠️ Setup](#%EF%B8%8F-setup-agentlab) &nbsp;|&nbsp; 
@@ -47,6 +46,7 @@ AgentLab Features:
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
+
 
 ## 🛠️ Setup AgentLab
 
