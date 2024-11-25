@@ -15,11 +15,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import (
-    find_incomplete,
-    non_dummy_count,
-    run_experiments,
-)
+from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 
 logger = logging.getLogger(__name__)
 
@@ -39,24 +35,19 @@ def make_study(
             The agent configuration(s) to run. *IMPORTANT*: these objects will be pickled and
             unpickled.  Make sure they are imported from a package that is accessible from
             PYTHONPATH. Otherwise, it won't load in agentlab-xray.
-
         benchmark: bgym.Benchmark | str
             The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
-
         logging_level_stdout: int
             The logging level for the stdout of the main script. Each job will have its own logging
             level that will save into file and can be seen in agentlab-xray.
-
         suffix: str
             A suffix to add to the study name. This can be useful to keep track of your experiments.
             By default the study name contains agent name, benchmark name and date.
-
         comment: str
             Extra comments from the authors of this study to be stored in the reproducibility
             information. Leave any extra information that can explain why results could be different
             than expected.
-
         ignore_dependencies: bool
             If True, ignore the dependencies of the tasks in the benchmark. *Use with caution.* So
             far, only WebArena and VisualWebArena have dependencies between tasks to minimize the
@@ -261,7 +252,15 @@ class Study(AbstractStudy):
     def set_reproducibility_info(self, strict_reproducibility=False, comment=None):
         """Gather relevant information that may affect the reproducibility of the experiment
 
-        e.g.: versions of BrowserGym, benchmark, AgentLab..."""
+        e.g.: versions of BrowserGym, benchmark, AgentLab...
+
+        Args:
+            strict_reproducibility: bool
+                If True, all modifications have to be committed before running the experiments.
+                Also, if relaunching a study, it will not be possible if the code has changed.
+            comment: str
+                Extra comment to add to the reproducibility information.
+        """
         agent_names = [a.agent_name for a in self.agent_args]
         info = repro.get_reproducibility_info(
             agent_names,
@@ -327,13 +326,14 @@ class Study(AbstractStudy):
         Args:
             n_jobs: int
                 Number of parallel jobs.
-
             parallel_backend: str
                 Parallel backend to use. Either "joblib", "dask" or "sequential".
-
             strict_reproducibility: bool
                 If True, all modifications have to be committed before running the experiments.
                 Also, if relaunching a study, it will not be possible if the code has changed.
+
+        Raises:
+            ValueError: If the exp_args_list is None.
         """
 
         if self.exp_args_list is None:
@@ -357,10 +357,6 @@ class Study(AbstractStudy):
         Args:
             strict_reproducibility: bool
                 If True, incomplete experiments will raise an error.
-
-        Raises:
-            ValueError: If the reproducibility information is not compatible
-                with the report.
         """
         _, summary_df, _ = self.get_results()
         repro.append_to_journal(
@@ -538,9 +534,16 @@ def _agents_on_benchmark(
             If True, the experiments will be run in demo mode.
         logging_level: int
             The logging level for individual jobs.
+        logging_level_stdout: int
+            The logging level for the stdout.
+        ignore_dependencies: bool
+            If True, the dependencies will be ignored and all experiments can be run in parallel.
 
     Returns:
         list[ExpArgs]: The list of experiments to run.
+
+    Raises:
+        ValueError: If multiple agents are run on a benchmark that requires manual reset.
     """
 
     if not isinstance(agents, (list, tuple)):

@@ -59,7 +59,7 @@ def _get_git_username(repo: Repo) -> str:
     5. Environment variables (GIT_AUTHOR_NAME and GIT_COMMITTER_NAME)
 
     Args:
-        repo (git.Repo): A GitPython Repo object representing the Git repository.
+        repo (Repo): A GitPython Repo object representing the Git repository.
 
     Returns:
         str: The first non-None username found, or None if no username is found.

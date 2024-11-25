@@ -4,6 +4,7 @@ from pathlib import Path
 
 import bgym
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
+
 from agentlab.experiments.exp_utils import run_exp
 
 
@@ -24,13 +25,16 @@ def run_experiments(
             Number of parallel jobs.
         exp_args_list: list[ExpArgs]
             List of ExpArgs objects.
-        exp_dir: Path
+        study_dir: Path
             Directory where the experiments will be saved.
         parallel_backend: str
             Parallel backend to use. Either "joblib", "ray" or "sequential".
             The only backend that supports webarena graph dependencies correctly is ray or sequential.
         avg_step_timeout: int
             Will raise a TimeoutError if the episode is not finished after env_args.max_steps * avg_step_timeout seconds.
+
+    Raises:
+        ValueError: If the parallel_backend is not recognized.
     """
 
     if len(exp_args_list) == 0:
@@ -110,6 +114,13 @@ def find_incomplete(study_dir: str | Path, include_errors=True):
             Find all incomplete experiments and relaunch them.
             - "incomplete_only": relaunch only the incomplete experiments.
             - "incomplete_or_error": relaunch incomplete or errors.
+
+    Returns:
+        list[ExpArgs]
+            List of ExpArgs objects to relaunch.
+
+    Raises:
+        ValueError: If the study_dir does not exist.
     """
     study_dir = Path(study_dir)
 
@@ -152,6 +163,16 @@ def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
 
     This little hack, allows an elegant way to keep the task dependencies for e.g. webarena
     while skipping the tasks that are completed when relaunching.
+
+    Args:
+        exp_result: bgym.ExpResult
+            The experiment result to hide.
+        include_errors: bool
+            If True, include experiments that errored.
+
+    Returns:
+        ExpArgs
+            The ExpArgs object hidden if the experiment is completed.
     """
 
     hide = False
