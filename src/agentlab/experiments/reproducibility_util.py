@@ -323,6 +323,8 @@ def append_to_journal(
             _get_repo(agentlab) # if not based on git clone, this will raise an error
             journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
         except InvalidGitRepositoryError:
+            logging.warning("Could not find a git repository. Saving the journal to the results directory."
+                            "To add to the journal, git clone agentlab and use `pip install -e .`")
             journal_path = RESULTS_DIR / "reproducibility_journal.csv"
 
     logging.info(f"Appending to journal {journal_path}")
