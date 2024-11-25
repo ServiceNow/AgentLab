@@ -1,18 +1,4 @@
-
-
-
-<a href="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d"> <img
-  src="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d" width="800"
-/> </a>
-
-&nbsp;&nbsp;|&nbsp;&nbsp; 
-[🎯 Benchmarks](#-supported-benchmarks) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🛠️ Setup](#%EF%B8%8F-setup) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
-[🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Make Your Own Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
-[↻ Reproducibility](#-reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
+![AgentLab Banner](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
 
 [![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
 [![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
@@ -22,12 +8,12 @@
 [![Tests](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml)
 
 
-[🛠️ Setup](#%EF%B8%8F-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
-[🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
-[🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
-&nbsp;&nbsp;|&nbsp;&nbsp; 
-[🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
+
+[🛠️ Setup](#%EF%B8%8F-setup-agentlab) &nbsp;|&nbsp; 
+[🤖 Assistant](#-ui-assistant) &nbsp;|&nbsp; 
+[🚀 Launch Experiments](#-launch-experiments) &nbsp;|&nbsp;
+[🔍 Analyse Results](#-analyse-results) &nbsp;|&nbsp; 
+[🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;|&nbsp;
 [↻ Reproducibility](#-reproducibility) 
 
 
@@ -61,7 +47,8 @@ AgentLab Features:
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
 
-## 🛠️ Setup
+
+## 🛠️ Setup AgentLab
 
 ```bash
 pip install agentlab
