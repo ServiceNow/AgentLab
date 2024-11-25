@@ -1,6 +1,6 @@
 
 
-![AgentLab Banner (5)](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
+![AgentLab Banner](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
 
 [![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
 [![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
@@ -14,7 +14,6 @@
 [🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
 [🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
-&nbsp;&nbsp;|&nbsp;&nbsp; 
 [🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
 [↻ Reproducibility](#-reproducibility) 
 
@@ -53,6 +52,11 @@ AgentLab Features:
 
 ```bash
 pip install agentlab
+```
+
+If not done already, install playwright:
+```bash
+playwright install
 ```
 
 Make sure to prepare the required benchmark according to instructions provided in the [setup
