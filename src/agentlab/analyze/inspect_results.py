@@ -211,7 +211,6 @@ def report_constant_and_variables(df, show_stack_traces=True):
             print(f"        ...\n")
 
 
-
 def get_std_err(df, metric):
     """Get the standard error for a binary metric."""
     # extract non missing values
@@ -437,7 +436,6 @@ def _rename_bool_flags(report: pd.DataFrame, true_str="✓", false_str="-"):
             [[map_bool(i) for i in level] for level in report.index.levels]
         )
     return report
-
 
 
 def flag_report(report: pd.DataFrame, metric: str = "avg_reward", round_digits: int = 2):
