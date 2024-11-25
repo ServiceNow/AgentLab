@@ -55,6 +55,11 @@ AgentLab Features:
 pip install agentlab
 ```
 
+If not done already, install playwright:
+```bash
+playwright install
+```
+
 Make sure to prepare the required benchmark according to instructions provided in the [setup
 column](#🎯-supported-benchmarks).
 
