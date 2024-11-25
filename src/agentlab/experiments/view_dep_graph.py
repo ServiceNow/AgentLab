@@ -1,3 +1,6 @@
+"""Dirty script to visualize the dependency graph of a benchmark, e.g. webarena, vsisualwebarena,
+etc. You may have to detust it to make it work for you."""
+
 import math
 import bgym
 import matplotlib.pyplot as plt
