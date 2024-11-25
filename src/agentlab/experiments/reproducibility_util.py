@@ -12,6 +12,7 @@ from git import InvalidGitRepositoryError, Repo
 from git.config import GitConfigParser
 
 import agentlab
+from agentlab.experiments.exp_utils import RESULTS_DIR
 
 
 def _get_repo(module):
@@ -193,8 +194,13 @@ def get_reproducibility_info(
     if isinstance(agent_names, str):
         agent_names = [agent_names]
 
+    try:
+        repo =  _get_repo(agentlab)
+    except InvalidGitRepositoryError:
+        repo = None
+
     info = {
-        "git_user": _get_git_username(_get_repo(agentlab)),
+        "git_user": _get_git_username(repo),
         "agent_names": agent_names,
         "benchmark": benchmark.name,
         "study_id": study_id,
@@ -313,7 +319,13 @@ def append_to_journal(
 ):
     """Append the info and results to the reproducibility journal."""
     if journal_path is None:
-        journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
+        try:
+            _get_repo(agentlab) # if not based on git clone, this will raise an error
+            journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
+        except InvalidGitRepositoryError:
+            journal_path = RESULTS_DIR / "reproducibility_journal.csv"
+
+    logging.info(f"Appending to journal {journal_path}")
 
     if len(report_df) != len(info["agent_names"]):
         raise ValueError(
