@@ -1,5 +1,6 @@
 
 
+
 <a href="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d"> <img
   src="https://github.com/user-attachments/assets/c2bc0b80-89da-4afb-9120-2feb018df19d" width="800"
 /> </a>
@@ -13,23 +14,32 @@
 [🤖 Make Your Own Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
 [↻ Reproducibility](#-reproducibility) &nbsp;&nbsp;|&nbsp;&nbsp;
 
+[![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
 [![PyPI - License](https://img.shields.io/pypi/l/agentlab?style=flat-square)]([https://opensource.org/licenses/MIT](http://www.apache.org/licenses/LICENSE-2.0))
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/agentlab?style=flat-square)](https://pypistats.org/packages/agentlab)
 [![GitHub star chart](https://img.shields.io/github/stars/ServiceNow/AgentLab?style=flat-square)](https://star-history.com/#ServiceNow/AgentLab)
+[![Code Format](https://github.com/ServiceNow/AgentLab/actions/workflows/code_format.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/code_format.yml)
+[![Tests](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/ServiceNow/AgentLab/actions/workflows/unit_tests.yml)
 
 
-<video controls style="max-width: 700px;">
-  <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[🛠️ Setup](#%EF%B8%8F-setup-agentlab) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Assistant](#-ui-assistant) &nbsp;&nbsp;|&nbsp;&nbsp; 
+[🚀 Launch Experiments](#-launch-experiments) &nbsp;&nbsp;|&nbsp;&nbsp;
+[🔍 Analyse Results](#-analyse-results) &nbsp;&nbsp;|&nbsp;&nbsp; 
+&nbsp;&nbsp;|&nbsp;&nbsp; 
+[🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;&nbsp;|&nbsp;&nbsp;
+[↻ Reproducibility](#-reproducibility) 
 
+
+
+https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85
 
 AgentLab is a framework for developing and evaluating agents on a variety of
-[benchmarks](#🎯-supported-benchmarks) supported by
+[benchmarks](#-supported-benchmarks) supported by
 [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 
 AgentLab Features:
-* Easy large scale parallel [agent experiments](#🚀-launch-experiments) using [ray](https://www.ray.io/)
+* Easy large scale parallel [agent experiments](#-launch-experiments) using [ray](https://www.ray.io/)
 * Building blocks for making agents over BrowserGym
 * Unified LLM API for OpenRouter, OpenAI, Azure, or self hosted using TGI.
 * Prefered way for running benchmarks like WebArena
@@ -37,6 +47,7 @@ AgentLab Features:
 * Unified LeaderBoard (soon)
 
 ## 🎯 Supported Benchmarks
+
 | Benchmark | Setup  <br> Link | # Task <br> Template| Seed  <br> Diversity | Max  <br> Step | Multi-tab | Hosted Method | BrowserGym <br> Leaderboard |
 |-----------|------------|---------|----------------|-----------|-----------|---------------|----------------------|
 | [WebArena](https://webarena.dev/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena/README.md) | 812 | None | 30 | yes | self hosted (docker) | soon |
@@ -45,10 +56,11 @@ AgentLab Features:
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L3 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
 | [WebLinx](https://mcgill-nlp.github.io/weblinx/) | - | 31586 | None | 1 | no | self hosted (dataset) | soon |
 | [VisualWebArena](https://github.com/web-arena-x/visualwebarena) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/visualwebarena/README.md) | 910 | None | 30 | yes | self hosted (docker) | soon |
-| [Assistant Bench](https://assistantbench.github.io/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/assistantbench/README.md) | 214 | None | 30 | yes | live web | soon |
+| [AssistantBench](https://assistantbench.github.io/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/assistantbench/README.md) | 214 | None | 30 | yes | live web | soon |
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
+
 ## 🛠️ Setup
 
 ```bash
@@ -61,7 +73,7 @@ playwright install
 ```
 
 Make sure to prepare the required benchmark according to instructions provided in the [setup
-column](#🎯-supported-benchmarks).
+column](#-supported-benchmarks).
 
 ```bash
 export AGENTLAB_EXP_ROOT=<root directory of experiment results>  # defaults to $HOME/agentlab_results
@@ -86,6 +98,7 @@ export AZURE_OPENAI_ENDPOINT=<your endpoint> # if using azure models
 </details>
 
 ## 🤖 UI-Assistant 
+
 Use an assistant to work for you (at your own cost and risk).
 
 ```bash
@@ -178,23 +191,15 @@ result_df = inspect_results.load_result_df("path/to/your/study")
 
 
 ### AgentXray
-Inspect the behaviour of your agent using xray. You can load previous or ongoing experiments. The refresh mechanism is currently a bit clunky, but you can refresh the page, refresh the experiment directory list and select again your experiment to see an updated version of your currently running experiments.
 
+https://github.com/user-attachments/assets/06c4dac0-b78f-45b7-9405-003da4af6b37
 
+In a terminal, execute:
 ```bash
 agentlab-xray
 ```
 
-**⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
-
-
-<video controls style="max-width: 800px;">
-  <source src="https://github.com/user-attachments/assets/06c4dac0-b78f-45b7-9405-003da4af6b37" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-
-
-You will be able to select the recent experiments in the directory `AGENTLAB_EXP_ROOT` and visualize
+You can load previous or ongoing experiments in the directory `AGENTLAB_EXP_ROOT` and visualize
 the results in a gradio interface.
 
 In the following order, select:
@@ -206,6 +211,10 @@ In the following order, select:
 Once this is selected, you can see the trace of your agent on the given task. Click on the profiling
 image to select a step and observe the action taken by the agent.
 
+
+**⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
+
+
 ## 🤖 Implement a new Agent
 
 Get inspiration from the `MostBasicAgent` in
@@ -213,7 +222,7 @@ Get inspiration from the `MostBasicAgent` in
 For a better integration with the tools, make sure to implement most functions in the
 [AgentArgs](src/agentlab/agents/agent_args.py#L5) API and the extended `bgym.AbstractAgentArgs`.
 
-If you think your agent should be included directly in AgenLab, let use know and it can be added in
+If you think your agent should be included directly in AgenLab, let us know and it can be added in
 agentlab/agents/ with the name of your agent.  
 
 ## ↻ Reproducibility
@@ -243,7 +252,7 @@ dynamic benchmarks.
 * **Reproduced results in the leaderboard**. For agents that are repdocudibile, we encourage users
   to try to reproduce the results and upload them to the leaderboard. There is a special column
   containing information about all reproduced results of an agent on a benchmark.
-* **ReproducibilityAgent**: You can run this agent on an existing study and it will try to re-run
+* **ReproducibilityAgent**: [You can run this agent](src/agentlab/agents/generic_agent/reproducibility_agent.py) on an existing study and it will try to re-run
   the same actions on the same task seeds. A vsiual diff of the two prompts will be displayed in the
   AgentInfo HTML tab of AgentXray. You will be able to inspect on some tasks what kind of changes
   between to two executions. **Note**: this is a beta feature and will need some adaptation for your

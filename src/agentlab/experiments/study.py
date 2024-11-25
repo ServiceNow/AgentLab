@@ -76,7 +76,7 @@ def make_study(
         agent_args = [agent_args]
 
     if isinstance(benchmark, str):
-        benchmark = bgym.DEFAULT_BENCHMARKS[benchmark]()
+        benchmark = bgym.DEFAULT_BENCHMARKS[benchmark.lower()]()
 
     if "webarena" in benchmark.name and len(agent_args) > 1:
         logger.warning(
@@ -220,7 +220,7 @@ class Study(AbstractStudy):
         """Initialize the study. Set the uuid, and generate the exp_args_list."""
         self.uuid = uuid.uuid4()
         if isinstance(self.benchmark, str):
-            self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark]()
+            self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark.lower()]()
         if isinstance(self.dir, str):
             self.dir = Path(self.dir)
         self.make_exp_args_list()
