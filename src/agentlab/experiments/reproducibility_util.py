@@ -195,7 +195,7 @@ def get_reproducibility_info(
         agent_names = [agent_names]
 
     try:
-        repo =  _get_repo(agentlab)
+        repo = _get_repo(agentlab)
     except InvalidGitRepositoryError:
         repo = None
 
@@ -320,11 +320,15 @@ def append_to_journal(
     """Append the info and results to the reproducibility journal."""
     if journal_path is None:
         try:
-            _get_repo(agentlab) # if not based on git clone, this will raise an error
-            journal_path = Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
+            _get_repo(agentlab)  # if not based on git clone, this will raise an error
+            journal_path = (
+                Path(agentlab.__file__).parent.parent.parent / "reproducibility_journal.csv"
+            )
         except InvalidGitRepositoryError:
-            logging.warning("Could not find a git repository. Saving the journal to the results directory."
-                            "To add to the journal, git clone agentlab and use `pip install -e .`")
+            logging.warning(
+                "Could not find a git repository. Saving the journal to the results directory."
+                "To add to the journal, git clone agentlab and use `pip install -e .`"
+            )
             journal_path = RESULTS_DIR / "reproducibility_journal.csv"
 
     logging.info(f"Appending to journal {journal_path}")
