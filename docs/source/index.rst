@@ -11,7 +11,12 @@ Add your content using ``reStructuredText`` syntax. See the
 documentation for details.
 
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+.. autosummary::
+   :toctree:
+   :recursive:
 
+    agentlab.agents
+    agentlab.analyze
+    agentlab.llm
+    agentlab.experiments
+    agentlab.ui_assistant
