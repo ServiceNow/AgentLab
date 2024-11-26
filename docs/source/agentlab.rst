@@ -10,7 +10,6 @@ Subpackages
    agentlab.agents
    agentlab.analyze
    agentlab.llm
-   agentlab.utils
 
 Submodules
 ----------

@@ -12,26 +12,10 @@ agentlab.analyze.agent\_xray module
    :undoc-members:
    :show-inheritance:
 
-agentlab.analyze.error\_categorization module
----------------------------------------------
-
-.. automodule:: agentlab.analyze.error_categorization
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 agentlab.analyze.inspect\_results module
 ----------------------------------------
 
 .. automodule:: agentlab.analyze.inspect_results
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-agentlab.analyze.plot\_tools module
------------------------------------
-
-.. automodule:: agentlab.analyze.plot_tools
    :members:
    :undoc-members:
    :show-inheritance:
