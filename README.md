@@ -183,7 +183,14 @@ The class [`ExpResult`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d
 
 ```python
 from agentlab.analyze import inspect_results
+
+# load the summary of all experiments of the study in a dataframe
 result_df = inspect_results.load_result_df("path/to/your/study")
+
+# load the detailed results of the 1st experiment
+exp_result = bgym.ExpResult(result_df["exp_dir"][0])
+step_0_screenshot = exp_result.screenshots[0]
+step_0_action = exp_result.steps_info[0].action
 ```
 
 
