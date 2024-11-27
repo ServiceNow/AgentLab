@@ -26,7 +26,11 @@
 
 
 Demo solving tasks:
-https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85
+
+<video width="700" controls>
+  <source src="https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 </div>
 
