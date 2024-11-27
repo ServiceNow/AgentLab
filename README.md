@@ -1,8 +1,6 @@
 
 <div align="center">
     
-![AgentLab Banner](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
-
 
 
 [![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
@@ -21,6 +19,11 @@
 [🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;|&nbsp;
 [↻ Reproducibility](#-reproducibility) 
 
+
+<img src="https://github.com/user-attachments/assets/47a7c425-9763-46e5-be54-adac363be850" alt="agentlab-diagram" width="700"/>
+
+
+Demo solving tasks:
 https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85
 
 </div>
@@ -240,7 +243,7 @@ dynamic benchmarks.
   version and commit hash
 * The `Study` class allows automatic upload of your results to
   [`reproducibility_journal.csv`](reproducibility_journal.csv). This makes it easier to populate a
-  large amount of reference points. 
+  large amount of reference points. For this feature, you need to `git clone` the repository and install via `pip install -e .`.
 * **Reproduced results in the leaderboard**. For agents that are repdocudibile, we encourage users
   to try to reproduce the results and upload them to the leaderboard. There is a special column
   containing information about all reproduced results of an agent on a benchmark.
