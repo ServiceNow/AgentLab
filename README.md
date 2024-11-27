@@ -16,6 +16,7 @@
 [🤖 Assistant](#-ui-assistant) &nbsp;|&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;|&nbsp;
 [🔍 Analyse Results](#-analyse-results) &nbsp;|&nbsp;
+<br>
 [🏆 Leaderboard](#-leaderboard) &nbsp;|&nbsp; 
 [🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;|&nbsp;
 [↻ Reproducibility](#-reproducibility) 
