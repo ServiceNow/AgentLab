@@ -25,8 +25,8 @@
 <img src="https://github.com/user-attachments/assets/47a7c425-9763-46e5-be54-adac363be850" alt="agentlab-diagram" width="700"/>
 
 
-Demo solving tasks:
-https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85
+[Demo solving tasks:](https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85)
+
 
 </div>
 
