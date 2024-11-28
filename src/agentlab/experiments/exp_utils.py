@@ -95,6 +95,9 @@ def add_dependencies(exp_args_list: list[ExpArgs], task_dependencies: dict[str, 
     Returns:
         list[ExpArgs]
             The modified exp_args_list with dependencies added.
+
+    Raises:
+        ValueError: If the task_dependencies are not valid.
     """
 
     if task_dependencies is None or all([len(dep) == 0 for dep in task_dependencies.values()]):

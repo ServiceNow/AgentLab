@@ -26,7 +26,7 @@ class PromptTemplate:
         Formats a given message based on its type.
 
         Args:
-            message (BaseMessage): The message to be formatted.
+            message (dict): The message to be formatted.
 
         Returns:
             str: The formatted message.

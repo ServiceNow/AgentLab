@@ -1,4 +1,4 @@
-black[jupyter]==24.2.0
+black[jupyter]>=24.2.0
 blacken-docs
 pre-commit
 pytest==7.3.2
@@ -22,3 +22,4 @@ requests
 matplotlib
 ray[default]
 python-slugify
+pillow

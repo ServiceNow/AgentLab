@@ -199,6 +199,8 @@ def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):
         agent_args (AgentArgs): The original agent args.
         exp_dir (Path | str): The directory where the experiment was saved.
 
+    Returns:
+        ReproAgentArgs: The new agent args.
     """
     exp_dir = Path(exp_dir)
     assert isinstance(agent_args, GenericAgentArgs)

@@ -1,5 +1,5 @@
-from bgym import AbstractAgentArgs
 import bgym
+from bgym import AbstractAgentArgs
 
 
 class AgentArgs(AbstractAgentArgs):
@@ -28,6 +28,9 @@ class AgentArgs(AbstractAgentArgs):
         as possible e.g. setting the temperature of the model to 0.
 
         This is only called when reproducibility is requested.
+
+        Raises:
+            NotImplementedError: If the agent does not support reproducibility.
         """
         raise NotImplementedError(
             f"set_reproducibility_mode is not implemented for agent_args {self.__class__.__name__}"
