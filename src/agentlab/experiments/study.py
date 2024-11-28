@@ -109,7 +109,7 @@ class AbstractStudy(ABC):
     def find_incomplete(self, include_errors=True):
         """Prepare the study for relaunching by finding incomplete experiments"""
 
-        @abstractmethod
+    @abstractmethod
     def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
         """Run the study"""
 
