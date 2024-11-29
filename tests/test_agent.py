@@ -23,7 +23,9 @@ def test_invalid_data_format(page):
     page.wait_for_selector(".main.svelte-1ufy31e")
     invalid_message = page.query_selector(".main.svelte-1ufy31e")
     assert invalid_message is not None, "The page should handle corrupted data gracefully."
-    assert "Corrupted Data" in invalid_message.text_content(), "The page did not render corrupted data correctly."
+    assert (
+        "Corrupted Data" in invalid_message.text_content()
+    ), "The page did not render corrupted data correctly."
 
 
 def test_missing_experiment_content(page):
@@ -42,7 +44,9 @@ def test_missing_experiment_content(page):
     else:
         print("The element to remove does not exist.")
     content_box_after_removal = page.query_selector("#component-41")
-    assert content_box_after_removal is not None, "The experiment content failed to handle missing elements."
+    assert (
+        content_box_after_removal is not None
+    ), "The experiment content failed to handle missing elements."
 
 
 def test_no_console_error(page):
