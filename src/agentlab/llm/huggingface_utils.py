@@ -7,7 +7,6 @@ from transformers import AutoTokenizer, GPT2TokenizerFast
 
 from agentlab.llm.base_api import AbstractChatModel
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
-from agentlab.llm.llm_utils import Discussion
 
 
 class HFBaseChatModel(AbstractChatModel):
