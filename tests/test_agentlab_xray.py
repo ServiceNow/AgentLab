@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 import pytest
 
 # SInce you need code to run under 60s
-pytestmark = pytest.mark.timeout(60)  # Timeout global de 60 secondes
+pytestmark = pytest.mark.timeout(60) 
 
 # change the URL if needed
 URL = "http://127.0.0.1:7860/"
