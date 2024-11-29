@@ -386,6 +386,8 @@ class BaseMessage(dict):
             else:
                 new_content.append(elem)
         self["content"] = new_content
+        if len(self["content"]) == 1:
+            self["content"] = self["content"][0]["text"]
 
 
 class SystemMessage(BaseMessage):
