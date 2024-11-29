@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import gzip
 import logging
 import pickle
@@ -405,7 +406,6 @@ class Study(AbstractStudy):
 
 def _make_study_name(agent_names, benchmark_names, suffix=None):
     """Make a study name from the agent and benchmark names."""
-
     # extract unique agent and benchmark names
     agent_names = list(set(agent_names))
     benchmark_names = list(set(benchmark_names))
