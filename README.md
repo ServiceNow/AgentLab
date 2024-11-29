@@ -19,7 +19,8 @@
 <br>
 [🏆 Leaderboard](#-leaderboard) &nbsp;|&nbsp; 
 [🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;|&nbsp;
-[↻ Reproducibility](#-reproducibility) 
+[↻ Reproducibility](#-reproducibility) &nbsp;|&nbsp;
+[💪 BrowserGym](https://github.com/ServiceNow/BrowserGym)
 
 
 <img src="https://github.com/user-attachments/assets/47a7c425-9763-46e5-be54-adac363be850" alt="agentlab-diagram" width="700"/>
@@ -29,6 +30,10 @@
 
 
 </div>
+
+> [!WARNING]
+> AgentLab is meant to provide an open, easy-to-use and extensible framework to accelerate the field of web agent research.
+> It is not meant to be a consumer product. Use with caution!
 
 AgentLab is a framework for developing and evaluating agents on a variety of
 [benchmarks](#-supported-benchmarks) supported by
