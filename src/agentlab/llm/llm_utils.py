@@ -119,7 +119,7 @@ def retry_multiple(
         num_samples (int): the number of samples to generate from the model.
 
     Returns:
-        dict: the parsed value, with a string at key "action".
+        list[dict]: the parsed value, with a string at key "action".
 
     Raises:
         ParseError: if the parser could not parse the response after n_retry retries.
