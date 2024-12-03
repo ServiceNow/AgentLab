@@ -136,6 +136,10 @@ def retry_multiple(
                 parsed_answers.append(parser(answer["content"]))
             except ParseError as parsing_error:
                 errors.append(str(parsing_error))
+        # if we have a valid answer, return it
+        if parsed_answers:
+            return parsed_answers, tries
+        else:
             tries += 1
             if log:
                 msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer['content']}\n[User]:\n{str(errors)}"
