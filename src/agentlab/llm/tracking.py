@@ -1,7 +1,7 @@
-from functools import cache
 import os
 import threading
 from contextlib import contextmanager
+from functools import cache
 
 import requests
 from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS
@@ -52,11 +52,12 @@ def set_tracker():
         TRACKER.instance = previous_tracker
 
 
-def cost_tracker_decorator(get_action):
+def cost_tracker_decorator(get_action, suffix=""):
     def wrapper(self, obs):
         with set_tracker() as tracker:
             action, agent_info = get_action(self, obs)
-        agent_info.get("stats").update(tracker.stats)
+        stats = {k + "_" + suffix: v for k, v in tracker.stats.items()}
+        agent_info.get("stats").update(stats)
         return action, agent_info
 
     return wrapper
