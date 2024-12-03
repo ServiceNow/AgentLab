@@ -496,8 +496,8 @@ def display_report(
     if rename_bool_flags:
         report = _rename_bool_flags(report)
 
-    if copy_to_clipboard:
-        to_clipboard(report)
+    # if copy_to_clipboard:
+    #     to_clipboard(report)
 
     columns = list(report.columns)
 
