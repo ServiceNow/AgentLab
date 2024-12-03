@@ -116,6 +116,7 @@ def retry_multiple(
         parser (callable): a function taking a message and retruning a parsed value,
             or raising a ParseError
         log (bool): whether to log the retry messages.
+        num_samples (int): the number of samples to generate from the model.
 
     Returns:
         dict: the parsed value, with a string at key "action".
