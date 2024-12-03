@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 import gzip
 import logging
 import pickle
@@ -269,6 +268,7 @@ class Study(AbstractStudy):
             self.uuid,
             ignore_changes=not strict_reproducibility,
             comment=comment,
+            allow_bypass_benchmark_version=not strict_reproducibility,
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(
