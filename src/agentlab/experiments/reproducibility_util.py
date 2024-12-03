@@ -19,7 +19,9 @@ def _get_repo(module):
     return Repo(Path(module.__file__).resolve().parent, search_parent_directories=True)
 
 
-def _get_benchmark_version(benchmark: bgym.Benchmark) -> str:
+def _get_benchmark_version(
+    benchmark: bgym.Benchmark, allow_bypass_benchmark_version: bool = False
+) -> str:
     benchmark_name = benchmark.name
 
     if hasattr(benchmark, "get_version"):
@@ -42,7 +44,10 @@ def _get_benchmark_version(benchmark: bgym.Benchmark) -> str:
     elif benchmark_name.startswith("assistantbench"):
         return metadata.distribution("browsergym.assistantbench").version
     else:
-        raise ValueError(f"Unknown benchmark {benchmark_name}")
+        if allow_bypass_benchmark_version:
+            return "bypassed"
+        else:
+            raise ValueError(f"Unknown benchmark {benchmark_name}")
 
 
 def _get_git_username(repo: Repo) -> str:
@@ -183,6 +188,7 @@ def get_reproducibility_info(
         "*inspect_results.ipynb",
     ),
     ignore_changes=False,
+    allow_bypass_benchmark_version=False,
 ):
     """
     Retrieve a dict of information that could influence the reproducibility of an experiment.
@@ -205,7 +211,7 @@ def get_reproducibility_info(
         "benchmark": benchmark.name,
         "study_id": study_id,
         "comment": comment,
-        "benchmark_version": _get_benchmark_version(benchmark),
+        "benchmark_version": _get_benchmark_version(benchmark, allow_bypass_benchmark_version),
         "date": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
         "os": f"{platform.system()} ({platform.version()})",
         "python_version": platform.python_version(),
