@@ -261,7 +261,7 @@ class ChatModel(AbstractChatModel):
             **client_args,
         )
 
-    def __call__(self, messages: list[dict]) -> dict:
+    def __call__(self, messages: list[dict], n_samples: int = 1) -> dict:
         # Initialize retry tracking attributes
         self.retries = 0
         self.success = False
@@ -275,6 +275,7 @@ class ChatModel(AbstractChatModel):
                 completion = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
+                    n=n_samples,
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )
@@ -305,7 +306,10 @@ class ChatModel(AbstractChatModel):
         ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return AIMessage(completion.choices[0].message.content)
+        if n_samples == 1:
+            return AIMessage(completion.choices[0].message.content)
+        else:
+            return [AIMessage(c.message.content) for c in completion.choices]
 
     def get_stats(self):
         return {
