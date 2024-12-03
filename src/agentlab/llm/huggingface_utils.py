@@ -6,7 +6,7 @@ from pydantic import Field
 from transformers import AutoTokenizer, GPT2TokenizerFast
 
 from agentlab.llm.base_api import AbstractChatModel
-from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.llm_utils import AIMessage, Discussion
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
 
 
@@ -80,7 +80,7 @@ class HFBaseChatModel(AbstractChatModel):
         itr = 0
         while True:
             try:
-                response = self.llm(prompt)
+                response = AIMessage(self.llm(prompt))
                 return response
             except Exception as e:
                 if itr == self.n_retry_server - 1:
