@@ -13,7 +13,7 @@ from openai import AzureOpenAI, OpenAI
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.huggingface_utils import HFBaseChatModel
-from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.llm_utils import Discussion, AIMessage
 
 
 def make_system_message(content: str) -> dict:
@@ -305,7 +305,7 @@ class ChatModel(AbstractChatModel):
         ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return make_assistant_message(completion.choices[0].message.content)
+        return AIMessage(completion.choices[0].message.content)
 
     def get_stats(self):
         return {
