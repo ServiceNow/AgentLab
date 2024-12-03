@@ -251,8 +251,7 @@ def test_message_merge_only_text():
     ]
     message = llm_utils.BaseMessage(role="system", content=content)
     message.merge()
-    assert len(message["content"]) == 1
-    assert message["content"][0]["text"] == "Hello, world!\nThis is a test."
+    assert message["content"] == "Hello, world!\nThis is a test."
 
 
 def test_message_merge_text_image():

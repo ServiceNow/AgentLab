@@ -6,6 +6,7 @@ from pydantic import Field
 from transformers import AutoTokenizer, GPT2TokenizerFast
 
 from agentlab.llm.base_api import AbstractChatModel
+from agentlab.llm.llm_utils import Discussion
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
 
 
@@ -59,6 +60,8 @@ class HFBaseChatModel(AbstractChatModel):
         if self.tokenizer:
             # messages_formated = _convert_messages_to_dict(messages) ## ?
             try:
+                if isinstance(messages, Discussion):
+                    messages.merge()
                 prompt = self.tokenizer.apply_chat_template(messages, tokenize=False)
             except Exception as e:
                 if "Conversation roles must alternate" in str(e):
