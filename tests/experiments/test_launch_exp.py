@@ -1,4 +1,6 @@
+from contextlib import contextmanager
 import math
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -8,21 +10,41 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
+from agentlab.experiments.launch_exp import prepare_study_for_relaunch, run_experiments, non_dummy_count
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
 
+
+@contextmanager
+def tmp_test_study():
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        source_study_dir = Path(__file__).parent.parent / "data" / "test_study"
+        
+        # Create temporary study directory by copying the source
+        tmp_study_dir = Path(tmp_dir) / "test_study"
+        shutil.copytree(source_study_dir, tmp_study_dir)
+        
+        try:
+            yield tmp_study_dir
+        finally:
+            # The temporary directory will be automatically cleaned up
+            # when exiting the context due to TemporaryDirectory
+            pass
+
+
 def test_relaunch_study():
-    study_dir = Path(__file__).parent.parent / "data" / "test_study"
-    exp_args_list = find_incomplete(study_dir, include_errors=False)
+    with tmp_test_study() as study_dir:
+        exp_args_list = prepare_study_for_relaunch(study_dir, include_errors=False)
 
-    assert non_dummy_count(exp_args_list) == 1
-    assert exp_args_list[0].env_args.task_name == "miniwob.ascending-numbers"
+        assert non_dummy_count(exp_args_list) == 1
+        assert exp_args_list[0].env_args.task_name == "miniwob.ascending-numbers"
 
-    exp_args_list = find_incomplete(study_dir, include_errors=True)
+    with tmp_test_study() as study_dir:
+        exp_args_list = prepare_study_for_relaunch(study_dir, include_errors=True)
 
-    assert non_dummy_count(exp_args_list) == 2
+        assert non_dummy_count(exp_args_list) == 2
 
 
 def _test_launch_system(backend="ray", cause_timeout=False):
@@ -120,7 +142,8 @@ def test_4o_mini_on_miniwob_tiny_test():
 
 
 if __name__ == "__main__":
-    test_timeout_ray()
+    test_relaunch_study()
+    # test_timeout_ray()
     # test_4o_mini_on_miniwob_tiny_test()
     # test_launch_system_ray()
     # test_launch_system_sequntial()

@@ -16,7 +16,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
+from agentlab.experiments.launch_exp import prepare_study_for_relaunch, non_dummy_count, run_experiments
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +239,7 @@ class Study(AbstractStudy):
             list[ExpArgs]: The list of all experiments with completed ones replaced by a
                 dummy exp_args to keep the task dependencies.
         """
-        self.exp_args_list = find_incomplete(self.dir, include_errors=include_errors)
+        self.exp_args_list = prepare_study_for_relaunch(self.dir, include_errors=include_errors)
         n_incomplete = non_dummy_count(self.exp_args_list)
         n_error = [
             getattr(exp_args, "status", "incomplete") == "error" for exp_args in self.exp_args_list
@@ -276,6 +276,11 @@ class Study(AbstractStudy):
             )
         self.reproducibility_info = info
 
+    def save(self, exp_root=RESULTS_DIR):
+        super().save(exp_root=exp_root)
+        for exp_args in self.exp_args_list: 
+            exp_args.prepare(self.dir) # this will save the exp_arsg in their own directory
+
     def run(
         self,
         n_jobs=1,
@@ -283,12 +288,41 @@ class Study(AbstractStudy):
         strict_reproducibility=False,
         n_relaunch=3,
         relaunch_errors=True,
+        exp_root=RESULTS_DIR,
     ):
+        """Run the study.
+        
+        Make sure the benchmarks are setup properly. See AgentLab's readme for more information.
 
+        Note: task hanging can be particularly annoying i.e playwright will loop indefinitely and
+        nothing will happen. This will jam a worker and if no workers are available, the whole
+        experiment will jam. We spent a lot of time debugging this, with some success but it still
+        happens on some task. The ray backend will cancel the task after the specified timeout
+        (defaults to 60s * max_step).
+
+        Args:
+            n_jobs: int
+                Number of parallel jobs.
+            parallel_backend: str
+                Parallel backend to use. Either "ray", "joblib", or "sequential". Note: joblib does
+                not handle task dependencies. Also ray is the only one that can cancel tasks that
+                are hanging.
+            strict_reproducibility: bool
+                If True, all modifications have to be committed before running the experiments.
+                Also, if relaunching a study, it will not be possible if the code has changed.
+            n_relaunch: int
+                Number of times to relaunch the study if it has incomplete or errored experiments.
+                (Visual)WebArena will have an instance reset before each evaluation.
+            relaunch_errors: bool
+                If False, relaunch only incomplete experiments and ignore errored ones.
+            exp_root: Path
+                The root directory where the study will be saved, defaults to AGENTLAB_EXP_ROOT env
+                variable, whic defaults to $HOME/agentlab_results.
+        """
         self.set_reproducibility_info(
             strict_reproducibility=strict_reproducibility, comment=self.comment
         )
-        self.save()
+        self.save(exp_root)
 
         n_exp = len(self.exp_args_list)
         last_error_count = None
@@ -377,6 +411,10 @@ class Study(AbstractStudy):
 
     @staticmethod
     def load(dir: Path) -> "Study":
+        # TODO it's probably better to have a more intelligent way to load the study
+        # * we should pop exp_args_list before saving and load from the individual directories
+        # * when reloading, we should update the directory to reflect the actual ones in case it was moved
+        # * same applies with sequential studies, i.e. it should pop the studies before saving and
         dir = Path(dir)
         study_path = dir / "study.pkl.gz"
         if not study_path.exists() and dir.is_dir():
@@ -443,18 +481,28 @@ class SequentialStudies(AbstractStudy):
         return _make_study_name(agent_names, benchmark_names, self.suffix)
 
     def find_incomplete(self, include_errors=True):
+        n_incomplete, n_error = 0, 0
         for study in self.studies:
-            study.find_incomplete(include_errors=include_errors)
+            n_inc, n_err = study.find_incomplete(include_errors=include_errors)
+            n_incomplete += n_inc
+            n_error += n_err
+        return n_incomplete, n_error
 
-    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+    def save(self, exp_root=RESULTS_DIR):
+        # materialize the directory to have a place to store the individual studies
+        self.make_dir(exp_root)
+        for study in self.studies:
+            study.save(exp_root=self.dir)
+        # save the study object after the individual studies are materialized, to ensure these objects
+        # have the proper study dir
+        super().save(exp_root=exp_root) 
+
+    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3, exp_root=RESULTS_DIR):
 
         # This sequence of of making directories is important to make sure objects are materialized
         # properly before saving. Otherwise relaunch may not work properly.
-        self.make_dir()
-        for study in self.studies:
-            study.make_dir(exp_root=self.dir)
-
-        self.save()
+        
+        self.save(exp_root)
 
         for study in self.studies:
             study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
@@ -484,7 +532,7 @@ def get_most_recent_study(
     Returns:
         Path: The most recent folder satisfying the conditions
     """
-
+    root_dir = Path(root_dir)
     if root_dir is None:
         root_dir = RESULTS_DIR
 

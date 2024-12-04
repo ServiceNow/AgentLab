@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from time import sleep, time
 
-from browsergym.experiments.loop import ExpArgs, _move_old_exp, yield_all_exp_results
+from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)  # Get logger based on module name
@@ -24,6 +24,12 @@ else:
 
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+
+def move_old_exp(exp_dir):
+    """Move the old experiment directory to a new name."""
+    exp_dir = Path(exp_dir)
+    if exp_dir.exists():
+        exp_dir.rename(exp_dir.with_name("_" + exp_dir.name))
 
 def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=60):
     """Run exp_args.run() with a timeout and handle dependencies."""
@@ -186,6 +192,6 @@ def hide_some_exp(base_dir, filter: callable, just_test):
     for exp in exp_list:
         if filter(exp):
             if not just_test:
-                _move_old_exp(exp.exp_dir)
+                move_old_exp(exp.exp_dir)
             filtered_out.append(exp)
     return filtered_out

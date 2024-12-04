@@ -5,7 +5,7 @@ from pathlib import Path
 import bgym
 from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
-from agentlab.experiments.exp_utils import run_exp
+from agentlab.experiments.exp_utils import run_exp, move_old_exp
 
 
 def run_experiments(
@@ -70,15 +70,6 @@ def run_experiments(
                 for exp_args in exp_args_list
             )
 
-        # dask will be deprecated, as there was issues. use ray instead
-        # elif parallel_backend == "dask":
-        #     from agentlab.experiments.graph_execution_dask import (
-        #         execute_task_graph,
-        #         make_dask_client,
-        #     )
-
-        #     with make_dask_client(n_worker=n_jobs):
-        #         execute_task_graph(exp_args_list)
         elif parallel_backend == "ray":
             from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
 
@@ -101,7 +92,7 @@ def run_experiments(
         logging.info("Experiment finished.")
 
 
-def find_incomplete(study_dir: str | Path, include_errors=True):
+def prepare_study_for_relaunch(study_dir: str | Path, include_errors=True):
     """Find all incomplete experiments for relaunching.
 
     Note: completed experiments are kept but are replaced by dummy exp_args
@@ -130,7 +121,7 @@ def find_incomplete(study_dir: str | Path, include_errors=True):
         )
 
     exp_result_list = list(yield_all_exp_results(study_dir, progress_fn=None))
-    exp_args_list = [_hide_completed(exp_result, include_errors) for exp_result in exp_result_list]
+    exp_args_list = [prepare_exp_for_relaunch(exp_result, include_errors) for exp_result in exp_result_list]
     # sort according to exp_args.order
     exp_args_list.sort(key=lambda exp_args: exp_args.order if exp_args.order is not None else 0)
 
@@ -158,11 +149,18 @@ def noop(*args, **kwargs):
     pass
 
 
-def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
-    """Hide completed experiments from the list.
-
-    This little hack, allows an elegant way to keep the task dependencies for e.g. webarena
-    while skipping the tasks that are completed when relaunching.
+def prepare_exp_for_relaunch(exp_result: bgym.ExpResult, include_errors: bool = True):
+    """Prepare an experiment for relaunching.
+    
+    Based on the status, determine if it needs to be relaunched. 
+    if relaunch:
+        move old exp_dir to _{exp_dir}
+    if bypass:
+        keep the exp_args in the list for the task dependencies but make it a dummy that will just
+        execute nothing. 
+        
+    This bypass hack, allows an elegant way to keep the task dependencies for e.g. webarena while
+    skipping the tasks that are completed when relaunching.
 
     Args:
         exp_result: bgym.ExpResult
@@ -175,19 +173,23 @@ def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
             The ExpArgs object hidden if the experiment is completed.
     """
 
-    hide = False
+    bypass = False
     if exp_result.status == "done":
-        hide = True
+        bypass = True
     if exp_result.status == "error" and (not include_errors):
-        hide = True
+        bypass = True
 
     exp_args = exp_result.exp_args
-    exp_args.is_dummy = hide  # just to keep track
+    exp_args.is_dummy = bypass  # just to keep track
     exp_args.status = exp_result.status
-    if hide:
+    if bypass:
         # make those function do nothing since they are finished.
         exp_args.run = noop
         exp_args.prepare = noop
+    else:
+        if exp_args.exp_dir is not None:
+            move_old_exp(exp_args.exp_dir)
+            exp_args.exp_dir = None
 
     return exp_args
 
