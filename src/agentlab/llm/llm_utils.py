@@ -126,9 +126,13 @@ def retry_multiple(
     """
     tries = 0
     while tries < n_retry:
-        answer_list = chat(messages, num_samples=num_samples)
+        answer_list = chat(messages, n_samples=num_samples)
         # TODO: could we change this to not use inplace modifications ?
-        messages.append(answer)
+        if not isinstance(answer_list, list):
+            answer_list = [answer_list]
+
+        # TODO taking the 1st hides the other generated answers in AgentXRay
+        messages.append(answer_list[0]) 
         parsed_answers = []
         errors = []
         for answer in answer_list:
