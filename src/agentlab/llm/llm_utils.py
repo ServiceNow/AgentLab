@@ -132,7 +132,7 @@ def retry_multiple(
             answer_list = [answer_list]
 
         # TODO taking the 1st hides the other generated answers in AgentXRay
-        messages.append(answer_list[0]) 
+        messages.append(answer_list[0])
         parsed_answers = []
         errors = []
         for answer in answer_list:
