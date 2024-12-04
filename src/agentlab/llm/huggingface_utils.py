@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from pydantic import Field
 from transformers import AutoTokenizer, GPT2TokenizerFast
@@ -12,7 +12,7 @@ from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
 
 class HFBaseChatModel(AbstractChatModel):
     """
-    Custom LLM Chatbot that can interface with HuggingFace models.
+    Custom LLM Chatbot that can interface with HuggingFace models with support for multiple samples.
 
     This class allows for the creation of a custom chatbot using models hosted
     on HuggingFace Hub or a local checkpoint. It provides flexibility in defining
@@ -22,6 +22,8 @@ class HFBaseChatModel(AbstractChatModel):
     Attributes:
         llm (Any): The HuggingFaceHub model instance.
         prompt_template (Any): Template for the prompt to be used for the model's input sequence.
+        tokenizer (Any): The tokenizer to use for the model.
+        n_retry_server (int): Number of times to retry on server failure.
     """
 
     llm: Any = Field(description="The HuggingFaceHub model instance")
@@ -53,12 +55,20 @@ class HFBaseChatModel(AbstractChatModel):
     def __call__(
         self,
         messages: list[dict],
-    ) -> dict:
+        n_samples: int = 1,
+    ) -> Union[AIMessage, List[AIMessage]]:
+        """
+        Generate one or more responses for the given messages.
 
-        # NOTE: The `stop`, `run_manager`, and `kwargs` arguments are ignored in this implementation.
+        Args:
+            messages: List of message dictionaries containing the conversation history.
+            n_samples: Number of independent responses to generate. Defaults to 1.
 
+        Returns:
+            If n_samples=1, returns a single AIMessage.
+            If n_samples>1, returns a list of AIMessages.
+        """
         if self.tokenizer:
-            # messages_formated = _convert_messages_to_dict(messages) ## ?
             try:
                 if isinstance(messages, Discussion):
                     messages.merge()
@@ -66,31 +76,35 @@ class HFBaseChatModel(AbstractChatModel):
             except Exception as e:
                 if "Conversation roles must alternate" in str(e):
                     logging.warning(
-                        f"Failed to apply the chat template. Maybe because it doesn't support the 'system' role"
+                        f"Failed to apply the chat template. Maybe because it doesn't support the 'system' role. "
                         "Retrying with the 'system' role appended to the 'user' role."
                     )
                     messages = _prepend_system_to_first_user(messages)
                     prompt = self.tokenizer.apply_chat_template(messages, tokenize=False)
                 else:
                     raise e
-
         elif self.prompt_template:
             prompt = self.prompt_template.construct_prompt(messages)
 
-        itr = 0
-        while True:
-            try:
-                response = AIMessage(self.llm(prompt))
-                return response
-            except Exception as e:
-                if itr == self.n_retry_server - 1:
-                    raise e
-                logging.warning(
-                    f"Failed to get a response from the server: \n{e}\n"
-                    f"Retrying... ({itr+1}/{self.n_retry_server})"
-                )
-                time.sleep(5)
-                itr += 1
+        responses = []
+        for _ in range(n_samples):
+            itr = 0
+            while True:
+                try:
+                    response = AIMessage(self.llm(prompt))
+                    responses.append(response)
+                    break
+                except Exception as e:
+                    if itr == self.n_retry_server - 1:
+                        raise e
+                    logging.warning(
+                        f"Failed to get a response from the server: \n{e}\n"
+                        f"Retrying... ({itr+1}/{self.n_retry_server})"
+                    )
+                    time.sleep(5)
+                    itr += 1
+
+        return responses[0] if n_samples == 1 else responses
 
     def _llm_type(self):
         return "huggingface"
