@@ -56,6 +56,7 @@ class HFBaseChatModel(AbstractChatModel):
         self,
         messages: list[dict],
         n_samples: int = 1,
+        temperature: float = None,
     ) -> Union[AIMessage, List[AIMessage]]:
         """
         Generate one or more responses for the given messages.
@@ -63,6 +64,7 @@ class HFBaseChatModel(AbstractChatModel):
         Args:
             messages: List of message dictionaries containing the conversation history.
             n_samples: Number of independent responses to generate. Defaults to 1.
+            temperature: The temperature for response sampling. Defaults to None.
 
         Returns:
             If n_samples=1, returns a single AIMessage.
@@ -91,7 +93,8 @@ class HFBaseChatModel(AbstractChatModel):
             itr = 0
             while True:
                 try:
-                    response = AIMessage(self.llm(prompt))
+                    temperature = temperature if temperature is not None else self.temperature
+                    response = AIMessage(self.llm(prompt, temperature=temperature))
                     responses.append(response)
                     break
                 except Exception as e:
