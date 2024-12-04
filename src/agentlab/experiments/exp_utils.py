@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from time import sleep, time
 
-from browsergym.experiments.loop import ExpArgs, _move_old_exp, yield_all_exp_results
+from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)  # Get logger based on module name
