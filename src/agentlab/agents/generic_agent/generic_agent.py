@@ -1,3 +1,13 @@
+"""
+GenericAgent implementation for AgentLab
+
+This module defines a `GenericAgent` class and its associated arguments for use in the AgentLab framework. \
+The `GenericAgent` class is designed to interact with a chat-based model to determine actions based on \
+observations. It includes methods for preprocessing observations, generating actions, and managing internal \
+state such as plans, memories, and thoughts. The `GenericAgentArgs` class provides configuration options for \
+the agent, including model arguments and flags for various behaviors.
+"""
+
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from functools import partial
