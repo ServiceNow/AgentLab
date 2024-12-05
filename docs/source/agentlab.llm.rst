@@ -1,52 +1,19 @@
-agentlab.llm PACKAGE000
-=======================
+﻿agentlab.llm
+============
 
 .. automodule:: agentlab.llm
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
-SUBMODULES
-----------
+   
+.. rubric:: Modules
 
+.. autosummary::
+   :toctree:
+   :recursive:
 
-.. automodule:: agentlab.llm.base_api
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.llm.chat_api
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.llm.huggingface_utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.llm.llm_configs
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.llm.llm_utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.llm.prompt_templates
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.llm.tracking
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   base_api
+   chat_api
+   huggingface_utils
+   llm_configs
+   llm_utils
+   prompt_templates
+   tracking

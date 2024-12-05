@@ -19,6 +19,9 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
+    # "myst_parser",  # Add this to enable Markdown parsing
+    "sphinx_mdinclude",
+    "sphinx.ext.napoleon",
 ]
 
 intersphinx_mapping = {
@@ -32,6 +35,10 @@ autodoc_default_options = {
     "members": True,
     "undoc-members": True,
     "show-inheritance": True,
+}
+
+source_suffix = {
+    ".rst": "restructuredtext",
 }
 
 
@@ -49,5 +56,3 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
-
-import sphinx

@@ -1,12 +1,7 @@
-agentlab PACKAGE000
-===================
+agentlab package
+================
 
-.. automodule:: agentlab
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-SUBPACKAGES
+Subpackages
 -----------
 
 .. toctree::
@@ -16,11 +11,18 @@ SUBPACKAGES
    agentlab.analyze
    agentlab.llm
 
-SUBMODULES
+Submodules
 ----------
 
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: agentlab.ui_assistant
+   agentlab.ui_assistant
+
+Module contents
+---------------
+
+.. automodule:: agentlab
    :members:
    :undoc-members:
    :show-inheritance:

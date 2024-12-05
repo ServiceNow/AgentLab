@@ -1,30 +1,15 @@
-agentlab.agents PACKAGE000
-==========================
+﻿agentlab.agents
+===============
 
 .. automodule:: agentlab.agents
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
-SUBPACKAGES
------------
+   
+.. rubric:: Modules
 
-.. toctree::
-   :maxdepth: 4
+.. autosummary::
+   :toctree:
+   :recursive:
 
-   agentlab.agents.generic_agent
-
-SUBMODULES
-----------
-
-
-.. automodule:: agentlab.agents.agent_args
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: agentlab.agents.dynamic_prompting
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   agent_args
+   dynamic_prompting
+   generic_agent
