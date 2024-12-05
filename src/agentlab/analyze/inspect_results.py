@@ -14,8 +14,6 @@ from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp
 from IPython.display import display
 from tqdm import tqdm
 
-from agentlab.experiments.exp_utils import RESULTS_DIR
-
 # TODO find a more portable way to code set_task_category_as_index at least
 # handle dynamic imports. We don't want to always import workarena
 # from browsergym.workarena import TASK_CATEGORY_MAP
@@ -496,8 +494,8 @@ def display_report(
     if rename_bool_flags:
         report = _rename_bool_flags(report)
 
-    if copy_to_clipboard:
-        to_clipboard(report)
+    # if copy_to_clipboard:
+    #     to_clipboard(report)
 
     columns = list(report.columns)
 

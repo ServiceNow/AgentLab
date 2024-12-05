@@ -268,6 +268,7 @@ class Study(AbstractStudy):
             self.uuid,
             ignore_changes=not strict_reproducibility,
             comment=comment,
+            allow_bypass_benchmark_version=not strict_reproducibility,
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(
@@ -405,7 +406,6 @@ class Study(AbstractStudy):
 
 def _make_study_name(agent_names, benchmark_names, suffix=None):
     """Make a study name from the agent and benchmark names."""
-
     # extract unique agent and benchmark names
     agent_names = list(set(agent_names))
     benchmark_names = list(set(benchmark_names))

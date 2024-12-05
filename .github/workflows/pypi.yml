@@ -66,6 +66,16 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Set up Python for Sigstore
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Sigstore and cryptography dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install cryptography==43.0.3
+
       - name: Sign the dists with Sigstore
         uses: sigstore/gh-action-sigstore-python@v2.1.1
         with:

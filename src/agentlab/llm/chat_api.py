@@ -13,7 +13,7 @@ from openai import AzureOpenAI, OpenAI
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.huggingface_utils import HFBaseChatModel
-from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.llm_utils import AIMessage, Discussion
 
 
 def make_system_message(content: str) -> dict:
@@ -261,7 +261,7 @@ class ChatModel(AbstractChatModel):
             **client_args,
         )
 
-    def __call__(self, messages: list[dict]) -> dict:
+    def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
         # Initialize retry tracking attributes
         self.retries = 0
         self.success = False
@@ -271,11 +271,13 @@ class ChatModel(AbstractChatModel):
         e = None
         for itr in range(self.max_retry):
             self.retries += 1
+            temperature = temperature if temperature is not None else self.temperature
             try:
                 completion = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
-                    temperature=self.temperature,
+                    n=n_samples,
+                    temperature=temperature,
                     max_tokens=self.max_tokens,
                 )
 
@@ -305,7 +307,10 @@ class ChatModel(AbstractChatModel):
         ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
-        return make_assistant_message(completion.choices[0].message.content)
+        if n_samples == 1:
+            return AIMessage(completion.choices[0].message.content)
+        else:
+            return [AIMessage(c.message.content) for c in completion.choices]
 
     def get_stats(self):
         return {
@@ -410,11 +415,10 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
         super().__init__(model_name, n_retry_server)
         if temperature < 1e-3:
             logging.warning("Models might behave weirdly when temperature is too low.")
+        self.temperature = temperature
 
         if token is None:
             token = os.environ["TGI_TOKEN"]
 
         client = InferenceClient(model=model_url, token=token)
-        self.llm = partial(
-            client.text_generation, temperature=temperature, max_new_tokens=max_new_tokens
-        )
+        self.llm = partial(client.text_generation, max_new_tokens=max_new_tokens)

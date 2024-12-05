@@ -1,8 +1,6 @@
 
 <div align="center">
     
-![AgentLab Banner](https://github.com/user-attachments/assets/a23b3cd8-b5c4-4918-817b-654ae6468cb4)
-
 
 
 [![pypi](https://badge.fury.io/py/agentlab.svg)](https://pypi.org/project/agentlab/)
@@ -17,13 +15,25 @@
 [🛠️ Setup](#%EF%B8%8F-setup-agentlab) &nbsp;|&nbsp; 
 [🤖 Assistant](#-ui-assistant) &nbsp;|&nbsp; 
 [🚀 Launch Experiments](#-launch-experiments) &nbsp;|&nbsp;
-[🔍 Analyse Results](#-analyse-results) &nbsp;|&nbsp; 
+[🔍 Analyse Results](#-analyse-results) &nbsp;|&nbsp;
+<br>
+[🏆 Leaderboard](#-leaderboard) &nbsp;|&nbsp; 
 [🤖 Build Your Agent](#-implement-a-new-agent) &nbsp;|&nbsp;
-[↻ Reproducibility](#-reproducibility) 
+[↻ Reproducibility](#-reproducibility) &nbsp;|&nbsp;
+[💪 BrowserGym](https://github.com/ServiceNow/BrowserGym)
 
-https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85
+
+<img src="https://github.com/user-attachments/assets/47a7c425-9763-46e5-be54-adac363be850" alt="agentlab-diagram" width="700"/>
+
+
+[Demo solving tasks:](https://github.com/ServiceNow/BrowserGym/assets/26232819/e0bfc788-cc8e-44f1-b8c3-0d1114108b85)
+
 
 </div>
+
+> [!WARNING]
+> AgentLab is meant to provide an open, easy-to-use and extensible framework to accelerate the field of web agent research.
+> It is not meant to be a consumer product. Use with caution!
 
 AgentLab is a framework for developing and evaluating agents on a variety of
 [benchmarks](#-supported-benchmarks) supported by
@@ -32,10 +42,10 @@ AgentLab is a framework for developing and evaluating agents on a variety of
 AgentLab Features:
 * Easy large scale parallel [agent experiments](#-launch-experiments) using [ray](https://www.ray.io/)
 * Building blocks for making agents over BrowserGym
-* Unified LLM API for OpenRouter, OpenAI, Azure, or self hosted using TGI.
-* Prefered way for running benchmarks like WebArena
+* Unified LLM API for OpenRouter, OpenAI, Azure, or self-hosted using TGI.
+* Preferred way for running benchmarks like WebArena
 * Various [reproducibility features](#reproducibility-features)
-* Unified LeaderBoard (soon)
+* Unified [LeaderBoard](https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard)
 
 ## 🎯 Supported Benchmarks
 
@@ -59,12 +69,12 @@ AgentLab Features:
 pip install agentlab
 ```
 
-If not done already, install playwright:
+If not done already, install Playwright:
 ```bash
 playwright install
 ```
 
-Make sure to prepare the required benchmark according to instructions provided in the [setup
+Make sure to prepare the required benchmark according to the instructions provided in the [setup
 column](#-supported-benchmarks).
 
 ```bash
@@ -174,11 +184,18 @@ experience, consider using benchmarks like WorkArena instead.
 
 ### Loading Results
 
-The class [`ExpResult`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d99d9a3169d7b1fde79f909c55c9ba7/browsergym/experiments/src/browsergym/experiments/loop.py#L595) provides a lazy loader for all the information of a specific experiment. You can use [`yield_all_exp_results`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d99d9a3169d7b1fde79f909c55c9ba7/browsergym/experiments/src/browsergym/experiments/loop.py#L872) to recursivley find all results in a directory. Finally [`load_result_df`](https://github.com/ServiceNow/AgentLab/blob/be1998c5fad5bda47ba50497ec3899aae03e85ec/src/agentlab/analyze/inspect_results.py#L119C5-L119C19) gathers all the summary information in a single dataframe. See [`inspect_results.ipynb`](src/agentlab/analyze/inspect_results.ipynb) for example usage.
+The class [`ExpResult`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d99d9a3169d7b1fde79f909c55c9ba7/browsergym/experiments/src/browsergym/experiments/loop.py#L595) provides a lazy loader for all the information of a specific experiment. You can use [`yield_all_exp_results`](https://github.com/ServiceNow/BrowserGym/blob/da26a5849d99d9a3169d7b1fde79f909c55c9ba7/browsergym/experiments/src/browsergym/experiments/loop.py#L872) to recursively find all results in a directory. Finally [`load_result_df`](https://github.com/ServiceNow/AgentLab/blob/be1998c5fad5bda47ba50497ec3899aae03e85ec/src/agentlab/analyze/inspect_results.py#L119C5-L119C19) gathers all the summary information in a single dataframe. See [`inspect_results.ipynb`](src/agentlab/analyze/inspect_results.ipynb) for example usage.
 
 ```python
 from agentlab.analyze import inspect_results
+
+# load the summary of all experiments of the study in a dataframe
 result_df = inspect_results.load_result_df("path/to/your/study")
+
+# load the detailed results of the 1st experiment
+exp_result = bgym.ExpResult(result_df["exp_dir"][0])
+step_0_screenshot = exp_result.screenshots[0]
+step_0_action = exp_result.steps_info[0].action
 ```
 
 
@@ -204,8 +221,14 @@ Once this is selected, you can see the trace of your agent on the given task. Cl
 image to select a step and observe the action taken by the agent.
 
 
-**⚠️ Note**: Gradio is still in developement and unexpected behavior have been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
+**⚠️ Note**: Gradio is still developing, and unexpected behavior has been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
 
+
+## 🏆 Leaderboard
+
+Official unified [leaderboard](https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard) across all benchmarks. 
+
+Experiments are on their way for more reference points using GenericAgent. We are also working on code to automatically push a study to the leaderboard.
 
 ## 🤖 Implement a new Agent
 
@@ -222,32 +245,32 @@ Several factors can influence reproducibility of results in the context of evalu
 dynamic benchmarks.
 
 ### Factors affecting reproducibility
-* **Software version**: Different version of Playwright or any package in the software stack could
+* **Software version**: Different versions of Playwright or any package in the software stack could
   influence the behavior of the benchmark or the agent.
-* **API based LLMs silently changing**: Even for a fixed version, an LLM may be updated e.g. to
-  incorporate latest web knowledge.
+* **API-based LLMs silently changing**: Even for a fixed version, an LLM may be updated e.g. to
+  incorporate the latest web knowledge.
 * **Live websites**:
   * WorkArena: The demo instance is mostly fixed in time to a specific version but ServiceNow
-    sometime push minor modifications.
+    sometimes pushes minor modifications.
   * AssistantBench and GAIA: These rely on the agent navigating the open web. The experience may
     change depending on which country or region, some websites might be in different languages by
     default.
-* **Stochastic Agents**: Setting temperature of the LLM to 0 can reduce most stochasticity.
-* **Non deterministic tasks**: For a fixed seed, the changes should be minimal
+* **Stochastic Agents**: Setting the temperature of the LLM to 0 can reduce most stochasticity.
+* **Non-deterministic tasks**: For a fixed seed, the changes should be minimal
 
 ### Reproducibility Features
 * `Study` contains a dict of information about reproducibility, including benchmark version, package
   version and commit hash
 * The `Study` class allows automatic upload of your results to
   [`reproducibility_journal.csv`](reproducibility_journal.csv). This makes it easier to populate a
-  large amount of reference points. 
-* **Reproduced results in the leaderboard**. For agents that are repdocudibile, we encourage users
+  large amount of reference points. For this feature, you need to `git clone` the repository and install via `pip install -e .`.
+* **Reproduced results in the leaderboard**. For agents that are reprocudibile, we encourage users
   to try to reproduce the results and upload them to the leaderboard. There is a special column
   containing information about all reproduced results of an agent on a benchmark.
 * **ReproducibilityAgent**: [You can run this agent](src/agentlab/agents/generic_agent/reproducibility_agent.py) on an existing study and it will try to re-run
-  the same actions on the same task seeds. A vsiual diff of the two prompts will be displayed in the
+  the same actions on the same task seeds. A visual diff of the two prompts will be displayed in the
   AgentInfo HTML tab of AgentXray. You will be able to inspect on some tasks what kind of changes
-  between to two executions. **Note**: this is a beta feature and will need some adaptation for your
+  between the two executions. **Note**: this is a beta feature and will need some adaptation for your
   own agent.
 
 
