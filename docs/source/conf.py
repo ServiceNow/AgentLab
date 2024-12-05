@@ -6,10 +6,23 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import os
+import subprocess
+
+
+# Automatically retrieve the project version from Git
+def get_version():
+    try:
+        return subprocess.check_output(["git", "describe", "--tags"], encoding="utf-8").strip()
+    except Exception:
+        return "0.0.0"
+
+
 project = "AgentLab"
-copyright = "2024, ServiceNow"
 author = "ServiceNow"
-release = "0.3.1"
+release = get_version()  # Full version string including tags
+version = release  # Short version (e.g., 1.0)
+
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -57,7 +70,6 @@ html_theme_options = {
 }
 html_static_path = ["_static"]
 
-import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
