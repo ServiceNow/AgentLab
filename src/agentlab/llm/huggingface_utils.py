@@ -69,6 +69,9 @@ class HFBaseChatModel(AbstractChatModel):
         Returns:
             If n_samples=1, returns a single AIMessage.
             If n_samples>1, returns a list of AIMessages.
+
+        Raises:
+            Exception: If the server fails to respond after n_retry_server attempts or if the chat template fails.
         """
         if self.tokenizer:
             try:
