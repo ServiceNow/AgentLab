@@ -14,10 +14,13 @@ Subpackages
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 4
+agentlab.ui\_assistant module
+-----------------------------
 
-   agentlab.ui_assistant
+.. automodule:: agentlab.ui_assistant
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
