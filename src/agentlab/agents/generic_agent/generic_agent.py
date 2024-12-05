@@ -43,7 +43,7 @@ class GenericAgentArgs(AgentArgs):
 
         # verify if we can remove this
         if demo_mode:
-            self.action_set.demo_mode = "all_blue"
+            self.flags.action.action_set.demo_mode = "all_blue"
 
     def set_reproducibility_mode(self):
         self.chat_model_args.temperature = 0
