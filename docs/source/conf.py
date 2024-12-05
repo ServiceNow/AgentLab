@@ -20,7 +20,6 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     # "myst_parser",  # Add this to enable Markdown parsing
-    "sphinx_mdinclude",
     "sphinx.ext.napoleon",
 ]
 
