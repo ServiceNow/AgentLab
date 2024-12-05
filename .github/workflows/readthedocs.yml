@@ -3,7 +3,7 @@ name: Update Docs with Versioning
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
   workflow_dispatch:
 
 permissions:
