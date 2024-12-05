@@ -1,5 +1,5 @@
 """
-AgentLab's agent implementations
+AgentLab's pre-implemented agents.
 
 This module contains the agent implementations for AgentLab. With currently:
 
