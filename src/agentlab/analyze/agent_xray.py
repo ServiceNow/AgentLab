@@ -1,3 +1,4 @@
+import argparse
 import base64
 import os
 import traceback
@@ -209,8 +210,14 @@ clicking the refresh button.
                 show_label=False,
                 scale=6,
                 container=False,
+                elem_id="experiment_directory_dropdown",
             )
-            refresh_button = gr.Button("↺", scale=0, size="sm")
+            refresh_button = gr.Button(
+                "↺",
+                scale=0,
+                size="sm",
+                elem_id="refresh_button",
+            )
 
         with gr.Tabs():
             with gr.Tab("Select Agent"):
@@ -1194,9 +1201,16 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     return step_times
 
 
-def main():
-    run_gradio(RESULTS_DIR)
+def main(result_dir_path: str | None = None):
+    if result_dir_path:
+        print(result_dir_path)
+        run_gradio(Path(result_dir_path))
+    else:
+        run_gradio(RESULTS_DIR)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment_path", default=None, type=str, required=False)
+    args = parser.parse_args()
+    main(args.experiment_path)
