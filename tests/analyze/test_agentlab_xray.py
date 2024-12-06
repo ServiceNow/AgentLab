@@ -22,8 +22,7 @@ def launch_gradio_app():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    print(process)
-    time.sleep(5)  # Wait for the app to start (adjust based on app startup time)
+    time.sleep(10)  # Wait for the app to start (adjust based on app startup time)
     return process
 
 
@@ -63,12 +62,28 @@ def test_clicking_dropdown():
 
     def click_dropdown(page: Page):
         dropdown = page.locator("#experiment_directory_dropdown")
-        dropdown.select_option(
-            "2024-08-01_10-20-52_GenericAgent_on_miniwob.ascending-numbers_68_b6312d"
+        dropdown.click()
+
+        options_container = page.locator("ul[role='listbox']")
+        options_container.wait_for(state="visible", timeout=5000)
+        option_to_select = options_container.filter(
+            has_text="2024-08-01_10-20-52_GenericAgent_on_miniwob.ascending-numbers_68_b6312d"
         )
+        option_to_select.click()
 
     run_playwright_with_test(click_dropdown)
 
 
+@pytest.mark.playwright
+def test_refresh_button():
+    """Check that the refresh button can be clicked"""
+
+    def click_refresh(page: Page):
+        page.click("#refresh_button")
+
+    run_playwright_with_test(click_refresh)
+
+
 if __name__ == "__main__":
     test_clicking_dropdown()
+    test_refresh_button()

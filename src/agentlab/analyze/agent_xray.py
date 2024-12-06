@@ -212,7 +212,12 @@ clicking the refresh button.
                 container=False,
                 elem_id="experiment_directory_dropdown",
             )
-            refresh_button = gr.Button("↺", scale=0, size="sm")
+            refresh_button = gr.Button(
+                "↺",
+                scale=0,
+                size="sm",
+                elem_id="refresh_button",
+            )
 
         with gr.Tabs():
             with gr.Tab("Select Agent"):
@@ -1198,6 +1203,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
 
 def main(result_dir_path: str | None = None):
     if result_dir_path:
+        print(result_dir_path)
         run_gradio(Path(result_dir_path))
     else:
         run_gradio(RESULTS_DIR)
