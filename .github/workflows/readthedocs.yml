@@ -45,4 +45,4 @@ jobs:
         git commit -m "Update docs for version $GITHUB_REF_NAME [skip ci]" || echo "No changes to commit"
         git push origin generated-docs --force
         git tag docs/$GITHUB_REF_NAME
-        git push origin docs/$GITHUB_REF_NAME
+        git push origin tag docs/$GITHUB_REF_NAME
