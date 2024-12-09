@@ -1,4 +1,5 @@
-"""Reproducibility Agent
+"""
+An agent that reproduces exactly the same traces as GenericAgent, to compare the results.
 
 
 This module contains the classes and functions to reproduce the results of a

@@ -1,3 +1,7 @@
+"""
+Specific configurations for our 2024 TMLR submission.
+"""
+
 from copy import deepcopy
 
 from agentlab.agents import dynamic_prompting as dp

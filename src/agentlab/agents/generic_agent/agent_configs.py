@@ -1,3 +1,7 @@
+"""
+Basic flags and agent configurations for generic agents.
+"""
+
 import bgym
 
 from agentlab.agents import dynamic_prompting as dp
