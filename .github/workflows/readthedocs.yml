@@ -40,7 +40,9 @@ jobs:
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git checkout -b generated-docs || git checkout generated-docs
+        git checkout -b generated-docs
         git add .
         git commit -m "Update docs for version $GITHUB_REF_NAME [skip ci]" || echo "No changes to commit"
         git push origin generated-docs --force
+        git tag docs/$GITHUB_REF_NAME
+        git push origin docs/$GITHUB_REF_NAME
