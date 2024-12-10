@@ -48,8 +48,6 @@ def test_launch_parallel_study():
     for n_completed in summary_df["n_completed"]:
         assert n_completed == "4/4"
 
-    study_ = Study.load_study(study.study_dir)
-
 
 if __name__ == "__main__":
     test_launch_parallel_study()
