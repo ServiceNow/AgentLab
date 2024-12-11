@@ -15,9 +15,6 @@ class BaseServer:
     def init(self):
         pass
 
-    def __str__(self):
-        return "BaseServer"
-
 
 @dataclass
 class WebArenaInstanceVars(BaseServer):
@@ -51,6 +48,8 @@ class WebArenaInstanceVars(BaseServer):
         unimport_modules(self.module_name)
         for key, value in self.make_env_vars().items():
             os.environ[key] = value
+
+        # this is just a dynamic check to see that the env vars are set correctly
         bgym_instance = WebArenaInstance()
         base_url, _ = _split_url(bgym_instance.urls["reddit"])
         assert base_url == self.base_url, f"Expected {self.base_url}, got {base_url}"
