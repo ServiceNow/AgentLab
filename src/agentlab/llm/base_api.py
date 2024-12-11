@@ -20,6 +20,7 @@ class BaseModelArgs(ABC):
     max_input_tokens: int = None
     max_new_tokens: int = None
     temperature: float = 0.1
+    top_p: float = None  # None for default behavior
     vision_support: bool = False
 
     @abstractmethod

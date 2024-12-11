@@ -99,6 +99,7 @@ class OpenAIModelArgs(BaseModelArgs):
         return OpenAIChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
+            top_p=self.top_p,
             max_tokens=self.max_new_tokens,
         )
 
@@ -113,6 +114,7 @@ class AzureModelArgs(BaseModelArgs):
         return AzureChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
+            top_p=self.top_p,
             max_tokens=self.max_new_tokens,
             deployment_name=self.deployment_name,
         )
@@ -218,6 +220,7 @@ class ChatModel(AbstractChatModel):
         model_name,
         api_key=None,
         temperature=0.5,
+        top_p=None,
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
@@ -230,6 +233,7 @@ class ChatModel(AbstractChatModel):
 
         self.model_name = model_name
         self.temperature = temperature
+        self.top_p = top_p
         self.max_tokens = max_tokens
         self.max_retry = max_retry
         self.min_retry_wait_time = min_retry_wait_time
@@ -278,6 +282,7 @@ class ChatModel(AbstractChatModel):
                     messages=messages,
                     n=n_samples,
                     temperature=temperature,
+                    top_p=self.top_p,
                     max_tokens=self.max_tokens,
                 )
 
@@ -325,6 +330,7 @@ class OpenAIChatModel(ChatModel):
         model_name,
         api_key=None,
         temperature=0.5,
+        top_p=None,
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
@@ -333,6 +339,7 @@ class OpenAIChatModel(ChatModel):
             model_name=model_name,
             api_key=api_key,
             temperature=temperature,
+            top_p=top_p,
             max_tokens=max_tokens,
             max_retry=max_retry,
             min_retry_wait_time=min_retry_wait_time,
@@ -376,6 +383,7 @@ class AzureChatModel(ChatModel):
         api_key=None,
         deployment_name=None,
         temperature=0.5,
+        top_p=None,
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
@@ -393,6 +401,7 @@ class AzureChatModel(ChatModel):
             model_name=model_name,
             api_key=api_key,
             temperature=temperature,
+            top_p=top_p,
             max_tokens=max_tokens,
             max_retry=max_retry,
             min_retry_wait_time=min_retry_wait_time,
