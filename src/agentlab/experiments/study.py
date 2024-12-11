@@ -67,11 +67,12 @@ def make_study(
             len(parallel_servers), the servers will be reused for next evaluation (with a reset) as
             soon as it is done.
 
-    Returns: Study | SequentialStudies | ParallelStudies object.
-        SequentialStudies: if the benchmark requires manual reset after each evaluation such as
-            WebArena and VisualWebArena.
-        ParallelStudies: if the benchmark has multiple servers to run in parallel.
-        Study: otherwise.
+    Returns:
+        Study | SequentialStudies | ParallelStudies object.
+            SequentialStudies: if the benchmark requires manual reset after each evaluation such as
+                WebArena and VisualWebArena.
+            ParallelStudies: if the benchmark has multiple servers to run in parallel.
+            Study: otherwise.
     """
 
     if not isinstance(agent_args, (list, tuple)):
@@ -486,11 +487,16 @@ class SequentialStudies(AbstractStudy):
             study.append_to_journal(strict_reproducibility=strict_reproducibility)
 
 
-def _init_worker(server_queue: Queue):
+def _init_worker(server_queue: Queue[BaseServer]):
     """Run once at the initialization of the worker in the multiprocessing.Pool.
 
     This is typically used to initialize different environment variables of the WebArena server for
     multiple instances in parallel.
+
+    Args:
+        server_queue: Queue
+            A queue of object implementing BaseServer to initialize (or anything with a init
+            method).
     """
     server_instance = server_queue.get()  # type: "WebArenaInstanceVars"
     logger.warning(f"Initializing server instance {server_instance} from process {os.getpid()}")
