@@ -487,7 +487,7 @@ class SequentialStudies(AbstractStudy):
             study.append_to_journal(strict_reproducibility=strict_reproducibility)
 
 
-def _init_worker(server_queue: Queue[BaseServer]):
+def _init_worker(server_queue: Queue):
     """Run once at the initialization of the worker in the multiprocessing.Pool.
 
     This is typically used to initialize different environment variables of the WebArena server for
