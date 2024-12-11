@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import bgym
 from browsergym.experiments.agent import Agent, AgentInfo
+from browsergym.utils.obs import overlay_som
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.dynamic_prompting import Tabs
@@ -30,6 +31,7 @@ class WebDreamerFlags:
     examples: bool = False
     num_samples: int = 10
     use_axtree_in_wm: bool = False
+    use_som: bool = True
 
 
 @dataclass
@@ -80,8 +82,18 @@ class WebDreamerAgent(Agent):
         controller_chat_model_args.temperature = 1.0
         controller_chat_model_args.top_p = 0.95
 
-        self.controller = Controller(self.chat_model_args.make_model(), flags, self.action_set)
+        self.controller = Controller(
+            controller_chat_model_args.make_model(), flags, self.action_set
+        )
         self.history = []
+
+    def obs_preprocessor(self, obs):
+        obs = super().obs_preprocessor(obs)
+        if self.flags.use_som:
+            obs["som"] = overlay_som(
+                obs["screenshot"], extra_properties=obs["extra_element_properties"]
+            )
+        return obs
 
     def get_action(self, obs: dict) -> tuple[str, AgentInfo]:
         self.history.append(obs)
@@ -152,7 +164,10 @@ class Controller:
             prompt.add_content(type=goal["type"], content=goal[goal["type"]])
         prompt.add_text("\nThis is the task you are trying to complete.")
         prompt.add_text("\nThe current webpage screenshot:\n")
-        prompt.add_image(obs["screenshot"])
+        if self.flags.use_som:
+            prompt.add_image(obs["som"])
+        else:
+            prompt.add_image(obs["screenshot"])
         prompt.add_text(
             "The observation you are given has a [bid] for each element in the webpage. These are used to interact with the webpage. `[a77] button 'Manage Attachments', clickable, visible` means that the element with bid `a77` is a button with the text 'Manage Attachments' that is clickable and visible on the webpage."
         )
@@ -184,7 +199,7 @@ To be successful, it is very important to follow the following rules:
 <action>Your selected action using a [bid] from the page</action>
 """
         )
-        answers = retry_multiple(
+        answers, tries = retry_multiple(
             self.model,
             prompt,
             n_retry=4,
@@ -197,7 +212,7 @@ To be successful, it is very important to follow the following rules:
         res = extract_html_tags(answer, ["action"])
         if "action" not in res:
             raise ParseError("No actions found")
-        return res["action"]
+        return res["action"][0]
 
 
 class Refiner:
@@ -220,11 +235,15 @@ Format your response into two lines as shown below:
 <action>action1</action>
 <action>action2</action>
 <action>as many actions as you think are relevant</action>
-(please return the actions from the candidate actions list. Don't output the action description itself. Separate the indices with semicolons. Do not add spaces or any other characters between after the semicolons.)
+(please return the actions from the candidate actions list. Don't output the action description itself.)
 """
         )
 
-    def __call__(self, possible_actions, history: list[dict]) -> tuple[list[str], Discussion]:
+    def __call__(
+        self, possible_actions: list[str], history: list[dict]
+    ) -> tuple[list[str], Discussion]:
+        # remove identical actions first
+        possible_actions = list(set(possible_actions))
         possible_actions_prompt = "</action>\n<action>".join(possible_actions)
         possible_actions_prompt = f"<action>{possible_actions_prompt}</action>"
 
@@ -241,7 +260,7 @@ Format your response into two lines as shown below:
         prompt.add_text(possible_actions_prompt)
 
         answers = retry(self.model, prompt, n_retry=4, parser=self.parser)
-        refined_actions = [a["action"] for a in answers]
+        refined_actions = [a for a in answers["action"]]
         return refined_actions, prompt  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
@@ -263,8 +282,11 @@ class WorldModel:
         states = []
         for action in refined_actions:
             prompt = Discussion(self.system_prompt)
-            prompt.add_text("Here is the current webpage screenshot:\n")
-            prompt.add_image(history[-1]["screenshot"])
+            prompt.append(HumanMessage("Here is the current webpage screenshot:\n"))
+            if self.flags.use_som:
+                prompt.add_image(history[-1]["som"])
+            else:
+                prompt.add_image(history[-1]["screenshot"])
             if self.flags.use_axtree_in_wm:
                 prompt.add_text("The current webpage accessibility tree:\n")
                 prompt.add_text(history[-1]["axtree_txt"])
@@ -280,7 +302,7 @@ class WorldModel:
         res = extract_html_tags(answer, ["new"])
         if "new" not in res:
             raise ParseError("No new state found")
-        return res["new"]
+        return res["new"][0]
 
 
 class ValueModel:
@@ -310,11 +332,15 @@ Format your response into three lines as shown below:
             for goal in history[-1]["goal_object"]:
                 prompt.add_content(type=goal["type"], content=goal[goal["type"]])
             prompt.add_text("\nHere is the current webpage screenshot:\n")
-            prompt.add_image(history[-1]["screenshot"])
+            if self.flags.use_som:
+                prompt.add_image(history[-1]["som"])
+            else:
+                prompt.add_image(history[-1]["screenshot"])
             prompt.add_text("\nHere is the action taken by the agent:\n")
             prompt.add_text(action)
             prompt.add_text("\nHere is the predicted state of the webpage:\n")
             prompt.add_text(state)
+            prompt.add_text("\nEnd of prediction\n")
             answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
             values.append(self.process_value(answer))
         return values, prompt
@@ -323,13 +349,15 @@ Format your response into three lines as shown below:
         res = extract_html_tags(answer, ["think", "status", "track"])
         if "status" not in res or "track" not in res:
             raise ParseError("Missing status or track")
+        if len(res["status"]) != 1 or len(res["track"]) != 1:
+            raise ParseError("Multiple status or track")
+        res["status"] = res["status"][0]
+        res["track"] = res["track"][0]
         return res
 
     def process_value(self, answer: dict) -> float:
         if answer["status"] == "success":
             return 1.0
-        elif answer["status"] == "failure":
-            return 0.0
         elif answer["track"] == "yes":
             return 0.5
         else:
