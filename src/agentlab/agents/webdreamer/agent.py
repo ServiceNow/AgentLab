@@ -97,40 +97,49 @@ class WebDreamerAgent(Agent):
 
     def get_action(self, obs: dict) -> tuple[str, AgentInfo]:
         self.history.append(obs)
+        markdown_summary = ""
         with set_tracker() as global_tracker:
             messages = Discussion()
             trackers = []  # type: list[LLMTracker]
 
             # call Controller for possible actions
             with set_tracker("controller") as controller_tracker:
-                possible_actions, content = self.controller(self.history)
+                possible_actions, content, markdown = self.controller(self.history)
             trackers.append(controller_tracker)
             for c in content:
                 messages.append(c)
+            markdown_summary += "\n## Controller\n" + markdown
 
             # call Refiner to refine the possible actions
             if self.flags.use_refiner:
                 with set_tracker("refiner") as refiner_tracker:
-                    refined_actions, content = self.refiner(possible_actions, self.history)
+                    refined_actions, content, markdown = self.refiner(
+                        possible_actions, self.history
+                    )
                 trackers.append(refiner_tracker)
                 for c in content:
                     messages.append(c)
+            markdown_summary += "\n## Refiner\n" + markdown
 
             # call WorldModel predict state changes
             with set_tracker("world_model") as world_model_tracker:
-                world_model_output, content = self.world_model(refined_actions, self.history)
+                world_model_output, content, markdown = self.world_model(
+                    refined_actions, self.history
+                )
             trackers.append(world_model_tracker)
             for c in content:
                 messages.append(c)
+            markdown_summary += "\n## WorldModel\n" + markdown
 
             # call ValueModel to predict the value of the resulting states
             with set_tracker("value_model") as value_model_tracker:
-                value_model_output, content = self.value_model(
+                value_model_output, content, markdown = self.value_model(
                     world_model_output, refined_actions, self.history
                 )
             trackers.append(value_model_tracker)
             for c in content:
                 messages.append(c)
+            markdown_summary += "\n## ValueModel\n" + markdown
 
         # get all model stats
         stats = global_tracker.stats
@@ -138,7 +147,9 @@ class WebDreamerAgent(Agent):
             stats.update(tracker.stats)
 
         action = self.get_best_action(value_model_output, refined_actions)
-        return action, AgentInfo(think="", chat_messages=messages, stats=stats)
+        return action, AgentInfo(
+            think="", chat_messages=messages, stats=stats, markdown_page=markdown_summary
+        )
 
     def get_best_action(self, value_model_output: list[float], refined_actions: list[str]) -> str:
         return refined_actions[value_model_output.index(max(value_model_output))]
@@ -206,7 +217,8 @@ To be successful, it is very important to follow the following rules:
             parser=self.parser,
             num_samples=self.flags.num_samples,
         )
-        return answers, prompt  # TODO log more info
+        markdown = f"```{"\n".join(answers)}```"
+        return answers, prompt, markdown  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
         res = extract_html_tags(answer, ["action"])
@@ -262,9 +274,11 @@ Format your response into two lines as shown below:
         try:
             answers = retry(self.model, prompt, n_retry=4, parser=self.parser)
             refined_actions = [a for a in answers["action"]]
+            markdown = f"Selected actions:\n```{"\n".join(refined_actions)}```"
         except ParseError as e:
             refined_actions = possible_actions
-        return refined_actions, prompt  # TODO log more info
+            markdown = "No actions selected, using all possible actions"
+        return refined_actions, prompt, markdown  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
         res = extract_html_tags(answer, ["think", "action"])
@@ -283,7 +297,8 @@ class WorldModel:
 
     def __call__(self, refined_actions, history: list[dict]) -> tuple[list[str], Discussion]:
         states = []
-        for action in refined_actions:
+        markdown = ""
+        for i, action in enumerate(refined_actions):
             prompt = Discussion(self.system_prompt)
             prompt.append(HumanMessage("Here is the current webpage screenshot:\n"))
             if self.flags.use_som:
@@ -299,7 +314,8 @@ class WorldModel:
             prompt.add_text(action)
             answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
             states.append(answer)
-        return states, prompt  # TODO log more info
+            markdown += f"\n### Action {i+1}: {action}\n{answer}\n"
+        return states, prompt, markdown  # TODO log more info
 
     def parser(self, answer: str) -> str:
         return answer
@@ -326,6 +342,7 @@ Format your response into three lines as shown below:
         self, world_model_output, imagined_actions, history: list[dict]
     ) -> tuple[list[float], Discussion]:
         values = []
+        markdown = ""
         for state, action in zip(world_model_output, imagined_actions):
             prompt = Discussion(self.system_prompt)
             prompt.append(HumanMessage("Here is the goal of the user the agent must accomplish:\n"))
@@ -343,7 +360,8 @@ Format your response into three lines as shown below:
             prompt.add_text("\nEnd of prediction\n")
             answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
             values.append(self.process_value(answer))
-        return values, prompt
+            markdown = f"\n### Action {action}\n{str(prompt.messages[-1])}\nValue: {values[-1]}\n"
+        return values, prompt, markdown  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
         res = extract_html_tags(answer, ["think", "status", "track"])
