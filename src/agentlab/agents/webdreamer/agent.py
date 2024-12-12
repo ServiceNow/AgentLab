@@ -98,58 +98,85 @@ class WebDreamerAgent(Agent):
     def get_action(self, obs: dict) -> tuple[str, AgentInfo]:
         self.history.append(obs)
         markdown_summary = ""
+        stats_summary = {}
         with set_tracker() as global_tracker:
             messages = Discussion()
             trackers = []  # type: list[LLMTracker]
 
             # call Controller for possible actions
             with set_tracker("controller") as controller_tracker:
-                possible_actions, content, markdown = self.controller(self.history)
+                possible_actions, content, markdown, stats = self.controller(self.history)
             trackers.append(controller_tracker)
             for c in content:
                 messages.append(c)
             markdown_summary += "\n## Controller\n" + markdown
+            stats_summary.update(stats)
 
             # call Refiner to refine the possible actions
             if self.flags.use_refiner:
                 with set_tracker("refiner") as refiner_tracker:
-                    refined_actions, content, markdown = self.refiner(
+                    refined_actions, content, markdown, stats = self.refiner(
                         possible_actions, self.history
                     )
                 trackers.append(refiner_tracker)
                 for c in content:
                     messages.append(c)
             markdown_summary += "\n## Refiner\n" + markdown
+            stats_summary.update(stats)
 
             # call WorldModel predict state changes
             with set_tracker("world_model") as world_model_tracker:
-                world_model_output, content, markdown = self.world_model(
+                world_model_output, content, markdown, stats = self.world_model(
                     refined_actions, self.history
                 )
             trackers.append(world_model_tracker)
             for c in content:
                 messages.append(c)
             markdown_summary += "\n## WorldModel\n" + markdown
+            stats_summary.update(stats)
 
             # call ValueModel to predict the value of the resulting states
             with set_tracker("value_model") as value_model_tracker:
-                value_model_output, content, markdown = self.value_model(
+                value_model_output, content, markdown, stats, txt_values = self.value_model(
                     world_model_output, refined_actions, self.history
                 )
             trackers.append(value_model_tracker)
             for c in content:
                 messages.append(c)
             markdown_summary += "\n## ValueModel\n" + markdown
+            stats_summary.update(stats)
+
+        markdown_summary += "\n## WorldModel/Value interaction\n"
+        for action, state, txt_value in zip(refined_actions, world_model_output, txt_values):
+            markdown_summary += f"\n### Action: {action}\n"
+            markdown_summary += f"\n{state}\n"
+            markdown_summary += f"\nValue: \n{txt_value}\n"
+
+        markdown_summary = self.process_md(markdown_summary)
 
         # get all model stats
-        stats = global_tracker.stats
+        stats_summary.update(global_tracker.stats)
         for tracker in trackers:
-            stats.update(tracker.stats)
+            stats_summary.update(tracker.stats)
 
         action = self.get_best_action(value_model_output, refined_actions)
         return action, AgentInfo(
-            think="", chat_messages=messages, stats=stats, markdown_page=markdown_summary
+            think="", chat_messages=messages, stats=stats_summary, markdown_page=markdown_summary
         )
+
+    def process_md(self, markdown_summary: str) -> str:
+        markdown_summary = markdown_summary.replace("<think>", "\n<think>").replace(
+            "</think>", "</think>\n"
+        )
+        markdown_summary = markdown_summary.replace("<status>", "\n<status>").replace(
+            "</status>", "</status>\n"
+        )
+        markdown_summary = markdown_summary.replace("<track>", "\n<track>").replace(
+            "</track>", "</track>\n"
+        )
+
+        markdown_summary = markdown_summary.replace("<", "&lt;").replace(">", "&gt;")
+        return markdown_summary
 
     def get_best_action(self, value_model_output: list[float], refined_actions: list[str]) -> str:
         return refined_actions[value_model_output.index(max(value_model_output))]
@@ -165,7 +192,7 @@ class Controller:
             f"""You are an autonomous intelligent agent tasked with navigating a web browser. You will be given web-based tasks. These tasks will be accomplished through the use of specific actions you can issue."""
         )
 
-    def __call__(self, history: list[dict]) -> tuple[list[str], Discussion]:
+    def __call__(self, history: list[dict]) -> tuple[list[str], Discussion, str, dict]:
         obs = history[-1]
         prompt = Discussion(self.system_prompt)
         prompt.append(HumanMessage("""Here is the information you will have:\n"""))
@@ -218,9 +245,9 @@ To be successful, it is very important to follow the following rules:
             num_samples=self.flags.num_samples,
         )
         markdown = f"```\n{"\n".join(answers)}\n```"
-        return answers, prompt, markdown  # TODO log more info
+        return answers, prompt, markdown, {}  # TODO log more info
 
-    def parser(self, answer: str) -> list[str]:
+    def parser(self, answer: str) -> str:
         res = extract_html_tags(answer, ["action"])
         if "action" not in res:
             raise ParseError("No actions found")
@@ -253,9 +280,12 @@ Format your response into two lines as shown below:
 
     def __call__(
         self, possible_actions: list[str], history: list[dict]
-    ) -> tuple[list[str], Discussion]:
+    ) -> tuple[list[str], Discussion, str, dict]:
         # remove identical actions first
+        orgn_len = len(possible_actions)
         possible_actions = list(set(possible_actions))
+        len_diff = orgn_len - len(possible_actions)
+        stats = {"removed_identical_actions": len_diff}
         possible_actions_prompt = "</action>\n<action>".join(possible_actions)
         possible_actions_prompt = f"<action>{possible_actions_prompt}</action>"
 
@@ -278,9 +308,10 @@ Format your response into two lines as shown below:
         except ParseError as e:
             refined_actions = possible_actions
             markdown = "No actions selected, using all possible actions"
-        return refined_actions, prompt, markdown  # TODO log more info
+        stats["removed_actions"] = len(possible_actions) - len(refined_actions)
+        return refined_actions, prompt, markdown, stats  # TODO log more info
 
-    def parser(self, answer: str) -> list[str]:
+    def parser(self, answer: str) -> dict[list[str]]:
         res = extract_html_tags(answer, ["think", "action"])
         if "action" not in res:
             raise ParseError("No refinements found")
@@ -295,7 +326,9 @@ class WorldModel:
             "You are an agent that predicts the effect of an action on a webpage. You will be given a screenshot of a webpage and an operation to perform on the webpage. You are required to predict the changes that will occur on the webpage after the operation is performed, such as the appearance of new elements, the disappearance of existing elements, or changes in the content of existing elements. The operation type and the element to operate will be provided in the prompt. Directly output 'State changes: ...' and don't output anything else. Try to be as comprehensive and detailed as possible."
         )
 
-    def __call__(self, refined_actions, history: list[dict]) -> tuple[list[str], Discussion]:
+    def __call__(
+        self, refined_actions, history: list[dict]
+    ) -> tuple[list[str], Discussion, str, dict]:
         states = []
         markdown = ""
         for i, action in enumerate(refined_actions):
@@ -315,7 +348,7 @@ class WorldModel:
             answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
             states.append(answer)
             markdown += f"\n### Action {i+1}: {action}\n{answer}\n"
-        return states, prompt, markdown  # TODO log more info
+        return states, prompt, markdown, {}  # TODO log more info
 
     def parser(self, answer: str) -> str:
         return answer
@@ -340,8 +373,9 @@ Format your response into three lines as shown below:
 
     def __call__(
         self, world_model_output, imagined_actions, history: list[dict]
-    ) -> tuple[list[float], Discussion]:
+    ) -> tuple[list[float], Discussion, str, dict, list[str]]:
         values = []
+        txt_values = []
         markdown = ""
         for state, action in zip(world_model_output, imagined_actions):
             prompt = Discussion(self.system_prompt)
@@ -360,10 +394,11 @@ Format your response into three lines as shown below:
             prompt.add_text("\nEnd of prediction\n")
             answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
             values.append(self.process_value(answer))
+            txt_values.append(answer["full"])
             markdown += f"\n### Action {action}\n{str(prompt.messages[-1])}\nValue: {values[-1]}\n"
-        return values, prompt, markdown  # TODO log more info
+        return values, prompt, markdown, {}, txt_values  # TODO log more info
 
-    def parser(self, answer: str) -> list[str]:
+    def parser(self, answer: str) -> dict[str, str]:
         res = extract_html_tags(answer, ["think", "status", "track"])
         if "status" not in res or "track" not in res:
             raise ParseError("Missing status or track")
@@ -371,6 +406,7 @@ Format your response into three lines as shown below:
             raise ParseError("Multiple status or track")
         res["status"] = res["status"][0]
         res["track"] = res["track"][0]
+        res["full"] = answer
         return res
 
     def process_value(self, answer: dict) -> float:
