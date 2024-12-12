@@ -259,8 +259,11 @@ Format your response into two lines as shown below:
         prompt.add_text("\nHere are the possible actions, evaluate and select the relevant ones:\n")
         prompt.add_text(possible_actions_prompt)
 
-        answers = retry(self.model, prompt, n_retry=4, parser=self.parser)
-        refined_actions = [a for a in answers["action"]]
+        try:
+            answers = retry(self.model, prompt, n_retry=4, parser=self.parser)
+            refined_actions = [a for a in answers["action"]]
+        except ParseError as e:
+            refined_actions = possible_actions
         return refined_actions, prompt  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
