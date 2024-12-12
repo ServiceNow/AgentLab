@@ -275,7 +275,7 @@ class WorldModel:
         self.model = model
         self.flags = flags
         self.system_prompt = SystemMessage(
-            """You are an agent that predicts the effect of an action on a webpage. You will be given a screenshot of a webpage and an operation to perform on the webpage. You are required to predict the state of the webpage after the operation is performed. In particular, you should describe the new webpage as an accessibility tree, highlight the most likely elements appearing in the new page. The operation type and the element to operate will be provided in the prompt. Directly output New content: with the new content and don't output anything else. Try to be as comprehensive and detailed as possible."""
+            "You are an agent that predicts the effect of an action on a webpage. You will be given a screenshot of a webpage and an operation to perform on the webpage. You are required to predict the changes that will occur on the webpage after the operation is performed, such as the appearance of new elements, the disappearance of existing elements, or changes in the content of existing elements. The operation type and the element to operate will be provided in the prompt. Directly output 'State changes: ...' and don't output anything else. Try to be as comprehensive and detailed as possible."
         )
 
     def __call__(self, refined_actions, history: list[dict]) -> tuple[list[str], Discussion]:
