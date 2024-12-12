@@ -217,7 +217,7 @@ To be successful, it is very important to follow the following rules:
             parser=self.parser,
             num_samples=self.flags.num_samples,
         )
-        markdown = f"```{"\n".join(answers)}```"
+        markdown = f"```\n{"\n".join(answers)}\n```"
         return answers, prompt, markdown  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
@@ -274,7 +274,7 @@ Format your response into two lines as shown below:
         try:
             answers = retry(self.model, prompt, n_retry=4, parser=self.parser)
             refined_actions = [a for a in answers["action"]]
-            markdown = f"Selected actions:\n```{"\n".join(refined_actions)}```"
+            markdown = f"Selected actions:\n```\n{"\n".join(refined_actions)}\n```"
         except ParseError as e:
             refined_actions = possible_actions
             markdown = "No actions selected, using all possible actions"
@@ -360,7 +360,7 @@ Format your response into three lines as shown below:
             prompt.add_text("\nEnd of prediction\n")
             answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
             values.append(self.process_value(answer))
-            markdown = f"\n### Action {action}\n{str(prompt.messages[-1])}\nValue: {values[-1]}\n"
+            markdown += f"\n### Action {action}\n{str(prompt.messages[-1])}\nValue: {values[-1]}\n"
         return values, prompt, markdown  # TODO log more info
 
     def parser(self, answer: str) -> list[str]:
