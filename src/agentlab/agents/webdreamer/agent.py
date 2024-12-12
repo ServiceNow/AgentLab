@@ -275,7 +275,7 @@ class WorldModel:
         self.model = model
         self.flags = flags
         self.system_prompt = SystemMessage(
-            """You are an agent that predicts the effect of an action on a webpage. You will be given a screenshot of a webpage and an operation to perform on the webpage. You are required to predict the state of the webpage after the operation is performed. In particular, you should describe the new webpage as an accessibility tree, highlight the most likely elements appearing in the new page. The operation type and the element to operate will be provided in the prompt. Directly output <new>with the new content</new> and don't output anything else. Try to be as comprehensive and detailed as possible."""
+            """You are an agent that predicts the effect of an action on a webpage. You will be given a screenshot of a webpage and an operation to perform on the webpage. You are required to predict the state of the webpage after the operation is performed. In particular, you should describe the new webpage as an accessibility tree, highlight the most likely elements appearing in the new page. The operation type and the element to operate will be provided in the prompt. Directly output New content: with the new content and don't output anything else. Try to be as comprehensive and detailed as possible."""
         )
 
     def __call__(self, refined_actions, history: list[dict]) -> tuple[list[str], Discussion]:
@@ -299,10 +299,7 @@ class WorldModel:
         return states, prompt  # TODO log more info
 
     def parser(self, answer: str) -> str:
-        res = extract_html_tags(answer, ["new"])
-        if "new" not in res:
-            raise ParseError("No new state found")
-        return res["new"][0]
+        return answer
 
 
 class ValueModel:
