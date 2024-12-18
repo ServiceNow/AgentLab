@@ -37,7 +37,7 @@
 
 AgentLab is a framework for developing and evaluating agents on a variety of
 [benchmarks](#-supported-benchmarks) supported by
-[BrowserGym](https://github.com/ServiceNow/BrowserGym).
+[BrowserGym](https://github.com/ServiceNow/BrowserGym). It is presented in more details in our [BrowserGym ecosystem paper](https://arxiv.org/abs/2412.05467)
 
 AgentLab Features:
 * Easy large scale parallel [agent experiments](#-launch-experiments) using [ray](https://www.ray.io/)
