@@ -3,6 +3,16 @@ from bgym import AbstractAgentArgs
 
 
 class AgentArgs(AbstractAgentArgs):
+    """Base class for agent arguments for instantiating an agent.
+
+    Define agent arguments as dataclass variables of this class. For example:
+
+    class MyAgentArgs(AgentArgs):
+        my_arg: str = "default_value"
+        my_other_arg: int = 42
+
+    Note: for working properly with AgentXRay, the arguments need to be serializable and hasable.
+    """
 
     def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode: bool):
         """Optional method to set benchmark specific flags.

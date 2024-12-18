@@ -1,5 +1,6 @@
 import gzip
 import logging
+import os
 import pickle
 import uuid
 from abc import ABC, abstractmethod
@@ -16,6 +17,8 @@ from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
+from agentlab.experiments.multi_server import BaseServer, WebArenaInstanceVars
+from multiprocessing import Pool, Manager, Queue
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,7 @@ def make_study(
     suffix="",
     comment=None,
     ignore_dependencies=False,
+    parallel_servers=None,
 ):
     """Run a list of agents on a benchmark.
 
@@ -57,10 +61,18 @@ def make_study(
             3x compare to sequential executionz. To accelerate execution, you can ignore
             dependencies and run in full parallel. This leads to a decrease in performance of about
             1%-2%, and could be more. Note: ignore_dependencies on VisualWebArena doesn't work.
+        parallel_servers: list[WebArenaInstanceVars]
+            The number of parallel servers to use `if "webarena" in benchmark.name`. Use this to
+            dispatch agent_args on a pool of servers in parallel. If len(agent_args) >
+            len(parallel_servers), the servers will be reused for next evaluation (with a reset) as
+            soon as it is done.
 
     Returns:
-        Study object or SequentialStudies object if the benchmark requires manual reset after each
-        evaluation such as WebArena and VisualWebArena.
+        Study | SequentialStudies | ParallelStudies object.
+            SequentialStudies: if the benchmark requires manual reset after each evaluation such as
+                WebArena and VisualWebArena.
+            ParallelStudies: if the benchmark has multiple servers to run in parallel.
+            Study: otherwise.
     """
 
     if not isinstance(agent_args, (list, tuple)):
@@ -69,7 +81,7 @@ def make_study(
     if isinstance(benchmark, str):
         benchmark = bgym.DEFAULT_BENCHMARKS[benchmark.lower()]()
 
-    if "webarena" in benchmark.name and len(agent_args) > 1:
+    if len(agent_args) > 1 and ("webarena" in benchmark.name or parallel_servers is not None):
         logger.warning(
             "*WebArena* requires manual reset after each evaluation. Running through SequentialStudies."
         )
@@ -85,8 +97,10 @@ def make_study(
                     ignore_dependencies=ignore_dependencies,
                 )
             )
-
-        return SequentialStudies(studies)
+        if parallel_servers is not None:
+            return ParallelStudies(studies, parallel_servers=parallel_servers)
+        else:
+            return SequentialStudies(studies)
     else:
         return Study(
             agent_args,
@@ -164,7 +178,7 @@ class Study(AbstractStudy):
             A suffix to add to the study name. This can be useful to keep track of your experiments.
             By default the study name contains agent name, benchmark name and date.
         uuid: str
-            A unique identifier for the study.
+            A unique identifier for the study. Will be generated automatically.
         reproducibility_info: dict
             Information about the study that may affect the reproducibility of the experiment. e.g.:
             versions of BrowserGym, benchmark, AgentLab...
@@ -178,12 +192,12 @@ class Study(AbstractStudy):
             information. Leave any extra information that can explain why results could be different
             than expected.
         ignore_dependencies: bool
-            If True, ignore the dependencies of the tasks in the benchmark. *Use with caution.* So
+            If True, ignore the dependencies of the tasks in the benchmark. *Use with caution*. So
             far, only WebArena and VisualWebArena have dependencies between tasks to minimize the
             influence of solving one task before another one. This dependency graph allows
             experiments to run in parallel while respecting task dependencies. However, it still
             can't run more than 4 and, in practice it's speeding up evaluation by a factor of only
-            3x compare to sequential executionz. To accelerate execution, you can ignore
+            3x compare to sequential execution. To accelerate execution, you can ignore
             dependencies and run in full parallel. This leads to a decrease in performance of about
             1%-2%, and could be more. Note: ignore_dependencies on VisualWebArena doesn't work.
         avg_step_timeout: int
@@ -455,12 +469,14 @@ class SequentialStudies(AbstractStudy):
             study.make_dir(exp_root=self.dir)
 
         self.save()
-
-        for study in self.studies:
-            study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
+        self._run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
         _, summary_df, _ = self.get_results()
         logger.info("\n" + str(summary_df))
         logger.info(f"SequentialStudies {self.name} finished.")
+
+    def _run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+        for study in self.studies:
+            study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
 
     def override_max_steps(self, max_steps):
         for study in self.studies:
@@ -469,6 +485,57 @@ class SequentialStudies(AbstractStudy):
     def append_to_journal(self, strict_reproducibility=True):
         for study in self.studies:
             study.append_to_journal(strict_reproducibility=strict_reproducibility)
+
+
+def _init_worker(server_queue: Queue):
+    """Run once at the initialization of the worker in the multiprocessing.Pool.
+
+    This is typically used to initialize different environment variables of the WebArena server for
+    multiple instances in parallel.
+
+    Args:
+        server_queue: Queue
+            A queue of object implementing BaseServer to initialize (or anything with a init
+            method).
+    """
+    server_instance = server_queue.get()  # type: "WebArenaInstanceVars"
+    logger.warning(f"Initializing server instance {server_instance} from process {os.getpid()}")
+    server_instance.init()
+
+
+def _run_study(study: Study, n_jobs, parallel_backend, strict_reproducibility, n_relaunch):
+    """Wrapper to run a study remotely."""
+    study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
+
+
+@dataclass
+class ParallelStudies(SequentialStudies):
+
+    parallel_servers: list[BaseServer] | int = None
+
+    def _run(
+        self,
+        n_jobs=1,
+        parallel_backend="ray",
+        strict_reproducibility=False,
+        n_relaunch=3,
+    ):
+        parallel_servers = self.parallel_servers
+        if isinstance(parallel_servers, int):
+            parallel_servers = [BaseServer() for _ in range(parallel_servers)]
+
+        server_queue = Manager().Queue()
+        for server in parallel_servers:
+            server_queue.put(server)
+
+        with Pool(len(parallel_servers), initializer=_init_worker, initargs=(server_queue,)) as p:
+            p.starmap(
+                _run_study,
+                [
+                    (study, n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
+                    for study in self.studies
+                ],
+            )
 
 
 def get_most_recent_study(
