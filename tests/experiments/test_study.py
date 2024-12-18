@@ -21,12 +21,16 @@ def _make_agent_args_list():
 
 
 @pytest.mark.skip(reason="This test requires WebArena instances to be running")
-def test_launch_parallel_study_webarena():
+def manual_test_launch_parallel_study_webarena():
     agent_args_list = _make_agent_args_list()
 
     server_instance_1 = WebArenaInstanceVars.from_env_vars()
     server_instance_2 = server_instance_1.clone()
+    server_instance_2.base_url = "http://webarena-slow.eastus.cloudapp.azure.com"
     parallel_servers = [server_instance_1, server_instance_2]
+
+    for server in parallel_servers:
+        print(server)
 
     study = make_study(
         agent_args_list, benchmark="webarena_tiny", parallel_servers=parallel_servers
@@ -50,4 +54,5 @@ def test_launch_parallel_study():
 
 
 if __name__ == "__main__":
-    test_launch_parallel_study()
+    # test_launch_parallel_study()
+    manual_test_launch_parallel_study_webarena()
