@@ -406,13 +406,14 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
     def __init__(
         self,
         model_name: str,
+        base_model_name: str,
         model_url: str,
         token: Optional[str] = None,
         temperature: Optional[int] = 1e-1,
         max_new_tokens: Optional[int] = 512,
         n_retry_server: Optional[int] = 4,
     ):
-        super().__init__(model_name, n_retry_server)
+        super().__init__(model_name, base_model_name, n_retry_server)
         if temperature < 1e-3:
             logging.warning("Models might behave weirdly when temperature is too low.")
         self.temperature = temperature

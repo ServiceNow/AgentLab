@@ -40,14 +40,17 @@ class HFBaseChatModel(AbstractChatModel):
         description="The number of times to retry the server if it fails to respond",
     )
 
-    def __init__(self, model_name, n_retry_server):
+    def __init__(self, model_name, base_model_name, n_retry_server):
         super().__init__()
         self.n_retry_server = n_retry_server
 
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        if base_model_name is None:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(base_model_name)
         if isinstance(self.tokenizer, GPT2TokenizerFast):
             logging.warning(
-                f"No chat template is defined for {model_name}. Resolving to the hard-coded templates."
+                f"No chat template is defined for {base_model_name}. Resolving to the hard-coded templates."
             )
             self.tokenizer = None
             self.prompt_template = get_prompt_template(model_name)
