@@ -77,7 +77,6 @@ class WebDreamerAgent(Agent):
         if self.flags.use_refiner:
             self.refiner = Refiner(self.chat_model_args.make_model(), flags, self.action_set)
         self.world_model = WorldModel(self.chat_model_args.make_model(), flags)
-        self.value_model = ValueModel(self.chat_model_args.make_model(), flags)
 
         controller_chat_model_args = deepcopy(chat_model_args)
         controller_chat_model_args.temperature = 1.0
@@ -86,6 +85,13 @@ class WebDreamerAgent(Agent):
         self.controller = Controller(
             controller_chat_model_args.make_model(), flags, self.action_set
         )
+
+        value_chat_model_args = deepcopy(chat_model_args)
+        value_chat_model_args.temperature = 1.0
+        value_chat_model_args.top_p = 1.0
+
+        self.value_model = ValueModel(value_chat_model_args.make_model(), flags)
+
         self.history = []
 
     def obs_preprocessor(self, obs):
