@@ -29,7 +29,8 @@ class WebDreamerFlags:
     use_tabs: bool = False
     long_description: bool = False
     examples: bool = False
-    num_samples: int = 10
+    num_controller_samples: int = 5
+    num_value_samples: int = 10
     use_axtree_in_wm: bool = False
     use_som: bool = True
 
@@ -242,7 +243,7 @@ To be successful, it is very important to follow the following rules:
             prompt,
             n_retry=4,
             parser=self.parser,
-            num_samples=self.flags.num_samples,
+            num_samples=self.flags.num_controller_samples,
         )
         markdown = f"```\n{"\n".join(answers)}\n```"
         return answers, prompt, markdown, {}  # TODO log more info
@@ -378,6 +379,8 @@ Format your response into three lines as shown below:
         txt_values = []
         markdown = ""
         for state, action in zip(world_model_output, imagined_actions):
+            value = []
+            txt_value = []
             prompt = Discussion(self.system_prompt)
             prompt.append(HumanMessage("Here is the goal of the user the agent must accomplish:\n"))
             for goal in history[-1]["goal_object"]:
@@ -392,9 +395,18 @@ Format your response into three lines as shown below:
             prompt.add_text("\nHere is the predicted state of the webpage:\n")
             prompt.add_text(state)
             prompt.add_text("\nEnd of prediction\n")
-            answer = retry(self.model, prompt, n_retry=4, parser=self.parser)
-            values.append(self.process_value(answer))
-            txt_values.append(answer["full"])
+            answers, tries = retry_multiple(
+                self.model,
+                prompt,
+                n_retry=4,
+                parser=self.parser,
+                num_samples=self.flags.num_value_samples,
+            )
+            for answer in answers:
+                value.append(self.process_value(answer))
+                txt_value.append(answer["full"])
+            values.append(sum(value) / len(value))
+            txt_values.append(txt_value)
             markdown += f"\n### Action {action}\n{str(prompt.messages[-1])}\nValue: {values[-1]}\n"
         return values, prompt, markdown, {}, txt_values  # TODO log more info
 
