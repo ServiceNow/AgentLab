@@ -65,6 +65,8 @@ AgentLab Features:
 
 ## 🛠️ Setup AgentLab
 
+AgentLab requires python 3.11 or higher.
+
 ```bash
 pip install agentlab
 ```
