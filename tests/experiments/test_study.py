@@ -4,6 +4,10 @@ from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 from agentlab.experiments.study import ParallelStudies, make_study, Study
 from agentlab.experiments.multi_server import WebArenaInstanceVars
+import logging
+
+
+logging.getLogger().setLevel(logging.INFO)
 
 
 def _make_agent_args_list():
@@ -28,13 +32,18 @@ def manual_test_launch_parallel_study_webarena():
     server_instance_2 = server_instance_1.clone()
     server_instance_2.base_url = "http://webarena-slow.eastus.cloudapp.azure.com"
     parallel_servers = [server_instance_1, server_instance_2]
+    # parallel_servers = [server_instance_2]
 
     for server in parallel_servers:
         print(server)
 
     study = make_study(
-        agent_args_list, benchmark="webarena_tiny", parallel_servers=parallel_servers
+        agent_args_list,
+        benchmark="webarena_tiny",
+        parallel_servers=parallel_servers,
+        ignore_dependencies=True,
     )
+    study.override_max_steps(2)
     assert isinstance(study, ParallelStudies)
 
     study.run(n_jobs=4, parallel_backend="ray", n_relaunch=1)

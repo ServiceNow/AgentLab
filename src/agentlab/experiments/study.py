@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor
 import gzip
 import logging
 import os
@@ -498,6 +499,8 @@ def _init_worker(server_queue: Queue):
             A queue of object implementing BaseServer to initialize (or anything with a init
             method).
     """
+    print("initializing server instance with on process", os.getpid())
+    print(f"using queue {server_queue}")
     server_instance = server_queue.get()  # type: "WebArenaInstanceVars"
     logger.warning(f"Initializing server instance {server_instance} from process {os.getpid()}")
     server_instance.init()
@@ -510,6 +513,42 @@ def _run_study(study: Study, n_jobs, parallel_backend, strict_reproducibility, n
 
 @dataclass
 class ParallelStudies(SequentialStudies):
+    parallel_servers: list[BaseServer] | int = None
+
+    def _run(
+        self,
+        n_jobs=1,
+        parallel_backend="ray",
+        strict_reproducibility=False,
+        n_relaunch=3,
+    ):
+        parallel_servers = self.parallel_servers
+        if isinstance(parallel_servers, int):
+            parallel_servers = [BaseServer() for _ in range(parallel_servers)]
+
+        server_queue = Manager().Queue()
+        for server in parallel_servers:
+            server_queue.put(server)
+
+        with ProcessPoolExecutor(
+            max_workers=len(parallel_servers), initializer=_init_worker, initargs=(server_queue,)
+        ) as executor:
+            # Create list of arguments for each study
+            study_args = [
+                (study, n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
+                for study in self.studies
+            ]
+
+            # Submit all tasks and wait for completion
+            futures = [executor.submit(_run_study, *args) for args in study_args]
+
+            # Wait for all futures to complete and raise any exceptions
+            for future in futures:
+                future.result()
+
+
+@dataclass
+class ParallelStudies_alt(SequentialStudies):
 
     parallel_servers: list[BaseServer] | int = None
 
