@@ -209,7 +209,7 @@ clicking the refresh button.
                 show_label=False,
                 scale=6,
                 container=False,
-                elem_id="exp_dir_dropdown"
+                elem_id="exp_dir_dropdown",
             )
             refresh_button = gr.Button("↺", scale=0, size="sm")
 
