@@ -217,7 +217,7 @@ def get_reproducibility_info(
         info[f"{module_name}__local_modifications"] = modified_files_str
 
     add_git_info("agentlab", agentlab)
-    add_git_info("browsergym", core)
+    # add_git_info("browsergym", core) why there is an error here ?? 
     return info
 
 
