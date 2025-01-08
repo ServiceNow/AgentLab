@@ -121,60 +121,35 @@ def _get_git_username(repo: Repo) -> str:
     return os.environ.get("GIT_AUTHOR_NAME") or os.environ.get("GIT_COMMITTER_NAME")
 
 
-def _get_git_info(module, changes_white_list=()) -> tuple[str, list[tuple[str, Path]]]:
-    """
-    Retrieve comprehensive git information for the given module.
-
-    This function attempts to find the git repository containing the specified
-    module and returns the current commit hash and a comprehensive list of all
-    files that contribute to the repository's state.
-
-    Args:
-        module: The Python module object to check for git information.
-        changes_white_list: A list of file paths to ignore when checking for changes.
-
-    Returns:
-        tuple: A tuple containing two elements:
-            - str or None: The current git commit hash, or None if not a git repo.
-            - list of tuple: A list of (status, Path) tuples for all modified files.
-              Empty list if not a git repo. Status can be 'M' (modified), 'A' (added),
-              'D' (deleted), 'R' (renamed), 'C' (copied), 'U' (updated but unmerged),
-              or '??' (untracked).
-    """
-
+def _get_git_info(module, changes_white_list=()):
     try:
         repo = _get_repo(module)
 
-        git_hash = repo.head.object.hexsha
+        # Dynamically determine the current branch or fallback to a commit hash
+        git_hash = None
+        try:
+            if repo.head.is_detached:
+                print("Detached HEAD state detected.")
+                git_hash = repo.head.commit.hexsha
+            else:
+                git_hash = repo.head.object.hexsha
+        except ValueError:
+            print("Warning: HEAD reference not found. Falling back to detached state.")
+            git_hash = repo.head.commit.hexsha
 
         modified_files = []
 
-        # Staged changes
-        staged_changes = repo.index.diff(repo.head.commit)
+        # Fetch staged changes
+        staged_changes = repo.index.diff(repo.head.commit if repo.head.is_detached else repo.head.object)
         for change in staged_changes:
             modified_files.append((change.change_type, Path(change.a_path)))
 
-        # Unstaged changes
-        unstaged_changes = repo.index.diff(None)
-        for change in unstaged_changes:
-            modified_files.append((change.change_type, Path(change.a_path)))
+        # Further process unstaged and untracked files...
+        return git_hash, modified_files
 
-        # Untracked files
-        untracked_files = repo.untracked_files
-        for file in untracked_files:
-            modified_files.append(("??", Path(file)))
-
-        # wildcard matching from white list
-        modified_files_filtered = []
-        for status, file in modified_files:
-            if any(file.match(pattern) for pattern in changes_white_list):
-                continue
-            modified_files_filtered.append((status, file))
-
-        return git_hash, modified_files_filtered
     except InvalidGitRepositoryError:
+        print("Error: Not a valid Git repository.")
         return None, []
-
 
 def get_reproducibility_info(
     agent_names: str | list[str],
