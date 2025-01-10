@@ -298,12 +298,13 @@ class Study(AbstractStudy):
         strict_reproducibility=False,
         n_relaunch=3,
         relaunch_errors=True,
+        exp_root=RESULTS_DIR,
     ):
 
         self.set_reproducibility_info(
             strict_reproducibility=strict_reproducibility, comment=self.comment
         )
-        self.save()
+        self.save(exp_root=exp_root)
 
         n_exp = len(self.exp_args_list)
         last_error_count = None
