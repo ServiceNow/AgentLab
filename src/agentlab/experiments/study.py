@@ -462,7 +462,14 @@ class SequentialStudies(AbstractStudy):
         for study in self.studies:
             study.find_incomplete(include_errors=include_errors)
 
-    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+    def run(
+        self,
+        n_jobs=1,
+        parallel_backend="ray",
+        strict_reproducibility=False,
+        n_relaunch=3,
+        exp_root=RESULTS_DIR,
+    ):
 
         # This sequence of of making directories is important to make sure objects are materialized
         # properly before saving. Otherwise relaunch may not work properly.
@@ -470,7 +477,7 @@ class SequentialStudies(AbstractStudy):
         for study in self.studies:
             study.make_dir(exp_root=self.dir)
 
-        self.save()
+        self.save(exp_root=exp_root)
         self._run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
         _, summary_df, _ = self.get_results()
         logger.info("\n" + str(summary_df))
