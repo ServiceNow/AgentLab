@@ -157,6 +157,12 @@ class AbstractStudy(ABC):
 
         return result_df, summary_df, error_report
 
+    def shuffle_exps(self):
+        """Shuffle the experiments in the study."""
+        import random
+
+        random.shuffle(self.exp_args_list)
+
 
 @dataclass
 class Study(AbstractStudy):
