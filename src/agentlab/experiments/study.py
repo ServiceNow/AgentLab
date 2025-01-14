@@ -20,6 +20,7 @@ from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 from agentlab.experiments.multi_server import BaseServer, WebArenaInstanceVars
 from multiprocessing import Pool, Manager, Queue
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,10 @@ class AbstractStudy(ABC):
             (self.dir / f"error_report{suffix}.md").write_text(error_report)
 
         return result_df, summary_df, error_report
+
+    def shuffle_exps(self):
+        """Shuffle the experiments in the study."""
+        self.exp_args_list = random.sample(self.exp_args_list, len(self.exp_args_list))
 
 
 @dataclass
