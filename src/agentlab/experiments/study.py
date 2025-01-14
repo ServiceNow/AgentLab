@@ -406,8 +406,6 @@ class Study(AbstractStudy):
                 inspect_results.yield_all_exp_results(savedir_base=dir, progress_fn=None)
             )
             benchmark_name = first_result.exp_args.env_args.task_name.split(".")[0]
-            # if ""
-
             agent_args = first_result.exp_args.agent_args
             study = Study(agent_args=agent_args, benchmark=benchmark_name, dir=dir)
         else:
