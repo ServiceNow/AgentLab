@@ -20,6 +20,7 @@ from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 from agentlab.experiments.multi_server import BaseServer, WebArenaInstanceVars
 from multiprocessing import Pool, Manager, Queue
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -159,9 +160,7 @@ class AbstractStudy(ABC):
 
     def shuffle_exps(self):
         """Shuffle the experiments in the study."""
-        import random
-
-        random.shuffle(self.exp_args_list)
+        self.exp_args_list = random.sample(self.exp_args_list, len(self.exp_args_list))
 
 
 @dataclass
@@ -407,6 +406,8 @@ class Study(AbstractStudy):
                 inspect_results.yield_all_exp_results(savedir_base=dir, progress_fn=None)
             )
             benchmark_name = first_result.exp_args.env_args.task_name.split(".")[0]
+            # if ""
+
             agent_args = first_result.exp_args.agent_args
             study = Study(agent_args=agent_args, benchmark=benchmark_name, dir=dir)
         else:
