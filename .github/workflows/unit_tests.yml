@@ -64,4 +64,4 @@ jobs:
       - name: Run AgentLab Unit Tests
         env:
           MINIWOB_URL: "http://localhost:8080/miniwob/"
-        run: pytest -n 5 --durations=10 -m 'not pricy' -v tests/
+        run: pytest --durations=10 -m 'not pricy' -v tests/
