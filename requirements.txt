@@ -2,6 +2,7 @@ black[jupyter]>=24.2.0
 blacken-docs
 pre-commit
 pytest==7.3.2
+flaky
 pytest-xdist
 pytest-playwright
 dask
