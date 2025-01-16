@@ -8,7 +8,7 @@ from browsergym.experiments.loop import EnvArgs, ExpArgs
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import find_incomplete, run_experiments, non_dummy_count
+from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
@@ -91,6 +91,7 @@ def test_launch_system_ray():
     _test_launch_system(backend="ray")
 
 
+@pytest.mark.pricy
 def test_timeout_ray():
     _test_launch_system(backend="ray", cause_timeout=True)
 
