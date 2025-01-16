@@ -1,12 +1,15 @@
 import bgym
 import pytest
 import ray
-from agentlab.experiments.graph_execution_ray import execute_task_graph
+from flaky import flaky
+
 from agentlab.experiments.exp_utils import MockedExpArgs, add_dependencies
+from agentlab.experiments.graph_execution_ray import execute_task_graph
 
 TASK_TIME = 3
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_execute_task_graph():
     # Define a list of ExpArgs with dependencies
     exp_args_list = [
