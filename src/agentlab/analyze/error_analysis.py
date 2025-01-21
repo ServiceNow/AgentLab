@@ -226,7 +226,9 @@ class ChangeSummarizer:
         """Produces, a summary of the effect of an action."""
         past_obs_message = self.obs_formatter(past_obs)
         current_obs_message = self.obs_formatter(current_obs)
-        goal = past_obs["goal"]
+
+        goal = past_obs["goal"]    # Use goal object from agentlab
+        # Outsource everything to formatter
         plan = past_obs["plan"]
         if self.use_diff:
             current_obs_message = _diff(past_obs_message, current_obs_message)
