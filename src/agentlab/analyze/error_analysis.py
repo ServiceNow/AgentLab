@@ -133,7 +133,7 @@ Using these inputs, you must categorize the observed failure (or success) under 
 FEW-SHOT CLASSIFICATION EXAMPLES
 --------------------------------------------------------------------------------
 
-1) EXAMPLE A (Benchmarl Error - Benchmark Design Error)
+1) EXAMPLE A (Benchmark Error - Benchmark Design Error)
    • Context: The agent correctly finds a cheaper product meeting the user's criteria, 
      but the benchmark expects a more expensive product and marks the solution as wrong.
    • Classification: ["Benchmark Design Error"]
