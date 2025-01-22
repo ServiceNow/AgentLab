@@ -6,9 +6,8 @@ from typing import Generator
 
 from bgym import ExpResult
 
+from agentlab.analyze.error_analysis.summarizer import ChangeSummarizer, EpisodeSummarizer
 from agentlab.analyze.inspect_results import yield_all_exp_results
-
-from .summarizer import ChangeSummarizer, EpisodeSummarizer
 
 
 @dataclass
@@ -78,7 +77,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("exp_dir", type=str)
+    parser.add_argument("-e", "--exp_dir", type=str)
+    parser.add_argument("-f", "--filter", type=str, default=None)
 
     args = parser.parse_args()
     exp_dir = Path(args.exp_dir)
