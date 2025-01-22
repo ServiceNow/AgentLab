@@ -72,3 +72,23 @@ class ErrorAnalysisPipeline:
             raise FileExistsError(f"{analysis_path} already exists")
         with analysis_path.open("w") as f:
             json.dump(error_analysis, f)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("exp_dir", type=str)
+
+    args = parser.parse_args()
+    exp_dir = Path(args.exp_dir)
+
+    pipeline = ErrorAnalysisPipeline(
+        exp_dir=exp_dir,
+        filter=None,
+        episode_summarizer=EpisodeSummarizer(),
+        step_summarizer=ChangeSummarizer(),
+        analyzer=Analyzer("prompt"),
+    )
+
+    pipeline.run_analysis()
