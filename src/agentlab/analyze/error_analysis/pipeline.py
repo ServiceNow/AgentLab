@@ -23,7 +23,6 @@ class Analyzer:
 class ErrorAnalysisPipeline:
     exp_dir: Path
     filter: str = None
-    step_summarizer: ChangeSummarizer = None
     episode_summarizer: EpisodeSummarizer = None
     analyzer: Analyzer = None
 
@@ -38,25 +37,9 @@ class ErrorAnalysisPipeline:
         filtered_results = self.filter_exp_results()
 
         for exp_result in filtered_results:
-            step_analysis = self.analyze_step(exp_result)
-            episode_analysis = self.analyze_episode(exp_result, step_analysis)
-            error_analysis = self.analyze_errors(exp_result, episode_analysis, step_analysis)
+            episode_summary = self.episode_summarizer(exp_result)
+            error_analysis = self.analyze_errors(exp_result, episode_summary)
             self.save_analysis(exp_result, error_analysis)
-
-    def analyze_step(self, exp_result: ExpResult) -> list[str]:
-        step_summaries = []  # type: list[str]
-        # this assumes that there is always an extra step at the end of the episode
-        # it is generally the case, but exps can sometimes fail in a weird way and not save the last step_info
-        # TODO:(thibault) make some checks
-        for step, next_step in zip(exp_result.steps_info[:-1], exp_result.steps_info[1:]):
-            step_summaries.append(
-                self.step_summarizer.summarize(step, step.action, next_step, step_summaries)
-            )
-        return step_summaries
-
-    def analyze_episode(self, exp_result: ExpResult, step_analysis: list[str]) -> str:
-        episode_summary = self.episode_summarizer.summarize(exp_result, step_analysis)
-        return episode_summary
 
     def analyze_errors(
         self, exp_result: ExpResult, episode_analysis: str, step_analysis: list[str]
@@ -82,10 +65,20 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     exp_dir = Path(args.exp_dir)
+    filter = args.filter
+
+    import openai
+
+    from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
+
+    llm = CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini-2024-07-18"].make_model()
+
+    step_summarizer = ChangeSummarizer(llm, lambda x: x)
+    episode_summarizer = EpisodeSummarizer()
 
     pipeline = ErrorAnalysisPipeline(
         exp_dir=exp_dir,
-        filter=None,
+        filter=filter,
         episode_summarizer=EpisodeSummarizer(),
         step_summarizer=ChangeSummarizer(),
         analyzer=Analyzer("prompt"),
