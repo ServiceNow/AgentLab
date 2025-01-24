@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from functools import partial
-from typing import Optional
+from typing import Optional, Union
 
 import openai
 from huggingface_hub import InferenceClient
@@ -13,7 +13,7 @@ from openai import AzureOpenAI, OpenAI
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.huggingface_utils import HFBaseChatModel
-from agentlab.llm.llm_utils import AIMessage, Discussion
+from agentlab.llm.llm_utils import AIMessage, Discussion, HumanMessage
 
 
 def make_system_message(content: str) -> dict:
@@ -261,7 +261,13 @@ class ChatModel(AbstractChatModel):
             **client_args,
         )
 
-    def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+    def __call__(
+        self, messages: Union[str, list[dict]], n_samples: int = 1, temperature: float = None
+    ) -> dict:
+
+        if isinstance(messages, str):
+            messages = [HumanMessage(messages)]
+
         # Initialize retry tracking attributes
         self.retries = 0
         self.success = False
