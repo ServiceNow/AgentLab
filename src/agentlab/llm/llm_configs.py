@@ -16,7 +16,7 @@ CLOSED_SOURCE_APIS = [
     "test",
 ]
 
-CHAT_MODEL_ARGS_DICT = {
+CHAT_MODEL_ARGS_DICT = {  # type: dict[str, Union[AzureModelArgs, OpenAIModelArgs, SelfHostedModelArgs, OpenRouterModelArgs]]
     "openai/gpt-4o-mini-2024-07-18": OpenAIModelArgs(
         model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
