@@ -6,7 +6,11 @@ from typing import Generator
 
 from bgym import ExpResult
 
-from agentlab.analyze.error_analysis.summarizer import ChangeSummarizer, EpisodeSummarizer
+from agentlab.analyze.error_analysis.summarizer import (
+    ChangeSummarizer,
+    EpisodeErrorSummarizer,
+    EpisodeSummarizer,
+)
 from agentlab.analyze.inspect_results import yield_all_exp_results
 
 
@@ -24,7 +28,6 @@ class ErrorAnalysisPipeline:
     exp_dir: Path
     filter: str = None
     episode_summarizer: EpisodeSummarizer = None
-    analyzer: Analyzer = None
 
     def filter_exp_results(self) -> Generator[ExpResult, None, None]:
         # TODO:(thibault) improve filtering
@@ -37,15 +40,8 @@ class ErrorAnalysisPipeline:
         filtered_results = self.filter_exp_results()
 
         for exp_result in filtered_results:
-            episode_summary = self.episode_summarizer(exp_result)
-            error_analysis = self.analyze_errors(exp_result, episode_summary)
+            error_analysis = self.episode_summarizer(exp_result)
             self.save_analysis(exp_result, error_analysis)
-
-    def analyze_errors(
-        self, exp_result: ExpResult, episode_analysis: str, step_analysis: list[str]
-    ) -> str:
-        error_analysis = self.analyzer(exp_result, episode_analysis, step_analysis)
-        return error_analysis
 
     def save_analysis(self, exp_result: ExpResult, error_analysis: dict, exists_ok=True):
         """Save the analysis to json"""
@@ -53,7 +49,7 @@ class ErrorAnalysisPipeline:
         if not exists_ok and analysis_path.exists():
             raise FileExistsError(f"{analysis_path} already exists")
         with analysis_path.open("w") as f:
-            json.dump(error_analysis, f)
+            json.dump(error_analysis, f, indent=4)
 
 
 if __name__ == "__main__":
@@ -67,8 +63,6 @@ if __name__ == "__main__":
     exp_dir = Path(args.exp_dir)
     filter = args.filter
 
-    import openai
-
     from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
     llm = CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini-2024-07-18"].make_model()
@@ -79,9 +73,7 @@ if __name__ == "__main__":
     pipeline = ErrorAnalysisPipeline(
         exp_dir=exp_dir,
         filter=filter,
-        episode_summarizer=EpisodeSummarizer(),
-        step_summarizer=ChangeSummarizer(),
-        analyzer=Analyzer("prompt"),
+        episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm), llm),
     )
 
     pipeline.run_analysis()

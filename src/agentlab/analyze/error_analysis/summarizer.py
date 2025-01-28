@@ -7,6 +7,7 @@ from agentlab.analyze.error_analysis.summarizer_prompts import (
     ERROR_CLASSIFICATION_PROMPT,
 )
 from agentlab.analyze.inspect_results import summarize
+from agentlab.llm.llm_utils import json_parser
 
 
 def _diff(past_obs, current_obs):
@@ -21,7 +22,7 @@ def _diff(past_obs, current_obs):
 class ChangeSummarizer:
 
     llm: callable  # language model
-    obs_formatter: callable = lambda x: x.get("axtree_txt", "No AXTREE available")
+    obs_formatter: callable = lambda x: x.get("dom_txt", "No AXTREE available")
     use_diff: bool = False
 
     def summarize(self, obs: StepInfo, next_obs: StepInfo, past_summaries: list[str]) -> str:
@@ -74,12 +75,25 @@ class EpisodeAnalysis:
 class EpisodeSummarizer:
 
     change_summarizer: ChangeSummarizer = None
+    llm: callable = None
+    parser: callable = lambda x: json_parser(x)[0]
 
     def make_prompt(self, exp_results: ExpResult, summaries: list[str]): ...
 
     def __call__(self, exp_results: ExpResult) -> EpisodeAnalysis:
         """Run Change Summarizer for every step in the episode or extract a pre-computed one."""
+
+        if exp_results.steps_info[-1].reward == 1:
+            return {"analysis": "Success", "summaries": {}}
+
         summaries = self.make_change_summaries(exp_results)
+        prompt = self.make_prompt(exp_results, summaries)
+        raw_analysis = self.llm(prompt)["content"]
+        analysis = self.parser(raw_analysis)
+        return {
+            "analysis": analysis,
+            "summaries": {i: self.parser(a) for i, a in enumerate(summaries)},
+        }
 
     def make_change_summaries(self, exp_result: ExpResult) -> list[str]:
         summaries = []  # type: list[str]
@@ -87,7 +101,9 @@ class EpisodeSummarizer:
         # it is generally the case, but exps can sometimes fail in a weird way and not save the last step_info
         # TODO:(thibault) make some checks or w/e
         for step, next_step in zip(exp_result.steps_info[:-1], exp_result.steps_info[1:]):
-            summaries.append(self.change_summarizer.summarize(step, next_step, summaries))
+            summaries.append(
+                self.change_summarizer.summarize(step, next_step, summaries)["content"]
+            )
         return summaries
 
 
@@ -96,12 +112,26 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
 
     change_summarizer: ChangeSummarizer = None
 
-    def make_prompt(self, current_observation, action_history, historical_summaries, goal, plan):
+    def make_prompt(self, exp_results: ExpResult, summaries: list[str]):
         """TODO: Implement the prompt."""
+        goal = exp_results.steps_info[0].obs["goal"]
+
+        txt_summaries = "\n".join(summaries)
+
+        thoughts = [step.agent_info.think for step in exp_results.steps_info[:-1]]
+        actions = [step.action for step in exp_results.steps_info[:-1]]
+        action_errors = "\n".join(
+            [step.obs["last_action_error"] for step in exp_results.steps_info[1:]]
+        )
+
+        txt_actions = "\n".join(
+            [
+                f"Thoughts: {thought}\nAction: {action}\nAction Error: {action_error}"
+                for action, thought, action_error in zip(actions, thoughts, action_errors)
+            ]
+        )
         return ERROR_CLASSIFICATION_PROMPT.format(
             goal=goal,
-            plan=plan,
-            current_observation=current_observation,
-            historical_summaries=historical_summaries,
-            action_history=action_history,
+            historical_summaries=txt_summaries,
+            action_history=txt_actions,
         )

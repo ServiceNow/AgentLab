@@ -110,17 +110,11 @@ INPUT DESCRIPTION
 You will receive the following for each scenario:
 1. User Goal
    - The original objective provided by the user (e.g., "Open a GitLab issue labeled 'help wanted'").
-   
-2. Planning / Thought History
-   - The internal reasoning or plan the agent considered. May include branches of logic or key decision points.
 
-3. Current Observation (HTML / AX Tree Snippet)
-   - The webpage structure or state that the agent sees at a given point in time.
-
-4. Historical change summaries
+2. Historical change summaries
    - A list of summaries of changes in the observation that the agent has seen during the course of actions.
 
-5. Action History
+3. Action History
    - A record of the agent's step-by-step actions in the web environment (clicks, form entries, navigations, etc.) 
      along with immediate outcomes or errors.
 
@@ -191,10 +185,6 @@ Output Format Example:
 Please follow this structure at every step. Keep your responses concise and clear. Below are the details.
 
 Overall goal: {goal}
-
-LLM Plan and thought history: {plan}
-
-Current Observation: {current_observation}
 
 Historical change summaries: {historical_summaries}
 
