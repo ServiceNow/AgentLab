@@ -52,6 +52,10 @@ class ErrorAnalysisPipeline:
             json.dump(error_analysis, f, indent=4)
 
 
+AXTREE_FORMATTER = lambda x: x.get("axtree_txt", "No AXTREE available")
+HTML_FORMATTER = lambda x: x.get("pruned_html", "No HTML available")
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -73,7 +77,7 @@ if __name__ == "__main__":
     pipeline = ErrorAnalysisPipeline(
         exp_dir=exp_dir,
         filter=filter,
-        episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm), llm),
+        episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm, HTML_FORMATTER), llm),
     )
 
     pipeline.run_analysis()
