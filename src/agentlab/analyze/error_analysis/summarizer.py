@@ -96,7 +96,7 @@ class EpisodeSummarizer:
         analysis = self.parse(raw_analysis)
         return {
             "analysis": analysis,
-            "summaries": {i: self.parser(a) for i, a in enumerate(summaries)},
+            "summaries": {i: a for i, a in enumerate(summaries)},
         }
 
     def make_change_summaries(self, exp_result: ExpResult) -> list[str]:
