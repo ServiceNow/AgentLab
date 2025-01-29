@@ -53,55 +53,37 @@ Action: {action}
 
 ERROR_CLASSIFICATION_PROMPT = """
 You are an expert evaluator that classifies web agent failures according to a predefined taxonomy. 
-Below are the high-level definitions of each top-level category (Agent Errors, Language Model Errors, and Benchmark/Environment Errors),
-followed by an explanation of the inputs you will receive (planning history, chain of thought, etc.), 
+Below are the high-level definitions of each category,
+followed by an explanation of the inputs of the interaction you will receive (planning history, chain of thought, etc.), 
 a set of labeled examples for reference (few-shot), and finally the classification task you must complete.
 
 --------------------------------------------------------------------------------
 TAXONOMY DEFINITIONS
 --------------------------------------------------------------------------------
 
-1. AGENT ERRORS
-These errors arise when agents interact with web interfaces and fail due to limitations in perception, navigation, or manipulation.
+1. Navigation & Planning Errors
+  The agent cannot construct or execute a correct sequence of actions to reach its goal 
+  (e.g., getting lost on a website, failing to recover from missteps, or using incorrect search terms).
 
-   - Navigation & Planning Errors
-     The agent cannot construct or execute a correct sequence of actions to reach its goal 
-     (e.g., getting lost on a website, failing to recover from missteps, or using incorrect search terms).
+2. Interaction Execution Errors
+  The agent enters data in the wrong format, forgets to click "Submit" after typing, 
+  repeats the same failing action without adaptation, or loses track of the changing webpage state.
 
-   - Interaction Execution Errors
-     The agent enters data in the wrong format, forgets to click "Submit" after typing, 
-     repeats the same failing action without adaptation, or loses track of the changing webpage state.
+3. Information Processing Errors
+  The agent misreads or misinterprets visible data (e.g., extracting the wrong field values), 
+  misconstrues relationships between pieces of information, or fails to validate data against task requirements.
 
-   - Information Processing Errors
-     The agent misreads or misinterprets visible data (e.g., extracting the wrong field values), 
-     misconstrues relationships between pieces of information, or fails to validate data against task requirements.
+4. Observation & Action Errors
+  The agent fails to observe important updates in the environment (e.g., not noticing the page reloaded)
+  or misaligns its actions (clicks the wrong element or stale link).
 
-   - Observation & Action Errors
-     The agent fails to observe important updates in the environment (e.g., not noticing the page reloaded)
-     or misaligns its actions (clicks the wrong element or stale link).
+5. Task Understanding Errors
+  The agent misreads or misunderstands the user's objective (goal interpretation), 
+  loses crucial context (context loss), or performs actions beyond or short of the intended scope.
 
-2. LANGUAGE MODEL ERRORS
-These errors result from the model's inability to correctly interpret or reason about the task at a higher level, 
-independent of the low-level web interactions.
-
-   - Task Understanding Errors
-     The agent misreads or misunderstands the user's objective (goal interpretation), 
-     loses crucial context (context loss), or performs actions beyond or short of the intended scope.
-
-   - Reasoning Failures
-     The agent's logic is flawed (logical inference errors), behaves inconsistently across multiple steps, 
-     or fails to prioritize important subtasks when handling complex goals.
-
-3. BENCHMARK & ENVIRONMENT ERRORS
-These errors are external to the agent's logic and the language model's reasoning, 
-arising from flaws in the system, network, or evaluation framework itself.
-
-   - System Errors
-     Network failures, API downtime, or dynamic web changes that break the agent's assumptions (e.g., layout shifts).
-
-   - Benchmark Design Errors
-     Ambiguous or contradictory task specifications, incorrect validation criteria (where correct solutions are flagged as failures), 
-     or inflexible evaluation systems that fail to account for valid alternative solutions.
+6. Reasoning Failures
+  The agent's logic is flawed (logical inference errors), behaves inconsistently across multiple steps, 
+  or fails to prioritize important subtasks when handling complex goals.
 
 --------------------------------------------------------------------------------
 INPUT DESCRIPTION
@@ -124,34 +106,19 @@ Using these inputs, you must categorize the observed failure (or success) under 
 FEW-SHOT CLASSIFICATION EXAMPLES
 --------------------------------------------------------------------------------
 
-1) EXAMPLE A (Benchmark Error - Benchmark Design Error)
-   • Context: The agent correctly finds a cheaper product meeting the user's criteria, 
-     but the benchmark expects a more expensive product and marks the solution as wrong.
-   • Classification: ["Benchmark Design Error"]
-   • Justification: The agent's solution is objectively valid, but the evaluation framework is too rigid 
-     and does not allow an alternative correct solution.
-
-2) EXAMPLE B (Agent Error - Interaction Execution)
+1) EXAMPLE A (Interaction Execution)
    • Context: The agent repeatedly clicks "Show report" after entering dates in the wrong format. 
      Each time, the site resets to default dates. The agent never notices and keeps doing the same thing.
-   • Classification: ["Agent Error - Interaction Execution"]
+   • Classification: ["Interaction Execution"]
    • Justification: The agent used an invalid input format ("Format Errors"), then repeated the failing action 
      without adaptation ("Action Repetition").
 
-3) EXAMPLE C (Benchmark Error - Benchmark Design Error)
-   • Context: The user asks, "Where is the nearest In-N-Out to Upitts?" 
-     The query is ambiguous because "Upitts" is not a standard location. 
-     The agent flounders, eventually returning "No In-N-Out found," which is incorrect for the region.
-   • Classification: ["Benchmark Design Error"]
-   • Justification: The task goal is poorly specified ("Upitts" is ambiguous or unrealistic), 
-     leading the agent astray due to unclear context.
-
-4) EXAMPLE D (Language Model Error - Task Understanding)
+2) EXAMPLE B (Task Understanding)
    • Context: The user says, "In the repository myorg/myrepo, locate any issues labeled 'help wanted' 
      that are older than 30 days and add a comment saying 'I can help fix this.'" 
      The agent's planning notes mention searching for existing issues but quickly pivot to creating a brand-new issue 
      with label 'help wanted,' ignoring the user's actual request to find and comment on old issues.
-   • Classification: ["Language Model Error - Task Understanding"]
+   • Classification: ["Task Understanding"]
    • Justification: The agent misunderstood the user's goal. Instead of searching for and commenting on existing issues, 
      it focused on creating a new issue. This is a misinterpretation of the instructions, 
      not a mechanical error in clicking or input format.
@@ -166,23 +133,28 @@ CLASSIFICATION TASK
    - The current HTML or AX Tree observation
    - The user goal
 
-2. Decide if the failure is:
-   - An Agent Error (which subcategory/subcategories),
-   - A Language Model Error (which subcategory/subcategories),
-   - A Benchmark/Environment Error (which subcategory/subcategories),
-   - Or a combination thereof (multi-label if needed).
+2. In case you think the task was unsuccessful, decide the category, or a combination thereof, under which the reason for failure lies.
+   If the task is successful, you can keep the error category as blank.
 
 3. Provide a brief explanation justifying your classification, referencing specific steps if helpful.
 
-4. If the agent succeeds (no error), label the errorCategory accordingly as "Success".
-
-Output Format Example:
+Output format example for an unsuccessful interaction:
 {{
-  "errorCategory": ["Agent Error - Navigation & Planning"],
-  "explanation": "The agent opened the wrong GitLab page and never recovered..."
+  "explanation": "The agent opened the wrong GitLab page and never recovered...",
+  "success": False,
+  "errorCategory": ["Navigation & Planning"],
 }}
 
-Please follow this structure at every step. Keep your responses concise and clear. Below are the details.
+Output format example for a successful interaction:
+{{
+  "explanation": "The agent opened the correct GitLab page and ...",
+  "success": True,
+  "errorCategory": [],
+}}
+
+Please follow this structure at every step. Keep your responses concise and clear. 
+
+Below are the details for the interaction.
 
 Overall goal: {goal}
 
