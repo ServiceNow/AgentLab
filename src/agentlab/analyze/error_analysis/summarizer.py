@@ -7,7 +7,7 @@ from agentlab.analyze.error_analysis.summarizer_prompts import (
     ERROR_CLASSIFICATION_PROMPT,
 )
 from agentlab.analyze.inspect_results import summarize
-from agentlab.llm.llm_utils import json_parser
+from agentlab.llm.llm_utils import json_parser, parse_html_tags
 
 
 def _diff(past_obs, current_obs):
@@ -39,7 +39,7 @@ class ChangeSummarizer:
         if self.use_diff:
             next_obs_message = _diff(obs_message, next_obs_message)
 
-        return self.llm(
+        return self.parse(self.llm(
             self.make_prompt(
                 obs_message,
                 action,
@@ -48,7 +48,7 @@ class ChangeSummarizer:
                 goal,
                 obs.obs.get("plan", "No plan available"),
             )
-        )
+        )['content'])
 
     def make_prompt(
         self, past_obs_message, action, current_obs_message, past_summaries, goal, plan
@@ -62,6 +62,10 @@ class ChangeSummarizer:
             past_summaries=past_summaries,
             action=action,
         )
+
+    def parse(self, raw_output: str) -> dict:
+        parsed_result = parse_html_tags(raw_output, keys=["changeSummary", "actionAssessment", "explanation", "suggestion"])[0]
+        return parsed_result
 
 
 @dataclass
@@ -83,13 +87,13 @@ class EpisodeSummarizer:
     def __call__(self, exp_results: ExpResult) -> EpisodeAnalysis:
         """Run Change Summarizer for every step in the episode or extract a pre-computed one."""
 
-        if exp_results.steps_info[-1].reward == 1:
-            return {"analysis": "Success", "summaries": {}}
+        # if exp_results.steps_info[-1].reward == 1:
+        #     return {"analysis": "Success", "summaries": {}}
 
         summaries = self.make_change_summaries(exp_results)
         prompt = self.make_prompt(exp_results, summaries)
         raw_analysis = self.llm(prompt)["content"]
-        analysis = self.parser(raw_analysis)
+        analysis = self.parse(raw_analysis)
         return {
             "analysis": analysis,
             "summaries": {i: self.parser(a) for i, a in enumerate(summaries)},
@@ -102,10 +106,13 @@ class EpisodeSummarizer:
         # TODO:(thibault) make some checks or w/e
         for step, next_step in zip(exp_result.steps_info[:-1], exp_result.steps_info[1:]):
             summaries.append(
-                self.change_summarizer.summarize(step, next_step, summaries)["content"]
+                self.change_summarizer.summarize(step, next_step, summaries)
             )
         return summaries
 
+    def parse(self, raw_output: str) -> dict:
+        parsed_result = parse_html_tags(raw_output, keys=["explanation", "success", "errorCategory"])[0]
+        return parsed_result
 
 @dataclass
 class EpisodeErrorSummarizer(EpisodeSummarizer):
@@ -116,7 +123,13 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
         """TODO: Implement the prompt."""
         goal = exp_results.steps_info[0].obs["goal"]
 
-        txt_summaries = "\n".join(summaries)
+        def format_summary(summary):
+            res = ''
+            for key, value in summary.items():
+                res += f"{key}: {value}\n"
+            return res
+
+        txt_summaries = "\n".join([format_summary(summary) for summary in summaries])
 
         thoughts = [step.agent_info.think for step in exp_results.steps_info[:-1]]
         actions = [step.action for step in exp_results.steps_info[:-1]]

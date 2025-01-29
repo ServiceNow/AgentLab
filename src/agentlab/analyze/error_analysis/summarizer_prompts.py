@@ -21,20 +21,19 @@ B) ASSESS THE ACTION
 OUTPUT FORMAT (per step):
 Return your analysis as a JSON-like structure, for example:
 
-{{
-  "changeSummary": "A new search results panel appeared on the right side.",
-  "actionAssessment": "Correct",
-  "explanation": "Clicking 'Search' was appropriate to display the results."
-}}
+<changeSummary>A new search results panel appeared on the right side.</changeSummary>
+<actionAssessment>Correct</actionAssessment>
+<explanation>Clicking 'Search' was appropriate to display the results.</explanation>
 
 Or for an incorrect action:
 
-{{
-  "changeSummary": "The page reloaded but the date fields were reset to defaults.",
-  "actionAssessment": "Incorrect",
-  "explanation": "The agent should have fixed the date format first instead of re-clicking 'Show report'.",
-  "suggestion": "Correct the date format or check for error messages."
-}}
+<changeSummary>The page reloaded but the date fields were reset to defaults.</changeSummary>
+<actionAssessment>Incorrect</actionAssessment>
+<explanation>The agent should have fixed the date format first instead of re-clicking 'Show report'.</explanation>
+<suggestion>Correct the date format or check for error messages.</suggestion>
+
+
+Please use single quotes '' to quote elements from the page, so as not to create parsing issues.
 
 Please follow this structure at every step. Keep your responses concise and clear. Below are the details.
 
@@ -139,19 +138,17 @@ CLASSIFICATION TASK
 3. Provide a brief explanation justifying your classification, referencing specific steps if helpful.
 
 Output format example for an unsuccessful interaction:
-{{
-  "explanation": "The agent opened the wrong GitLab page and never recovered...",
-  "success": False,
-  "errorCategory": ["Navigation & Planning"],
-}}
+
+<explanation>The agent opened the wrong GitLab page and never recovered...</explanation>
+<success>False</success>
+<errorCategory>["Navigation & Planning"]</errorCategory>
 
 Output format example for a successful interaction:
-{{
-  "explanation": "The agent opened the correct GitLab page and ...",
-  "success": True,
-  "errorCategory": [],
-}}
 
+<explanation>The agent opened the correct GitLab page and ...</explanation>
+<success>True</success>
+<errorCategory>[]</errorCategory>
+  
 Please follow this structure at every step. Keep your responses concise and clear. 
 
 Below are the details for the interaction.

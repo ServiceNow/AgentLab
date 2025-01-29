@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
-    llm = CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini-2024-07-18"].make_model()
+    llm = CHAT_MODEL_ARGS_DICT["azure/gpt-4o-2024-08-06"].make_model()
 
     step_summarizer = ChangeSummarizer(llm, lambda x: x)
     episode_summarizer = EpisodeSummarizer()
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     pipeline = ErrorAnalysisPipeline(
         exp_dir=exp_dir,
         filter=filter,
-        episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm, HTML_FORMATTER), llm),
+        episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm, AXTREE_FORMATTER), llm),
     )
 
     pipeline.run_analysis()
