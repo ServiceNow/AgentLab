@@ -15,7 +15,10 @@ from .agent_configs import (
     RANDOM_SEARCH_AGENT,
     AGENT_4o,
     AGENT_4o_MINI,
+    AGENT_CLAUDE_SONNET_35,
     AGENT_4o_VISION,
+    AGENT_4o_MINI_VISION,
+    AGENT_CLAUDE_SONNET_35_VISION,
 )
 
 __all__ = [
@@ -28,4 +31,8 @@ __all__ = [
     "AGENT_8B",
     "RANDOM_SEARCH_AGENT",
     "AGENT_CUSTOM",
+    "AGENT_CLAUDE_SONNET_35",
+    "AGENT_4o_VISION",
+    "AGENT_4o_MINI_VISION",
+    "AGENT_CLAUDE_SONNET_35_VISION",
 ]
