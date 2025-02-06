@@ -39,16 +39,18 @@ class ChangeSummarizer:
         if self.use_diff:
             next_obs_message = _diff(obs_message, next_obs_message)
 
-        return self.parse(self.llm(
-            self.make_prompt(
-                obs_message,
-                action,
-                next_obs_message,
-                past_summaries,
-                goal,
-                obs.obs.get("plan", "No plan available"),
-            )
-        )['content'])
+        return self.parse(
+            self.llm(
+                self.make_prompt(
+                    obs_message,
+                    action,
+                    next_obs_message,
+                    past_summaries,
+                    goal,
+                    obs.obs.get("plan", "No plan available"),
+                )
+            )["content"]
+        )
 
     def make_prompt(
         self, past_obs_message, action, current_obs_message, past_summaries, goal, plan
@@ -64,7 +66,9 @@ class ChangeSummarizer:
         )
 
     def parse(self, raw_output: str) -> dict:
-        parsed_result = parse_html_tags(raw_output, keys=["changeSummary", "actionAssessment", "explanation", "suggestion"])[0]
+        parsed_result = parse_html_tags(
+            raw_output, keys=["changeSummary", "actionAssessment", "explanation", "suggestion"]
+        )[0]
         return parsed_result
 
 
@@ -105,14 +109,15 @@ class EpisodeSummarizer:
         # it is generally the case, but exps can sometimes fail in a weird way and not save the last step_info
         # TODO:(thibault) make some checks or w/e
         for step, next_step in zip(exp_result.steps_info[:-1], exp_result.steps_info[1:]):
-            summaries.append(
-                self.change_summarizer.summarize(step, next_step, summaries)
-            )
+            summaries.append(self.change_summarizer.summarize(step, next_step, summaries))
         return summaries
 
     def parse(self, raw_output: str) -> dict:
-        parsed_result = parse_html_tags(raw_output, keys=["explanation", "success", "errorCategory"])[0]
+        parsed_result = parse_html_tags(
+            raw_output, keys=["explanation", "success", "errorCategory"]
+        )[0]
         return parsed_result
+
 
 @dataclass
 class EpisodeErrorSummarizer(EpisodeSummarizer):
@@ -124,7 +129,7 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
         goal = exp_results.steps_info[0].obs["goal"]
 
         def format_summary(summary):
-            res = ''
+            res = ""
             for key, value in summary.items():
                 res += f"{key}: {value}\n"
             return res
