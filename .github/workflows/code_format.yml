@@ -31,4 +31,4 @@ jobs:
         run: pip list
 
       - name: Code Formatting
-        run: black . --check
+        run: black . --check --diff
