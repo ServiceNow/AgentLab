@@ -260,6 +260,10 @@ AGENT_4o_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
     flags=FLAGS_GPT_4o,
 )
+AGENT_CLAUDE_SONNET_35 = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
+    flags=FLAGS_GPT_4o,
+)
 
 # GPT-4o vision default config
 FLAGS_GPT_4o_VISION = FLAGS_GPT_4o.copy()
@@ -268,6 +272,16 @@ FLAGS_GPT_4o_VISION.obs.use_som = True
 
 AGENT_4o_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_4o_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_CLAUDE_SONNET_35_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
     flags=FLAGS_GPT_4o_VISION,
 )
 
