@@ -1,5 +1,9 @@
-from agentlab.llm.chat_api import (AzureModelArgs, OpenAIModelArgs,
-                                   OpenRouterModelArgs, SelfHostedModelArgs)
+from agentlab.llm.chat_api import (
+    AzureModelArgs,
+    OpenAIModelArgs,
+    OpenRouterModelArgs,
+    SelfHostedModelArgs,
+)
 
 default_oss_llms_args = {
     "n_retry_server": 4,
