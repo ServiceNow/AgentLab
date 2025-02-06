@@ -16,6 +16,17 @@ jobs:
       steps:
       - uses: actions/checkout@v4
 
+      - name: Cache APT packages
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: |
+            build-essential
+            python3-dev
+            python3-pip
+            python3-setuptools
+            python3-wheel
+          version: 1  # Increment this to force cache refresh if needed
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
