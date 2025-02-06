@@ -1,9 +1,5 @@
-from agentlab.llm.chat_api import (
-    AzureModelArgs,
-    OpenAIModelArgs,
-    OpenRouterModelArgs,
-    SelfHostedModelArgs,
-)
+from agentlab.llm.chat_api import (AzureModelArgs, OpenAIModelArgs,
+                                   OpenRouterModelArgs, SelfHostedModelArgs)
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -17,6 +13,13 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
+    "openai/o3-mini-2025-01-31": OpenAIModelArgs(
+        model_name="o3-mini-2025-01-31",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=100_000,
+        vision_support=False,
+    ),
     "openai/gpt-4o-mini-2024-07-18": OpenAIModelArgs(
         model_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
@@ -113,6 +116,13 @@ CHAT_MODEL_ARGS_DICT = {
         **default_oss_llms_args,
     ),
     # ---------------- OPENROUTER ----------------#
+    "openrouter/deepseek/deepseek-r1": OpenRouterModelArgs(
+        model_name="deepseek/deepseek-r1",
+        max_total_tokens=128_000,
+        max_input_tokens=100_000,
+        max_new_tokens=128_000,
+        temperature=1e-1,
+    ),
     "openrouter/meta-llama/llama-3.1-405b-instruct": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-405b-instruct",
         max_total_tokens=128_000,
