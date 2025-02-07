@@ -265,6 +265,15 @@ AGENT_CLAUDE_SONNET_35 = GenericAgentArgs(
     flags=FLAGS_GPT_4o,
 )
 
+AGENT_o3_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/o3-mini-2025-01-31"],
+    flags=FLAGS_GPT_4o,
+)
+
+AGENT_o1_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/openai/o1-mini-2024-09-12"],
+    flags=FLAGS_GPT_4o,
+)
 # GPT-4o vision default config
 FLAGS_GPT_4o_VISION = FLAGS_GPT_4o.copy()
 FLAGS_GPT_4o_VISION.obs.use_screenshot = True

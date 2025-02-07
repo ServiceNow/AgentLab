@@ -63,6 +63,19 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=16_384,
         max_new_tokens=4096,
     ),
+    "openai/o3-mini-2025-01-31": OpenAIModelArgs(
+        model_name="o3-mini-2025-01-31",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=100_000,
+    ),
+    "openai/o1-mini": OpenAIModelArgs(
+        model_name="openai/o1-mini",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=64_000,
+        temperature=1e-1,
+    ),
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
         deployment_name="gpt-35-turbo",
