@@ -5,6 +5,7 @@ pytest==7.3.2
 flaky
 pytest-xdist
 pytest-playwright
+pydantic~=2.9
 dask
 distributed
 browsergym>=0.7.1
@@ -12,6 +13,7 @@ joblib>=1.2.0
 openai>=1.7,<2
 langchain_community
 tiktoken
+tapeagents[converters]~=0.1.4
 huggingface_hub
 contexttimer
 ipython
