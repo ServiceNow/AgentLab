@@ -1,5 +1,6 @@
-import gym
 from abc import ABC, abstractmethod
+
+import gym
 
 
 class AbstractEnvArgs(ABC):
@@ -21,7 +22,6 @@ class AbstractEnvArgs(ABC):
 
 
 class AbstractEnv(gym.Env, ABC):
-
     @abstractmethod
     def reset(self, seed: int = None) -> tuple[dict[str, any], dict[str, any]]:
         """Reset the environment to the initial state, ready for an agent to start a new episode.
@@ -57,3 +57,7 @@ class AbstractEnv(gym.Env, ABC):
     @abstractmethod
     def close(self):
         """Close any resources used by the environment"""
+
+    @abstractmethod
+    def calculate_reward(self) -> float:
+        """Calculate the reward obtained in the last step"""
