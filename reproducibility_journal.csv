@@ -64,4 +64,12 @@ ThibaultLSDC,GenericAgent-gpt-4o-mini_vision,visualwebarena,0.13.3,2024-12-02_02
 ThibaultLSDC,GenericAgent-gpt-4o_vision,visualwebarena,0.13.3,2024-12-02_07-17-28,7fb7eac8-4bbd-4ebe-be32-15901a7678f2,0.267,0.015,65,910/910,None,Linux (#68-Ubuntu SMP Mon Oct 7 14:34:20 UTC 2024),3.12.7,1.39.0,0.3.1,df7bc706f3793f47a456d1bda0485b306b8cf612,,0.13.3,None,
 ThibaultLSDC,GenericAgent-anthropic_claude-3.5-sonnet:beta_vision,visualwebarena,0.13.3,2024-12-02_09-11-35,22f0611d-aeea-4ee9-a533-b45442b5e080,0.21,0.013,178,910/910,None,Linux (#68-Ubuntu SMP Mon Oct 7 14:34:20 UTC 2024),3.12.7,1.39.0,0.3.1,df7bc706f3793f47a456d1bda0485b306b8cf612,,0.13.3,None,
 ThibaultLSDC,GenericAgent-meta-llama_llama-3.1-70b-instruct,webarena,0.13.3,2024-12-02_23-18-38,fc5747bc-d998-4942-a0eb-e55a3ccc1cb3,0.184,0.014,213,811/812,None,Linux (#68-Ubuntu SMP Mon Oct 7 14:34:20 UTC 2024),3.12.7,1.39.0,0.3.1,df7bc706f3793f47a456d1bda0485b306b8cf612,,0.13.3,None,
-
+Leo Boisvert,GenericAgent-o3-mini-2025-01-31,workarena_l1,0.4.1,2025-01-31_22-08-33,a74cc00f-f743-43a1-9cab-59af8bffa3a2,0.482,0.028,3,330/330,None,Linux (#68-Ubuntu SMP Mon Oct 7 14:34:20 UTC 2024),3.12.3,1.44.0,v0.3.2,73baabee6d7ac37a5b8677c80baf83914a4f4dc4,"  M: src/agentlab/agents/generic_agent/__init__.py
+  M: src/agentlab/agents/generic_agent/agent_configs.py
+  M: src/agentlab/analyze/agent_xray.py
+  M: src/agentlab/llm/chat_api.py
+  M: src/agentlab/llm/llm_configs.py",0.13.3,1d2d7160e5b7ec9954ecb48988f71eb56288dd29,"
+Leo Boisvert,GenericAgent-openai_o1-mini-2024-09-12,workarena_l1,0.4.1,2025-02-02_01-55-04,f3e1fcb8-5fc5-4115-9e00-27251508e2c7,0.518,0.028,5,330/330,None,Linux (#68-Ubuntu SMP Mon Oct 7 14:34:20 UTC 2024),3.12.3,1.44.0,v0.3.2,73baabee6d7ac37a5b8677c80baf83914a4f4dc4,"  M: src/agentlab/agents/generic_agent/__init__.py
+  M: src/agentlab/agents/generic_agent/agent_configs.py
+  M: src/agentlab/analyze/agent_xray.py
+  M: src/agentlab/llm/llm_configs.py",0.13.3,1d2d7160e5b7ec9954ecb48988f71eb56288dd29,"
