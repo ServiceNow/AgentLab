@@ -10,9 +10,6 @@ the agent, including model arguments and flags for various behaviors.
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-from functools import partial
-import logging
-import re
 from warnings import warn
 
 import bgym
@@ -20,7 +17,7 @@ from browsergym.experiments.agent import Agent, AgentInfo
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.llm.chat_api import BaseModelArgs, make_system_message, make_user_message
+from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
