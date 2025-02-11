@@ -105,7 +105,7 @@ jobs:
           python3 -m pip install cryptography==43.0.3
 
       - name: Sign the dists with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v2.1.1
+        uses: sigstore/gh-action-sigstore-python@latest
         with:
           inputs: >-
             ./dist/*.tar.gz
