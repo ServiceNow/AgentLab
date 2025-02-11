@@ -16,6 +16,17 @@ jobs:
       steps:
       - uses: actions/checkout@v4
 
+      - name: Cache APT packages
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: >-
+            build-essential
+            curl
+            git
+            python3
+            python3-pip
+          version: 1  # Increment if the cache needs resetting
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -81,17 +92,6 @@ jobs:
         id-token: write  # IMPORTANT: mandatory for sigstore
 
       steps:
-
-      - name: Cache APT packages
-        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
-        with:
-          packages: >-
-            build-essential
-            curl
-            git
-            python3
-            python3-pip
-          version: 1  # Increment if the cache needs resetting
 
       - name: Download all the dists
         uses: actions/download-artifact@v4
