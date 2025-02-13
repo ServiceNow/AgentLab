@@ -21,6 +21,7 @@ class BaseModelArgs(ABC):
     max_new_tokens: int = None
     temperature: float = 0.1
     vision_support: bool = False
+    log_probs: bool = False
 
     @abstractmethod
     def make_model(self) -> AbstractChatModel:

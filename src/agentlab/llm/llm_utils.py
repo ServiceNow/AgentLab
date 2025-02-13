@@ -382,9 +382,10 @@ def image_to_jpg_base64_url(image: np.ndarray | Image.Image):
 
 
 class BaseMessage(dict):
-    def __init__(self, role: str, content: Union[str, list[dict]]):
+    def __init__(self, role: str, content: Union[str, list[dict]], **kwargs):
         self["role"] = role
         self["content"] = deepcopy(content)
+        self.update(kwargs)
 
     def __str__(self, warn_if_image=False) -> str:
         if isinstance(self["content"], str):

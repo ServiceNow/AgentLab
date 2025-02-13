@@ -100,7 +100,10 @@ class HFBaseChatModel(AbstractChatModel):
             while True:
                 try:
                     temperature = temperature if temperature is not None else self.temperature
-                    response = AIMessage(self.llm(prompt, temperature=temperature))
+                    answer = self.llm(prompt, temperature=temperature)
+                    response = AIMessage(answer)
+                    if hasattr(answer, "details"):
+                        response["log_prob"] = answer.details.log_prob
                     responses.append(response)
                     break
                 except Exception as e:
