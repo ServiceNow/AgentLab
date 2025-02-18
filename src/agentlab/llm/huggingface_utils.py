@@ -2,12 +2,11 @@ import logging
 import time
 from typing import Any, List, Optional, Union
 
-from pydantic import Field
-from transformers import AutoTokenizer, GPT2TokenizerFast
-
 from agentlab.llm.base_api import AbstractChatModel
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from agentlab.llm.prompt_templates import PromptTemplate, get_prompt_template
+from pydantic import Field
+from transformers import AutoTokenizer, GPT2TokenizerFast
 
 
 class HFBaseChatModel(AbstractChatModel):
@@ -40,9 +39,10 @@ class HFBaseChatModel(AbstractChatModel):
         description="The number of times to retry the server if it fails to respond",
     )
 
-    def __init__(self, model_name, base_model_name, n_retry_server):
+    def __init__(self, model_name, base_model_name, n_retry_server, log_probs):
         super().__init__()
         self.n_retry_server = n_retry_server
+        self.log_probs = log_probs
 
         if base_model_name is None:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -102,8 +102,9 @@ class HFBaseChatModel(AbstractChatModel):
                     temperature = temperature if temperature is not None else self.temperature
                     answer = self.llm(prompt, temperature=temperature)
                     response = AIMessage(answer)
-                    if hasattr(answer, "details"):
-                        response["log_prob"] = answer.details.log_prob
+                    if self.log_probs:
+                        response["content"] = answer.generated_text
+                        response["log_prob"] = answer.details
                     responses.append(response)
                     break
                 except Exception as e:
