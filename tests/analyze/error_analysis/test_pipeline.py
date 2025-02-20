@@ -16,7 +16,7 @@ class MockStepSummarizer:
 
 
 class MockEpisodeSummarizer:
-    def summarize(self, exp_result: ExpResult, step_analysis: list[str]) -> str:
+    def __call__(self, exp_result: ExpResult) -> str:
         return f"Agent did actions {', '.join(step.action for step in exp_result.steps_info if step.action)}"
 
 
@@ -33,8 +33,6 @@ def pipeline() -> ErrorAnalysisPipeline:
         exp_dir=exp_dir,
         filter=None,
         episode_summarizer=MockEpisodeSummarizer(),
-        step_summarizer=MockStepSummarizer(),
-        analyzer=MockAnalyzer(),
     )
 
 
@@ -49,30 +47,10 @@ def test_yield_with_filter(pipeline: ErrorAnalysisPipeline):
     pipeline.filter = None
 
 
-def test_analyze_step(pipeline: ErrorAnalysisPipeline):
-    exp_result = next(pipeline.filter_exp_results())
-    step_analysis = pipeline.analyze_step(exp_result)
-
-    assert len(exp_result.steps_info) == len(step_analysis) + 1
-    assert step_analysis[0] == f"Agent took action {exp_result.steps_info[0].action} at step 0"
-
-
-def test_analyze_episode(pipeline: ErrorAnalysisPipeline):
-    exp_result = next(pipeline.filter_exp_results())
-    step_analysis = pipeline.analyze_step(exp_result)
-    episode_analysis = pipeline.analyze_episode(exp_result, step_analysis)
-
-    for step_info in exp_result.steps_info:
-        if step_info.action:
-            assert step_info.action in episode_analysis
-
-
 def test_save_analysis(pipeline: ErrorAnalysisPipeline):
     exp_result = next(pipeline.filter_exp_results())
-    step_analysis = pipeline.analyze_step(exp_result)
-    episode_analysis = pipeline.analyze_episode(exp_result, step_analysis)
-    error_analysis = pipeline.analyze_errors(exp_result, episode_analysis, step_analysis)
 
+    error_analysis = pipeline.episode_summarizer(exp_result)
     pipeline.save_analysis(exp_result, error_analysis, exists_ok=False)
 
     assert (exp_result.exp_dir / "error_analysis.json").exists()

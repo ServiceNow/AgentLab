@@ -13,10 +13,18 @@ def exp_results() -> list[ExpResult]:
     return list(yield_all_exp_results(exp_dir))
 
 
+@pytest.mark.pricy
 def test_change_summarizer(exp_results: list[ExpResult]):
-    summarizer = ChangeSummarizer(llm=lambda x: x)
+    summarizer = ChangeSummarizer(llm=lambda x: {"content": x})
     step = exp_results[0].steps_info[0]
     next_step = exp_results[0].steps_info[1]
     past_summaries = []
     summary = summarizer.summarize(step, next_step, past_summaries)
-    assert isinstance(summary, str)
+    assert isinstance(summary, dict)
+
+
+if __name__ == "__main__":
+    exp_res = list(
+        yield_all_exp_results(Path(__file__).parent.parent.parent / "data/error_analysis")
+    )
+    test_change_summarizer(exp_res)
