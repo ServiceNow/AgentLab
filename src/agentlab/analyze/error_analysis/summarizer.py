@@ -15,6 +15,13 @@ def _diff(past_obs, current_obs):
     """TODO: Implement the diff function.
 
     Returns a diff version of current_obs compares to past_obs, unless there is too many changes.
+
+    Args:
+        past_obs: The past observation.
+        current_obs: The current observation.
+
+    Raises:
+        ValueError: Not implemented yet.
     """
     raise ValueError("Not implemented yet.")
 
