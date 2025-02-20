@@ -6,8 +6,8 @@ from agentlab.analyze.error_analysis.summarizer_prompts import (
     CHANGE_SUMMARIZER_PROMPT,
     ERROR_CLASSIFICATION_PROMPT,
 )
-from agentlab.analyze.inspect_results import summarize
 from agentlab.llm.llm_utils import json_parser, parse_html_tags
+from agentlab.llm.tracking import set_tracker
 
 
 def _diff(past_obs, current_obs):
@@ -94,14 +94,20 @@ class EpisodeSummarizer:
         # if exp_results.steps_info[-1].reward == 1:
         #     return {"analysis": "Success", "summaries": {}}
 
-        summaries = self.make_change_summaries(exp_results)
+        with set_tracker("summary") as summaries_tracker:
+            summaries = self.make_change_summaries(exp_results)
         prompt = self.make_prompt(exp_results, summaries)
-        raw_analysis = self.llm(prompt)["content"]
+
+        with set_tracker("analysis") as analysis_tracker:
+            raw_analysis = self.llm(prompt)["content"]
         analysis = self.parse(raw_analysis)
-        return {
+        res = {
             "analysis": analysis,
             "summaries": {i: a for i, a in enumerate(summaries)},
         }
+        res.update(analysis_tracker.stats)
+        res.update(summaries_tracker.stats)
+        return res
 
     def make_change_summaries(self, exp_result: ExpResult) -> list[str]:
         summaries = []  # type: list[str]
@@ -136,7 +142,6 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
 
         txt_summaries = "\n".join([format_summary(summary) for summary in summaries])
 
-        thoughts = [step.agent_info.think for step in exp_results.steps_info[:-1]]
         actions = [step.action for step in exp_results.steps_info[:-1]]
         action_errors = "\n".join(
             [step.obs["last_action_error"] for step in exp_results.steps_info[1:]]
@@ -144,8 +149,8 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
 
         txt_actions = "\n".join(
             [
-                f"Thoughts: {thought}\nAction: {action}\nAction Error: {action_error}"
-                for action, thought, action_error in zip(actions, thoughts, action_errors)
+                f"Action: {action}\nAction Error: {action_error}"
+                for action, action_error in zip(actions, action_errors)
             ]
         )
         return ERROR_CLASSIFICATION_PROMPT.format(

@@ -23,6 +23,11 @@ class Analyzer:
         return "analysis"
 
 
+def analyze(exp_result, episode_summarizer, save_analysis_func):
+    error_analysis = episode_summarizer(exp_result)
+    save_analysis_func(exp_result, error_analysis)
+
+
 @dataclass
 class ErrorAnalysisPipeline:
     exp_dir: Path
@@ -36,12 +41,21 @@ class ErrorAnalysisPipeline:
             if self.filter is None or self.filter in str(exp_result.exp_dir):
                 yield exp_result
 
-    def run_analysis(self):
+    def run_analysis(self, parallel=False, jobs=-1):
         filtered_results = self.filter_exp_results()
 
-        for exp_result in filtered_results:
-            error_analysis = self.episode_summarizer(exp_result)
-            self.save_analysis(exp_result, error_analysis)
+        if parallel:
+            import joblib
+
+            joblib.Parallel(n_jobs=jobs, backend="threading")(
+                joblib.delayed(analyze)(exp_result, self.episode_summarizer, self.save_analysis)
+                for exp_result in filtered_results
+            )
+
+        else:
+            for exp_result in filtered_results:
+                error_analysis = self.episode_summarizer(exp_result)
+                self.save_analysis(exp_result, error_analysis)
 
     def save_analysis(self, exp_result: ExpResult, error_analysis: dict, exists_ok=True):
         """Save the analysis to json"""
@@ -56,23 +70,27 @@ AXTREE_FORMATTER = lambda x: x.get("axtree_txt", "No AXTREE available")
 HTML_FORMATTER = lambda x: x.get("pruned_html", "No HTML available")
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--exp_dir", type=str)
     parser.add_argument("-f", "--filter", type=str, default=None)
+    parser.add_argument("-p", "--parallel", action="store_true")
+    parser.add_argument("-j", "--jobs", type=int, default=-1)
 
     args = parser.parse_args()
+
+    assert args.exp_dir is not None, "Please provide an exp_dir, e.g., -e /path/to/exp_dir"
+
     exp_dir = Path(args.exp_dir)
     filter = args.filter
+    parallel = args.parallel
+    jobs = args.jobs
 
     from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
     llm = CHAT_MODEL_ARGS_DICT["azure/gpt-4o-2024-08-06"].make_model()
-
-    step_summarizer = ChangeSummarizer(llm, lambda x: x)
-    episode_summarizer = EpisodeSummarizer()
 
     pipeline = ErrorAnalysisPipeline(
         exp_dir=exp_dir,
@@ -80,4 +98,9 @@ if __name__ == "__main__":
         episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm, AXTREE_FORMATTER), llm),
     )
 
-    pipeline.run_analysis()
+    pipeline.run_analysis(parallel=parallel, jobs=jobs)
+
+
+if __name__ == "__main__":
+
+    main()
