@@ -1,0 +1,2 @@
+agent.agent_name,env.benchmark,avg_reward,std_err,avg_steps,n_completed,n_err,cum_cost
+GenericAgent-gpt-4o-mini,miniwob,1.0,0.0,1.75,4/4,0,0.0018
