@@ -145,7 +145,7 @@ class SelfHostedModelArgs(BaseModelArgs):
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
                 n_retry_server=self.n_retry_server,
-                log_probs=self.log_probs
+                log_probs=self.log_probs,
             )
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
