@@ -382,9 +382,14 @@ def image_to_jpg_base64_url(image: np.ndarray | Image.Image):
 
 
 class BaseMessage(dict):
-    def __init__(self, role: str, content: Union[str, list[dict]]):
+    def __init__(self, role: str, content: Union[str, list[dict]], **kwargs):
+        allowed_attrs = {"log_probs"}
+        invalid_attrs = set(kwargs.keys()) - allowed_attrs
+        if invalid_attrs:
+            raise ValueError(f"Invalid attributes: {invalid_attrs}")
         self["role"] = role
         self["content"] = deepcopy(content)
+        self.update(kwargs)
 
     def __str__(self, warn_if_image=False) -> str:
         if isinstance(self["content"], str):
@@ -464,8 +469,8 @@ class HumanMessage(BaseMessage):
 
 
 class AIMessage(BaseMessage):
-    def __init__(self, content: Union[str, list[dict]]):
-        super().__init__("assistant", content)
+    def __init__(self, content: Union[str, list[dict]], log_probs=None):
+        super().__init__("assistant", content, log_probs=log_probs)
 
 
 class Discussion:
