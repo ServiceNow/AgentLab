@@ -5,6 +5,7 @@ from bgym import ExpResult, StepInfo
 from agentlab.analyze.error_analysis.summarizer_prompts import (
     CHANGE_SUMMARIZER_PROMPT,
     ERROR_CLASSIFICATION_PROMPT,
+    ERROR_CLASSIFICATION_PROMPT_SUCCESS_OR_NOT,
 )
 from agentlab.llm.llm_utils import json_parser, parse_html_tags
 from agentlab.llm.tracking import set_tracker
@@ -85,14 +86,16 @@ class EpisodeSummarizer:
     change_summarizer: ChangeSummarizer = None
     llm: callable = None
     parser: callable = lambda x: json_parser(x)[0]
+    guess_success: bool = False
 
     def make_prompt(self, exp_results: ExpResult, summaries: list[str]): ...
 
     def __call__(self, exp_results: ExpResult) -> EpisodeAnalysis:
         """Run Change Summarizer for every step in the episode or extract a pre-computed one."""
 
-        if exp_results.steps_info[-1].reward == 1:
-            return {"analysis": "Success", "summaries": {}}
+        if not self.guess_success:
+            if exp_results.steps_info[-1].reward == 1:
+                return {"analysis": "Success", "summaries": {}}
 
         with set_tracker("summary") as summaries_tracker:
             summaries = self.make_change_summaries(exp_results)
@@ -154,7 +157,13 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
 
         extra_info = exp_results.steps_info[-1].task_info
 
-        return ERROR_CLASSIFICATION_PROMPT.format(
+        prompt = (
+            ERROR_CLASSIFICATION_PROMPT_SUCCESS_OR_NOT
+            if self.guess_success
+            else ERROR_CLASSIFICATION_PROMPT
+        )
+
+        return prompt.format(
             goal=goal,
             historical_summaries=txt_summaries,
             action_history=txt_actions,

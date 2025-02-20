@@ -78,6 +78,7 @@ def main():
     parser.add_argument("-f", "--filter", type=str, default=None)
     parser.add_argument("-p", "--parallel", action="store_true")
     parser.add_argument("-j", "--jobs", type=int, default=-1)
+    parser.add_argument("-g", "--guess_success", action="store_true")
 
     args = parser.parse_args()
 
@@ -87,6 +88,7 @@ def main():
     filter = args.filter
     parallel = args.parallel
     jobs = args.jobs
+    guess_success = args.guess_success
 
     from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
@@ -95,7 +97,9 @@ def main():
     pipeline = ErrorAnalysisPipeline(
         exp_dir=exp_dir,
         filter=filter,
-        episode_summarizer=EpisodeErrorSummarizer(ChangeSummarizer(llm, AXTREE_FORMATTER), llm),
+        episode_summarizer=EpisodeErrorSummarizer(
+            ChangeSummarizer(llm, AXTREE_FORMATTER), llm, guess_success=guess_success
+        ),
     )
 
     pipeline.run_analysis(parallel=parallel, jobs=jobs)
