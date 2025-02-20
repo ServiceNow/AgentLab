@@ -145,6 +145,7 @@ class SelfHostedModelArgs(BaseModelArgs):
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
                 n_retry_server=self.n_retry_server,
+                log_probs=self.log_probs
             )
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
@@ -237,7 +238,7 @@ class ChatModel(AbstractChatModel):
         self.max_tokens = max_tokens
         self.max_retry = max_retry
         self.min_retry_wait_time = min_retry_wait_time
-        self.logprobs = log_probs
+        self.log_probs = log_probs
 
         # Get the API key from the environment variable if not provided
         if api_key_env_var:
@@ -284,7 +285,7 @@ class ChatModel(AbstractChatModel):
                     n=n_samples,
                     temperature=temperature,
                     max_tokens=self.max_tokens,
-                    logprobs=self.logprobs,
+                    log_probs=self.log_probs,
                 )
 
                 if completion.usage is None:
@@ -315,8 +316,8 @@ class ChatModel(AbstractChatModel):
 
         if n_samples == 1:
             res = AIMessage(completion.choices[0].message.content)
-            if self.logprobs:
-                res["logprobs"] = completion.choices[0].logprobs
+            if self.log_probs:
+                res["log_probs"] = completion.choices[0].log_probs
             return res
         else:
             return [AIMessage(c.message.content) for c in completion.choices]
@@ -429,7 +430,7 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
         n_retry_server: Optional[int] = 4,
         log_probs: Optional[bool] = False,
     ):
-        super().__init__(model_name, base_model_name, n_retry_server)
+        super().__init__(model_name, base_model_name, n_retry_server, log_probs)
         if temperature < 1e-3:
             logging.warning("Models might behave weirdly when temperature is too low.")
         self.temperature = temperature
