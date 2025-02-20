@@ -132,30 +132,24 @@ CLASSIFICATION TASK
    - The current HTML or AX Tree observation
    - The user goal
 
-2. In case you think the task was unsuccessful, decide the category, or a combination thereof, under which the reason for failure lies.
-   If the task is successful, you can keep the error category as blank.
+2. Decide the error category, or a combination thereof, under which the reason for failure lies.
 
 3. Provide a brief explanation justifying your classification, referencing specific steps if helpful.
 
-Output format example for an unsuccessful interaction:
+Output format example for an interaction:
 
 <explanation>The agent opened the wrong GitLab page and never recovered...</explanation>
-<success>False</success>
 <errorCategory>["Navigation & Planning"]</errorCategory>
 
-Output format example for a successful interaction:
-
-<explanation>The agent opened the correct GitLab page and ...</explanation>
-<success>True</success>
-<errorCategory>[]</errorCategory>
-  
 Please follow this structure at every step. Keep your responses concise and clear. 
 
-Below are the details for the interaction.
+Below are the details for the interaction. Extra information yields additional information from the environment. It might not always be present or relevant.
 
 Overall goal: {goal}
 
 Historical change summaries: {historical_summaries}
 
 Action history: {action_history}
+
+Extra information: {extra_info}
 """

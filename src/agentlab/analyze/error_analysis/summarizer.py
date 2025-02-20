@@ -91,8 +91,8 @@ class EpisodeSummarizer:
     def __call__(self, exp_results: ExpResult) -> EpisodeAnalysis:
         """Run Change Summarizer for every step in the episode or extract a pre-computed one."""
 
-        # if exp_results.steps_info[-1].reward == 1:
-        #     return {"analysis": "Success", "summaries": {}}
+        if exp_results.steps_info[-1].reward == 1:
+            return {"analysis": "Success", "summaries": {}}
 
         with set_tracker("summary") as summaries_tracker:
             summaries = self.make_change_summaries(exp_results)
@@ -119,9 +119,7 @@ class EpisodeSummarizer:
         return summaries
 
     def parse(self, raw_output: str) -> dict:
-        parsed_result = parse_html_tags(
-            raw_output, keys=["explanation", "success", "errorCategory"]
-        )[0]
+        parsed_result = parse_html_tags(raw_output, keys=["explanation", "errorCategory"])[0]
         return parsed_result
 
 
@@ -153,8 +151,12 @@ class EpisodeErrorSummarizer(EpisodeSummarizer):
                 for action, action_error in zip(actions, action_errors)
             ]
         )
+
+        extra_info = exp_results.steps_info[-1].task_info
+
         return ERROR_CLASSIFICATION_PROMPT.format(
             goal=goal,
             historical_summaries=txt_summaries,
             action_history=txt_actions,
+            extra_info=extra_info,
         )
