@@ -5,7 +5,7 @@ An agent that reproduces exactly the same traces as GenericAgent, to compare the
 This module contains the classes and functions to reproduce the results of a
 study. It is used to create a new study that will run the same experiments as
 the original study, but with a reproducibility agent that will mimic the same
-answers as the original agent. 
+answers as the original agent.
 
 Stats are collected to compare the original agent's answers with the new agent's
 answers. Load the this reproducibility study in agent-xray to compare the results.
