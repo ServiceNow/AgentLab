@@ -184,6 +184,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=2_000,
         temperature=1e-1,
     ),
+    "openrouter/anthropic/claude-3.7-sonnet": OpenRouterModelArgs(
+        model_name="anthropic/claude-3.7-sonnet",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=8_192,
+        temperature=1e-1,
+        vision_support=True,
+    ),
     "openrouter/openai/o1-mini-2024-09-12": OpenRouterModelArgs(
         model_name="openai/o1-mini-2024-09-12",
         max_total_tokens=128_000,
