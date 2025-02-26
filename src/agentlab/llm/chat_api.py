@@ -292,7 +292,7 @@ class ChatModel(AbstractChatModel):
                     n=n_samples,
                     temperature=temperature,
                     max_tokens=self.max_tokens,
-                    log_probs=self.log_probs,
+                    logprobs=self.log_probs,
                 )
 
                 if completion.usage is None:
