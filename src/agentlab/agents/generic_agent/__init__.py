@@ -16,9 +16,11 @@ from .agent_configs import (
     AGENT_4o,
     AGENT_4o_MINI,
     AGENT_CLAUDE_SONNET_35,
+    AGENT_CLAUDE_SONNET_35_VISION,
     AGENT_4o_VISION,
     AGENT_4o_MINI_VISION,
-    AGENT_CLAUDE_SONNET_35_VISION,
+    AGENT_o3_MINI,
+    AGENT_o1_MINI,
 )
 
 __all__ = [
@@ -26,6 +28,8 @@ __all__ = [
     "AGENT_4o",
     "AGENT_4o_MINI",
     "AGENT_4o_VISION",
+    "AGENT_o3_MINI",
+    "AGENT_o1_MINI",
     "AGENT_LLAMA3_70B",
     "AGENT_LLAMA31_70B",
     "AGENT_8B",
