@@ -19,8 +19,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import (find_incomplete, non_dummy_count,
-                                             run_experiments)
+from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 from agentlab.experiments.multi_server import BaseServer, WebArenaInstanceVars
 
 logger = logging.getLogger(__name__)
@@ -467,7 +466,9 @@ class Study(AbstractStudy):
                 )
 
         for agent in agents:
-            agent.set_benchmark(benchmark, demo_mode)  # the agent can adapt (lightly?) to the benchmark
+            agent.set_benchmark(
+                benchmark, demo_mode
+            )  # the agent can adapt (lightly?) to the benchmark
 
         env_args_list = benchmark.env_args_list
         if demo_mode:
