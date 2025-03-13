@@ -33,7 +33,7 @@ class MultiToolGym(AbstractEnv):
             observation = self._env.step(action)
         action_exec_stop = time.time()
 
-        reward = self.calculate_reward()
+        reward = self.calculate_reward(action)
 
         truncated = False
 
@@ -45,7 +45,7 @@ class MultiToolGym(AbstractEnv):
         }
         return observation, reward, terminated, truncated, env_info
 
-    def calculate_reward(self) -> float:
+    def calculate_reward(self, action: Action) -> float:
         return 0.0
 
     def close(self):

@@ -1,15 +1,12 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import gymnasium as gym
+from dataclasses_json import DataClassJsonMixin
 from pydantic import BaseModel
 
 
-class AbstractEnvArgs(BaseModel, frozen=True):
-    """Easily serialiazable class to store the arguments of an environment"""
-
-    task_seed: int = 0
-    task_name: str = ""
-
+class AbstractEnvArgs(ABC):
     @abstractmethod
     def make_env(self, action_mapping, exp_dir, exp_task_kwargs) -> "AbstractEnv":
         """Create an instance of the environment with the arguments stored in this object.
@@ -25,9 +22,17 @@ class AbstractEnvArgs(BaseModel, frozen=True):
         """
 
 
+@dataclass
+class SerializableEnvArgs(AbstractEnvArgs, DataClassJsonMixin):
+    """Easily serialiazable class to store the arguments of an environment"""
+
+    task_seed: int = 0
+    task_name: str = ""
+
+
 class AbstractBenchmark(BaseModel):
     name: str
-    env_args_list: list[AbstractEnvArgs]
+    env_args_list: list
 
     def get_version(self) -> int:
         return "1"

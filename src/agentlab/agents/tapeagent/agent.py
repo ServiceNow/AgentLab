@@ -39,7 +39,7 @@ class TapeAgent(bgym.Agent):
         self.tape = tape
 
     def obs_preprocessor(self, obs: Any) -> Any:
-        logger.info(f"Observation: {obs}")
+        logger.info(f"Observations: {type(obs)}")
         return obs
 
     def get_action(self, obs: Observation | list[Observation]) -> tuple[str, TapeAgentInfo]:
@@ -52,10 +52,6 @@ class TapeAgent(bgym.Agent):
         action = None
         while not action:
             for event in self.agent.run(self.tape):
-                if event.final_tape:
-                    logger.info(
-                        f"agent run final tape state: {[type(s).__name__ for s in self.tape]}"
-                    )
                 if not event.step:
                     continue
                 self.tape = self.tape.append(event.step)
@@ -64,7 +60,7 @@ class TapeAgent(bgym.Agent):
                     logger.info(f"Thought: {event.step.llm_view()}")
                 elif isinstance(event.step, Action) and not action:
                     action = event.step
-                    logger.info(f"Action: {action}")
+                    logger.info(f"Action: {action.llm_view()}")
                     # we stop at the first action
                 else:
                     logger.info(f"Other step: {type(event.step)}")

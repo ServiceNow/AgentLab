@@ -16,8 +16,8 @@ if __name__ == "__main__":
         benchmark=GaiaBenchmark(split="validation"),
         agent_args=TapeAgentArgs("gaia_agent"),
         comment="Gaia eval",
-        logging_level=logging.DEBUG,
-        logging_level_stdout=logging.DEBUG,
+        logging_level=logging.INFO,
+        logging_level_stdout=logging.INFO,
     )
     print(f"Exp args list len: {len(study.exp_args_list)}")
     study.exp_args_list = study.exp_args_list[:1]

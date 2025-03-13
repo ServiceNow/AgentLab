@@ -98,7 +98,7 @@ def run_experiments(
         logging.info("All jobs are finished. Calling agent_args.close() on all agents...")
         for exp_args in exp_args_list:
             exp_args.agent_args.close()
-        logging.info("Experiment finished.")
+        logging.info(f"Experiment finished and saved in {study_dir}.")
 
 
 def find_incomplete(study_dir: str | Path, include_errors=True):
