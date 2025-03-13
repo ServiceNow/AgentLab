@@ -48,7 +48,7 @@ class TapeAgent(bgym.Agent):
         for observation in obs:
             logger.info(f"Add observation: {type(observation)}")
             self.tape = self.tape.append(observation)
-        thoughts = []
+        thoughts: list[Thought] = []
         action = None
         while not action:
             for event in self.agent.run(self.tape):
@@ -56,7 +56,7 @@ class TapeAgent(bgym.Agent):
                     continue
                 self.tape = self.tape.append(event.step)
                 if isinstance(event.step, Thought):
-                    thoughts.append(event.step.llm_dict())
+                    thoughts.append(event.step)
                     logger.info(f"Thought: {event.step.llm_view()}")
                 elif isinstance(event.step, Action) and not action:
                     action = event.step
