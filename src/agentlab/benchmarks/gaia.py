@@ -83,7 +83,7 @@ class GaiaGymArgs(SerializableEnvArgs):
             WebSearch(),
             VideoReader(exp_path=exp_dir),
             Browser(exp_path=exp_dir, viewport_chars=self.viewport_chars),
-            CodeExecutor(exp_path=exp_dir),
+            CodeExecutor(exp_path=exp_dir, reuse_computer_container=True),
         ]
         env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir)
         return env
@@ -91,9 +91,11 @@ class GaiaGymArgs(SerializableEnvArgs):
     def init_code_sandbox(self, exp_dir: str) -> None:
         code_path = os.path.join(exp_dir, "code")
         os.makedirs(code_path, exist_ok=True)
+        container_name = "gaia_code_sandbox"
+        os.environ["COMPUTER_CONTAINER_NAME"] = container_name
         ContainerExecutor(
             work_dir=code_path,
-            container_name="gaia_code_sandbox",
+            container_name=container_name,
             restart_if_exists=False,
             stop_container=False,
             no_deps=True,
@@ -103,14 +105,20 @@ class GaiaGymArgs(SerializableEnvArgs):
 class GaiaBenchmark(AbstractBenchmark):
     name: str = "gaia"
     split: Literal["test", "validation"]
+    level: Literal["1", "2", "3", "all"] = "all"
     env_args_list: list[GaiaGymArgs] = None
 
     def model_post_init(self, __context: Any) -> None:
         self.env_args_list = []
         dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")[self.split]
         for task in dataset:
+            if self.level != "all" and task["Level"] != self.level:
+                continue
             env_args = GaiaGymArgs(task_name="gaia." + task["task_id"], task=task)
             self.env_args_list.append(env_args)
+        logger.info(
+            f"Loaded {len(self.env_args_list)} tasks from {self.split} split of GAIA benchmark."
+        )
 
 
 class ExtractedFacts(Thought):
