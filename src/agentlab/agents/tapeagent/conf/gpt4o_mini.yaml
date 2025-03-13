@@ -1,0 +1,6 @@
+_target_: tapeagents.llms.LiteLLM
+model_name: gpt-4o-mini-2024-07-18
+use_cache: true
+context_size: 128000
+parameters:
+  temperature: 0.2

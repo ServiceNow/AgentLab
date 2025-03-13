@@ -1,5 +1,5 @@
 defaults:
-  - llm@llms.default: gpt4o
+  - llm@llms.default: gpt4o_mini
   - _self_
 
 _target_: tapeagents.agent.Agent
