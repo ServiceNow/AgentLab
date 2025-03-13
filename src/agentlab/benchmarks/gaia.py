@@ -250,11 +250,13 @@ def normalize_str(input_str, remove_punct=True) -> str:
     - Removing all white spaces
     - Optionally removing punctuation (if remove_punct is True)
     - Converting to lowercase
-    Parameters:
-    - input_str: str, the string to normalize
-    - remove_punct: bool, whether to remove punctuation (default: True)
+
+    Args:
+        input_str: str, the string to normalize
+        remove_punct: bool, whether to remove punctuation (default: True)
+
     Returns:
-    - str, the normalized string
+        str, the normalized string
     """
     # Remove all white spaces. Required e.g for seagull vs. sea gull
     no_spaces = re.sub(r"\s", "", input_str)
