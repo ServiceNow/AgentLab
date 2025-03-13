@@ -4,7 +4,6 @@ from typing import Any
 
 import bgym
 import hydra
-from pydantic import json
 from tapeagents.agent import Agent
 from tapeagents.core import Action, Observation, Tape, Thought
 
@@ -25,6 +24,11 @@ class TapeAgentArgs(AgentArgs):
         return TapeAgent(agent=agent, tape=Tape(steps=[]))
 
 
+@dataclass
+class TapeAgentInfo(bgym.AgentInfo):
+    thoughts: list[Thought] = None
+
+
 class TapeAgent(bgym.Agent):
     agent: Agent
     tape: Tape
@@ -34,8 +38,8 @@ class TapeAgent(bgym.Agent):
         self.agent = agent
         self.tape = tape
 
-    def obs_preprocessor(self, obs: dict) -> Any:
-        logger.info(f"Preprocessing observation: {obs}")
+    def obs_preprocessor(self, obs: Any) -> Any:
+        logger.info(f"Observation: {obs}")
         return obs
 
     def get_action(
@@ -57,4 +61,4 @@ class TapeAgent(bgym.Agent):
                 action = event.step.llm_view()
                 logger.info(f"Action: {action}")
                 break  # we stop at the first action
-        return (action, bgym.AgentInfo(think=json.dumps(thoughts), stats={}))
+        return (action, TapeAgentInfo(thoughts=thoughts))
