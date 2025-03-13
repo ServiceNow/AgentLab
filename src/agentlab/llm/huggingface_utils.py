@@ -40,9 +40,10 @@ class HFBaseChatModel(AbstractChatModel):
         description="The number of times to retry the server if it fails to respond",
     )
 
-    def __init__(self, model_name, base_model_name, n_retry_server):
+    def __init__(self, model_name, base_model_name, n_retry_server, log_probs):
         super().__init__()
         self.n_retry_server = n_retry_server
+        self.log_probs = log_probs
 
         if base_model_name is None:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -100,7 +101,11 @@ class HFBaseChatModel(AbstractChatModel):
             while True:
                 try:
                     temperature = temperature if temperature is not None else self.temperature
-                    response = AIMessage(self.llm(prompt, temperature=temperature))
+                    answer = self.llm(prompt, temperature=temperature)
+                    response = AIMessage(answer)
+                    if self.log_probs:
+                        response["content"] = answer.generated_text
+                        response["log_probs"] = answer.details
                     responses.append(response)
                     break
                 except Exception as e:

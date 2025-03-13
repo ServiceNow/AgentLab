@@ -87,6 +87,7 @@ class OpenRouterModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+            log_probs=self.log_probs,
         )
 
 
@@ -100,6 +101,7 @@ class OpenAIModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+            log_probs=self.log_probs,
         )
 
 
@@ -115,6 +117,7 @@ class AzureModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             deployment_name=self.deployment_name,
+            log_probs=self.log_probs,
         )
 
 
@@ -141,6 +144,14 @@ class SelfHostedModelArgs(BaseModelArgs):
                 token=self.token,
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
+                n_retry_server=self.n_retry_server,
+                log_probs=self.log_probs,
+            )
+        elif self.backend == "vllm":
+            return VLLMChatModel(
+                model_name=self.model_name,
+                temperature=self.temperature,
+                max_tokens=self.max_new_tokens,
                 n_retry_server=self.n_retry_server,
             )
         else:
@@ -225,6 +236,7 @@ class ChatModel(AbstractChatModel):
         client_class=OpenAI,
         client_args=None,
         pricing_func=None,
+        log_probs=False,
     ):
         assert max_retry > 0, "max_retry should be greater than 0"
 
@@ -233,6 +245,7 @@ class ChatModel(AbstractChatModel):
         self.max_tokens = max_tokens
         self.max_retry = max_retry
         self.min_retry_wait_time = min_retry_wait_time
+        self.log_probs = log_probs
 
         # Get the API key from the environment variable if not provided
         if api_key_env_var:
@@ -279,6 +292,7 @@ class ChatModel(AbstractChatModel):
                     n=n_samples,
                     temperature=temperature,
                     max_tokens=self.max_tokens,
+                    logprobs=self.log_probs,
                 )
 
                 if completion.usage is None:
@@ -308,7 +322,10 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            return AIMessage(completion.choices[0].message.content)
+            res = AIMessage(completion.choices[0].message.content)
+            if self.log_probs:
+                res["log_probs"] = completion.choices[0].log_probs
+            return res
         else:
             return [AIMessage(c.message.content) for c in completion.choices]
 
@@ -328,6 +345,7 @@ class OpenAIChatModel(ChatModel):
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
+        log_probs=False,
     ):
         super().__init__(
             model_name=model_name,
@@ -339,6 +357,7 @@ class OpenAIChatModel(ChatModel):
             api_key_env_var="OPENAI_API_KEY",
             client_class=OpenAI,
             pricing_func=tracking.get_pricing_openai,
+            log_probs=log_probs,
         )
 
 
@@ -351,6 +370,7 @@ class OpenRouterChatModel(ChatModel):
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
+        log_probs=False,
     ):
         client_args = {
             "base_url": "https://openrouter.ai/api/v1",
@@ -366,6 +386,7 @@ class OpenRouterChatModel(ChatModel):
             client_class=OpenAI,
             client_args=client_args,
             pricing_func=tracking.get_pricing_openrouter,
+            log_probs=log_probs,
         )
 
 
@@ -379,6 +400,7 @@ class AzureChatModel(ChatModel):
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
+        log_probs=False,
     ):
         api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -399,6 +421,7 @@ class AzureChatModel(ChatModel):
             client_class=AzureOpenAI,
             client_args=client_args,
             pricing_func=tracking.get_pricing_openai,
+            log_probs=log_probs,
         )
 
 
@@ -412,8 +435,9 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
         temperature: Optional[int] = 1e-1,
         max_new_tokens: Optional[int] = 512,
         n_retry_server: Optional[int] = 4,
+        log_probs: Optional[bool] = False,
     ):
-        super().__init__(model_name, base_model_name, n_retry_server)
+        super().__init__(model_name, base_model_name, n_retry_server, log_probs)
         if temperature < 1e-3:
             logging.warning("Models might behave weirdly when temperature is too low.")
         self.temperature = temperature
@@ -422,4 +446,28 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
             token = os.environ["TGI_TOKEN"]
 
         client = InferenceClient(model=model_url, token=token)
-        self.llm = partial(client.text_generation, max_new_tokens=max_new_tokens)
+        self.llm = partial(client.text_generation, max_new_tokens=max_new_tokens, details=log_probs)
+
+
+class VLLMChatModel(ChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        n_retry_server=4,
+        min_retry_wait_time=60,
+    ):
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retry=n_retry_server,
+            min_retry_wait_time=min_retry_wait_time,
+            api_key_env_var="VLLM_API_KEY",
+            client_class=OpenAI,
+            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            pricing_func=None,
+        )
