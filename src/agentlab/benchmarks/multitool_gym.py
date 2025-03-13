@@ -1,7 +1,8 @@
+import time
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-from tapeagents.core import Action, Observation, Tape
+from tapeagents.core import Action, Observation, StopStep, Tape
 from tapeagents.environment import ToolCollectionEnvironment
 from tapeagents.tools.base import StatefulTool, Tool
 
@@ -21,17 +22,27 @@ class MultiToolGym(AbstractEnv):
     def reset(self):
         self._env.reset()
 
-    def step(self, action: str) -> tuple[Observation, float, bool, bool, dict]:
-        try:
-            action_step = self._actions_parser.validate_json(action)
-        except Exception:
-            raise ValueError("Action must be a valid JSON dict")
-        assert isinstance(action_step, Action), "{action_step.kind} is not an Action"
-        observation = self._env.step(action_step)
+    def step(self, action: Action) -> tuple[Observation, float, bool, bool, dict]:
+        assert isinstance(action, Action)
+
+        action_exec_start = time.time()
+        terminated = isinstance(action, StopStep)
+        if terminated:
+            observation = Observation()  # empty observation
+        else:
+            observation = self._env.step(action)
+        action_exec_stop = time.time()
+
         reward = self.calculate_reward()
-        terminated = False
+
         truncated = False
-        env_info = {"step_metadata": observation.metadata}
+
+        env_info = {
+            "step_metadata": observation.metadata,
+            "action_exec_start": action_exec_start,
+            "action_exec_stop": action_exec_stop,
+            "action_exec_timeout": 0.0,
+        }
         return observation, reward, terminated, truncated, env_info
 
     def calculate_reward(self) -> float:

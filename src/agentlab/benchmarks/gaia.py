@@ -28,6 +28,7 @@ class GaiaGym(MultiToolGym):
         super().__init__(tools=tools)
         self.task = task
         self.exp_dir = exp_dir
+        os.makedirs(".cache", exist_ok=True)
 
     def reset(self, seed=None) -> tuple[list[Observation], dict]:
         super().reset()
@@ -38,11 +39,11 @@ class GaiaGym(MultiToolGym):
         return steps, {}
 
     def step(self, action: str) -> tuple[Observation, float, bool, bool, dict]:
-        logger.info(f"step called with action: {type(action)}")
-        super().step(action)
+        logger.info(f"env step called with action {type(action)}")
+        return super().step(action)
 
 
-class GaiaGymArgs(AbstractEnvArgs):
+class GaiaGymArgs(AbstractEnvArgs, frozen=True):
     task: dict[str, Any]
     viewport_chars: int = 64000
 
@@ -79,7 +80,7 @@ class GaiaBenchmark(AbstractBenchmark):
         self.env_args_list = []
         dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")[self.split]
         for task in dataset:
-            env_args = GaiaGymArgs(task=task)
+            env_args = GaiaGymArgs(task_name="gaia_" + task["task_id"], task=task)
             self.env_args_list.append(env_args)
 
 
