@@ -5,7 +5,6 @@ import datasets
 from tapeagents.environment import ContainerExecutor
 from tapeagents.tools.browser import Browser
 from tapeagents.tools.code_executor import CodeExecutor
-from tapeagents.tools.container_executor import init_code_sandbox
 from tapeagents.tools.media_reader import VideoReader
 from tapeagents.tools.web_search import WebSearch
 
@@ -25,7 +24,7 @@ class GaiaGymArgs(AbstractEnvArgs):
     viewport_chars: int = 64000
 
     def make_env(self) -> GaiaGym:
-        init_code_sandbox(self.exp_dir)
+        self.init_code_sandbox()
         dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")
         tasks_by_id = {task["task_id"]: task for task in dataset[self.split]}
         task = tasks_by_id[self.task_id]
