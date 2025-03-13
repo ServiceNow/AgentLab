@@ -4,20 +4,6 @@ import gymnasium as gym
 from pydantic import BaseModel
 
 
-class AbstractBenchmark(BaseModel):
-    name: str
-    env_args_list: list = None
-
-    def get_version(self) -> int:
-        return "1"
-
-    def prepare_backends(self):
-        pass
-
-    def dependency_graph_over_tasks(self) -> dict[str, list[str]]:
-        return {}
-
-
 class AbstractEnvArgs(BaseModel):
     """Easily serialiazable class to store the arguments of an environment"""
 
@@ -34,6 +20,20 @@ class AbstractEnvArgs(BaseModel):
         Returns:
             env (AbstractEnv): instance of the environment.
         """
+
+
+class AbstractBenchmark(BaseModel):
+    name: str
+    env_args_list: list[AbstractEnvArgs]
+
+    def get_version(self) -> int:
+        return "1"
+
+    def prepare_backends(self):
+        pass
+
+    def dependency_graph_over_tasks(self) -> dict[str, list[str]]:
+        return {}
 
 
 class AbstractEnv(gym.Env, ABC):

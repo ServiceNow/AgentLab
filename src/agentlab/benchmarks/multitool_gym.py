@@ -1,4 +1,9 @@
+from typing import Annotated, Union
+
+from pydantic import Field, TypeAdapter
 from tapeagents.core import Action, Observation, Tape
+from tapeagents.environment import ToolCollectionEnvironment
+from tapeagents.tools.base import StatefulTool, Tool
 
 from agentlab.benchmarks.abstract_env import AbstractEnv
 
@@ -6,10 +11,17 @@ EnvTape = Tape[None, Action | Observation]
 
 
 class MultiToolGym(AbstractEnv):
+    def __init__(self, tools: list[Tool | StatefulTool]):
+        self._env = ToolCollectionEnvironment(tools)
+        self._actions = self._env.actions()
+        self._actions_parser: TypeAdapter = TypeAdapter(
+            Annotated[Union[self._actions], Field(discriminator="kind")]
+        )
+
     def reset(self):
         self._env.reset()
 
-    def step(self, action: str):
+    def step(self, action: str) -> tuple[Observation, float, bool, bool, dict]:
         try:
             action_step = self._actions_parser.validate_json(action)
         except Exception:

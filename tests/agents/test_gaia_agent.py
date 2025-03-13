@@ -1,5 +1,9 @@
+import os
+
+from tapeagents.steps import ImageObservation
+
 from agentlab.agents.tapeagent.agent import TapeAgent, TapeAgentArgs
-from agentlab.benchmarks.gaia import GaiaBenchmark
+from agentlab.benchmarks.gaia import GaiaBenchmark, GaiaQuestion
 
 
 def test_agent_creation():
@@ -32,3 +36,24 @@ def test_gaia_bench():
     assert task["Annotator Metadata"]["How long did this take?"] == "1 minute"
     assert task["Annotator Metadata"]["Tools"] == "1. Microsoft Excel"
     assert task["Annotator Metadata"]["Number of tools"] == "1"
+
+
+def test_gaia_gym_reset():
+    exp_dir = "/tmp/"
+    bench = GaiaBenchmark(exp_dir=exp_dir, split="validation")
+
+    args = bench.env_args_list[5]
+    env = args.make_env()
+    steps = env.reset()
+    assert len(steps) == 1
+    assert isinstance(steps[0], GaiaQuestion)
+    assert steps[0].content == args.task["Question"]
+
+    args = bench.env_args_list[20]
+    env = args.make_env()
+    steps = env.reset()
+    assert len(steps) == 2
+    assert isinstance(steps[0], GaiaQuestion)
+    assert steps[0].content == args.task["Question"]
+    assert isinstance(steps[1], ImageObservation)
+    assert os.path.basename(steps[1].image_path) == args.task["file_name"]

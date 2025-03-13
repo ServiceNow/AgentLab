@@ -5,7 +5,7 @@ from typing import Any, Literal
 import datasets
 from pydantic import Field
 from tapeagents.core import Observation, StopStep, Thought
-from tapeagents.environment import ContainerExecutor
+from tapeagents.environment import ContainerExecutor, StatefulTool, Tool
 from tapeagents.steps import ImageObservation
 from tapeagents.tools.browser import Browser
 from tapeagents.tools.code_executor import CodeExecutor
@@ -16,29 +16,22 @@ from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnvArgs
 from agentlab.benchmarks.multitool_gym import MultiToolGym
 
 
-class GaiaBenchmark(AbstractBenchmark):
-    exp_dir: str
-    name: str = "gaia"
-    split: Literal["test", "validation"]
-
-    def model_post_init(self, __context: Any) -> None:
-        self.env_args_list = []
-        dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")[self.split]
-        for task in dataset:
-            task_dir = os.path.join(self.name, task["task_id"])
-            env_args = GaiaGymArgs(task=task, exp_dir=task_dir)
-            self.env_args_list.append(env_args)
-
-
 class GaiaGym(MultiToolGym):
     task: dict
     exp_dir: str
 
+    def __init__(self, tools: list[Tool | StatefulTool], task: dict, exp_dir: str):
+        super().__init__(tools=tools)
+        self.task = task
+        self.exp_dir = exp_dir
+
     def reset(self) -> tuple[list[Observation], dict]:
         super().reset()
+        print("task:", self.task)
         question = GaiaQuestion.from_task(self.task)
         steps = [question]
         if image_obs := with_image(question):
+            print("image_obs:", image_obs)
             steps.append(image_obs)
         return steps
 
@@ -52,9 +45,9 @@ class GaiaGymArgs(AbstractEnvArgs):
         self.init_code_sandbox()
         tools = [
             WebSearch(),
-            VideoReader(self.exp_dir),
-            Browser(self.exp_dir, viewport_chars=self.viewport_chars),
-            CodeExecutor(self.exp_dir),
+            VideoReader(exp_path=self.exp_dir),
+            Browser(exp_path=self.exp_dir, viewport_chars=self.viewport_chars),
+            CodeExecutor(exp_path=self.exp_dir),
         ]
         env = GaiaGym(tools=tools, task=self.task, exp_dir=self.exp_dir)
         return env
@@ -70,6 +63,21 @@ class GaiaGymArgs(AbstractEnvArgs):
             stop_container=False,
             no_deps=True,
         )
+
+
+class GaiaBenchmark(AbstractBenchmark):
+    exp_dir: str
+    name: str = "gaia"
+    split: Literal["test", "validation"]
+    env_args_list: list[GaiaGymArgs] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        self.env_args_list = []
+        dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")[self.split]
+        for task in dataset:
+            task_dir = os.path.join(self.name, task["task_id"])
+            env_args = GaiaGymArgs(task=task, exp_dir=task_dir)
+            self.env_args_list.append(env_args)
 
 
 class ExtractedFacts(Thought):
