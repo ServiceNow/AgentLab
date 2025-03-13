@@ -2,9 +2,9 @@ import logging
 import tempfile
 
 import pytest
-from browsergym.experiments.loop import EnvArgs, ExpArgs
 
 from agentlab.agents.visualwebarena.agent import VisualWebArenaAgentArgs
+from agentlab.experiments.loop import EnvArgs, ExpArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 

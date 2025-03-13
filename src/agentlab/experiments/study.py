@@ -12,15 +12,20 @@ from multiprocessing import Manager, Pool, Queue
 from pathlib import Path
 
 import bgym
-from bgym import Benchmark, EnvArgs, ExpArgs
+from bgym import Benchmark
 from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
-from agentlab.experiments.multi_server import BaseServer, WebArenaInstanceVars
+from agentlab.experiments.launch_exp import (
+    find_incomplete,
+    non_dummy_count,
+    run_experiments,
+)
+from agentlab.experiments.loop import EnvArgs, ExpArgs
+from agentlab.experiments.multi_server import BaseServer
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +130,13 @@ class AbstractStudy(ABC):
         """Prepare the study for relaunching by finding incomplete experiments"""
 
     @abstractmethod
-    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+    def run(
+        self,
+        n_jobs=1,
+        parallel_backend="ray",
+        strict_reproducibility=False,
+        n_relaunch=3,
+    ):
         """Run the study"""
 
     def make_dir(self, exp_root=RESULTS_DIR):
@@ -292,7 +303,9 @@ class Study(AbstractStudy):
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(
-                self.reproducibility_info, info, raise_if_incompatible=strict_reproducibility
+                self.reproducibility_info,
+                info,
+                raise_if_incompatible=strict_reproducibility,
             )
         self.reproducibility_info = info
 
@@ -305,7 +318,6 @@ class Study(AbstractStudy):
         relaunch_errors=True,
         exp_root=RESULTS_DIR,
     ):
-
         self.set_reproducibility_info(
             strict_reproducibility=strict_reproducibility, comment=self.comment
         )
@@ -325,12 +337,12 @@ class Study(AbstractStudy):
             n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
 
             if n_error / n_exp > 0.3:
-                logger.warning(f"More than 30% of the experiments errored. Stopping the study.")
+                logger.warning("More than 30% of the experiments errored. Stopping the study.")
                 return
 
             if last_error_count is not None and n_error >= last_error_count:
                 logger.warning(
-                    f"Last trial did not reduce the number of errors. Stopping the study."
+                    "Last trial did not reduce the number of errors. Stopping the study."
                 )
                 return
 
@@ -553,7 +565,6 @@ class SequentialStudies(AbstractStudy):
         n_relaunch=3,
         exp_root=RESULTS_DIR,
     ):
-
         # This sequence of of making directories is important to make sure objects are materialized
         # properly before saving. Otherwise relaunch may not work properly.
         self.make_dir()
@@ -566,7 +577,13 @@ class SequentialStudies(AbstractStudy):
         logger.info("\n" + str(summary_df))
         logger.info(f"SequentialStudies {self.name} finished.")
 
-    def _run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
+    def _run(
+        self,
+        n_jobs=1,
+        parallel_backend="ray",
+        strict_reproducibility=False,
+        n_relaunch=3,
+    ):
         for study in self.studies:
             study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
 
@@ -622,7 +639,9 @@ class ParallelStudies(SequentialStudies):
             server_queue.put(server)
 
         with ProcessPoolExecutor(
-            max_workers=len(parallel_servers), initializer=_init_worker, initargs=(server_queue,)
+            max_workers=len(parallel_servers),
+            initializer=_init_worker,
+            initargs=(server_queue,),
         ) as executor:
             # Create list of arguments for each study
             study_args = [
@@ -640,7 +659,6 @@ class ParallelStudies(SequentialStudies):
 
 @dataclass
 class ParallelStudies_alt(SequentialStudies):
-
     parallel_servers: list[BaseServer] | int = None
 
     def _run(
@@ -662,7 +680,13 @@ class ParallelStudies_alt(SequentialStudies):
             p.starmap(
                 _run_study,
                 [
-                    (study, n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
+                    (
+                        study,
+                        n_jobs,
+                        parallel_backend,
+                        strict_reproducibility,
+                        n_relaunch,
+                    )
                     for study in self.studies
                 ],
             )

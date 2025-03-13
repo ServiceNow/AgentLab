@@ -3,9 +3,9 @@ from importlib import import_module
 from pathlib import Path
 
 import bgym
-from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
 from agentlab.experiments.exp_utils import run_exp
+from agentlab.experiments.loop import ExpArgs, yield_all_exp_results
 
 
 def run_experiments(
@@ -142,8 +142,8 @@ def find_incomplete(study_dir: str | Path, include_errors=True):
     else:
         logging.info(f"Found {job_count} incomplete experiments in {study_dir}.")
 
-    message = f"Make sure the processes that were running are all stopped. Otherwise, "
-    f"there will be concurrent writing in the same directories.\n"
+    message = "Make sure the processes that were running are all stopped. Otherwise, "
+    "there will be concurrent writing in the same directories.\n"
 
     logging.info(message)
 
@@ -193,7 +193,9 @@ def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
 
 
 # TODO remove this function once ray backend is stable
-def _split_sequential_exp(exp_args_list: list[ExpArgs]) -> tuple[list[ExpArgs], list[ExpArgs]]:
+def _split_sequential_exp(
+    exp_args_list: list[ExpArgs],
+) -> tuple[list[ExpArgs], list[ExpArgs]]:
     """split exp_args that are flagged as sequential from those that are not"""
     sequential_exp_args = []
     parallel_exp_args = []

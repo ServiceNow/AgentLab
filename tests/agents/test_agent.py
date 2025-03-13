@@ -3,13 +3,13 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from browsergym.experiments.loop import EnvArgs, ExpArgs
 from openai import OpenAIError
 
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import launch_exp
+from agentlab.experiments.loop import EnvArgs, ExpArgs
 from agentlab.llm.chat_api import BaseModelArgs, CheatMiniWoBLLMArgs
 from agentlab.llm.llm_utils import Discussion
 
@@ -24,9 +24,11 @@ def test_generic_agent():
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-
         launch_exp.run_experiments(
-            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+            1,
+            [exp_args],
+            Path(tmp_dir) / "generic_agent_test",
+            parallel_backend="joblib",
         )
 
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
@@ -120,7 +122,10 @@ class CheatLLM_LLMError:
         raise OpenAIError("LLM failed to respond")
 
     def get_stats(self):
-        return {"n_llm_retry": self.n_retry, "n_llm_busted_retry": int(not self.success)}
+        return {
+            "n_llm_retry": self.n_retry,
+            "n_llm_busted_retry": int(not self.success),
+        }
 
 
 @dataclass
@@ -148,7 +153,10 @@ def test_generic_agent_parse_retry():
     with tempfile.TemporaryDirectory() as tmp_dir:
         # TODO why these tests don't work with ray backend?
         launch_exp.run_experiments(
-            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+            1,
+            [exp_args],
+            Path(tmp_dir) / "generic_agent_test",
+            parallel_backend="joblib",
         )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
         print(result_record)
@@ -175,7 +183,10 @@ def test_bust_parse_retry():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         launch_exp.run_experiments(
-            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+            1,
+            [exp_args],
+            Path(tmp_dir) / "generic_agent_test",
+            parallel_backend="joblib",
         )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
@@ -203,7 +214,10 @@ def test_llm_error_success():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         launch_exp.run_experiments(
-            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+            1,
+            [exp_args],
+            Path(tmp_dir) / "generic_agent_test",
+            parallel_backend="joblib",
         )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
@@ -230,7 +244,10 @@ def test_llm_error_no_success():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         launch_exp.run_experiments(
-            1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
+            1,
+            [exp_args],
+            Path(tmp_dir) / "generic_agent_test",
+            parallel_backend="joblib",
         )
         result_record = inspect_results.load_result_df(tmp_dir, progress_fn=None)
 
