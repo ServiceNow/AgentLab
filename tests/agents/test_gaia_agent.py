@@ -14,14 +14,11 @@ def test_agent_creation():
 
 
 def test_gaia_bench():
-    exp_dir = "/tmp/"
-    bench = GaiaBenchmark(exp_dir=exp_dir, split="validation")
+    bench = GaiaBenchmark(split="validation")
     assert bench.name == "gaia"
     assert bench.split == "validation"
-    assert bench.exp_dir == exp_dir
     assert len(bench.env_args_list) == 165
 
-    assert bench.env_args_list[5].exp_dir == "gaia/32102e3e-d12a-4209-9163-7b3a104efe5d"
     assert bench.env_args_list[5].viewport_chars == 64000
     task = bench.env_args_list[5].task
     question = """The attached spreadsheet shows the inventory for a movie and video game rental store in Seattle, Washington. What is the title of the oldest Blu-Ray recorded in this spreadsheet? Return it as appearing in the spreadsheet."""
@@ -39,19 +36,19 @@ def test_gaia_bench():
 
 
 def test_gaia_gym_reset():
+    bench = GaiaBenchmark(split="validation")
     exp_dir = "/tmp/"
-    bench = GaiaBenchmark(exp_dir=exp_dir, split="validation")
 
     args = bench.env_args_list[5]
-    env = args.make_env()
-    steps = env.reset()
+    env = args.make_env(exp_dir)
+    steps, _ = env.reset()
     assert len(steps) == 1
     assert isinstance(steps[0], GaiaQuestion)
     assert steps[0].content == args.task["Question"]
 
     args = bench.env_args_list[20]
-    env = args.make_env()
-    steps = env.reset()
+    env = args.make_env(exp_dir)
+    steps, _ = env.reset()
     assert len(steps) == 2
     assert isinstance(steps[0], GaiaQuestion)
     assert steps[0].content == args.task["Question"]

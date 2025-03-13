@@ -4,8 +4,11 @@ import gymnasium as gym
 from pydantic import BaseModel
 
 
-class AbstractEnvArgs(BaseModel):
+class AbstractEnvArgs(BaseModel, frozen=True):
     """Easily serialiazable class to store the arguments of an environment"""
+
+    task_seed: int = 0
+    task_name: str = ""
 
     @abstractmethod
     def make_env(self, action_mapping, exp_dir, exp_task_kwargs) -> "AbstractEnv":
