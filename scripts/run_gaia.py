@@ -12,11 +12,12 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    agent_args = TapeAgentArgs("gaia_agent")
     study = make_study(
         benchmark=GaiaBenchmark(split="validation"),
-        agent_args=[agent_args],
+        agent_args=TapeAgentArgs("gaia_agent"),
         comment="Gaia eval",
+        logging_level=logging.DEBUG,
+        logging_level_stdout=logging.DEBUG,
     )
     print(f"Exp args list len: {len(study.exp_args_list)}")
     study.exp_args_list = study.exp_args_list[:1]
