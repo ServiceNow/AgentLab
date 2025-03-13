@@ -1,7 +1,21 @@
 from abc import ABC, abstractmethod
 
-import gym
+import gymnasium as gym
 from pydantic import BaseModel
+
+
+class AbstractBenchmark(BaseModel):
+    name: str
+    env_args_list: list = None
+
+    def get_version(self) -> int:
+        return "1"
+
+    def prepare_backends(self):
+        pass
+
+    def dependency_graph_over_tasks(self) -> dict[str, list[str]]:
+        return {}
 
 
 class AbstractEnvArgs(BaseModel):

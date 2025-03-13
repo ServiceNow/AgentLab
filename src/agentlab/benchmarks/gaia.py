@@ -2,7 +2,6 @@ import os
 import shutil
 from typing import Any, Literal
 
-import bgym
 import datasets
 from pydantic import Field
 from tapeagents.core import Observation, StopStep, Thought
@@ -12,24 +11,16 @@ from tapeagents.tools.code_executor import CodeExecutor
 from tapeagents.tools.media_reader import VideoReader
 from tapeagents.tools.web_search import WebSearch
 
-from agentlab.benchmarks.abstract_env import AbstractEnvArgs
+from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnvArgs
 from agentlab.benchmarks.multitool_gym import MultiToolGym
 
 
-class GaiaBenchmark(bgym.Benchmark):
-    name = "gaia"
-    split: Literal["test", "validation"]
+class GaiaBenchmark(AbstractBenchmark):
     exp_dir: str
+    name: str = "gaia"
+    split: Literal["test", "validation"]
 
-    high_level_action_set_args = None
-    is_multi_tab = False
-    supports_parallel_seeds = False
-    backends = ["gaia"]
-    env_args_list = None
-    task_metadata = None
-
-    def __post_init__(self):
-        super().__post_init__()
+    def model_post_init(self, __context: Any) -> None:
         self.env_args_list = []
         dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")[self.split]
         for task in dataset:
@@ -45,7 +36,6 @@ class GaiaGym(MultiToolGym):
 
 class GaiaGymArgs(AbstractEnvArgs):
     task: dict[str, Any]
-    split: Literal["test", "validation"]
     exp_dir: str
     viewport_chars: int = 64000
 
