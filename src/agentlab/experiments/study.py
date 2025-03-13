@@ -50,6 +50,8 @@ def make_study(
         benchmark: bgym.Benchmark | str
             The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
+        logging_level: int
+            The logging level for file log.
         logging_level_stdout: int
             The logging level for the stdout of the main script. Each job will have its own logging
             level that will save into file and can be seen in agentlab-xray.

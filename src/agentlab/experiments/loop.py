@@ -544,6 +544,7 @@ def _aggregate_episode_stats(episode_info: list[StepInfo]):
     Args:
         episode_info: list[StepInfo]
             The list of StepInfo objects to aggregate.
+
     Returns:
         dict
             A dictionary containing the aggregated stats.
