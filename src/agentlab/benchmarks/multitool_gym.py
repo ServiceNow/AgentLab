@@ -51,8 +51,9 @@ class MultiToolGym(AbstractEnv):
         )
         self.reset()
 
-    def reset(self, seed=None):
+    def reset(self):
         self._tape: EnvTape = EnvTape(steps=[])
+        self._env.reset()
 
     def step(self, action: str):
         try:

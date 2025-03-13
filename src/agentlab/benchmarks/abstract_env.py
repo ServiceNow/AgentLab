@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 
 import gym
+from pydantic import BaseModel
 
 
-class AbstractEnvArgs(ABC):
+class AbstractEnvArgs(BaseModel):
     """Easily serialiazable class to store the arguments of an environment"""
 
     @abstractmethod

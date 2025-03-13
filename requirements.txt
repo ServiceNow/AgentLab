@@ -13,7 +13,7 @@ joblib>=1.2.0
 openai>=1.7,<2
 langchain_community
 tiktoken
-tapeagents[converters]~=0.1.4
+tapeagents[converters]
 huggingface_hub
 contexttimer
 ipython
