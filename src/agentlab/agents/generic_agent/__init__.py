@@ -17,7 +17,9 @@ from .agent_configs import (
     AGENT_4o_MINI,
     AGENT_CLAUDE_SONNET_35,
     AGENT_37_SONNET,
+    AGENT_CLAUDE_SONNET_35_VISION,
     AGENT_4o_VISION,
+    AGENT_4o_MINI_VISION,
     AGENT_o3_MINI,
     AGENT_o1_MINI,
 )
