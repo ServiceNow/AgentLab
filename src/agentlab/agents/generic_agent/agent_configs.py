@@ -264,7 +264,10 @@ AGENT_CLAUDE_SONNET_35 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
     flags=FLAGS_GPT_4o,
 )
-
+AGENT_37_SONNET = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.7-sonnet"],
+    flags=FLAGS_GPT_4o,
+)
 AGENT_o3_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/o3-mini-2025-01-31"],
     flags=FLAGS_GPT_4o,
