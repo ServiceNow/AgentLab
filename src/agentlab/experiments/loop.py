@@ -53,6 +53,9 @@ class EnvArgs(DataClassJsonMixin):
             action_mapping: overrides the action mapping of the environment.
             exp_dir: will set some environment parameters (e.g., record_video_dir) with respect to the directory where the experiment is running.
             exp_task_kwargs: use with caution! Will override task parameters to experiment-specific values. Useful to set different server configs for different experiments, or output file paths within the experiment's folder (e.g., assistantbench).
+
+        Returns:
+            env: the gym environment.
         """
         extra_kwargs = {}
         if self.record_video:
@@ -177,6 +180,10 @@ class ExpArgs:
         """Prepare the experiment directory and save the experiment arguments.
 
         This enables inspecting experiments that are not run yet.
+
+        Args:
+            exp_root: str
+                The root directory where the experiment will be saved.
         """
         if self.env_args.task_seed is None:
             self.env_args.task_seed = np.random.randint(0, SEED_MAX)
@@ -535,6 +542,13 @@ def _aggregate_episode_stats(episode_info: list[StepInfo]):
     It will compute the sum and max of each value in the stats dict.
     These two summaries should cover many use cases. If more are needed, the
     user can compute other stats by reloading individual StepInfo.
+
+    Args:
+        episode_info: list[StepInfo]
+            The list of StepInfo objects to aggregate.
+    Returns:
+        dict
+            A dictionary containing the aggregated stats.
     """
 
     stats = defaultdict(list)
@@ -692,7 +706,8 @@ class ExpResult:
         Exports experiment trace in the format of serialized tape.
         Reuses tape segments if they were already placed in the agent_info during the experiment.
 
-        :returns: dict: serialized tape of the experiment
+        Returns:
+            dict: A dictionary serialized tape
         """
         steps = []
         for step_info in self.steps_info:
@@ -847,10 +862,13 @@ class ExpResult:
 
     @property
     def status(self):
-        """Return one of the following status:
+        """Possible values:
         * "done": completed with no error
         * "error": completed with error
         * "incomplete": not completed yet (may be pending or just stalled)
+
+        Returns:
+            str: the status of the experiment. One of "done", "error", "incomplete".
         """
         try:
             summary_info = self.summary_info
@@ -886,6 +904,20 @@ def yield_all_exp_results(
 
     This will ignore all experiments that start with "_" or ".". use
     `load_hidden=True` to load them anyway.
+
+    Args:
+        savedir_base: str or Path
+            The base directory where the experiments are saved.
+        progress_fn: function
+            A function to show progress. Defaults to tqdm.
+        load_hidden: bool
+            If True, load hidden experiments (those starting with "_" or ".").
+        use_cache: bool
+            If True, use the cache of pre-loaded exp_results.
+
+    Yields:
+        ExpResult
+            An instance of ExpResult for each experiment found.
     """
 
     if not isinstance(savedir_base, list):
