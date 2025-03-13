@@ -6,6 +6,7 @@ import datasets
 from pydantic import Field
 from tapeagents.core import Observation, StopStep, Thought
 from tapeagents.environment import ContainerExecutor
+from tapeagents.steps import ImageObservation
 from tapeagents.tools.browser import Browser
 from tapeagents.tools.code_executor import CodeExecutor
 from tapeagents.tools.media_reader import VideoReader
@@ -32,6 +33,14 @@ class GaiaBenchmark(AbstractBenchmark):
 class GaiaGym(MultiToolGym):
     task: dict
     exp_dir: str
+
+    def reset(self) -> tuple[list[Observation], dict]:
+        super().reset()
+        question = GaiaQuestion.from_task(self.task)
+        steps = [question]
+        if image_obs := with_image(question):
+            steps.append(image_obs)
+        return steps
 
 
 class GaiaGymArgs(AbstractEnvArgs):
@@ -83,13 +92,21 @@ class GaiaQuestion(Observation):
     def from_task(cls, question: dict):
         question_prompt = question["Question"]
         filename = None
-        if question["file_name"]:
-            basename = os.path.basename(question["file_name"])
+        if question["file_path"]:
+            basename = os.path.basename(question["file_path"])
             tmp_fname = f"/tmp/{basename}"
-            shutil.copyfile(question["file_name"], tmp_fname)
+            shutil.copyfile(question["file_path"], tmp_fname)
             assert os.path.exists(tmp_fname)
             filename = tmp_fname
         return cls(content=question_prompt, filename=filename)
+
+
+def with_image(question: GaiaQuestion) -> ImageObservation | None:
+    if question.filename.endswith((".png", ".jpg", ".jpeg")):
+        return ImageObservation(
+            image_path=question.filename,
+            image_caption="Attached image",
+        )
 
 
 class GaiaAnswer(StopStep):
