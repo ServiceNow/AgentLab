@@ -1,4 +1,4 @@
-from agentlab.agents.tapeagent import TapeAgent, TapeAgentArgs
+from agentlab.agents.tapeagent.agent import TapeAgent, TapeAgentArgs
 from agentlab.benchmarks.gaia import GaiaBenchmark
 
 
