@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 def make_study(
     agent_args: list[AgentArgs] | AgentArgs,
     benchmark: bgym.Benchmark | str,
+    logging_level=logging.WARNING,
     logging_level_stdout=logging.WARNING,
     suffix="",
     comment=None,
@@ -98,7 +99,8 @@ def make_study(
                 Study(
                     [agent],
                     benchmark,
-                    logging_level=logging_level_stdout,
+                    logging_level=logging_level,
+                    logging_level_stdout=logging_level_stdout,
                     suffix=suffix,
                     comment=comment,
                     ignore_dependencies=ignore_dependencies,
@@ -112,7 +114,8 @@ def make_study(
         return Study(
             agent_args,
             benchmark,
-            logging_level=logging_level_stdout,
+            logging_level=logging_level,
+            logging_level_stdout=logging_level_stdout,
             suffix=suffix,
             comment=comment,
             ignore_dependencies=ignore_dependencies,
