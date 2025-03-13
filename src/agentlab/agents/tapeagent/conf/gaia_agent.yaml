@@ -5,6 +5,37 @@ defaults:
 _target_: tapeagents.agent.Agent
 name : gaia_agent
 max_iterations: 2
+tools_description: |
+  - WebSearch - Performs a search in the web, wikipedia or youtube
+  - VideoReader - Opens video from a youtube URL. Can access the video content, thumbnail, subtitles and audio.
+  - Browser - Browser tool that can load web pages and interact with their content.
+  - CodeExecutor - Executes the python code snippet
+known_actions:
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.web_search.SearchAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.steps.WatchVideoAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.code_executor.PythonCodeAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.ClickAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.SelectOptionAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.InputTextAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.GoBackAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.GoForwardAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.OpenUrlAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.browser.HoverAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.simple_browser.PageDownAction
+  - _target_: hydra.utils.get_class
+    path: tapeagents.tools.simple_browser.PageUpAction
+
 templates:
   system_prompt: |
     You are an expert AI Agent trained to assist users with complex information processing tasks.
