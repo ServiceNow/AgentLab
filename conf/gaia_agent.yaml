@@ -1,8 +1,10 @@
+defaults:
+  - llm@llms.default: gpt4o
+  - _self_
+
 _target_: tapeagents.agent.Agent
-name : web_agent
+name : gaia_agent
 max_iterations: 2
-llms:
-  default: ${llm}
 templates:
   system_prompt: |
     You are an expert AI Agent trained to assist users with complex information processing tasks.
@@ -31,18 +33,18 @@ templates:
 nodes:
   - _target_: tapeagents.nodes.StandardNode
     name: plan
-    system_prompt: ${agent.templates.system_prompt}
+    system_prompt: ${templates.system_prompt}
     guidance: |
       Write a concise multi-step plan explaining which steps should be performed to find the answer for the given task.
       Remember that you can use web search, browser, python code execution and access the youtube videos to reach your goals.
       Be specific about how each step should be performed. Only describe the intended actions here, do not perform them yet.
       Consider that next steps may depend on results of previous steps, so include conditional branching using "if" statements where needed.
-      ${agent.templates.thought_format}
-    steps_prompt: ${agent.templates.allowed_tools}
+      ${templates.thought_format}
+    steps_prompt: ${templates.allowed_tools}
 
   - _target_: tapeagents.nodes.StandardNode
     name: facts_survey
-    system_prompt: ${agent.templates.system_prompt}
+    system_prompt: ${templates.system_prompt}
     guidance: |
       Before we begin executing the plan, please answer the following pre-survey.
       Here is the pre-survey:
@@ -51,19 +53,19 @@ nodes:
           3. Please list any facts that may need to be derived (e.g., via logical deduction, simulation, or computation)
           4. Please list any facts that are recalled from memory, hunches, well-reasoned guesses, etc.
       When answering this survey, keep in mind that "facts" will typically be specific names, dates, statistics, etc.
-      ${agent.templates.thought_format}
-    steps_prompt: ${agent.templates.allowed_tools}
+      ${templates.thought_format}
+    steps_prompt: ${templates.allowed_tools}
 
   - _target_: tapeagents.nodes.StandardNode
     name: act
-    system_prompt: ${agent.templates.system_prompt}
+    system_prompt: ${templates.system_prompt}
     guidance: |
       Produce single next step. If the answer is ready, produce gaia_answer_action.
-      ${agent.templates.format}
-    steps_prompt: ${agent.templates.allowed_steps}
+      ${templates.format}
+    steps_prompt: ${templates.allowed_steps}
     steps:
       - tapeagents.steps.ReasoningThought
-      - examples.gaia_agent.steps.ExtractedFacts
-      - examples.gaia_agent.steps.GaiaAnswer
+      - agentlab.benchmarks.gaia.ExtractedFacts
+      - agentlab.benchmarks.gaia.GaiaAnswer
     use_known_actions: true
     next_node: act

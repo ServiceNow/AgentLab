@@ -15,11 +15,11 @@ logger.setLevel(logging.INFO)
 
 @dataclass
 class TapeAgentArgs(AgentArgs):
-    config_name: str
+    agent_name: str
 
     def make_agent(self) -> bgym.Agent:
-        with hydra.initialize(config_path="./conf"):
-            config = hydra.compose(config_name=self.config_name)
+        with hydra.initialize(config_path="../../../conf"):
+            config = hydra.compose(config_name=self.agent_name)
         agent: Agent = hydra.utils.instantiate(config)
         return TapeAgent(agent=agent, tape=Tape(steps=[]))
 
@@ -27,6 +27,11 @@ class TapeAgentArgs(AgentArgs):
 class TapeAgent(bgym.Agent):
     agent: Agent
     tape: Tape
+
+    def __init__(self, agent: Agent, tape: Tape):
+        super().__init__()
+        self.agent = agent
+        self.tape = tape
 
     def obs_preprocessor(self, obs: dict) -> Any:
         logger.info(f"Preprocessing observation: {obs}")

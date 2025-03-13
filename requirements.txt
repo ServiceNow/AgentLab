@@ -26,3 +26,4 @@ matplotlib
 ray[default]
 python-slugify
 pillow
+gymnasium>=0.27
