@@ -225,7 +225,6 @@ class ExpArgs:
     # the parsing error of an action should not be re-run.
     def run(self):
         """Run the experiment and save the results"""
-        print("LOCAL EXP ARG RUN")
         # start writing logs to run logfile
         self._set_logger()
 
@@ -245,9 +244,7 @@ class ExpArgs:
             )
 
             logger.debug("Environment created.")
-            print("Environment created.")
             step_info = StepInfo(step=0)
-            print("StepInfo created.")
             episode_info = [step_info]
             step_info.from_reset(
                 env,
@@ -272,8 +269,9 @@ class ExpArgs:
                 )
                 logger.debug("Step info saved.")
 
-                _send_chat_info(env.unwrapped.chat, action, step_info.agent_info)
-                logger.debug("Chat info sent.")
+                if hasattr(env.unwrapped, "chat") and isinstance(env.unwrapped.chat, Chat):
+                    _send_chat_info(env.unwrapped.chat, action, step_info.agent_info)
+                    logger.debug("Chat info sent.")
 
                 if action is None:
                     logger.debug("Agent returned None action. Ending episode.")
@@ -514,7 +512,7 @@ class StepInfo:
             with open(exp_dir / "steps_info.json", "w") as f:
                 json.dump(self, f, indent=4, cls=DataclassJSONEncoder)
 
-        if self.obs is not None:
+        if isinstance(self.obs, dict):
             # add the screenshots back to the obs
             # why do we need this?
             if screenshot is not None:
