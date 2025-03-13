@@ -33,7 +33,11 @@ def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
     constants = {}
     variable_keys = []
     for col in df.columns:
-        if df[col].nunique(dropna=False) == 1:
+        try:
+            nuniq = df[col].nunique(dropna=False)
+        except TypeError:
+            nuniq = 0  # non hashable types are considered variables
+        if nuniq == 1:
             if isinstance(df[col].iloc[0], np.generic):
                 val = df[col].iloc[0].item()
             else:
