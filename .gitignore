@@ -168,3 +168,5 @@ results/
 
 # gradio
 .gradio/
+
+outputs/
