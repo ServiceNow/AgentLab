@@ -13,13 +13,11 @@ logging.basicConfig(
 
 if __name__ == "__main__":
     study = make_study(
-        benchmark=GaiaBenchmark(split="validation"),
+        benchmark=GaiaBenchmark(split="validation", level="1"),
         agent_args=TapeAgentArgs("gaia_agent"),
         comment="Gaia eval",
         logging_level=logging.INFO,
         logging_level_stdout=logging.INFO,
     )
-    print(f"Exp args list len: {len(study.exp_args_list)}")
-    study.exp_args_list = study.exp_args_list[:1]
-    print(f"Exp args list len: {len(study.exp_args_list)}")
-    study.run(n_jobs=1, n_relaunch=1, parallel_backend="sequential")
+    # study.exp_args_list = study.exp_args_list[:1]
+    study.run(n_jobs=5, n_relaunch=1)
