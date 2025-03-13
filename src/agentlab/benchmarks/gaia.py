@@ -229,7 +229,7 @@ def question_scorer(
 
         # check length is the same
         if len(gt_elems) != len(ma_elems):
-            logger.warning("Answer lists have different lengths, returning False.", UserWarning)
+            logger.warning("Answer lists have different lengths, returning False.")
             return False
 
         # compare each element as float or str
