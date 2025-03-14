@@ -252,9 +252,7 @@ class ExpArgs:
             step_info = StepInfo(step=0)
             episode_info = [step_info]
             step_info.from_reset(
-                env,
-                seed=self.env_args.task_seed,
-                obs_preprocessor=agent.obs_preprocessor,
+                env, seed=self.env_args.task_seed, obs_preprocessor=agent.obs_preprocessor
             )
             logger.debug("Environment reset.")
 
@@ -268,9 +266,7 @@ class ExpArgs:
                     step_info.truncated = True
 
                 step_info.save_step_info(
-                    self.exp_dir,
-                    save_screenshot=self.save_screenshot,
-                    save_som=self.save_som,
+                    self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som
                 )
                 logger.debug("Step info saved.")
 
@@ -305,9 +301,7 @@ class ExpArgs:
             try:
                 if step_info is not None:
                     step_info.save_step_info(
-                        self.exp_dir,
-                        save_screenshot=self.save_screenshot,
-                        save_som=self.save_som,
+                        self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som
                     )
             except Exception as e:
                 logger.error(f"Error while saving step info in the finally block: {e}")
@@ -914,17 +908,17 @@ def _get_env_name(task_name: str):
 
     # lazy benchmark import
     if task_name.startswith("miniwob"):
-        pass
+        import browsergym.miniwob
     elif task_name.startswith("workarena"):
-        pass
+        import browsergym.workarena
     elif task_name.startswith("webarena"):
-        pass
+        import browsergym.webarena
     elif task_name.startswith("visualwebarena"):
-        pass
+        import browsergym.visualwebarena
     elif task_name.startswith("assistantbench"):
-        pass
+        import browsergym.assistantbench
     elif task_name.startswith("weblinx"):
-        pass
+        import weblinx_browsergym
 
     return f"browsergym/{task_name}"
 
