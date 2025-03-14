@@ -296,10 +296,7 @@ clicking the refresh button.
             state_error = gr.Markdown(label="Next Step Error", elem_classes="my-markdown")
 
         profiling_gr = gr.Image(
-            label="Profiling",
-            show_label=False,
-            interactive=False,
-            show_download_button=False,
+            label="Profiling", show_label=False, interactive=False, show_download_button=False
         )
 
         gr.HTML(
@@ -420,14 +417,7 @@ clicking the refresh button.
         exp_dir_choice.change(
             fn=new_exp_dir,
             inputs=exp_dir_choice,
-            outputs=[
-                agent_table,
-                agent_id,
-                constants,
-                variables,
-                global_stats,
-                error_report,
-            ],
+            outputs=[agent_table, agent_id, constants, variables, global_stats, error_report],
         )
 
         agent_table.select(fn=on_select_agent, inputs=agent_table, outputs=[agent_id])
@@ -463,8 +453,7 @@ clicking the refresh button.
         screenshot_gallery.select(fn=gallery_step_change, inputs=episode_id, outputs=step_id)
         step_id.change(fn=if_active("DOM HTML")(update_html), outputs=html_code)
         step_id.change(
-            fn=if_active("Pruned DOM HTML")(update_pruned_html),
-            outputs=pruned_html_code,
+            fn=if_active("Pruned DOM HTML")(update_pruned_html), outputs=pruned_html_code
         )
         step_id.change(fn=if_active("AXTree")(update_axtree), outputs=axtree_code)
         step_id.change(fn=if_active("Chat Messages")(update_chat_messages), outputs=chat_messages)
@@ -485,14 +474,10 @@ clicking the refresh button.
         # we need to update them individually when the tab is selected
         tab_screenshot.select(fn=update_screenshot, inputs=som_or_not, outputs=screenshot)
         tab_screenshot_pair.select(
-            fn=update_screenshot_pair,
-            inputs=som_or_not,
-            outputs=[screenshot1, screenshot2],
+            fn=update_screenshot_pair, inputs=som_or_not, outputs=[screenshot1, screenshot2]
         )
         tab_screenshot_gallery.select(
-            fn=update_screenshot_gallery,
-            inputs=som_or_not,
-            outputs=[screenshot_gallery],
+            fn=update_screenshot_gallery, inputs=som_or_not, outputs=[screenshot_gallery]
         )
         tab_html.select(fn=update_html, outputs=html_code)
         tab_pruned_html.select(fn=update_pruned_html, outputs=pruned_html_code)
@@ -1135,13 +1120,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
 
         if step_info.action is not None:
             # Blue rectangle for agent_start to agent_stop
-            add_patch(
-                ax,
-                prof.agent_start,
-                prof.agent_stop,
-                colors[10],
-                labels.pop("agent", None),
-            )
+            add_patch(ax, prof.agent_start, prof.agent_stop, colors[10], labels.pop("agent", None))
 
             # Black vertical bar at agent stop
             ax.axvline(prof.agent_stop, color="black", linewidth=3)

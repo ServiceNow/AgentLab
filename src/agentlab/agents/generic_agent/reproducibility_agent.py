@@ -212,10 +212,7 @@ def make_repro_agent(agent_args: AgentArgs, exp_dir: Path | str):
 
 def _make_diff(old_str, new_str):
     page = difflib.HtmlDiff().make_file(
-        old_str.splitlines(),
-        new_str.splitlines(),
-        fromdesc="Old Version",
-        todesc="New Version",
+        old_str.splitlines(), new_str.splitlines(), fromdesc="Old Version", todesc="New Version"
     )
     page = page.replace('nowrap="nowrap"', "")  # Remove nowrap attribute
     page = _set_style(page, DIFF_STYLE)

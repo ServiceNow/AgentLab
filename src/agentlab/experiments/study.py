@@ -135,13 +135,7 @@ class AbstractStudy(ABC):
         """Prepare the study for relaunching by finding incomplete experiments"""
 
     @abstractmethod
-    def run(
-        self,
-        n_jobs=1,
-        parallel_backend="ray",
-        strict_reproducibility=False,
-        n_relaunch=3,
-    ):
+    def run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
         """Run the study"""
 
     def make_dir(self, exp_root=RESULTS_DIR):
@@ -308,9 +302,7 @@ class Study(AbstractStudy):
         )
         if self.reproducibility_info is not None:
             repro.assert_compatible(
-                self.reproducibility_info,
-                info,
-                raise_if_incompatible=strict_reproducibility,
+                self.reproducibility_info, info, raise_if_incompatible=strict_reproducibility
             )
         self.reproducibility_info = info
 
@@ -582,13 +574,7 @@ class SequentialStudies(AbstractStudy):
         logger.info("\n" + str(summary_df))
         logger.info(f"SequentialStudies {self.name} finished.")
 
-    def _run(
-        self,
-        n_jobs=1,
-        parallel_backend="ray",
-        strict_reproducibility=False,
-        n_relaunch=3,
-    ):
+    def _run(self, n_jobs=1, parallel_backend="ray", strict_reproducibility=False, n_relaunch=3):
         for study in self.studies:
             study.run(n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
 
@@ -644,9 +630,7 @@ class ParallelStudies(SequentialStudies):
             server_queue.put(server)
 
         with ProcessPoolExecutor(
-            max_workers=len(parallel_servers),
-            initializer=_init_worker,
-            initargs=(server_queue,),
+            max_workers=len(parallel_servers), initializer=_init_worker, initargs=(server_queue,)
         ) as executor:
             # Create list of arguments for each study
             study_args = [
@@ -685,13 +669,7 @@ class ParallelStudies_alt(SequentialStudies):
             p.starmap(
                 _run_study,
                 [
-                    (
-                        study,
-                        n_jobs,
-                        parallel_backend,
-                        strict_reproducibility,
-                        n_relaunch,
-                    )
+                    (study, n_jobs, parallel_backend, strict_reproducibility, n_relaunch)
                     for study in self.studies
                 ],
             )

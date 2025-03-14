@@ -193,9 +193,7 @@ def _hide_completed(exp_result: bgym.ExpResult, include_errors: bool = True):
 
 
 # TODO remove this function once ray backend is stable
-def _split_sequential_exp(
-    exp_args_list: list[ExpArgs],
-) -> tuple[list[ExpArgs], list[ExpArgs]]:
+def _split_sequential_exp(exp_args_list: list[ExpArgs]) -> tuple[list[ExpArgs], list[ExpArgs]]:
     """split exp_args that are flagged as sequential from those that are not"""
     sequential_exp_args = []
     parallel_exp_args = []
