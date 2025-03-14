@@ -12,15 +12,20 @@ from multiprocessing import Manager, Pool, Queue
 from pathlib import Path
 
 import bgym
-from bgym import Benchmark, EnvArgs, ExpArgs
+from bgym import Benchmark
 from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
-from agentlab.experiments.multi_server import BaseServer, WebArenaInstanceVars
+from agentlab.experiments.launch_exp import (
+    find_incomplete,
+    non_dummy_count,
+    run_experiments,
+)
+from agentlab.experiments.loop import EnvArgs, ExpArgs
+from agentlab.experiments.multi_server import BaseServer
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +33,7 @@ logger = logging.getLogger(__name__)
 def make_study(
     agent_args: list[AgentArgs] | AgentArgs,
     benchmark: bgym.Benchmark | str,
+    logging_level=logging.WARNING,
     logging_level_stdout=logging.WARNING,
     suffix="",
     comment=None,
@@ -44,6 +50,8 @@ def make_study(
         benchmark: bgym.Benchmark | str
             The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
+        logging_level: int
+            The logging level for file log.
         logging_level_stdout: int
             The logging level for the stdout of the main script. Each job will have its own logging
             level that will save into file and can be seen in agentlab-xray.
@@ -93,7 +101,8 @@ def make_study(
                 Study(
                     [agent],
                     benchmark,
-                    logging_level=logging_level_stdout,
+                    logging_level=logging_level,
+                    logging_level_stdout=logging_level_stdout,
                     suffix=suffix,
                     comment=comment,
                     ignore_dependencies=ignore_dependencies,
@@ -107,7 +116,8 @@ def make_study(
         return Study(
             agent_args,
             benchmark,
-            logging_level=logging_level_stdout,
+            logging_level=logging_level,
+            logging_level_stdout=logging_level_stdout,
             suffix=suffix,
             comment=comment,
             ignore_dependencies=ignore_dependencies,
@@ -305,7 +315,6 @@ class Study(AbstractStudy):
         relaunch_errors=True,
         exp_root=RESULTS_DIR,
     ):
-
         self.set_reproducibility_info(
             strict_reproducibility=strict_reproducibility, comment=self.comment
         )
@@ -325,12 +334,12 @@ class Study(AbstractStudy):
             n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
 
             if n_error / n_exp > 0.3:
-                logger.warning(f"More than 30% of the experiments errored. Stopping the study.")
+                logger.warning("More than 30% of the experiments errored. Stopping the study.")
                 return
 
             if last_error_count is not None and n_error >= last_error_count:
                 logger.warning(
-                    f"Last trial did not reduce the number of errors. Stopping the study."
+                    "Last trial did not reduce the number of errors. Stopping the study."
                 )
                 return
 
@@ -553,7 +562,6 @@ class SequentialStudies(AbstractStudy):
         n_relaunch=3,
         exp_root=RESULTS_DIR,
     ):
-
         # This sequence of of making directories is important to make sure objects are materialized
         # properly before saving. Otherwise relaunch may not work properly.
         self.make_dir()
@@ -640,7 +648,6 @@ class ParallelStudies(SequentialStudies):
 
 @dataclass
 class ParallelStudies_alt(SequentialStudies):
-
     parallel_servers: list[BaseServer] | int = None
 
     def _run(
