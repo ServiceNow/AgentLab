@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 results/
-.vscode
+
 # C extensions
 *.so
 # Distribution / packaging
@@ -160,7 +160,6 @@ cython_debug/
 # MacOS
 **/.DS_Store
 
-.vscode
 
 _sandbox.py
 
