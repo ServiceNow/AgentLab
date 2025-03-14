@@ -1,4 +1,3 @@
-import copy
 import gzip
 import importlib.metadata
 import json
@@ -19,13 +18,19 @@ from typing import Optional
 
 import gymnasium as gym
 import numpy as np
-from browsergym.core.action.parsers import highlevel_action_parser
 from browsergym.core.chat import Chat
 from browsergym.experiments.agent import Agent
 from browsergym.experiments.utils import count_messages_token, count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
+from tapeagents.core import (
+    StepMetadata,
+    Tape,
+)
+from tapeagents.dialog_tape import AssistantStep, AssistantThought
 from tqdm import tqdm
+
+from agentlab.agents.tapeagent.agent import DictObservation, TapeAgent
 
 logger = logging.getLogger(__name__)
 
@@ -314,19 +319,54 @@ class ExpArgs:
                 ):
                     e = KeyboardInterrupt("Early termination??")
                     err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
-                logger.info("Saving summary info.")
+                logger.info("Saving experiment info.")
                 _save_summary_info(episode_info, self.exp_dir, err_msg, stack_trace)
+                self.save_tape(
+                    agent.final_tape if isinstance(agent, TapeAgent) else self.as_tape(episode_info)
+                )
             except Exception as e:
-                logger.error(f"Error while saving summary info in the finally block: {e}")
+                logger.exception(f"Error while saving experiment info: {e}")
             try:
                 if env is not None:
                     env.close()
             except Exception as e:
-                logger.error(f"Error while closing the environment in the finally block: {e}")
+                logger.exception(f"Error while closing the environment: {e}")
             try:
                 self._unset_logger()  # stop writing logs to run logfile
             except Exception as e:
-                logger.error(f"Error while unsetting the logger in the finally block: {e}")
+                logger.exception(f"Error while unsetting the logger: {e}")
+
+    def as_tape(self, steps_info: list["StepInfo"]) -> Tape:
+        """
+        Create a Tape object from the steps info.
+
+        Returns:
+            Tape: a Tape object containing the steps and metadata.
+        """
+        tape: Tape = []
+        for step_info in steps_info:
+            step_metadata = StepMetadata(
+                result=dict(
+                    reward=step_info.reward,
+                    raw_reward=step_info.raw_reward,
+                    terminated=step_info.terminated,
+                    truncated=step_info.truncated,
+                    agent_info=step_info.agent_info,
+                    stats=step_info.stats,
+                )
+            )
+            steps = [DictObservation(content=step_info.obs)]
+            if thought := step_info.agent_info.get("think"):
+                steps.append(AssistantThought(content=thought))
+            steps.append(AssistantStep(content=step_info.action, metadata=step_metadata))
+            tape += steps
+        return tape
+
+    def save_tape(self, tape: Tape, filename: str = "tape.json"):
+        if os.path.exists(self.exp_dir / filename):
+            raise FileExistsError(f"{filename} already exists in {self.exp_dir}")
+        with open(self.exp_dir / filename, "w") as f:
+            json.dump(tape.model_dump(), f, indent=2, ensure_ascii=False)
 
     def _set_logger(self):
         # output logging traces to a log file
@@ -571,12 +611,7 @@ def _aggregate_episode_stats(episode_info: list[StepInfo]):
     return aggregated_stats
 
 
-def _save_summary_info(
-    episode_info: list[StepInfo],
-    exp_dir,
-    err_msg,
-    stack_trace,
-):
+def _save_summary_info(episode_info: list[StepInfo], exp_dir, err_msg, stack_trace):
     # bring err from agent_info to the top level
     if err_msg is None:
         err_msg, stack_trace = _extract_err_msg(episode_info)
@@ -697,92 +732,6 @@ class ExpResult:
                     raise FileNotFoundError("summary_info.json is empty.")
                 self._summary_info = json.load(f)
         return self._summary_info
-
-    @property
-    def tape(self) -> dict:
-        """
-        TapeAgents (https://github.com/ServiceNow/TapeAgents) framework compatibility.
-        Exports experiment trace in the format of serialized tape.
-        Reuses tape segments if they were already placed in the agent_info during the experiment.
-
-        Returns:
-            dict: A dictionary serialized tape
-        """
-        steps = []
-        for step_info in self.steps_info:
-            if "tape_segment" in step_info.agent_info["extra_info"]:
-                tape_segment = step_info.agent_info["extra_info"]["tape_segment"]
-            else:
-                tape_segment = self._create_tape_segment(step_info)
-            steps += tape_segment
-        metadata = dict(
-            id=str(uuid.uuid4()),
-            author=f"browsergym_agent_[{self.exp_args.agent_args.agent_name}]",
-            result=self.get_exp_record(),
-        )
-        return dict(steps=steps, metadata=metadata)
-
-    def _create_tape_segment(self, step_info: StepInfo) -> list[dict]:
-        tape_segment = []
-        # extract observation step
-        if step_info.obs is not None:
-            screenshot: str = ""
-            screenshot_som: str = ""
-            obs_dict = copy.deepcopy(step_info.obs)
-            if "screenshot" in obs_dict:
-                screenshot = str(self.exp_dir / f"screenshot_step_{step_info.step}.png")
-                obs_dict.pop("screenshot")
-            if "screenshot_som" in obs_dict:
-                screenshot_som = str(self.exp_dir / f"screenshot_som_step_{step_info.step}.png")
-                obs_dict.pop("screenshot_som")
-            tape_segment.append(
-                dict(
-                    kind="browsergym_observation",
-                    metadata=dict(step=step_info.step),
-                    obs=obs_dict,
-                    screenshot=screenshot,
-                    screenshot_som=screenshot_som,
-                )
-            )
-
-        # extract thought step
-        think = step_info.agent_info.get("think", "")
-        if think:
-            tape_segment.append(
-                dict(
-                    kind="browsergym_thought",
-                    metadata={"step": step_info.step},
-                    text=think,
-                )
-            )
-
-        # extract action steps
-        function_calls = highlevel_action_parser.parse_string(step_info.action, parse_all=True)
-        for name, arguments in function_calls:
-            tape_segment.append(
-                dict(
-                    kind="browsergym_action",
-                    metadata=dict(
-                        step=step_info.step,
-                        reward=step_info.reward,
-                        raw_reward=step_info.raw_reward,
-                        terminated=step_info.terminated,
-                        truncated=step_info.truncated,
-                        agent_info=step_info.agent_info,
-                        stats=step_info.stats,
-                        task_info=step_info.task_info,
-                    ),
-                    name=name,
-                    arguments=arguments,
-                )
-            )
-        return tape_segment
-
-    def save_tape(self, filename: str = "tape.json"):
-        if os.path.exists(self.exp_dir / filename):
-            raise FileExistsError(f"{filename} already exists in {self.exp_dir}")
-        with open(self.exp_dir / filename, "w") as f:
-            json.dump(self.tape, f, indent=4, ensure_ascii=False)
 
     def get_screenshot(self, step: int, som=False) -> Image:
         key = (step, som)

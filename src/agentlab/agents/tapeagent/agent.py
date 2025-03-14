@@ -1,11 +1,11 @@
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import bgym
 import hydra
 from tapeagents.agent import Agent
-from tapeagents.core import Action, Observation, Tape, Thought
+from tapeagents.core import Action, Observation, Tape, TapeMetadata, Thought
 
 from agentlab.agents.agent_args import AgentArgs
 
@@ -21,7 +21,7 @@ class TapeAgentArgs(AgentArgs):
         with hydra.initialize(config_path="conf", version_base="1.1"):
             config = hydra.compose(config_name=self.agent_name)
         agent: Agent = hydra.utils.instantiate(config)
-        return TapeAgent(agent=agent, tape=Tape(steps=[]))
+        return TapeAgent(agent=agent)
 
 
 @dataclass
@@ -29,25 +29,33 @@ class TapeAgentInfo(bgym.AgentInfo):
     thoughts: list[Thought] = None
 
 
+class DictObservation(Observation):
+    """
+    Container for wrapping old dict observation into new Observation class.
+    """
+
+    kind: Literal["dict_observation"] = "dict_observation"
+    content: dict[str, Any]
+
+
 class TapeAgent(bgym.Agent):
     agent: Agent
     tape: Tape
 
-    def __init__(self, agent: Agent, tape: Tape):
+    def __init__(self, agent: Agent):
         super().__init__()
         self.agent = agent
-        self.tape = tape
+        self.tape = Tape(steps=[])
 
-    def obs_preprocessor(self, obs: Any) -> Any:
-        logger.info(f"Observations: {type(obs)}")
+    def obs_preprocessor(self, obs: Observation | list[Observation]) -> list[Observation]:
+        if isinstance(obs, Observation):
+            obs = [obs]
+        assert isinstance(obs, list), f"Expected list of Observations, got {type(obs)}"
+        logger.info(f"Observations: {[type(o).__name__ for o in obs]}")
         return obs
 
     def get_action(self, obs: Observation | list[Observation]) -> tuple[str, TapeAgentInfo]:
-        if isinstance(obs, Observation):
-            obs = [obs]
-        for observation in obs:
-            logger.info(f"Add observation: {type(observation)}")
-            self.tape = self.tape.append(observation)
+        self.tape += obs
         thoughts: list[Thought] = []
         action = None
         while not action:
@@ -58,11 +66,16 @@ class TapeAgent(bgym.Agent):
                 if isinstance(event.step, Thought):
                     thoughts.append(event.step)
                     logger.info(f"Thought: {event.step.llm_view()}")
-                elif isinstance(event.step, Action) and not action:
+                elif isinstance(event.step, Action) and not action:  # we use first action only
                     action = event.step
                     logger.info(f"Action: {action.llm_view()}")
-                    # we stop at the first action
                 else:
+                    # there could be control flow steps for switching nodes and if clauses
                     logger.info(f"Other step: {type(event.step)}")
-        logger.info(f"Tape state: {[type(s).__name__ for s in self.tape]}")
+        logger.info(f"Tape after run: ({len(self.tape)}) {[type(s).__name__ for s in self.tape]}")
         return (action, TapeAgentInfo(thoughts=thoughts))
+
+    @property
+    def final_tape(self) -> Tape:
+        self.tape.metadata = TapeMetadata(author=self.agent.name)
+        return self.tape
