@@ -1,9 +1,45 @@
 import os
+import uuid
 
 from tapeagents.steps import ImageObservation
 
 from agentlab.agents.tapeagent.agent import TapeAgent, TapeAgentArgs
 from agentlab.benchmarks.gaia import GaiaBenchmark, GaiaQuestion
+
+
+def mock_dataset() -> dict:
+    """Mock dataset for testing purposes."""
+    data = [{"task_id": str(uuid.uuid4())} for i in range(165)]
+    data[5] = {
+        "task_id": "32102e3e-d12a-4209-9163-7b3a104efe5d",
+        "Question": """The attached spreadsheet shows the inventory for a movie and video game rental store in Seattle, Washington. What is the title of the oldest Blu-Ray recorded in this spreadsheet? Return it as appearing in the spreadsheet.""",
+        "Level": "2",
+        "Final answer": "Time-Parking 2: Parallel Universe",
+        "file_name": "32102e3e-d12a-4209-9163-7b3a104efe5d.xlsx",
+        "Annotator Metadata": {
+            "Steps": """1. Open the attached file.\n2. Compare the years given in the Blu-Ray section to find the oldest year, 2009.\n3. Find the title of the Blu-Ray disc that corresponds to the year 2009: Time-Parking 2: Parallel Universe.""",
+            "Number of steps": "3",
+            "How long did this take?": "1 minute",
+            "Tools": "1. Microsoft Excel",
+            "Number of tools": "1",
+        },
+    }
+    data[20] = {
+        "task_id": "df6561b2-7ee5-4540-baab-5095f742716a",
+        "Question": "When you take the average of the standard population deviation of the red numbers and the standard sample deviation of the green numbers in this image using the statistics module in Python 3.11, what is the result rounded to the nearest three decimal points?",
+        "Level": "2",
+        "Final answer": "17.056",
+        "file_name": "df6561b2-7ee5-4540-baab-5095f742716a.png",
+        "file_path": "/Users/oleh.shliazhko/.cache/huggingface/hub/datasets--gaia-benchmark--GAIA/snapshots/897f2dfbb5c952b5c3c1509e648381f9c7b70316/2023/validation/df6561b2-7ee5-4540-baab-5095f742716a.png",
+        "Annotator Metadata": {
+            "Steps": "1. Opened the PNG file.\n2. Made separate lists of the red numbers and green numbers.\n3. Opened a Python compiler.\n4. Ran the following code:\n```\nimport statistics as st\nred = st.pstdev([24, 74, 28, 54, 73, 33, 64, 73, 60, 53, 59, 40, 65, 76, 48, 34, 62, 70, 31, 24, 51, 55, 78, 76, 41, 77, 51])\ngreen = st.stdev([39, 29, 28, 72, 68, 47, 64, 74, 72, 40, 75, 26, 27, 37, 31, 55, 44, 64, 65, 38, 46, 66, 35, 76, 61, 53, 49])\navg = st.mean([red, green])\nprint(avg)\n```\n5. Rounded the output.",
+            "Number of steps": "5",
+            "How long did this take?": "20 minutes",
+            "Tools": "1. Python compiler\n2. Image recognition tools",
+            "Number of tools": "2",
+        },
+    }
+    return {"validation": data}
 
 
 def test_agent_creation():
@@ -14,7 +50,7 @@ def test_agent_creation():
 
 
 def test_gaia_bench():
-    bench = GaiaBenchmark(split="validation")
+    bench = GaiaBenchmark(split="validation", dataset=mock_dataset())
     assert bench.name == "gaia"
     assert bench.split == "validation"
     assert len(bench.env_args_list) == 165
@@ -36,7 +72,7 @@ def test_gaia_bench():
 
 
 def test_gaia_gym_reset():
-    bench = GaiaBenchmark(split="validation")
+    bench = GaiaBenchmark(split="validation", dataset=mock_dataset())
     exp_dir = "/tmp/"
 
     args = bench.env_args_list[5]

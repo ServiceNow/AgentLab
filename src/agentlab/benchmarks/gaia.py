@@ -106,18 +106,18 @@ class GaiaBenchmark(AbstractBenchmark):
     split: Literal["test", "validation"]
     level: Literal["1", "2", "3", "all"] = "all"
     env_args_list: list[GaiaGymArgs] = None
+    dataset: dict = Field(default_factory=dict)
 
     def model_post_init(self, __context: Any) -> None:
+        if not self.dataset:
+            self.dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")
         self.env_args_list = []
-        dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")[self.split]
-        for task in dataset:
+        for task in self.dataset[self.split]:
             if self.level != "all" and task["Level"] != self.level:
                 continue
             env_args = GaiaGymArgs(task_name="gaia." + task["task_id"], task=task)
             self.env_args_list.append(env_args)
-        logger.info(
-            f"Loaded {len(self.env_args_list)} tasks from {self.split} split of GAIA benchmark."
-        )
+        logger.info(f"Loaded {len(self.env_args_list)} tasks from {self.split} split")
 
 
 class ExtractedFacts(Thought):
