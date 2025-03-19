@@ -23,10 +23,7 @@ from browsergym.experiments.agent import Agent
 from browsergym.experiments.utils import count_messages_token, count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
-from tapeagents.core import (
-    StepMetadata,
-    Tape,
-)
+from tapeagents.core import StepMetadata, Tape
 from tapeagents.dialog_tape import AssistantStep, AssistantThought
 from tqdm import tqdm
 
@@ -315,9 +312,8 @@ class ExpArgs:
                     err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
                 logger.info("Saving experiment info.")
                 _save_summary_info(episode_info, self.exp_dir, err_msg, stack_trace)
-                self.save_tape(
-                    agent.final_tape if isinstance(agent, TapeAgent) else self.as_tape(episode_info)
-                )
+                tape = agent.final_tape if isinstance(agent, TapeAgent) else as_tape(episode_info)
+                self.save_tape(tape)
             except Exception as e:
                 logger.exception(f"Error while saving experiment info: {e}")
             try:
@@ -330,36 +326,11 @@ class ExpArgs:
             except Exception as e:
                 logger.exception(f"Error while unsetting the logger: {e}")
 
-    def as_tape(self, steps_info: list["StepInfo"]) -> Tape:
-        """
-        Create a Tape object from the steps info.
-
-        Returns:
-            Tape: a Tape object containing the steps and metadata.
-        """
-        tape: Tape = []
-        for step_info in steps_info:
-            step_metadata = StepMetadata(
-                result=dict(
-                    reward=step_info.reward,
-                    raw_reward=step_info.raw_reward,
-                    terminated=step_info.terminated,
-                    truncated=step_info.truncated,
-                    agent_info=step_info.agent_info,
-                    stats=step_info.stats,
-                )
-            )
-            steps = [DictObservation(content=step_info.obs)]
-            if thought := step_info.agent_info.get("think"):
-                steps.append(AssistantThought(content=thought))
-            steps.append(AssistantStep(content=step_info.action, metadata=step_metadata))
-            tape += steps
-        return tape
-
     def save_tape(self, tape: Tape, filename: str = "tape.json"):
-        if os.path.exists(self.exp_dir / filename):
-            raise FileExistsError(f"{filename} already exists in {self.exp_dir}")
-        with open(self.exp_dir / filename, "w") as f:
+        tape_path = Path(self.exp_dir) / filename
+        if tape_path.exists():
+            raise FileExistsError(f"{tape_path} already exists")
+        with open(tape_path, "w") as f:
             json.dump(tape.model_dump(), f, indent=2, ensure_ascii=False)
 
     def _set_logger(self):
@@ -951,3 +922,31 @@ def _flatten_dict(d, parent_key="", sep="."):
         else:
             items.append((new_key, v))
     return dict(items)
+
+
+def as_tape(steps_info: list) -> Tape:
+    """
+    Create a Tape object from the steps info.
+
+    Returns:
+        Tape: a Tape object containing the steps and metadata.
+    """
+    tape: Tape = []
+    for step_info in steps_info:
+        step_metadata = StepMetadata(
+            other=dict(
+                reward=step_info.reward,
+                raw_reward=step_info.raw_reward,
+                terminated=step_info.terminated,
+                truncated=step_info.truncated,
+                agent_info=step_info.agent_info,
+                stats=step_info.stats,
+            )
+        )
+        steps = [DictObservation(content=step_info.obs)]
+        if thought := step_info.agent_info.get("think"):
+            steps.append(AssistantThought(content=thought))
+        if step_info.action is not None:
+            steps.append(AssistantStep(content=step_info.action, metadata=step_metadata))
+        tape += steps
+    return tape

@@ -1,13 +1,13 @@
+import logging
 import time
-from typing import Annotated, Union
 
-from pydantic import Field, TypeAdapter
 from tapeagents.core import Action, Observation, StopStep, Tape
 from tapeagents.environment import ToolCollectionEnvironment
 from tapeagents.tools.base import StatefulTool, Tool
 
 from agentlab.benchmarks.abstract_env import AbstractEnv
 
+logger = logging.getLogger(__name__)
 EnvTape = Tape[None, Action | Observation]
 
 
@@ -15,14 +15,12 @@ class MultiToolGym(AbstractEnv):
     def __init__(self, tools: list[Tool | StatefulTool]):
         self._env = ToolCollectionEnvironment(tools)
         self._actions = self._env.actions()
-        self._actions_parser: TypeAdapter = TypeAdapter(
-            Annotated[Union[self._actions], Field(discriminator="kind")]
-        )
 
     def reset(self):
         self._env.reset()
 
     def step(self, action: Action) -> tuple[Observation, float, bool, bool, dict]:
+        logger.info(f"Gym {self.__class__.__name__} step called with action {type(action)}")
         assert isinstance(action, Action)
 
         action_exec_start = time.time()
@@ -43,9 +41,12 @@ class MultiToolGym(AbstractEnv):
             "action_exec_stop": action_exec_stop,
             "action_exec_timeout": 0.0,
         }
+        obs_view = observation.short_view() if isinstance(observation, Observation) else observation
+        logger.info(f"Gym {self.__class__.__name__} observation: {obs_view}")
         return observation, reward, terminated, truncated, env_info
 
     def calculate_reward(self, action: Action) -> float:
+        logger.warning("Reward calculation is not implemented, returning 0")
         return 0.0
 
     def close(self):

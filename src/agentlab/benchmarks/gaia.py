@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import string
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -16,7 +17,7 @@ from tapeagents.tools.code_executor import CodeExecutor
 from tapeagents.tools.media_reader import VideoReader
 from tapeagents.tools.web_search import WebSearch
 
-from agentlab.benchmarks.abstract_env import AbstractBenchmark, SerializableEnvArgs
+from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnvArgs
 from agentlab.benchmarks.multitool_gym import MultiToolGym
 
 logger = logging.getLogger(__name__)
@@ -33,18 +34,15 @@ class GaiaGym(MultiToolGym):
         os.makedirs(".cache", exist_ok=True)
 
     def reset(self, seed=None) -> tuple[list[Observation], dict]:
+        """
+        Reset the state of all the tools and prepare initial observations from the task again
+        """
         super().reset()
         question = GaiaQuestion.from_task(self.task)
         steps = [question]
         if image_obs := with_image(question):
             steps.append(image_obs)
         return steps, {}
-
-    def step(self, action: Action) -> tuple[Observation, float, bool, bool, dict]:
-        logger.info(f"Gym step called with action {type(action)}")
-        observation, reward, terminated, truncated, env_info = super().step(action)
-        logger.info(f"Gym observation: {observation.short_view()}")
-        return observation, reward, terminated, truncated, env_info
 
     def calculate_reward(self, action: Action) -> float:
         if isinstance(action, GaiaAnswer):
@@ -62,7 +60,8 @@ class GaiaGym(MultiToolGym):
         return reward
 
 
-class GaiaGymArgs(SerializableEnvArgs):
+@dataclass
+class GaiaGymArgs(AbstractEnvArgs):
     task: dict[str, Any]
     viewport_chars: int
     task_seed: int

@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
 import gymnasium as gym
 from dataclasses_json import DataClassJsonMixin
 from pydantic import BaseModel
 
 
-class AbstractEnvArgs(ABC):
+class AbstractEnvArgs(DataClassJsonMixin):
     @abstractmethod
     def make_env(self, action_mapping, exp_dir, exp_task_kwargs) -> "AbstractEnv":
         """Create an instance of the environment with the arguments stored in this object.
@@ -20,14 +19,6 @@ class AbstractEnvArgs(ABC):
         Returns:
             env (AbstractEnv): instance of the environment.
         """
-
-
-@dataclass
-class SerializableEnvArgs(AbstractEnvArgs, DataClassJsonMixin):
-    """Easily serialiazable class to store the arguments of an environment"""
-
-    task_seed: int = 0
-    task_name: str = ""
 
 
 class AbstractBenchmark(BaseModel):
@@ -80,7 +71,3 @@ class AbstractEnv(gym.Env, ABC):
     @abstractmethod
     def close(self):
         """Close any resources used by the environment"""
-
-    @abstractmethod
-    def calculate_reward(self) -> float:
-        """Calculate the reward obtained in the last step"""
