@@ -35,7 +35,7 @@ class DictObservation(Observation):
     """
 
     kind: Literal["dict_observation"] = "dict_observation"
-    content: dict[str, Any]
+    content: str
 
 
 class TapeAgent(bgym.Agent):
