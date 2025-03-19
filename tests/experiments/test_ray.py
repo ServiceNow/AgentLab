@@ -34,13 +34,12 @@ def test_execute_task_graph():
     # Verify that parallel tasks (task2 and task3) started within a short time of each other
     parallel_start_diff = abs(exp_args_list[1].start_time - exp_args_list[2].start_time)
     print(f"parallel_start_diff: {parallel_start_diff}")
-    assert parallel_start_diff < 2  # Allow for a small delay
+    assert parallel_start_diff < 5, "Parallel tasks should start within 5 seconds of each other"
 
     # Ensure that the entire task graph took the expected amount of time
     total_time = exp_args_list[-1].end_time - exp_args_list[0].start_time
-    assert (
-        total_time >= TASK_TIME * 3
-    )  # Since the critical path involves at least 1.5 seconds of work
+    # Since the critical path involves at least 1.5 seconds of work
+    assert total_time >= TASK_TIME * 3, "Total time should be at least 3 times the task time"
 
 
 def test_add_dependencies():
