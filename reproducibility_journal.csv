@@ -73,3 +73,4 @@ Leo Boisvert,GenericAgent-openai_o1-mini-2024-09-12,workarena_l1,0.4.1,2025-02-0
   M: src/agentlab/agents/generic_agent/agent_configs.py
   M: src/agentlab/analyze/agent_xray.py
   M: src/agentlab/llm/llm_configs.py",0.13.3,1d2d7160e5b7ec9954ecb48988f71eb56288dd29,"
+Leo Boisvert,GenericAgent-anthropic_claude-3.7-sonnet,workarena_l1,0.4.1,2025-02-25_02-32-09,d4f900c2-1de1-4e4b-a3ab-495ff2675fff,0.515,0.028,0,330/330,None,Linux (#68-Ubuntu SMP Mon Oct 7 14:34:20 UTC 2024),3.12.3,1.44.0,v0.4.0,c9d2ef9648435ef1119950ecb1a0734497ccc33b,,0.13.3,1d2d7160e5b7ec9954ecb48988f71eb56288dd29,
