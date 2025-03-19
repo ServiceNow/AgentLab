@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+class ExtendedMetadata(TapeMetadata):
+    name: str = ""
+    task: dict = {}
+    terminated: bool = False
+    truncated: bool = False
+    reward: float = 0.0
+    attempt_number: int = 0
+    other: dict = {}
+
+
 @dataclass
 class TapeAgentArgs(AgentArgs):
     agent_name: str
@@ -77,5 +87,5 @@ class TapeAgent(bgym.Agent):
 
     @property
     def final_tape(self) -> Tape:
-        self.tape.metadata = TapeMetadata(author=self.agent.name)
+        self.tape.metadata = ExtendedMetadata(author=self.agent.name)
         return self.tape
