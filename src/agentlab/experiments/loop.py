@@ -946,7 +946,8 @@ def as_tape(steps_info: list[StepInfo]) -> Tape:
                 stats=step_info.stats,
             )
         )
-        steps = [DictObservation(content=step_info.obs)]
+        if step_info.obs is not None:
+            steps = [DictObservation(content=step_info.obs)]
         if thought := step_info.agent_info.get("think"):
             steps.append(AssistantThought(content=thought))
         if step_info.action is not None:
