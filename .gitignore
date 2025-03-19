@@ -169,3 +169,5 @@ results/
 .gradio/
 
 outputs/
+miniwob-plusplus/
+.miniwob-server.pid

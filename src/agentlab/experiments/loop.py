@@ -924,9 +924,12 @@ def _flatten_dict(d, parent_key="", sep="."):
     return dict(items)
 
 
-def as_tape(steps_info: list) -> Tape:
+def as_tape(steps_info: list[StepInfo]) -> Tape:
     """
     Create a Tape object from the steps info.
+
+    Args:
+        steps_info: list of StepInfo objects.
 
     Returns:
         Tape: a Tape object containing the steps and metadata.
