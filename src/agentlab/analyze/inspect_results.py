@@ -10,9 +10,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from browsergym.experiments.loop import ExpResult, get_exp_result, yield_all_exp_results
 from IPython.display import display
 from tqdm import tqdm
+
+from agentlab.experiments.loop import ExpResult, get_exp_result, yield_all_exp_results
 
 # TODO find a more portable way to code set_task_category_as_index at least
 # handle dynamic imports. We don't want to always import workarena
@@ -32,7 +33,11 @@ def get_constants_and_variables(df: pd.DataFrame, drop_constants: bool = False):
     constants = {}
     variable_keys = []
     for col in df.columns:
-        if df[col].nunique(dropna=False) == 1:
+        try:
+            nuniq = df[col].nunique(dropna=False)
+        except TypeError:
+            nuniq = 0  # non hashable types are considered variables
+        if nuniq == 1:
             if isinstance(df[col].iloc[0], np.generic):
                 val = df[col].iloc[0].item()
             else:
@@ -83,7 +88,7 @@ def set_index_from_variables(
         white = any([fnmatch.fnmatch(var, pattern) for pattern in index_white_list])
         black = any([fnmatch.fnmatch(var, pattern) for pattern in index_black_list])
 
-        if white and (not black) and (not var in index_variables):
+        if white and (not black) and (var not in index_variables):
             index_variables.append(var)
 
     for var in index_variables:
@@ -205,7 +210,7 @@ def report_constant_and_variables(df, show_stack_traces=True):
             if i >= 2:
                 break
         if len(unique_counts) > 3:
-            print(f"        ...\n")
+            print("        ...\n")
 
 
 def get_std_err(df, metric):
@@ -235,7 +240,7 @@ def get_sample_std_err(df, metric):
 
 
 def summarize(sub_df):
-    if not "cum_reward" in sub_df:
+    if "cum_reward" not in sub_df:
         record = dict(
             avg_reward=np.nan,
             std_err=np.nan,
@@ -745,7 +750,7 @@ def summarize_study(result_df: pd.DataFrame) -> pd.DataFrame:
 def split_by_key(df: pd.DataFrame, key):
     """Return a dict of dataframes spearted by the given key."""
     # check if key in df
-    if not (key in df.columns):
+    if key not in df.columns:
         df = df.reset_index(key, inplace=False)
 
     df_dict = {}
@@ -775,7 +780,7 @@ def get_all_summaries(results_dir: Path, skip_hidden=True, ignore_cache=False, i
                 summary.set_index("study_dir", inplace=True)
                 summaries.append(summary)
 
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             continue
 

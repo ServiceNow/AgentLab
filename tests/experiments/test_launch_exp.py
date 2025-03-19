@@ -3,12 +3,16 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from browsergym.experiments.loop import EnvArgs, ExpArgs
 
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5, AGENT_4o_MINI
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
+from agentlab.experiments.launch_exp import (
+    find_incomplete,
+    non_dummy_count,
+    run_experiments,
+)
+from agentlab.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import CheatMiniWoBLLMArgs
 
@@ -26,7 +30,6 @@ def test_relaunch_study():
 
 
 def _test_launch_system(backend="ray", cause_timeout=False):
-
     if cause_timeout:
         wait_time = 10
         avg_step_timeout = 0.5
@@ -47,7 +50,6 @@ def _test_launch_system(backend="ray", cause_timeout=False):
         )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-
         study_dir = Path(tmp_dir) / "generic_agent_test"
         run_experiments(
             n_jobs=2,
@@ -100,7 +102,6 @@ def test_timeout_ray():
 def test_4o_mini_on_miniwob_tiny_test():
     """Run with `pytest -m pricy`."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-
         study = Study(agent_args=[AGENT_4o_MINI], benchmark="miniwob_tiny_test", dir=tmp_dir)
 
         study.run(n_jobs=4)
