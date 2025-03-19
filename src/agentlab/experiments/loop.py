@@ -932,13 +932,8 @@ def as_tape(steps_info: list[StepInfo]) -> Tape:
     steps: list[Step] = []
     for step_info in steps_info:
         if step_info.obs is not None:
-            try:
-                obs_json = json.dumps(step_info.obs, cls=DataclassJSONEncoder)
-            except Exception as e:
-                logger.warning(f"Error while converting observation to JSON: {e}")
-                logger.warning(f"Observation: {step_info.obs}")
-                raise e
-            steps.append(DictObservation(content=obs_json))
+            json_obs = json.dumps(step_info.obs, cls=DataclassJSONEncoder)
+            steps.append(DictObservation(content=json_obs))
         if thought := step_info.agent_info.get("think"):
             steps.append(AssistantThought(content=thought))
         if step_info.action is not None:
