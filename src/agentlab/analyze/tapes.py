@@ -4,12 +4,13 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import yaml
-from tapeagents.core import Step, StepMetadata, Tape
+from tapeagents.core import Step, StepMetadata
 from tapeagents.renderers.camera_ready_renderer import CameraReadyRenderer
 from tapeagents.tape_browser import TapeBrowser
 
-from agentlab.agents.tapeagent.agent import ExtendedMetadata
+from agentlab.agents.tapeagent.agent import ExtendedMetadata, Tape
 
 logger = logging.getLogger(__name__)
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
@@ -18,6 +19,10 @@ logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[loggin
 
 class WrapperStep(Step):
     content: dict
+
+
+def pretty_yaml(data: dict) -> str:
+    return yaml.dump(data, sort_keys=False, indent=2) if data else ""
 
 
 class TapesRender(CameraReadyRenderer):
@@ -31,23 +36,27 @@ class TapesRender(CameraReadyRenderer):
         step_dict = step.content.copy()
         step_dict.pop("metadata", None)
         kind = step_dict.pop("kind", "Step")
+        if kind == "set_next_node":
+            return ""
         # remove empty keys
         step_dict = {k: v for k, v in step_dict.items() if v is not None and v != ""}
         if len(step_dict) == 1:
             content = list(step_dict.values())[0]
         elif kind == "page_observation":
-            content = step_dict["text"]
+            content = step_dict.get("text", pretty_yaml(step_dict))
             if len(content) > 100:
                 summary = content[:100]
                 content = f"<details><summary>{summary}</summary>---<br>{content}</details>"
         elif kind == "python_code_action":
-            content = step_dict["code"]
+            content = step_dict.get("code", pretty_yaml(step_dict))
         elif kind == "code_execution_result":
-            content = yaml.dump(step_dict["result"], sort_keys=False, indent=2)
+            content = pretty_yaml(step_dict.get("result"))
         else:
-            content = yaml.dump(step_dict, sort_keys=False, indent=2) if step_dict else ""
+            content = pretty_yaml(step_dict)
 
-        if kind.endswith("thought"):
+        if step_dict.get("error") or step_dict.get("result", {}).get("exit_code"):
+            class_ = "error"
+        elif kind.endswith("thought"):
             class_ = "thought"
             kind = kind[:-8]
         elif kind.endswith("action"):
@@ -55,12 +64,7 @@ class TapesRender(CameraReadyRenderer):
             kind = kind[:-7]
         else:
             class_ = "observation"
-        return (
-            f"<div class='basic-renderer-box {class_}'>"
-            f"<h4 class='step-header'>{kind}</h4>"
-            f"<pre class='step-text'>{content}</pre>"
-            f"</div>"
-        )
+        return f"<div class='basic-renderer-box {class_}'><h4 class='step-header'>{kind}</h4><pre class='step-text'>{content}</pre></div>"
 
 
 class TapesBrowser(TapeBrowser):
@@ -89,10 +93,21 @@ class TapesBrowser(TapeBrowser):
         return []
 
     def get_tape_name(self, i: int, tape: Tape) -> str:
-        return tape[0].content["content"][:32] + "..."
+        errors = [
+            bool(s.content.get("error", False) or s.content.get("result", {}).get("exit_code"))
+            for s in tape.steps
+        ]
+        mark = "✅ " if tape.metadata.reward > 0 else ""
+        if any(errors):
+            mark = "⚠ "
+        if tape.metadata.task.get("file_name"):
+            mark += "📁 "
+        n = f"{tape.metadata.task.get('Level', '')}.{tape.metadata.task.get('number','')}"
+        name = tape[0].content["content"][:32] + "..."
+        return f"{n} {mark}{name}"
 
     def get_exp_label(self, filename: str, tapes: list[Tape]) -> str:
-        acc, n_solved = 0, 0  # calculate_accuracy(tapes)
+        acc, n_solved = self.calculate_accuracy(tapes)
         errors = defaultdict(int)
         prompt_tokens_num = 0
         output_tokens_num = 0
@@ -106,8 +121,10 @@ class TapesBrowser(TapeBrowser):
             prompt_tokens_num += llm_call.prompt_length_tokens
             output_tokens_num += llm_call.output_length_tokens
             total_cost += llm_call.cost
+        avg_steps = np.mean([len(tape) for tape in tapes])
+        std_steps = np.std([len(tape) for tape in tapes])
         for tape in tapes:
-            if tape.metadata.result in ["", None, "None"]:
+            if not tape.metadata.terminated:
                 no_result += 1
             if tape.metadata.error:
                 errors["fatal"] += 1
@@ -125,9 +142,9 @@ class TapesBrowser(TapeBrowser):
                 if kind.endswith("action"):
                     actions[kind] += 1
                     last_action = kind
-                if kind == "search_results_observation" and not len(step_dict["serp"]):
+                if kind == "search_results_observation" and not len(step_dict.get("serp")):
                     errors["search_empty"] += 1
-                if kind == "page_observation" and step_dict["error"]:
+                if kind == "page_observation" and step_dict.get("error"):
                     errors["browser"] += 1
                 elif kind == "llm_output_parsing_failure_action":
                     errors["parsing"] += 1
@@ -136,13 +153,15 @@ class TapesBrowser(TapeBrowser):
                         errors[f"{last_action}"] += 1
                     else:
                         errors["unknown_action_execution_failure"] += 1
-                elif kind == "code_execution_result" and step_dict["result"]["exit_code"]:
-                    errors["code_execution"] += 1
+                elif kind == "code_execution_result":
+                    if step_dict.get("result", {}).get("exit_code"):
+                        errors["code_execution"] += 1
         timers, timer_counts = self.aggregate_timer_times(tapes)
         html = f"<h2>Solved {acc:.2f}%, {n_solved} out of {len(tapes)}</h2>"
         if "all" in filename:
             html += f"Prompt tokens: {prompt_tokens_num}<br>Output tokens: {output_tokens_num}<br>Cost: {total_cost:.2f} USD<h3>Visible</h3>"
         html += f"Prompt tokens: {visible_prompt_tokens_num}<br>Output tokens: {visible_output_tokens_num}<br>Cost: {visible_cost:.2f} USD"
+        html += f"<h2>Steps per tape: {avg_steps:.1f} ± {std_steps:.1f}</h2>"
         if errors:
             errors_str = "<br>".join(f"{k}: {v}" for k, v in errors.items())
             html += f"<h2>No result: {no_result}</h2>"
@@ -157,6 +176,11 @@ class TapesBrowser(TapeBrowser):
             )
             html += f"<h2>Timings</h2>{timers_str}"
         return html
+
+    def calculate_accuracy(self, tapes: list[Tape]) -> tuple[float, int]:
+        solved = [tape.metadata.reward for tape in tapes]
+        accuracy = 100 * (sum(solved) / len(solved) if solved else 0.0)
+        return accuracy, sum(solved)
 
     def aggregate_timer_times(self, tapes: list[Tape]):
         timer_sums = defaultdict(float)
@@ -175,7 +199,7 @@ class TapesBrowser(TapeBrowser):
         return dict(timer_sums), dict(timer_counts)
 
     def load_tapes(self, exp_dir: str) -> list[dict]:
-        tape_dicts = []
+        tapes: list[Tape] = []
         fpath = Path(self.tapes_folder) / exp_dir
         for json_file in fpath.rglob("tape.json"):
             if json_file.stat().st_size == 0:
@@ -189,11 +213,14 @@ class TapesBrowser(TapeBrowser):
                         WrapperStep(content=s, metadata=StepMetadata(**s["metadata"]))
                         for s in tape_dict["steps"]
                     ]
-                    tape_dicts.append(tape)
+                    tapes.append(tape)
             except Exception as e:
                 logger.warning(f"Failed to load {json_file}: {e}")
-        logger.info(f"Loaded {len(tape_dicts)} tapes from {exp_dir}")
-        return tape_dicts
+        logger.info(f"Loaded {len(tapes)} tapes from {exp_dir}")
+        return sorted(
+            tapes,
+            key=lambda x: f"{x.metadata.task.get('Level', '')}{x.metadata.task.get('number', 0):03d}",
+        )
 
     def save_annotation(self, step: int, annotation: str, tape_id: int):
         pass

@@ -1,14 +1,13 @@
 import logging
 import time
 
-from tapeagents.core import Action, Observation, StopStep, Tape
+from tapeagents.core import Action, Observation, StopStep
 from tapeagents.environment import ToolCollectionEnvironment
 from tapeagents.tools.base import StatefulTool, Tool
 
 from agentlab.benchmarks.abstract_env import AbstractEnv
 
 logger = logging.getLogger(__name__)
-EnvTape = Tape[None, Action | Observation]
 
 
 class MultiToolGym(AbstractEnv):

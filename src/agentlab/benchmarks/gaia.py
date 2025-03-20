@@ -77,6 +77,7 @@ class GaiaGymArgs(AbstractEnvArgs):
 
     def make_env(self, exp_dir: str | Path, action_mapping=None) -> GaiaGym:
         exp_dir = str(exp_dir)
+        logger.info(f"Init gaia env with directory {exp_dir}")
         self.init_code_sandbox(exp_dir)
         tools = [
             WebSearch(),
@@ -90,15 +91,9 @@ class GaiaGymArgs(AbstractEnvArgs):
     def init_code_sandbox(self, exp_dir: str) -> None:
         code_path = os.path.join(exp_dir, "code")
         os.makedirs(code_path, exist_ok=True)
-        container_name = "gaia_code_sandbox"
+        container_name = f"gaia_code_{self.task['task_id'][:8]}"
         os.environ["COMPUTER_CONTAINER_NAME"] = container_name
-        ContainerExecutor(
-            work_dir=code_path,
-            container_name=container_name,
-            restart_if_exists=False,
-            stop_container=False,
-            no_deps=True,
-        )
+        ContainerExecutor(container_name=container_name, work_dir=code_path, no_deps=True)
 
 
 class GaiaBenchmark(AbstractBenchmark):
@@ -112,9 +107,10 @@ class GaiaBenchmark(AbstractBenchmark):
         if not self.dataset:
             self.dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")
         self.env_args_list = []
-        for task in self.dataset[self.split]:
+        for i, task in enumerate(self.dataset[self.split]):
             if self.level != "all" and task["Level"] != self.level:
                 continue
+            task["number"] = i
             env_args = GaiaGymArgs(task_name="gaia." + task["task_id"], task=task)
             self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from {self.split} split")

@@ -23,12 +23,17 @@ from browsergym.experiments.agent import Agent
 from browsergym.experiments.utils import count_messages_token, count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
-from tapeagents.core import Step, StepMetadata, Tape
+from tapeagents.core import Step, StepMetadata, TapeMetadata
 from tapeagents.dialog_tape import AssistantStep, AssistantThought
 from tapeagents.io import save_json_tape, save_tape_images
 from tqdm import tqdm
 
-from agentlab.agents.tapeagent.agent import DictObservation, TapeAgent
+from agentlab.agents.tapeagent.agent import (
+    DictObservation,
+    ExtendedMetadata,
+    Tape,
+    TapeAgent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -314,8 +319,8 @@ class ExpArgs:
                 logger.info("Saving experiment info.")
                 _save_summary_info(episode_info, self.exp_dir, err_msg, stack_trace)
                 if isinstance(agent, TapeAgent):
-                    save_json_tape(agent.final_tape, self.exp_dir, "tape.json")
-                    save_tape_images(agent.final_tape, self.exp_dir / "tape_attachments")
+                    task = getattr(env, "task", {})
+                    save_tape(self.exp_dir, episode_info, task, agent.final_tape)
             except Exception as e:
                 logger.exception(f"Error while saving experiment info: {e}")
             try:
@@ -949,3 +954,12 @@ def as_tape(steps_info: list[StepInfo]) -> Tape:
             )
             steps.append(AssistantStep(content=step_info.action, metadata=step_metadata))
     return Tape(steps=steps)
+
+
+def save_tape(exp_dir: str, episode_info: list[StepInfo], task: dict, tape: Tape):
+    tape.metadata.reward = sum([step.reward for step in episode_info])
+    tape.metadata.truncated = episode_info[-1].truncated
+    tape.metadata.terminated = episode_info[-1].terminated
+    tape.metadata.task = task
+    save_json_tape(tape, exp_dir, "tape.json")
+    save_tape_images(tape, exp_dir / "tape_attachments")

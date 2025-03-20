@@ -1,11 +1,13 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 import bgym
 import hydra
+from pydantic import Field
 from tapeagents.agent import Agent
-from tapeagents.core import Action, Observation, Tape, TapeMetadata, Thought
+from tapeagents.core import Action, Observation, TapeMetadata, Thought
+from tapeagents.core import Tape as BaseTape
 
 from agentlab.agents.agent_args import AgentArgs
 
@@ -21,6 +23,10 @@ class ExtendedMetadata(TapeMetadata):
     reward: float = 0.0
     attempt_number: int = 0
     other: dict = {}
+
+
+class Tape(BaseTape):
+    metadata: ExtendedMetadata = Field(default_factory=ExtendedMetadata)
 
 
 @dataclass
