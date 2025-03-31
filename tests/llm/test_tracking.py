@@ -37,7 +37,6 @@ OPENROUTER_MODELS = (
     "meta-llama/llama-3.1-70b-instruct",
     "meta-llama/llama-3.1-8b-instruct",
     "google/gemini-pro-1.5",
-    "qwen/qwen-2-vl-72b-instruct",
 )
 
 
