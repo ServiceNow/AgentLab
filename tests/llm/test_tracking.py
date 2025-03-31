@@ -5,13 +5,9 @@ from functools import partial
 import pytest
 
 import agentlab.llm.tracking as tracking
-from agentlab.llm.chat_api import (
-    AzureChatModel,
-    OpenAIChatModel,
-    OpenRouterChatModel,
-    make_system_message,
-    make_user_message,
-)
+from agentlab.llm.chat_api import (AzureChatModel, OpenAIChatModel,
+                                   OpenRouterChatModel, make_system_message,
+                                   make_user_message)
 
 
 def test_get_action_decorator():
@@ -37,7 +33,6 @@ OPENROUTER_MODELS = (
     "meta-llama/llama-3.1-70b-instruct",
     "meta-llama/llama-3.1-8b-instruct",
     "google/gemini-pro-1.5",
-    "qwen/qwen-2-vl-72b-instruct",
 )
 
 
