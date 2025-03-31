@@ -5,9 +5,13 @@ from functools import partial
 import pytest
 
 import agentlab.llm.tracking as tracking
-from agentlab.llm.chat_api import (AzureChatModel, OpenAIChatModel,
-                                   OpenRouterChatModel, make_system_message,
-                                   make_user_message)
+from agentlab.llm.chat_api import (
+    AzureChatModel,
+    OpenAIChatModel,
+    OpenRouterChatModel,
+    make_system_message,
+    make_user_message,
+)
 
 
 def test_get_action_decorator():
