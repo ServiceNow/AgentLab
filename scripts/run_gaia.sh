@@ -24,15 +24,6 @@ if ! podman machine list | grep -q "Currently running"; then
     fi
 fi
 export DOCKER_HOST=http+unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
-if ! podman images computer | grep -q "computer"; then
-    echo "No computer image found, building one"
-    podman images
-    podman build -t computer:latest tapeagents/tools/computer/
-    if [ $? -ne 0 ]; then
-        echo "Failed to build computer image"
-        exit 1
-    fi
-fi
 
 # Check if OPENAI_API_KEY is set
 if [ -z "${OPENAI_API_KEY}" ]; then
