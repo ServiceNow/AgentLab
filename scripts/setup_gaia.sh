@@ -37,4 +37,5 @@ if [ -z "${SERPER_API_KEY}" ]; then
 fi
 
 # Run the Python script
-python "$(dirname "$0")/run_gaia.py"
+echo "You should be able to run the GAIA agent now using this command:"
+echo python "$(dirname "$0")/run_gaia.py"
