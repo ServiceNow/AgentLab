@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 import bgym
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.llm.chat_api import make_system_message, make_user_message
+from agentlab.experiments.loop import ExpArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 from agentlab.llm.llm_utils import (
     Discussion,
@@ -133,7 +133,7 @@ chat_model_args = CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"]
 
 # example for 2 experiments testing chain of thoughts on a miniwob task
 exp_args = [
-    bgym.ExpArgs(
+    ExpArgs(
         agent_args=MostBasicAgentArgs(
             temperature=0.1,
             use_chain_of_thought=True,
@@ -142,7 +142,7 @@ exp_args = [
         env_args=env_args,
         logging_level=logging.INFO,
     ),
-    bgym.ExpArgs(
+    ExpArgs(
         agent_args=MostBasicAgentArgs(
             temperature=0.1,
             use_chain_of_thought=False,

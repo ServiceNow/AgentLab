@@ -20,13 +20,10 @@ from pathlib import Path
 
 import bgym
 from browsergym.experiments.agent import AgentInfo
-from browsergym.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from bs4 import BeautifulSoup
-from langchain.schema import AIMessage, BaseMessage
-from langchain_community.adapters.openai import convert_message_to_dict
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.dynamic_prompting import ActionFlags
+from agentlab.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import make_assistant_message
 from agentlab.llm.llm_utils import Discussion, messages_to_dict
@@ -65,7 +62,6 @@ class ReproChatModel:
 
 @dataclass
 class ReproAgentArgs(GenericAgentArgs):
-
     # starting with "_" will prevent from being part of the index in the load_results function
     _repro_dir: str = None
 
@@ -81,7 +77,6 @@ class ReproAgentArgs(GenericAgentArgs):
 
 
 class ReproAgent(GenericAgent):
-
     def __init__(
         self,
         chat_model_args,
@@ -93,7 +88,6 @@ class ReproAgent(GenericAgent):
         super().__init__(chat_model_args, flags, max_retry)
 
     def get_action(self, obs):
-
         # replace the chat model with a reproducible chat that will mimic the
         # same answers
         step = len(self.actions)

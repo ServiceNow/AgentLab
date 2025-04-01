@@ -6,8 +6,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from time import sleep, time
 
-from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 from tqdm import tqdm
+
+from agentlab.experiments.loop import ExpArgs, yield_all_exp_results
 
 logger = logging.getLogger(__name__)  # Get logger based on module name
 
@@ -63,7 +64,6 @@ def timeout_manager(seconds: int = None):
         return
 
     def alarm_handler(signum, frame):
-
         logger.warning(f"Operation timed out after {seconds}s, raising TimeoutError.")
         # send sigint
         # os.kill(os.getpid(), signal.SIGINT) # this doesn't seem to do much I don't know why
@@ -176,11 +176,11 @@ def hide_some_exp(base_dir, filter: callable, just_test):
 
     msg = f"Searching {len(exp_list)} experiments to move to _* expriments where `filter(exp_args)` is True."
     if just_test:
-        msg += f"\nNote: This is a just a test, no experiments will be moved. Set `just_test=False` to move them."
+        msg += "\nNote: This is a just a test, no experiments will be moved. Set `just_test=False` to move them."
 
     logging.info(msg)
 
-    exp_list = tqdm(exp_list, desc=f"Filtering experiments.")
+    exp_list = tqdm(exp_list, desc="Filtering experiments.")
 
     filtered_out = []
     for exp in exp_list:

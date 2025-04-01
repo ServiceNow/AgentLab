@@ -12,13 +12,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from attr import dataclass
-from browsergym.experiments.loop import ExpResult, StepInfo
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
 from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.loop import ExpResult, StepInfo
 from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
@@ -201,7 +201,6 @@ clicking the refresh button.
 """
             )
         with gr.Row():
-
             exp_dir_choice = gr.Dropdown(
                 choices=get_directory_contents(results_dir),
                 value=select_dir_instructions,
@@ -617,7 +616,7 @@ def update_logs():
     try:
         return f"""{info.exp_result.logs}"""
     except FileNotFoundError:
-        return f"""No Logs"""
+        return """No Logs"""
 
 
 def update_stats():
@@ -757,11 +756,11 @@ def get_episode_info(info: Info):
 
         info = f"""\
 ### {env_args.task_name} (seed: {env_args.task_seed})
-### Step {info.step} / {len(steps_info)-1} (Reward: {cum_reward:.1f})
+### Step {info.step} / {len(steps_info) - 1} (Reward: {cum_reward:.1f})
 
 **Goal:**
 
-{code(str(AgentLabBaseMessage('', goal)))}
+{code(str(AgentLabBaseMessage("", goal)))}
 
 **Task info:**
 
@@ -770,7 +769,7 @@ def get_episode_info(info: Info):
 **exp_dir:**
 
 <small style="line-height: 1; margin: 0; padding: 0;">{code(exp_dir_str)}</small>"""
-    except Exception as e:
+    except Exception:
         info = f"""\
 **Error while getting episode info**
 {code(traceback.format_exc())}"""
@@ -942,7 +941,6 @@ def update_error_report():
 
 
 def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
-
     if exp_dir == select_dir_instructions:
         return None, None
 
@@ -1075,7 +1073,6 @@ def add_patch(ax, start, stop, color, label, edge=False):
 
 
 def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progress_fn):
-
     if len(step_info_list) == 0:
         warning("No step info to plot")
         return None
