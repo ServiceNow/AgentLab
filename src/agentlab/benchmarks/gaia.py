@@ -105,7 +105,9 @@ class GaiaBenchmark(AbstractBenchmark):
 
     def model_post_init(self, __context: Any) -> None:
         if not self.dataset:
-            self.dataset = datasets.load_dataset("gaia-benchmark/GAIA", "2023_all")
+            self.dataset = datasets.load_dataset(
+                "gaia-benchmark/GAIA", "2023_all", split=self.split, trust_remote_code=True
+            )
         self.env_args_list = []
         for i, task in enumerate(self.dataset[self.split]):
             if self.level != "all" and task["Level"] != self.level:
