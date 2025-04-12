@@ -6,6 +6,7 @@ It is based on the dynamic_prompting module from the agentlab package.
 
 import logging
 from dataclasses import dataclass
+import bgym
 
 from browsergym.core.action.base import AbstractActionSet
 
@@ -17,35 +18,15 @@ from agentlab.llm.llm_utils import BaseMessage, HumanMessage, image_to_jpg_base6
 class PromptFlags(dp.Flags):
     """
     A class to represent various flags used to control features in an application.
-
-    Attributes:
-        use_criticise (bool): Ask the LLM to first draft and criticise the action before producing it.
-        use_thinking (bool): Enable a chain of thoughts.
-        use_concrete_example (bool): Use a concrete example of the answer in the prompt for a generic task.
-        use_abstract_example (bool): Use an abstract example of the answer in the prompt.
-        use_hints (bool): Add some human-engineered hints to the prompt.
-        enable_chat (bool): Enable chat mode, where the agent can interact with the user.
-        max_prompt_tokens (int): Maximum number of tokens allowed in the prompt.
-        be_cautious (bool): Instruct the agent to be cautious about its actions.
-        extra_instructions (Optional[str]): Extra instructions to provide to the agent.
-        add_missparsed_messages (bool): When retrying, add the missparsed messages to the prompt.
-        flag_group (Optional[str]): Group of flags used.
     """
 
-    obs: dp.ObsFlags
-    action: dp.ActionFlags
-    use_criticise: bool = False  #
-    use_thinking: bool = False
-    use_concrete_example: bool = True
-    use_abstract_example: bool = False
-    use_hints: bool = False
+    obs: dp.ObsFlags = None
+    action: dp.ActionFlags = None
+    use_thinking: bool = True
+    use_concrete_example: bool = False
+    use_abstract_example: bool = True
     enable_chat: bool = False
-    max_prompt_tokens: int = None
-    be_cautious: bool = True
     extra_instructions: str | None = None
-    add_missparsed_messages: bool = True
-    max_trunc_itr: int = 20
-    flag_group: str = None
 
 
 class SystemPrompt(dp.PromptElement):
@@ -77,7 +58,7 @@ class History(dp.PromptElement):
     Format the actions and thoughts of previous steps."""
 
     def __init__(self, actions, thoughts) -> None:
-
+        super().__init__()
         prompt_elements = []
         for i, (action, thought) in enumerate(zip(actions, thoughts)):
             prompt_elements.append(
@@ -121,7 +102,7 @@ class Observation(dp.PromptElement):
     def _prompt(self) -> str:
         return f"""
 # Observation of current step:
-{self.tabs.prompt}{self.focused_element.prompt}{self.error.prompt}
+{self.tabs.prompt}{self.error.prompt}
 
 """
 
@@ -152,12 +133,9 @@ class MainPrompt(dp.PromptElement):
     ) -> None:
         super().__init__()
         self.flags = flags
-        self.history = History(obs, actions, thoughts)
+        self.history = History(actions, thoughts)
         self.instructions = make_instructions(obs, flags.enable_chat, flags.extra_instructions)
-        self.obs = dp.Observation(
-            obs,
-            self.flags.obs,
-        )
+        self.obs = Observation(obs, self.flags.obs)
 
         self.action_prompt = dp.ActionPrompt(action_set, action_flags=flags.action)
         self.think = dp.Think(visible=lambda: flags.use_thinking)

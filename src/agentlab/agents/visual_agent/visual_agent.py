@@ -8,9 +8,7 @@ state such as plans, memories, and thoughts. The `GenericAgentArgs` class provid
 the agent, including model arguments and flags for various behaviors.
 """
 
-from copy import deepcopy
 from dataclasses import asdict, dataclass
-from warnings import warn
 
 import bgym
 from browsergym.experiments.agent import Agent, AgentInfo
@@ -21,44 +19,24 @@ from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
-from .visual_agent_prompts import GenericPromptFlags, MainPrompt
-from functools import partial
+from .visual_agent_prompts import PromptFlags, MainPrompt
 
 
 @dataclass
-class ToolAgentFlags:
-    pass
-
-
-@dataclass
-class ToolAgentArgs(AgentArgs):
+class VisualAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
-    flags: GenericPromptFlags = None
+    flags: PromptFlags = None
     max_retry: int = 4
 
     def __post_init__(self):
-        try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
-            self.agent_name = f"GenericAgent-{self.chat_model_args.model_name}".replace("/", "_")
+        try:  # some attributes might be missing temporarily due to args.CrossProd for hyperparameter generation
+            self.agent_name = f"VisualAgent-{self.chat_model_args.model_name}".replace("/", "_")
         except AttributeError:
             pass
 
     def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode):
         """Override Some flags based on the benchmark."""
-        if benchmark.name.startswith("miniwob"):
-            self.flags.obs.use_html = True
-
         self.flags.obs.use_tabs = benchmark.is_multi_tab
-        self.flags.action.action_set = deepcopy(benchmark.high_level_action_set_args)
-
-        # for backward compatibility with old traces
-        if self.flags.action.multi_actions is not None:
-            self.flags.action.action_set.multiaction = self.flags.action.multi_actions
-        if self.flags.action.is_strict is not None:
-            self.flags.action.action_set.strict = self.flags.action.is_strict
-
-        # verify if we can remove this
-        if demo_mode:
-            self.flags.action.action_set.demo_mode = "all_blue"
 
     def set_reproducibility_mode(self):
         self.chat_model_args.temperature = 0
@@ -70,17 +48,17 @@ class ToolAgentArgs(AgentArgs):
         return self.chat_model_args.close_server()
 
     def make_agent(self):
-        return ToolAgent(
+        return VisualAgent(
             chat_model_args=self.chat_model_args, flags=self.flags, max_retry=self.max_retry
         )
 
 
-class ToolAgent(Agent):
+class VisualAgent(Agent):
 
     def __init__(
         self,
         chat_model_args: BaseModelArgs,
-        flags: GenericPromptFlags,
+        flags: PromptFlags,
         max_retry: int = 4,
     ):
 
@@ -92,7 +70,6 @@ class ToolAgent(Agent):
         self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
-        self._check_flag_constancy()
         self.reset(seed=None)
 
     def obs_preprocessor(self, obs: dict) -> dict:
@@ -101,34 +78,20 @@ class ToolAgent(Agent):
     @cost_tracker_decorator
     def get_action(self, obs):
 
-        self.obs_history.append(obs)
         main_prompt = MainPrompt(
             action_set=self.action_set,
-            obs_history=self.obs_history,
+            obs=obs,
             actions=self.actions,
-            memories=self.memories,
             thoughts=self.thoughts,
-            previous_plan=self.plan,
-            step=self.plan_step,
             flags=self.flags,
         )
 
-        max_prompt_tokens, max_trunc_itr = self._get_maxes()
-
         system_prompt = SystemMessage(dp.SystemPrompt().prompt)
-
-        human_prompt = dp.fit_tokens(
-            shrinkable=main_prompt,
-            max_prompt_tokens=max_prompt_tokens,
-            model_name=self.chat_model_args.model_name,
-            max_iterations=max_trunc_itr,
-            additional_prompts=system_prompt,
-        )
         try:
             # TODO, we would need to further shrink the prompt if the retry
             # cause it to be too long
 
-            chat_messages = Discussion([system_prompt, human_prompt])
+            chat_messages = Discussion([system_prompt, main_prompt.prompt])
             ans_dict = retry(
                 self.chat_llm,
                 chat_messages,
@@ -138,7 +101,7 @@ class ToolAgent(Agent):
             ans_dict["busted_retry"] = 0
             # inferring the number of retries, TODO: make this less hacky
             ans_dict["n_retry"] = (len(chat_messages) - 3) / 2
-        except ParseError as e:
+        except ParseError:
             ans_dict = dict(
                 action=None,
                 n_retry=self.max_retry + 1,
@@ -149,10 +112,7 @@ class ToolAgent(Agent):
         stats["n_retry"] = ans_dict["n_retry"]
         stats["busted_retry"] = ans_dict["busted_retry"]
 
-        self.plan = ans_dict.get("plan", self.plan)
-        self.plan_step = ans_dict.get("step", self.plan_step)
         self.actions.append(ans_dict["action"])
-        self.memories.append(ans_dict.get("memory", None))
         self.thoughts.append(ans_dict.get("think", None))
 
         agent_info = AgentInfo(
@@ -165,43 +125,5 @@ class ToolAgent(Agent):
 
     def reset(self, seed=None):
         self.seed = seed
-        self.plan = "No plan yet"
-        self.plan_step = -1
-        self.memories = []
         self.thoughts = []
         self.actions = []
-        self.obs_history = []
-
-    def _check_flag_constancy(self):
-        flags = self.flags
-        if flags.obs.use_som:
-            if not flags.obs.use_screenshot:
-                warn(
-                    """
-Warning: use_som=True requires use_screenshot=True. Disabling use_som."""
-                )
-                flags.obs.use_som = False
-        if flags.obs.use_screenshot:
-            if not self.chat_model_args.vision_support:
-                warn(
-                    """
-Warning: use_screenshot is set to True, but the chat model \
-does not support vision. Disabling use_screenshot."""
-                )
-                flags.obs.use_screenshot = False
-        return flags
-
-    def _get_maxes(self):
-        maxes = (
-            self.flags.max_prompt_tokens,
-            self.chat_model_args.max_total_tokens,
-            self.chat_model_args.max_input_tokens,
-        )
-        maxes = [m for m in maxes if m is not None]
-        max_prompt_tokens = min(maxes) if maxes else None
-        max_trunc_itr = (
-            self.flags.max_trunc_itr
-            if self.flags.max_trunc_itr
-            else 20  # dangerous to change the default value here?
-        )
-        return max_prompt_tokens, max_trunc_itr
