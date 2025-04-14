@@ -89,10 +89,19 @@ class GaiaGymArgs(AbstractEnvArgs):
         return env
 
     def init_code_sandbox(self, exp_dir: str) -> None:
-        code_path = os.path.join(exp_dir, "code")
+        # Use a common code directory for all tasks in the experiment, which is mounted in the container
+        root_exp_dir = Path(exp_dir).parent
+        code_path = os.path.join(root_exp_dir, "shared_code")
         os.makedirs(code_path, exist_ok=True)
-        container_name = f"gaia_code_{self.task['task_id'][:8]}"
+
+        container_name = "gaia_code_shared"
         os.environ["COMPUTER_CONTAINER_NAME"] = container_name
+
+        # symlink task code to the shared code directory
+        task_code_path = os.path.join(exp_dir, "code")
+        if not os.path.exists(task_code_path):
+            os.symlink(code_path, task_code_path)
+
         ContainerExecutor(container_name=container_name, work_dir=code_path, no_deps=True)
 
 
