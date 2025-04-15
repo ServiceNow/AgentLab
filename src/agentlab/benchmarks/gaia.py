@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 import datasets
 from pydantic import Field
-from tapeagents.core import Action, Observation, StopStep, Thought
+from tapeagents.core import Action, Observation, Step, StopStep, Thought
 from tapeagents.environment import ContainerExecutor, StatefulTool, Tool
 from tapeagents.steps import ImageObservation
 from tapeagents.tools.browser import Browser
@@ -40,7 +40,7 @@ class GaiaGym(MultiToolGym):
         """
         super().reset()
         question = GaiaQuestion.from_task(self.task)
-        steps = [question]
+        steps: list[Observation] = [question]
         if image_obs := with_image(question):
             steps.append(image_obs)
         return steps, {}
@@ -120,10 +120,12 @@ class GaiaBenchmark(AbstractBenchmark):
                 "gaia-benchmark/GAIA", "2023_all", trust_remote_code=True
             )  # type: ignore
         self.env_args_list = []
-        for i, task in enumerate(self.dataset[self.split]):
+        number = 0
+        for task in self.dataset[self.split]:
             if self.level != "all" and task["Level"] != self.level:
                 continue
-            task["number"] = i
+            number += 1
+            task["number"] = number
             env_args = GaiaGymArgs(task_name="gaia." + task["task_id"], task=task)
             self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from {self.split} split")
@@ -141,7 +143,7 @@ class ExtractedFacts(Thought):
 
 
 class GaiaQuestion(Observation):
-    kind: Literal["question"] = "question"
+    kind: Literal["question"] = "question"  # type: ignore
     content: str
     filename: str | None = None
 
@@ -178,7 +180,7 @@ class GaiaAnswer(StopStep):
     If unable to determine the final answer, output an empty string.
     """
 
-    kind: Literal["gaia_answer_action"] = "gaia_answer_action"
+    kind: Literal["gaia_answer_action"] = "gaia_answer_action"  # type: ignore
     success: bool = Field(description="True if the task was successful, False otherwise")
     overview: str = Field(
         description="List of steps performed to answer the question. If the task was not successful, includes the reason for failure"
@@ -199,8 +201,8 @@ def step_error(step_dict: dict, last_action: str | None) -> str:
         error = "browser"
     elif kind == "llm_output_parsing_failure_action":
         error = "parsing"
-    elif kind == "action_failure":
-        error = last_action if last_action else "unknown_action_execution_failure"
+    elif kind == "action_execution_failure":
+        error = last_action if last_action else "action_failure"
     elif kind == "code_execution_result" and step_dict.get("result", {}).get("exit_code"):
         error = "code"
     return error
