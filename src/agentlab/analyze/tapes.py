@@ -23,7 +23,7 @@ class WrapperStep(Step):
     content: dict
 
 
-def pretty_yaml(data: dict) -> str:
+def pretty_yaml(data: dict | None) -> str:
     return yaml.dump(data, sort_keys=False, indent=2) if data else ""
 
 
@@ -117,7 +117,7 @@ class TapesBrowser(TapeBrowser):
         number = tape.metadata.task.get("number", "")
         n = f"{tape.metadata.task.get('Level', '')}.{number} " if number else ""
         name = tape.steps[0].content["content"][:32] + "..."
-        return f"{n}{mark}{name}"
+        return f"{n}({len(tape.steps)}){mark}{name}"
 
     def get_exp_label(self, filename: str, tapes: list[Tape]) -> str:
         acc, n_solved = self.calculate_accuracy(tapes)

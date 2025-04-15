@@ -145,7 +145,7 @@ class GaiaBenchmark(AbstractBenchmark):
                 name="2023_all",
                 trust_remote_code=True,
             )  # type: ignore
-        for task in self.dataset[self.split]:
+        for task in self.dataset[self.split]:  # type: ignore
             if self.level != "all" and task["Level"] != self.level:
                 continue
             number += 1
@@ -314,7 +314,7 @@ def question_scorer(
     model_answer: str,
     ground_truth: str,
 ) -> bool:
-    def is_float(element: any) -> bool:
+    def is_float(element: Any) -> bool:
         try:
             float(element)
             return True
