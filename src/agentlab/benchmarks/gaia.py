@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import datasets
+from pdf2image import convert_from_path
 from pydantic import Field
 from tapeagents.core import Action, Observation, Step, StopStep, Thought
 from tapeagents.environment import ContainerExecutor, StatefulTool, Tool
@@ -16,6 +17,7 @@ from tapeagents.steps import ImageObservation
 from tapeagents.tools.browser import Browser
 from tapeagents.tools.code_executor import CodeExecutor
 from tapeagents.tools.media_reader import VideoReader
+from tapeagents.tools.simple_browser import SimpleTextBrowser
 from tapeagents.tools.web_search import WebSearch
 
 from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnvArgs
@@ -39,11 +41,7 @@ class GaiaGym(MultiToolGym):
         Reset the state of all the tools and prepare initial observations from the task again
         """
         super().reset()
-        question = GaiaQuestion.from_task(self.task)
-        steps: list[Observation] = [question]
-        if image_obs := with_image(question):
-            steps.append(image_obs)
-        return steps, {}
+        return task_to_observations(self.task), {}
 
     def calculate_reward(self, action: Action) -> float:
         if isinstance(action, GaiaAnswer):
@@ -148,24 +146,81 @@ class GaiaQuestion(Observation):
     filename: str | None = None
 
     @classmethod
-    def from_task(cls, question: dict):
+    def from_task(cls, question: dict, files_dir: str = "/tmp/gaia_files"):
+        os.makedirs(files_dir, exist_ok=True)
         question_prompt = question["Question"]
         filename = None
         if question["file_path"]:
             basename = os.path.basename(question["file_path"])
-            tmp_fname = f"/tmp/{basename}"
+            tmp_fname = os.path.join(files_dir, basename)
             shutil.copyfile(question["file_path"], tmp_fname)
             assert os.path.exists(tmp_fname)
             filename = tmp_fname
         return cls(content=question_prompt, filename=filename)
 
 
-def with_image(question: GaiaQuestion) -> ImageObservation | None:
-    if question.filename and question.filename.endswith((".png", ".jpg", ".jpeg")):
-        return ImageObservation(
-            image_path=question.filename,
-            image_caption="Attached image",
-        )
+def task_to_observations(task: dict, max_doc_length: int = 8000) -> list[Observation]:
+    browser = SimpleTextBrowser()
+    question = GaiaQuestion.from_task(task)
+    if not question.filename:
+        return [question]
+
+    filename: str | None = question.filename
+    question.filename = None
+    steps: list[Observation] = []
+    name, ext = filename.rsplit(".", maxsplit=1)
+    ext = ext.lower()
+    if ext == "zip":
+        folder_name = name
+        os.makedirs(folder_name, exist_ok=True)
+        shutil.unpack_archive(filename, folder_name)
+        document_text = "\n\nArchive contains the following files:\n"
+        for i, file in enumerate(os.listdir(folder_name)):
+            file_path = os.path.join(folder_name, file)
+            content = browser.get_whole_document(file_path)
+            file_text = f"{i+1}. {file}. Content:\n{content}\n\n"
+            if len(file_text) > max_doc_length:
+                file_text = ""
+            file_text += f"{i+1}. Path to the '{file}': {file_path}"
+            document_text += file_text
+    elif ext in ("png", "jpg", "jpeg"):
+        steps.append(ImageObservation(image_path=filename, image_caption="Attached image"))
+        document_text = ""
+    else:
+        attach_doc_text = True
+        if ext == "pdf":
+            images, total_pages = pdf_to_images(filename)
+            if total_pages <= 3:
+                attach_doc_text = False
+            for i, img_path in enumerate(images):
+                steps.append(ImageObservation(image_path=img_path, image_caption=f"PDF page {i+1}"))
+        if attach_doc_text:
+            try:
+                content = browser.get_whole_document(filename)
+            except Exception as e:
+                logger.exception(f"Failed to read document: {e}")
+                content = ""
+            document_text = f"\n\nAttached {ext.upper()} file content:\n{content}\n"
+            if not len(content) or len(document_text) > max_doc_length:
+                document_text = ""
+        else:
+            document_text = "\nDocument pages attached as images below"
+        question.filename = filename
+    question.content += document_text
+    return [question] + steps
+
+
+def pdf_to_images(filename: str, n_pages: int = 3):
+    images = []
+    for i, image in enumerate(convert_from_path(filename)):
+        page_index = i + 1
+        page_fname = filename[:-4] + f"_{page_index}.png"
+        if os.path.exists(page_fname):
+            images.append(page_fname)
+            continue
+        image.save(page_fname)
+        images.append(page_fname)
+    return images[:n_pages], len(images)
 
 
 class GaiaAnswer(StopStep):
