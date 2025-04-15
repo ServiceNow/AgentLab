@@ -80,14 +80,6 @@ nodes:
     steps_prompt: ${agent.templates.allowed_tools}
 
   - _target_: tapeagents.nodes.StandardNode
-    name: reflect
-    system_prompt: ${agent.templates.system_prompt}
-    guidance: |
-      Relect on last observation, after that propose the single next step.
-      ${agent.templates.thought_format}
-    steps_prompt: ${agent.templates.allowed_tools}
-
-  - _target_: tapeagents.nodes.StandardNode
     name: act
     system_prompt: ${agent.templates.system_prompt}
     guidance: |
@@ -99,4 +91,4 @@ nodes:
       - agentlab.benchmarks.gaia.ExtractedFacts
       - agentlab.benchmarks.gaia.GaiaAnswer
     use_known_actions: true
-    next_node: reflect
+    next_node: act
