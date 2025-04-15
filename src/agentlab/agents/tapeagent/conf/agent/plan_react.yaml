@@ -1,15 +1,13 @@
-defaults:
-  - llm@llms.default: gpt4o_mini
-  - _self_
-
 _target_: tapeagents.agent.Agent
 name : gaia_agent
 max_iterations: 2
+llms:
+  default: ${llm}
 tools_description: |
-  - WebSearch - Performs a search in the web, wikipedia or youtube
-  - VideoReader - Opens video from a youtube URL. Can access the video content, thumbnail, subtitles and audio.
+  - WebSearch - Performs web search.
+  - VideoReader - Opens video from a youtube URL.
   - Browser - Browser tool that can load web pages and interact with their content.
-  - CodeExecutor - Executes the python code snippet
+  - CodeExecutor - Executes the python code snippet.
 known_actions:
   - _target_: hydra.utils.get_class
     path: tapeagents.tools.web_search.SearchAction
@@ -64,18 +62,18 @@ templates:
 nodes:
   - _target_: tapeagents.nodes.StandardNode
     name: plan
-    system_prompt: ${templates.system_prompt}
+    system_prompt: ${agent.templates.system_prompt}
     guidance: |
       Write a concise multi-step plan explaining which steps should be performed to find the answer for the given task.
       Remember that you can use web search, browser, python code execution and access the youtube videos to reach your goals.
       Be specific about how each step should be performed. Only describe the intended actions here, do not perform them yet.
       Consider that next steps may depend on results of previous steps, so include conditional branching using "if" statements where needed.
-      ${templates.thought_format}
-    steps_prompt: ${templates.allowed_tools}
+      ${agent.templates.thought_format}
+    steps_prompt: ${agent.templates.allowed_tools}
 
   - _target_: tapeagents.nodes.StandardNode
     name: facts_survey
-    system_prompt: ${templates.system_prompt}
+    system_prompt: ${agent.templates.system_prompt}
     guidance: |
       Before we begin executing the plan, please answer the following pre-survey.
       Here is the pre-survey:
@@ -84,16 +82,16 @@ nodes:
           3. Please list any facts that may need to be derived (e.g., via logical deduction, simulation, or computation)
           4. Please list any facts that are recalled from memory, hunches, well-reasoned guesses, etc.
       When answering this survey, keep in mind that "facts" will typically be specific names, dates, statistics, etc.
-      ${templates.thought_format}
-    steps_prompt: ${templates.allowed_tools}
+      ${agent.templates.thought_format}
+    steps_prompt: ${agent.templates.allowed_tools}
 
   - _target_: tapeagents.nodes.StandardNode
     name: act
-    system_prompt: ${templates.system_prompt}
+    system_prompt: ${agent.templates.system_prompt}
     guidance: |
       Produce single next step. If the answer is ready, produce gaia_answer_action.
-      ${templates.format}
-    steps_prompt: ${templates.allowed_steps}
+      ${agent.templates.format}
+    steps_prompt: ${agent.templates.allowed_steps}
     steps:
       - tapeagents.steps.ReasoningThought
       - agentlab.benchmarks.gaia.ExtractedFacts

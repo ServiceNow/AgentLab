@@ -1,4 +1,3 @@
-import fcntl
 import logging
 import os
 import re
@@ -6,24 +5,25 @@ import shutil
 import string
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import datasets
+import hydra
+import podman
+from omegaconf import DictConfig
 from pdf2image import convert_from_path
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from tapeagents.core import Action, Observation, StopStep, Thought
 from tapeagents.environment import ContainerExecutor, StatefulTool, Tool
 from tapeagents.steps import ImageObservation
-from tapeagents.tools.browser import Browser
-from tapeagents.tools.code_executor import CodeExecutor
-from tapeagents.tools.media_reader import VideoReader
 from tapeagents.tools.simple_browser import SimpleTextBrowser
-from tapeagents.tools.web_search import WebSearch
 
 from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnvArgs
 from agentlab.benchmarks.multitool_gym import MultiToolGym
 
 logger = logging.getLogger(__name__)
+
+CONTAINER_NAME = "gaia_code_shared"
 
 
 class GaiaGym(MultiToolGym):
@@ -61,30 +61,33 @@ class GaiaGym(MultiToolGym):
 
 @dataclass
 class GaiaGymArgs(AbstractEnvArgs):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     task: dict[str, Any]
-    viewport_chars: int
     task_seed: int
     task_name: str
+    env_config: DictConfig
 
     def __init__(
-        self, task_name: str, task: dict[str, Any], viewport_chars: int = 64000, task_seed: int = 0
+        self,
+        task_name: str,
+        task: dict[str, Any],
+        env_config: DictConfig,
+        task_seed: int = 0,
     ):
         self.task_name = task_name
         self.task = task
-        self.viewport_chars = viewport_chars
         self.task_seed = task_seed
+        self.env_config = env_config
 
     def make_env(self, exp_dir: str | Path, action_mapping=None) -> GaiaGym:
         exp_dir = str(exp_dir)
         logger.info(f"Init gaia env with directory {exp_dir}")
         os.environ["TAPEAGENTS_SQLITE_DB"] = os.path.join(exp_dir, "tapedata.sqlite")
         init_code_sandbox(exp_dir)
-        tools = [
-            WebSearch(),
-            VideoReader(exp_path=exp_dir),
-            Browser(exp_path=exp_dir, viewport_chars=self.viewport_chars, navigation_only=True),
-            CodeExecutor(exp_path=exp_dir, reuse_computer_container=True),
-        ]
+        for i in range(len(self.env_config.tools)):
+            if hasattr(self.env_config.tools[i], "exp_path"):
+                self.env_config.tools[i].exp_path = exp_dir
+        tools = hydra.utils.instantiate(self.env_config.tools)
         env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir)
         return env
 
@@ -94,9 +97,7 @@ def init_code_sandbox(exp_dir: str) -> None:
     root_exp_dir = Path(exp_dir).parent
     code_path = os.path.join(root_exp_dir, "shared_code")
     os.makedirs(code_path, exist_ok=True)
-
-    container_name = "gaia_code_shared"
-    os.environ["COMPUTER_CONTAINER_NAME"] = container_name
+    os.environ["COMPUTER_CONTAINER_NAME"] = CONTAINER_NAME
 
     # symlink task code to the shared code directory
     task_code_path = os.path.join(exp_dir, "code")
@@ -104,17 +105,35 @@ def init_code_sandbox(exp_dir: str) -> None:
         os.symlink(code_path, task_code_path)
 
     try:
-        ContainerExecutor(container_name=container_name, work_dir=code_path, no_deps=True)
+        ContainerExecutor(container_name=CONTAINER_NAME, work_dir=code_path, no_deps=True)
     except Exception as e:
         logger.warning(f"Failed to initialize container executor: {e}")
 
 
+def stop_old_sandbox():
+    try:
+        podman.from_env().containers.get(CONTAINER_NAME).stop()
+    except Exception as e:
+        logger.warning(f"Failed to stop old container {CONTAINER_NAME}: {e}")
+
+
 class GaiaBenchmark(AbstractBenchmark):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str = "gaia"
     split: Literal["test", "validation"]
     level: Literal["1", "2", "3", "all"] = "all"
     env_args_list: list[GaiaGymArgs] = None  # type: ignore
     dataset: dict = None  # type: ignore
+    env_config: DictConfig = None  # type: ignore
+
+    @classmethod
+    def from_config(cls, config: DictConfig, dataset: dict = None) -> Self:
+        return cls(
+            split=config.split,
+            level=config.level,
+            env_config=config.environment,
+            dataset=dataset,
+        )
 
     def model_post_init(self, __context: Any) -> None:
         if not self.dataset:
@@ -130,7 +149,8 @@ class GaiaBenchmark(AbstractBenchmark):
                 continue
             number += 1
             task["number"] = number
-            env_args = GaiaGymArgs(task_name="gaia." + task["task_id"], task=task)
+            name = f"gaia.{task['task_id']}"
+            env_args = GaiaGymArgs(task_name=name, task=task, env_config=self.env_config)
             self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from {self.split} split")
 

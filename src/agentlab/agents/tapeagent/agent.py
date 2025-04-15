@@ -4,6 +4,7 @@ from typing import Literal
 
 import bgym
 import hydra
+from omegaconf import DictConfig
 from pydantic import Field
 from tapeagents.agent import Agent
 from tapeagents.core import Action, Observation, TapeMetadata, Thought
@@ -29,20 +30,24 @@ class Tape(BaseTape):
     metadata: ExtendedMetadata = Field(default_factory=ExtendedMetadata)  # type: ignore
 
 
+def load_config(config_name: str) -> DictConfig:
+    with hydra.initialize(config_path="conf", version_base="1.1"):
+        config = hydra.compose(config_name=config_name)
+    return config
+
+
 @dataclass
 class TapeAgentArgs(AgentArgs):
-    agent_name: str = "tape_agent"
+    config: DictConfig = None  # type: ignore
 
     def make_agent(self) -> bgym.Agent:
-        with hydra.initialize(config_path="conf", version_base="1.1"):
-            config = hydra.compose(config_name=self.agent_name)
-        agent: Agent = hydra.utils.instantiate(config)
+        agent: Agent = hydra.utils.instantiate(self.config.agent)
         return TapeAgent(agent=agent)
 
 
 @dataclass
 class TapeAgentInfo(bgym.AgentInfo):
-    thoughts: list[Thought] = None
+    thoughts: list[Thought] = None  # type: ignore
 
 
 class DictObservation(Observation):
@@ -50,7 +55,7 @@ class DictObservation(Observation):
     Container for wrapping old dict observation into new Observation class.
     """
 
-    kind: Literal["dict_observation"] = "dict_observation"
+    kind: Literal["dict_observation"] = "dict_observation"  # type: ignore
     content: str
 
 
@@ -70,8 +75,8 @@ class TapeAgent(bgym.Agent):
         logger.info(f"Observations: {[type(o).__name__ for o in obs]}")
         return obs
 
-    def get_action(self, obs: Observation | list[Observation]) -> tuple[str, TapeAgentInfo]:
-        self.tape += obs
+    def get_action(self, obs: Observation | list[Observation]) -> tuple[Action, TapeAgentInfo]:
+        self.tape += obs  # type: ignore
         thoughts: list[Thought] = []
         action = None
         while not action:
