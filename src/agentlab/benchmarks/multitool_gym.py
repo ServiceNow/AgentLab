@@ -11,12 +11,15 @@ logger = logging.getLogger(__name__)
 
 
 class MultiToolGym(AbstractEnv):
-    def __init__(self, tools: list[Tool | StatefulTool]):
+    def __init__(self, tools: list[Tool | StatefulTool], max_turns: int = 50):
         self._env = ToolCollectionEnvironment(tools)
         self._actions = self._env.actions()
+        self.max_turns = max_turns
+        self._turns = 0
 
     def reset(self):
         self._env.reset()
+        self._turns = 0
 
     def step(self, action: Action) -> tuple[Observation, float, bool, bool, dict]:
         logger.info(f"Gym {self.__class__.__name__} step called with action {type(action)}")
@@ -28,11 +31,13 @@ class MultiToolGym(AbstractEnv):
             observation = Observation()  # empty observation
         else:
             observation = self._env.step(action)
+            terminated = isinstance(observation, StopStep)
         action_exec_stop = time.time()
+        self._turns += 1
 
         reward = self.calculate_reward(action)
 
-        truncated = False
+        truncated = self._turns >= self.max_turns
 
         env_info = {
             "step_metadata": observation.metadata,

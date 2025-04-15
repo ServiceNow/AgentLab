@@ -26,12 +26,12 @@ class ExtendedMetadata(TapeMetadata):
 
 
 class Tape(BaseTape):
-    metadata: ExtendedMetadata = Field(default_factory=ExtendedMetadata)
+    metadata: ExtendedMetadata = Field(default_factory=ExtendedMetadata)  # type: ignore
 
 
 @dataclass
 class TapeAgentArgs(AgentArgs):
-    agent_name: str
+    agent_name: str = "tape_agent"
 
     def make_agent(self) -> bgym.Agent:
         with hydra.initialize(config_path="conf", version_base="1.1"):

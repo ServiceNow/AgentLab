@@ -1,17 +1,17 @@
+import fcntl
 import logging
 import os
 import re
 import shutil
 import string
 from dataclasses import dataclass
-from math import exp
 from pathlib import Path
 from typing import Any, Literal
 
 import datasets
 from pdf2image import convert_from_path
 from pydantic import Field
-from tapeagents.core import Action, Observation, Step, StopStep, Thought
+from tapeagents.core import Action, Observation, StopStep, Thought
 from tapeagents.environment import ContainerExecutor, StatefulTool, Tool
 from tapeagents.steps import ImageObservation
 from tapeagents.tools.browser import Browser
@@ -78,7 +78,7 @@ class GaiaGymArgs(AbstractEnvArgs):
         exp_dir = str(exp_dir)
         logger.info(f"Init gaia env with directory {exp_dir}")
         os.environ["TAPEAGENTS_SQLITE_DB"] = os.path.join(exp_dir, "tapedata.sqlite")
-        self.init_code_sandbox(exp_dir)
+        init_code_sandbox(exp_dir)
         tools = [
             WebSearch(),
             VideoReader(exp_path=exp_dir),
@@ -88,34 +88,40 @@ class GaiaGymArgs(AbstractEnvArgs):
         env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir)
         return env
 
-    def init_code_sandbox(self, exp_dir: str) -> None:
-        # Use a common code directory for all tasks in the experiment, which is mounted in the container
-        root_exp_dir = Path(exp_dir).parent
-        code_path = os.path.join(root_exp_dir, "shared_code")
-        os.makedirs(code_path, exist_ok=True)
 
-        container_name = "gaia_code_shared"
-        os.environ["COMPUTER_CONTAINER_NAME"] = container_name
+def init_code_sandbox(exp_dir: str) -> None:
+    # Use a common code directory for all tasks in the experiment, which is mounted in the container
+    root_exp_dir = Path(exp_dir).parent
+    code_path = os.path.join(root_exp_dir, "shared_code")
+    os.makedirs(code_path, exist_ok=True)
 
-        # symlink task code to the shared code directory
-        task_code_path = os.path.join(exp_dir, "code")
-        if not os.path.exists(task_code_path):
-            os.symlink(code_path, task_code_path)
+    container_name = "gaia_code_shared"
+    os.environ["COMPUTER_CONTAINER_NAME"] = container_name
 
+    # symlink task code to the shared code directory
+    task_code_path = os.path.join(exp_dir, "code")
+    if not os.path.exists(task_code_path):
+        os.symlink(code_path, task_code_path)
+
+    try:
         ContainerExecutor(container_name=container_name, work_dir=code_path, no_deps=True)
+    except Exception as e:
+        logger.warning(f"Failed to initialize container executor: {e}")
 
 
 class GaiaBenchmark(AbstractBenchmark):
     name: str = "gaia"
     split: Literal["test", "validation"]
     level: Literal["1", "2", "3", "all"] = "all"
-    env_args_list: list[GaiaGymArgs] = None
-    dataset: dict = Field(default_factory=dict)
+    env_args_list: list[GaiaGymArgs] = None  # type: ignore
+    dataset: dict = None  # type: ignore
 
     def model_post_init(self, __context: Any) -> None:
         if not self.dataset:
             self.dataset = datasets.load_dataset(
-                "gaia-benchmark/GAIA", "2023_all", trust_remote_code=True
+                path="gaia-benchmark/GAIA",
+                name="2023_all",
+                trust_remote_code=True,
             )  # type: ignore
         self.env_args_list = []
         number = 0
@@ -134,7 +140,7 @@ class ExtractedFacts(Thought):
     Thought that contains the list of facts extracted from the document
     """
 
-    kind: Literal["extracted_facts_thought"] = "extracted_facts_thought"
+    kind: Literal["extracted_facts_thought"] = "extracted_facts_thought"  # type: ignore
     extracted_facts: list[str] | dict[str, Any] | str = Field(
         description="facts extracted from the observation"
     )

@@ -23,17 +23,12 @@ from browsergym.experiments.agent import Agent
 from browsergym.experiments.utils import count_messages_token, count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
-from tapeagents.core import Step, StepMetadata, TapeMetadata
+from tapeagents.core import Step, StepMetadata
 from tapeagents.dialog_tape import AssistantStep, AssistantThought
 from tapeagents.io import save_json_tape, save_tape_images
 from tqdm import tqdm
 
-from agentlab.agents.tapeagent.agent import (
-    DictObservation,
-    ExtendedMetadata,
-    Tape,
-    TapeAgent,
-)
+from agentlab.agents.tapeagent.agent import DictObservation, Tape, TapeAgent
 
 logger = logging.getLogger(__name__)
 
@@ -237,9 +232,10 @@ class ExpArgs:
         self._set_logger()
 
         # log python environment info
-        save_package_versions(self.exp_dir)
+        save_package_versions(Path(self.exp_dir))
 
         episode_info = []
+        agent = None
         env, step_info, err_msg, stack_trace = None, None, None, None
         try:
             logger.info(f"Running experiment {self.exp_name} in:\n  {self.exp_dir}")
@@ -255,7 +251,7 @@ class ExpArgs:
             step_info = StepInfo(step=0)
             episode_info = [step_info]
             step_info.from_reset(
-                env, seed=self.env_args.task_seed, obs_preprocessor=agent.obs_preprocessor
+                env, seed=self.env_args.task_seed or 0, obs_preprocessor=agent.obs_preprocessor
             )
             logger.debug("Environment reset.")
 
