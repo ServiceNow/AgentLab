@@ -10,6 +10,7 @@ from typing import Any, Literal, Self
 import datasets
 import hydra
 import podman
+import tapeagents.config
 from omegaconf import DictConfig
 from pdf2image import convert_from_path
 from pydantic import ConfigDict, Field
@@ -79,16 +80,16 @@ class GaiaGymArgs(AbstractEnvArgs):
         self.task_seed = task_seed
         self.env_config = env_config
 
-    def make_env(self, exp_dir: str | Path, action_mapping=None) -> GaiaGym:
-        exp_dir = str(exp_dir)
-        logger.info(f"Init gaia env with directory {exp_dir}")
-        os.environ["TAPEAGENTS_SQLITE_DB"] = os.path.join(exp_dir, "tapedata.sqlite")
-        init_code_sandbox(exp_dir)
+    def make_env(self, exp_dir: Path, action_mapping=None) -> GaiaGym:
+        tapeagents.config.DB_DEFAULT_FILENAME = str(exp_dir.parent / "tapedata.sqlite")
+        exp_dir_str = str(exp_dir)
+        logger.info(f"Init gaia env with directory {exp_dir_str}")
+        init_code_sandbox(exp_dir_str)
         for i in range(len(self.env_config.tools)):
             if hasattr(self.env_config.tools[i], "exp_path"):
-                self.env_config.tools[i].exp_path = exp_dir
+                self.env_config.tools[i].exp_path = exp_dir_str
         tools = hydra.utils.instantiate(self.env_config.tools)
-        env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir)
+        env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir_str)
         return env
 
 

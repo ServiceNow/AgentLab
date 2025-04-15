@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 from tapeagents.core import Step, StepMetadata
+from tapeagents.observe import retrieve_all_llm_calls
 from tapeagents.renderers.camera_ready_renderer import CameraReadyRenderer
 from tapeagents.tape_browser import TapeBrowser
 
@@ -88,7 +89,17 @@ class TapesBrowser(TapeBrowser):
         return tape["steps"]
 
     def load_llm_calls(self):
-        pass
+        sqlite_path = self.exp_path / "tapedata.sqlite"
+        if sqlite_path.exists():
+            try:
+                self.llm_calls = {
+                    call.prompt.id: call for call in retrieve_all_llm_calls(str(sqlite_path))
+                }
+                logger.info(f"Loaded {len(self.llm_calls)} LLM calls from {sqlite_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load LLM calls from {sqlite_path}: {e}")
+        else:
+            logger.warning(f"{sqlite_path} not found")
 
     def get_context(self, tape: Tape) -> list:
         return []
@@ -209,7 +220,8 @@ class TapesBrowser(TapeBrowser):
                     tapes.append(tape)
             except Exception as e:
                 logger.warning(f"Failed to load {json_file}: {e}")
-        logger.info(f"Loaded {len(tapes)} tapes from {exp_dir}")
+        logger.info(f"Loaded {len(tapes)} tapes from {fpath}")
+        self.exp_path = fpath
         return sorted(
             tapes,
             key=lambda x: f"{x.metadata.task.get('Level', '')}{x.metadata.task.get('number', 0):03d}",
