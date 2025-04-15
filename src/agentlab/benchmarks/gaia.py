@@ -123,11 +123,11 @@ class GaiaBenchmark(AbstractBenchmark):
     split: Literal["test", "validation"]
     level: Literal["1", "2", "3", "all"] = "all"
     env_args_list: list[GaiaGymArgs] = None  # type: ignore
-    dataset: dict = None  # type: ignore
+    dataset: dict | None = None  # type: ignore
     env_config: DictConfig = None  # type: ignore
 
     @classmethod
-    def from_config(cls, config: DictConfig, dataset: dict = None) -> Self:
+    def from_config(cls, config: DictConfig, dataset: dict | None = None) -> Self:
         return cls(
             split=config.split,
             level=config.level,
@@ -136,14 +136,14 @@ class GaiaBenchmark(AbstractBenchmark):
         )
 
     def model_post_init(self, __context: Any) -> None:
-        if not self.dataset:
+        self.env_args_list = []
+        number = 0
+        if self.dataset is None:
             self.dataset = datasets.load_dataset(
                 path="gaia-benchmark/GAIA",
                 name="2023_all",
                 trust_remote_code=True,
             )  # type: ignore
-        self.env_args_list = []
-        number = 0
         for task in self.dataset[self.split]:
             if self.level != "all" and task["Level"] != self.level:
                 continue
