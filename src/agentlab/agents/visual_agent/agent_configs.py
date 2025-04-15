@@ -37,10 +37,6 @@ VISUAL_AGENT_4o = VisualAgentArgs(
     flags=DEFAULT_PROMPT_FLAGS,
 )
 
-VISUAL_AGENT_COMPUTER_USE = VisualAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/computer-use-preview-2025-03-11"],
-    flags=DEFAULT_PROMPT_FLAGS,
-)
 
 VISUAL_AGENT_CLAUDE_3_5 = VisualAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
