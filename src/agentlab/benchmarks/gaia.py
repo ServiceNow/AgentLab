@@ -4,6 +4,7 @@ import re
 import shutil
 import string
 from dataclasses import dataclass
+from math import exp
 from pathlib import Path
 from typing import Any, Literal
 
@@ -78,11 +79,12 @@ class GaiaGymArgs(AbstractEnvArgs):
     def make_env(self, exp_dir: str | Path, action_mapping=None) -> GaiaGym:
         exp_dir = str(exp_dir)
         logger.info(f"Init gaia env with directory {exp_dir}")
+        os.environ["TAPEAGENTS_SQLITE_DB"] = os.path.join(exp_dir, "tapedata.sqlite")
         self.init_code_sandbox(exp_dir)
         tools = [
             WebSearch(),
             VideoReader(exp_path=exp_dir),
-            Browser(exp_path=exp_dir, viewport_chars=self.viewport_chars),
+            Browser(exp_path=exp_dir, viewport_chars=self.viewport_chars, navigation_only=True),
             CodeExecutor(exp_path=exp_dir, reuse_computer_container=True),
         ]
         env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir)
@@ -186,6 +188,22 @@ class GaiaAnswer(StopStep):
     )
     answer: Any = Field(description="Short final answer")
     long_answer: str = Field(description="Detailed final answer not restricted by format rules")
+
+
+def step_error(step_dict: dict, last_action: str | None) -> str:
+    kind = step_dict.get("kind", "unknown")
+    error = ""
+    if kind == "search_results_observation" and not len(step_dict.get("serp", [])):
+        error = "search_empty"
+    elif kind == "page_observation" and step_dict.get("error"):
+        error = "browser"
+    elif kind == "llm_output_parsing_failure_action":
+        error = "parsing"
+    elif kind == "action_failure":
+        error = last_action if last_action else "unknown_action_execution_failure"
+    elif kind == "code_execution_result" and step_dict.get("result", {}).get("exit_code"):
+        error = "code"
+    return error
 
 
 def normalize_number_str(number_str: str) -> float:

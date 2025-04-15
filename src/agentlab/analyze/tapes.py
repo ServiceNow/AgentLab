@@ -11,6 +11,7 @@ from tapeagents.renderers.camera_ready_renderer import CameraReadyRenderer
 from tapeagents.tape_browser import TapeBrowser
 
 from agentlab.agents.tapeagent.agent import ExtendedMetadata, Tape
+from agentlab.benchmarks.gaia import step_error
 
 logger = logging.getLogger(__name__)
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
@@ -83,7 +84,7 @@ class TapesBrowser(TapeBrowser):
         logger.info(f"Found {len(exps)} experiments in {self.tapes_folder}")
         return sorted(exps)
 
-    def get_steps(self, tape) -> list:
+    def get_steps(self, tape: dict) -> list:
         return tape["steps"]
 
     def load_llm_calls(self):
@@ -102,9 +103,10 @@ class TapesBrowser(TapeBrowser):
             mark = "⚠ "
         if tape.metadata.task.get("file_name"):
             mark += "📁 "
-        n = f"{tape.metadata.task.get('Level', '')}.{tape.metadata.task.get('number','')}"
-        name = tape[0].content["content"][:32] + "..."
-        return f"{n} {mark}{name}"
+        number = tape.metadata.task.get("number", "")
+        n = f"{tape.metadata.task.get('Level', '')}.{number} " if number else ""
+        name = tape.steps[0].content["content"][:32] + "..."
+        return f"{n}{mark}{name}"
 
     def get_exp_label(self, filename: str, tapes: list[Tape]) -> str:
         acc, n_solved = self.calculate_accuracy(tapes)
@@ -142,20 +144,8 @@ class TapesBrowser(TapeBrowser):
                 if kind.endswith("action"):
                     actions[kind] += 1
                     last_action = kind
-                if kind == "search_results_observation" and not len(step_dict.get("serp")):
-                    errors["search_empty"] += 1
-                if kind == "page_observation" and step_dict.get("error"):
-                    errors["browser"] += 1
-                elif kind == "llm_output_parsing_failure_action":
-                    errors["parsing"] += 1
-                elif kind == "action_execution_failure":
-                    if last_action:
-                        errors[f"{last_action}"] += 1
-                    else:
-                        errors["unknown_action_execution_failure"] += 1
-                elif kind == "code_execution_result":
-                    if step_dict.get("result", {}).get("exit_code"):
-                        errors["code_execution"] += 1
+                if error := self.get_step_error(step_dict, last_action):
+                    errors[error] += 1
         timers, timer_counts = self.aggregate_timer_times(tapes)
         html = f"<h2>Solved {acc:.2f}%, {n_solved} out of {len(tapes)}</h2>"
         if "all" in filename:
@@ -177,10 +167,13 @@ class TapesBrowser(TapeBrowser):
             html += f"<h2>Timings</h2>{timers_str}"
         return html
 
+    def get_step_error(self, step_dict: dict, last_action: str | None) -> str:
+        return step_error(step_dict, last_action)
+
     def calculate_accuracy(self, tapes: list[Tape]) -> tuple[float, int]:
         solved = [tape.metadata.reward for tape in tapes]
         accuracy = 100 * (sum(solved) / len(solved) if solved else 0.0)
-        return accuracy, sum(solved)
+        return accuracy, int(sum(solved))
 
     def aggregate_timer_times(self, tapes: list[Tape]):
         timer_sums = defaultdict(float)
@@ -198,7 +191,7 @@ class TapesBrowser(TapeBrowser):
                     timer_counts[action_kind] += 1
         return dict(timer_sums), dict(timer_counts)
 
-    def load_tapes(self, exp_dir: str) -> list[dict]:
+    def load_tapes(self, exp_dir: str) -> list[Tape]:
         tapes: list[Tape] = []
         fpath = Path(self.tapes_folder) / exp_dir
         for json_file in fpath.rglob("tape.json"):
