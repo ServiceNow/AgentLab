@@ -1,5 +1,6 @@
 import os
 import uuid
+from pathlib import Path
 
 from tapeagents.steps import ImageObservation
 
@@ -80,14 +81,14 @@ def test_gaia_gym_reset():
     config = load_config("gaia_val")
     bench = GaiaBenchmark.from_config(config, dataset=mock_dataset())
     args = bench.env_args_list[5]
-    env = args.make_env(exp_dir)
+    env = args.make_env(Path(exp_dir))
     steps, _ = env.reset()
     assert len(steps) == 1
     assert isinstance(steps[0], GaiaQuestion)
     assert steps[0].content.startswith(args.task["Question"])
 
     args = bench.env_args_list[20]
-    env = args.make_env(exp_dir)
+    env = args.make_env(Path(exp_dir))
     steps, _ = env.reset()
     assert len(steps) == 2
     assert isinstance(steps[0], GaiaQuestion)
