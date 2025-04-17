@@ -1,5 +1,5 @@
 defaults:
-  - llm: gpt4o_mini
+  - llm: o4mini
   - agent: plan_act
   - environment: web_code
   - _self_
