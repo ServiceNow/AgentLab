@@ -53,6 +53,10 @@ class TapesRender(CameraReadyRenderer):
             content = step_dict.get("code", pretty_yaml(step_dict))
         elif kind == "code_execution_result":
             content = pretty_yaml(step_dict.get("result"))
+        elif len(step_dict) == 1 and "content" in step_dict:
+            content = step_dict["content"]
+        elif len(step_dict) == 1 and "reasoning" in step_dict:
+            content = step_dict["reasoning"]
         else:
             content = pretty_yaml(step_dict)
 
@@ -137,7 +141,7 @@ class TapesBrowser(TapeBrowser):
         avg_steps = np.mean([len(tape) for tape in tapes])
         std_steps = np.std([len(tape) for tape in tapes])
         for tape in tapes:
-            if not tape.metadata.terminated:
+            if tape.metadata.truncated:
                 no_result += 1
             if tape.metadata.error:
                 errors["fatal"] += 1

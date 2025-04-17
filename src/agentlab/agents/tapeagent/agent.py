@@ -7,7 +7,7 @@ import hydra
 from omegaconf import DictConfig
 from pydantic import Field
 from tapeagents.agent import Agent
-from tapeagents.core import Action, Observation, TapeMetadata, Thought
+from tapeagents.core import Action, Observation, StopStep, TapeMetadata, Thought
 from tapeagents.core import Tape as BaseTape
 
 from agentlab.agents.agent_args import AgentArgs
@@ -98,5 +98,6 @@ class TapeAgent(bgym.Agent):
 
     @property
     def final_tape(self) -> Tape:
-        self.tape.metadata = ExtendedMetadata(author=self.agent.name)
+        truncated = not any([isinstance(s, StopStep) for s in self.tape.steps])
+        self.tape.metadata = ExtendedMetadata(author=self.agent.name, truncated=truncated)
         return self.tape
