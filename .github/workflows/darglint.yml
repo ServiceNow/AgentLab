@@ -31,4 +31,4 @@ jobs:
         run: pip list
 
       - name: Darglint checks
-        run: darglint -v 2 -z short .
+        run: darglint -v 2 -z short src/

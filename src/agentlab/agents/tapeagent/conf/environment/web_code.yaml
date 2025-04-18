@@ -1,0 +1,11 @@
+tools:
+  - _target_: tapeagents.tools.web_search.WebSearch
+  - _target_: tapeagents.tools.media_reader.VideoReader
+    exp_path: ""
+  - _target_: tapeagents.tools.browser.Browser
+    exp_path: ""
+    viewport_chars: 64000
+    navigation_only: true
+  - _target_: tapeagents.tools.code_executor.CodeExecutor
+    exp_path: ""
+    reuse_computer_container: true
