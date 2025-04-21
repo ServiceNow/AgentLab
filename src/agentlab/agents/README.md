@@ -99,7 +99,7 @@ have to specify the type of each field (You can use Any if it is unknown)*
 ```python
 from dataclasses import dataclass
 from browsergym.experiment.agent import Agent
-from browsergym.experiment.loop import AgentArgs
+from agentlab.experiments.loop import AgentArgs
 
 
 @dataclass
@@ -116,7 +116,7 @@ class CustomAgentArgs(AgentArgs):
 To run experiments with your custom agent, define an instance of `ExpArgs` with the required parameters.
 
 ```python
-from browsergym.experiment.loop import ExpArgs
+from agentlab.experiments.loop import ExpArgs
 
 exp_args = ExpArgs(
     agent_args=CustomAgentArgs(custom_param="value"),

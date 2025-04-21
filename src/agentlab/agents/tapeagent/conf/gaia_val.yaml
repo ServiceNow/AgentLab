@@ -1,0 +1,12 @@
+defaults:
+  - llm: gpt4o_mini
+  - agent: plan_act
+  - environment: web_code
+  - _self_
+
+name: gaia_agent
+comment: Gaia val
+split: validation
+level: "all"
+parallel_backend: ray
+n_jobs: 10

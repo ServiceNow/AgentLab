@@ -3,9 +3,9 @@ from importlib import import_module
 from pathlib import Path
 
 import bgym
-from browsergym.experiments.loop import ExpArgs, yield_all_exp_results
 
 from agentlab.experiments.exp_utils import run_exp
+from agentlab.experiments.loop import ExpArgs, yield_all_exp_results
 
 
 def run_experiments(
@@ -98,7 +98,7 @@ def run_experiments(
         logging.info("All jobs are finished. Calling agent_args.close() on all agents...")
         for exp_args in exp_args_list:
             exp_args.agent_args.close()
-        logging.info("Experiment finished.")
+        logging.info(f"Experiment finished and saved in {study_dir}.")
 
 
 def find_incomplete(study_dir: str | Path, include_errors=True):
@@ -142,8 +142,8 @@ def find_incomplete(study_dir: str | Path, include_errors=True):
     else:
         logging.info(f"Found {job_count} incomplete experiments in {study_dir}.")
 
-    message = f"Make sure the processes that were running are all stopped. Otherwise, "
-    f"there will be concurrent writing in the same directories.\n"
+    message = "Make sure the processes that were running are all stopped. Otherwise, "
+    "there will be concurrent writing in the same directories.\n"
 
     logging.info(message)
 

@@ -1,0 +1,6 @@
+_target_: tapeagents.llms.LiteLLM
+model_name: o4-mini-2025-04-16
+use_cache: true
+context_size: 128000
+parameters:
+  temperature: 1.0

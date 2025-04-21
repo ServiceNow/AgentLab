@@ -3,13 +3,13 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from browsergym.experiments.loop import EnvArgs, ExpArgs
 from openai import OpenAIError
 
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import launch_exp
+from agentlab.experiments.loop import EnvArgs, ExpArgs
 from agentlab.llm.chat_api import BaseModelArgs, CheatMiniWoBLLMArgs
 from agentlab.llm.llm_utils import Discussion
 
@@ -24,7 +24,6 @@ def test_generic_agent():
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-
         launch_exp.run_experiments(
             1, [exp_args], Path(tmp_dir) / "generic_agent_test", parallel_backend="joblib"
         )
