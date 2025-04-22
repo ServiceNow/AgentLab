@@ -23,20 +23,25 @@ class DebugAgentArgs(AgentArgs):
         self.action_set_args = bgym.DEFAULT_BENCHMARKS[
             "miniwob_tiny_test"
         ]().high_level_action_set_args
+        self.use_html = False
 
     def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode):
+        if benchmark.name.startswith("miniwob"):
+            self.use_html = True
         self.action_set_args = benchmark.high_level_action_set_args
 
     def make_agent(self):
-        return DebugAgent(self.action_set_args)
+        return DebugAgent(self.action_set_args, use_html=self.use_html)
 
 
 class DebugAgent(Agent):
     def __init__(
         self,
         action_set_args,
+        use_html=False,
     ):
         self.action_set = action_set_args.make_action_set()
+        self.use_html = use_html
 
     def obs_preprocessor(self, obs):
         obs = deepcopy(obs)
@@ -72,7 +77,8 @@ class DebugAgent(Agent):
 
         # print(obs["pruned_html"])
         print("\n")
-        action = input(obs["axtree_txt"] + "\n")
+        observation = obs["pruned_html"] if self.use_html else obs["axtree_txt"]
+        action = input(observation + "\n")
         agent_info = AgentInfo(
             think="nope",
             chat_messages=[],
