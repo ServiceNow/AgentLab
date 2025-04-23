@@ -10,13 +10,9 @@ from warnings import warn
 
 import bgym
 from browsergym.core.action.base import AbstractActionSet
-from browsergym.utils.obs import (
-    flatten_axtree_to_str,
-    flatten_dom_to_str,
-    overlay_som,
-    prune_html,
-)
+from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, overlay_som, prune_html
 
+from agentlab.experiments.benchmark import HighLevelActionSetArgs
 from agentlab.llm.llm_utils import (
     BaseMessage,
     ParseError,
@@ -99,7 +95,7 @@ class ObsFlags(Flags):
 
 @dataclass
 class ActionFlags(Flags):
-    action_set: bgym.HighLevelActionSetArgs = None  # should be set by the set_benchmark method
+    action_set: HighLevelActionSetArgs = None  # should be set by the set_benchmark method
     long_description: bool = True
     individual_examples: bool = False
 

@@ -5,10 +5,8 @@ import pytest
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
-from agentlab.agents.generic_agent.generic_agent_prompt import (
-    GenericPromptFlags,
-    MainPrompt,
-)
+from agentlab.agents.generic_agent.generic_agent_prompt import GenericPromptFlags, MainPrompt
+from agentlab.experiments.benchmark import HighLevelActionSetArgs
 from agentlab.llm.llm_utils import count_tokens
 
 html_template = """
@@ -76,7 +74,7 @@ ALL_TRUE_FLAGS = GenericPromptFlags(
         filter_visible_elements_only=True,
     ),
     action=dp.ActionFlags(
-        action_set=bgym.HighLevelActionSetArgs(
+        action_set=HighLevelActionSetArgs(
             subsets=["bid"],
             multiaction=True,
         ),
@@ -171,7 +169,7 @@ def test_shrinking_observation():
     flags.obs.use_html = True
 
     prompt_maker = MainPrompt(
-        action_set=bgym.HighLevelActionSet(),
+        action_set=HighLevelActionSet(),
         obs_history=OBS_HISTORY,
         actions=ACTIONS,
         memories=MEMORIES,
@@ -237,7 +235,7 @@ def test_main_prompt_elements_present():
     # Initialize MainPrompt
     prompt = str(
         MainPrompt(
-            action_set=bgym.HighLevelActionSet(),
+            action_set=HighLevelActionSet(),
             obs_history=OBS_HISTORY,
             actions=ACTIONS,
             memories=MEMORIES,

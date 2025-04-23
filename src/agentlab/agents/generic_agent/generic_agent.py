@@ -10,6 +10,7 @@ the agent, including model arguments and flags for various behaviors.
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass
+from functools import partial
 from warnings import warn
 
 import bgym
@@ -17,12 +18,12 @@ from browsergym.experiments.agent import Agent, AgentInfo
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.experiments.benchmark import Benchmark
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
-from functools import partial
 
 
 @dataclass
@@ -37,7 +38,7 @@ class GenericAgentArgs(AgentArgs):
         except AttributeError:
             pass
 
-    def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode):
+    def set_benchmark(self, benchmark: Benchmark, demo_mode):
         """Override Some flags based on the benchmark."""
         if benchmark.name.startswith("miniwob"):
             self.flags.obs.use_html = True

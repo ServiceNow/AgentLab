@@ -23,6 +23,7 @@ from browsergym.experiments.agent import AgentInfo
 from bs4 import BeautifulSoup
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.experiments.benchmark import HighLevelActionSetArgs
 from agentlab.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import make_assistant_message
@@ -144,7 +145,7 @@ def _make_backward_compatible(agent_args: GenericAgentArgs):
         if isinstance(action_set, str):
             action_set = action_set.split("+")
 
-        agent_args.flags.action.action_set = bgym.HighLevelActionSetArgs(
+        agent_args.flags.action.action_set = HighLevelActionSetArgs(
             subsets=action_set,
             multiaction=agent_args.flags.action.multi_actions,
         )

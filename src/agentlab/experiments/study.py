@@ -12,18 +12,14 @@ from multiprocessing import Manager, Pool, Queue
 from pathlib import Path
 
 import bgym
-from bgym import Benchmark
 from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
+from agentlab.experiments.benchmark import DEFAULT_BENCHMARKS, Benchmark
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import (
-    find_incomplete,
-    non_dummy_count,
-    run_experiments,
-)
+from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 from agentlab.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments.multi_server import BaseServer
 
@@ -32,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def make_study(
     agent_args: list[AgentArgs] | AgentArgs,
-    benchmark: bgym.Benchmark | str,
+    benchmark: Benchmark | str,
     logging_level=logging.WARNING,
     logging_level_stdout=logging.WARNING,
     suffix="",
@@ -47,8 +43,8 @@ def make_study(
             The agent configuration(s) to run. *IMPORTANT*: these objects will be pickled and
             unpickled.  Make sure they are imported from a package that is accessible from
             PYTHONPATH. Otherwise, it won't load in agentlab-xray.
-        benchmark: bgym.Benchmark | str
-            The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
+        benchmark: Benchmark | str
+            The benchmark to run the agents on. See DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
         logging_level: int
             The logging level for file log.
@@ -89,7 +85,7 @@ def make_study(
         agent_args = [agent_args]
 
     if isinstance(benchmark, str):
-        benchmark = bgym.DEFAULT_BENCHMARKS[benchmark.lower()]()
+        benchmark = DEFAULT_BENCHMARKS[benchmark.lower()]()
 
     if len(agent_args) > 1 and ("webarena" in benchmark.name or parallel_servers is not None):
         logger.warning(
@@ -184,8 +180,8 @@ class Study(AbstractStudy):
             The agent configuration(s) to run. *IMPORTANT*: these objects will be pickled and
             unpickled.  Make sure they are imported from a package that is accessible from
             PYTHONPATH. Otherwise, it won't load in agentlab-xray.
-        benchmark: bgym.Benchmark | str
-            The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
+        benchmark: Benchmark | str
+            The benchmark to run the agents on. See DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
         dir: Path
             The directory where the study will be saved. If None, a directory will be created in
@@ -241,7 +237,7 @@ class Study(AbstractStudy):
         """Initialize the study. Set the uuid, and generate the exp_args_list."""
         self.uuid = uuid.uuid4()
         if isinstance(self.benchmark, str):
-            self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark.lower()]()
+            self.benchmark = DEFAULT_BENCHMARKS[self.benchmark.lower()]()
         if isinstance(self.dir, str):
             self.dir = Path(self.dir)
         self.make_exp_args_list()
@@ -436,7 +432,7 @@ class Study(AbstractStudy):
     def agents_on_benchmark(
         self,
         agents: list[AgentArgs] | AgentArgs,
-        benchmark: bgym.Benchmark,
+        benchmark: Benchmark,
         demo_mode=False,
         logging_level: int = logging.INFO,
         logging_level_stdout: int = logging.INFO,
@@ -447,7 +443,7 @@ class Study(AbstractStudy):
         Args:
             agents: list[AgentArgs] | AgentArgs
                 The agent configuration(s) to run.
-            benchmark: bgym.Benchmark
+            benchmark: Benchmark
                 The benchmark to run the agents on.
             demo_mode: bool
                 If True, the experiments will be run in demo mode.
