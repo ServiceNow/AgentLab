@@ -401,7 +401,13 @@ class BaseMessage(dict):
             else:
                 logging.info(msg)
 
-        return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
+        return "\n".join(
+            [
+                elem["text"]
+                for elem in self["content"]
+                if elem["type"] == "text" or elem["type"] == "input_text"
+            ]
+        )
 
     def add_content(self, type: str, content: Any):
         if isinstance(self["content"], str):
