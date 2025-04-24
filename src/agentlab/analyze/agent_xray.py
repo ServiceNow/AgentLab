@@ -542,6 +542,9 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
 
     Returns:
         The tagged screenshot.
+
+    Raises:
+        ValueError: If the action parsing fails.
     """
     if action.startswith("mouse_click"):
         try:
@@ -556,9 +559,13 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
             x, y = float(coords[0].strip()), float(coords[1].strip())
             draw = ImageDraw.Draw(screenshot)
             radius = 5
-            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="red", outline="red")
+            draw.ellipse(
+                (x - radius, y - radius, x + radius, y + radius), fill="red", outline="red"
+            )
         except (ValueError, IndexError) as e:
             warning(f"Failed to parse action '{action}': {e}")
+    return screenshot
+
 
 def update_screenshot(som_or_not: str):
     global info
