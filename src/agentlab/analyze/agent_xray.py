@@ -531,9 +531,17 @@ def if_active(tab_name, n_out=1):
 
 
 def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
-    """If action is a coordinate action, try to render it on the screenshot.
+    """
+    If action is a coordinate action, try to render it on the screenshot.
 
     e.g. mouse_click(120, 130) -> draw a dot at (120, 130) on the screenshot
+
+    Args:
+        screenshot: The screenshot to tag.
+        action: The action to tag the screenshot with.
+
+    Returns:
+        The tagged screenshot.
     """
     if action.startswith("mouse_click"):
         coords = action[action.index("(") + 1 : action.index(")")].split(",")
