@@ -1,10 +1,102 @@
 import logging
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
 
 import openai
 from openai import OpenAI
 
 from .base_api import AbstractChatModel, BaseModelArgs
+
+type ContentItem = Dict[str, Any]
+type Message = Dict[str, Union[str, List[ContentItem]]]
+
+
+class MessageBuilder:
+    def __init__(self, role: str):
+        self.role = role
+        self.content: List[ContentItem] = []
+        self.tool_call_id = None
+
+    @staticmethod
+    def system() -> "MessageBuilder":
+        return MessageBuilder(role="system")
+
+    @staticmethod
+    def user() -> "MessageBuilder":
+        return MessageBuilder(role="user")
+
+    @staticmethod
+    def assistant() -> "MessageBuilder":
+        return MessageBuilder(role="assistant")
+
+    @staticmethod
+    def tool() -> "MessageBuilder":
+        return MessageBuilder(role="tool")
+
+    def add_text(self, text: str) -> "MessageBuilder":
+        self.content.append({"text": text})
+        return self
+
+    def add_image(self, image: str) -> "MessageBuilder":
+        self.content.append({"image": image})
+        return self
+
+    def add_tool_id(self, tool_id: str) -> "MessageBuilder":
+        self.tool_call_id = tool_id
+        return self
+
+    def to_openai(self) -> List[Message]:
+        content = []
+        for item in self.content:
+            if "text" in item:
+                content.append({"type": "input_text", "text": item["text"]})
+            elif "image" in item:
+                content.append({"type": "input_image", "image_url": item["image"]})
+        res = [{"role": self.role, "content": content}]
+
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+            # tool messages can only take text with openai
+            # we need to split the first content element if it's text and use it
+            # then open a new (user) message with the rest
+            res[0]["tool_call_id"] = self.tool_call_id
+            text_content = (
+                content.pop(0)["text"]
+                if "text" in content[0]
+                else "Tool call answer in next message"
+            )
+            res[0]["content"] = text_content
+            res.append({"role": "user", "content": content})
+
+        return res
+
+    def to_anthropic(self) -> List[Message]:
+        content = []
+        for item in self.content:
+            if "text" in item:
+                content.append({"type": "text", "text": item["text"]})
+            elif "image" in item:
+                content.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",  # currently only base64 is supported
+                            "media_type": "image/png",  # currently only png is supported
+                            "data": item["image"],
+                        },
+                    }
+                )
+        res = [{"role": self.role, "content": content}]
+
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+            res[0]["role"] = "user"
+            res[0]["content"] = {
+                "type": "tool_result",
+                "tool_use_id": self.tool_call_id,
+                "content": res[0]["content"],
+            }
+        return res
 
 
 class ResponseModel(AbstractChatModel):
@@ -29,15 +121,15 @@ class ResponseModel(AbstractChatModel):
             response = self.client.responses.create(
                 model=self.model_name,
                 input=content,
-                # temperature=temperature,
+                temperature=temperature,
                 # previous_response_id=content.get("previous_response_id", None),
                 max_output_tokens=self.max_tokens,
                 **self.extra_kwargs,
                 tool_choice="required",
-                reasoning={
-                    "effort": "low",
-                    "summary": "detailed",
-                },
+                # reasoning={
+                #     "effort": "low",
+                #     "summary": "detailed",
+                # },
             )
             return response
         except openai.OpenAIError as e:
@@ -160,6 +252,63 @@ class OpenAIResponseModelArgs(BaseModelArgs):
 
     def make_model(self, extra_kwargs=None):
         return OpenAIResponseModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+
+
+import anthropic
+
+
+class ClaudeResponseModel(ResponseModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        extra_kwargs=None,
+    ):
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+        self.client = anthropic.Client(api_key=api_key)
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.extra_kwargs = extra_kwargs or {}
+        self.model_name = model_name
+        self.api_key = api_key
+
+    def __call__(self, messages: list[dict], temperature: float = None) -> dict:
+        temperature = temperature if temperature is not None else self.temperature
+        try:
+            response = self.client.messages.create(
+                model=self.model_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=self.max_tokens,
+                **self.extra_kwargs,
+            )
+            return response
+        except Exception as e:
+            logging.error(f"Failed to get a response from the API: {e}")
+            raise e
+
+
+@dataclass
+class ClaudeResponseModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenAI
+    model."""
+
+    def make_model(self, extra_kwargs=None):
+        return ClaudeResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
