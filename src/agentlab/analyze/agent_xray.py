@@ -14,7 +14,7 @@ import pandas as pd
 from attr import dataclass
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
@@ -530,9 +530,29 @@ def if_active(tab_name, n_out=1):
     return decorator
 
 
+def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
+    """If action is a coordinate action, try to render it on the screenshot.
+
+    e.g. mouse_click(120, 130) -> draw a dot at (120, 130) on the screenshot
+    """
+    if action.startswith("mouse_click"):
+        coords = action[action.index("(") + 1 : action.index(")")].split(",")
+        coords = [c.strip() for c in coords]
+        if coords[0].startswith("x="):
+            coords[0] = coords[0][2:]
+        if coords[1].startswith("y="):
+            coords[1] = coords[1][2:]
+        x, y = float(coords[0].strip()), float(coords[1].strip())
+        draw = ImageDraw.Draw(screenshot)
+        radius = 5
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="red", outline="red")
+    return screenshot
+
+
 def update_screenshot(som_or_not: str):
     global info
-    return get_screenshot(info, som_or_not=som_or_not)
+    action = info.exp_result.steps_info[info.step].action
+    return tag_screenshot_with_action(get_screenshot(info, som_or_not=som_or_not), action)
 
 
 def get_screenshot(info: Info, step: int = None, som_or_not: str = "Raw Screenshots"):
@@ -549,6 +569,9 @@ def update_screenshot_pair(som_or_not: str):
     global info
     s1 = get_screenshot(info, info.step, som_or_not)
     s2 = get_screenshot(info, info.step + 1, som_or_not)
+
+    if s1 is not None:
+        s1 = tag_screenshot_with_action(s1, info.exp_result.steps_info[info.step].action)
     return s1, s2
 
 
