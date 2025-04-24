@@ -544,18 +544,21 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
         The tagged screenshot.
     """
     if action.startswith("mouse_click"):
-        coords = action[action.index("(") + 1 : action.index(")")].split(",")
-        coords = [c.strip() for c in coords]
-        if coords[0].startswith("x="):
-            coords[0] = coords[0][2:]
-        if coords[1].startswith("y="):
-            coords[1] = coords[1][2:]
-        x, y = float(coords[0].strip()), float(coords[1].strip())
-        draw = ImageDraw.Draw(screenshot)
-        radius = 5
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="red", outline="red")
-    return screenshot
-
+        try:
+            coords = action[action.index("(") + 1 : action.index(")")].split(",")
+            coords = [c.strip() for c in coords]
+            if len(coords) != 2:
+                raise ValueError(f"Invalid coordinate format: {coords}")
+            if coords[0].startswith("x="):
+                coords[0] = coords[0][2:]
+            if coords[1].startswith("y="):
+                coords[1] = coords[1][2:]
+            x, y = float(coords[0].strip()), float(coords[1].strip())
+            draw = ImageDraw.Draw(screenshot)
+            radius = 5
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="red", outline="red")
+        except (ValueError, IndexError) as e:
+            warning(f"Failed to parse action '{action}': {e}")
 
 def update_screenshot(som_or_not: str):
     global info
