@@ -560,7 +560,7 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
             draw = ImageDraw.Draw(screenshot)
             radius = 5
             draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius), fill="red", outline="red"
+                (x - radius, y - radius, x + radius, y + radius), fill="blue", outline="blue"
             )
         except (ValueError, IndexError) as e:
             warning(f"Failed to parse action '{action}': {e}")

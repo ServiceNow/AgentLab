@@ -72,17 +72,29 @@ class MessageBuilder:
 
     def to_anthropic(self) -> List[Message]:
         content = []
+
+        if self.role == "system":
+            logging.warning(
+                "In the Anthropic API, system messages should be passed as a direct input to the client."
+            )
+            return []
+
         for item in self.content:
             if "text" in item:
                 content.append({"type": "text", "text": item["text"]})
             elif "image" in item:
+                img_str: str = item["image"]
+                # make sure to get rid of the image type for anthropic
+                # e.g. "data:image/png;base64"
+                if img_str.startswith("data:image/png;base64,"):
+                    img_str = img_str[len("data:image/png;base64,") :]
                 content.append(
                     {
                         "type": "image",
                         "source": {
                             "type": "base64",  # currently only base64 is supported
                             "media_type": "image/png",  # currently only png is supported
-                            "data": item["image"],
+                            "data": img_str,
                         },
                     }
                 )
@@ -91,11 +103,26 @@ class MessageBuilder:
         if self.role == "tool":
             assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
             res[0]["role"] = "user"
-            res[0]["content"] = {
-                "type": "tool_result",
-                "tool_use_id": self.tool_call_id,
-                "content": res[0]["content"],
-            }
+            res[0]["content"] = [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": self.tool_call_id,
+                    "content": res[0]["content"],
+                }
+            ]
+        return res
+
+    def to_markdown(self) -> str:
+        content = []
+        for item in self.content:
+            if "text" in item:
+                content.append(item["text"])
+            elif "image" in item:
+                content.append(f"![image]({item['image']})")
+        res = f"{self.role}: " + "\n".join(content)
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+            res += f"\nTool call ID: {self.tool_call_id}"
         return res
 
 
