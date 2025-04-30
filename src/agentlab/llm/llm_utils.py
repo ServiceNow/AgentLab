@@ -14,7 +14,6 @@ from warnings import warn
 import numpy as np
 import tiktoken
 import yaml
-# from langchain.schema import BaseMessage 
 from langchain.schema import BaseMessage as LangchainBaseMessage
 from langchain_community.adapters.openai import convert_message_to_dict
 from PIL import Image
@@ -186,11 +185,15 @@ def get_tokenizer(model_name="gpt-4"):
     try:
         return tiktoken.encoding_for_model(model_name)
     except KeyError:
-        logging.info(f"Could not find a tokenizer for model {model_name}. Trying HuggingFace.")
+        logging.info(
+            f"Could not find a tokenizer for model {model_name}. Trying HuggingFace."
+        )
     try:
         return AutoTokenizer.from_pretrained(model_name)
     except OSError:
-        logging.info(f"Could not find a tokenizer for model {model_name}. Defaulting to gpt-4.")
+        logging.info(
+            f"Could not find a tokenizer for model {model_name}. Defaulting to gpt-4."
+        )
     return tiktoken.encoding_for_model("gpt-4")
 
 
@@ -402,7 +405,9 @@ class BaseMessage(dict):
             else:
                 logging.info(msg)
 
-        return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
+        return "\n".join(
+            [elem["text"] for elem in self["content"] if elem["type"] == "text"]
+        )
 
     def add_content(self, type: str, content: Any):
         if isinstance(self["content"], str):
@@ -540,11 +545,12 @@ class Discussion:
 
     def to_markdown(self):
         self.merge()
-        return "\n".join([f"Message {i}\n{m.to_markdown()}\n" for i, m in enumerate(self.messages)])
+        return "\n".join(
+            [f"Message {i}\n{m.to_markdown()}\n" for i, m in enumerate(self.messages)]
+        )
 
 
 if __name__ == "__main__":
-
     # model_to_download = "THUDM/agentlm-70b"
     model_to_download = "databricks/dbrx-instruct"
     save_dir = "/mnt/ui_copilot/data_rw/base_models/"
