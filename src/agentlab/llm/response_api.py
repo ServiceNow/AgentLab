@@ -1,11 +1,15 @@
+import json
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+import anthropic
 import openai
+from anthropic import Anthropic
 from openai import OpenAI
 
-from .base_api import AbstractChatModel, BaseModelArgs
+from .base_api import BaseModelArgs
 
 type ContentItem = Dict[str, Any]
 type Message = Dict[str, Union[str, List[ContentItem]]]
@@ -134,29 +138,61 @@ class MessageBuilder:
         return res
 
 
-class ResponseModel(AbstractChatModel):
+class BaseResponseModel(ABC):
     def __init__(
         self,
-        model_name,
-        api_key=None,
-        temperature=0.5,
-        max_tokens=100,
-        extra_kwargs=None,
+        model_name: str,
+        api_key: Optional[str] = None,
+        temperature: float = 0.5,
+        max_tokens: int = 100,
+        extra_kwargs: Optional[Dict[str, Any]] = None,
     ):
         self.model_name = model_name
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_kwargs = extra_kwargs or {}
+
+    def __call__(self, messages: list[dict | MessageBuilder]) -> dict:
+        """Make a call to the model and return the parsed response."""
+        response = self._call_api(messages)
+        return self._parse_response(response)
+
+    @abstractmethod
+    def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
+        """Make a call to the model API and return the raw response."""
+        pass
+
+    @abstractmethod
+    def _parse_response(self, response: dict) -> dict:
+        """Parse the raw response from the model API and return a structured response."""
+        pass
+
+
+class OpenAIResponseModel(BaseResponseModel):
+    def __init__(
+        self,
+        model_name: str,
+        api_key: Optional[str] = None,
+        temperature: float = 0.5,
+        max_tokens: int = 100,
+        extra_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            extra_kwargs=extra_kwargs,
+        )
         self.client = OpenAI(api_key=api_key)
 
-    def __call__(self, content: dict, temperature: float = None) -> dict:
-        temperature = temperature if temperature is not None else self.temperature
+    def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
         try:
             response = self.client.responses.create(
                 model=self.model_name,
-                input=content,
-                temperature=temperature,
+                input=messages,
+                temperature=self.temperature,
                 # previous_response_id=content.get("previous_response_id", None),
                 max_output_tokens=self.max_tokens,
                 **self.extra_kwargs,
@@ -171,10 +207,39 @@ class ResponseModel(AbstractChatModel):
             logging.error(f"Failed to get a response from the API: {e}")
             raise e
 
+    def _parse_response(self, response: dict) -> dict:
+        result = {
+            "raw_response": response,
+            "think": "",
+            "action": "noop()",
+            "last_computer_call_id": None,
+            "assistant_message": {
+                "role": "assistant",
+                "content": response.output,
+            },
+        }
+        for output in response.output:
+            if output.type == "function_call":
+                arguments = json.loads(output.arguments)
+                result["action"] = (
+                    f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
+                )
+                result["last_computer_call_id"] = output.call_id
+                break
+            elif output.type == "reasoning":
+                if len(output.summary) > 0:
+                    result["think"] += output.summary[0].text + "\n"
+        return result
 
-class OpenAIResponseModel(ResponseModel):
+
+class ClaudeResponseModel(BaseResponseModel):
     def __init__(
-        self, model_name, api_key=None, temperature=0.5, max_tokens=100, extra_kwargs=None
+        self,
+        model_name: str,
+        api_key: Optional[str] = None,
+        temperature: float = 0.5,
+        max_tokens: int = 100,
+        extra_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_name=model_name,
@@ -183,37 +248,45 @@ class OpenAIResponseModel(ResponseModel):
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
         )
+        self.client = Anthropic(api_key=api_key)
 
-    def __call__(self, messages: list[dict], temperature: float = None) -> dict:
-        return super().__call__(messages, temperature)
-        # outputs = response.output
-        # last_computer_call_id = None
-        # answer_type = "call"
-        # reasoning = "No reasoning"
-        # for output in outputs:
-        #     if output.type == "reasoning":
-        #         reasoning = output.summary[0].text
-        #     elif output.type == "computer_call":
-        #         action = output.action
-        #         last_computer_call_id = output.call_id
-        #         res = response_to_text(action)
-        #     elif output.type == "message":
-        #         res = "noop()"
-        #         answer_type = "message"
-        #     else:
-        #         logging.warning(f"Unrecognized output type: {output.type}")
-        #         continue
-        # return {
-        #     "think": reasoning,
-        #     "action": res,
-        #     "last_computer_call_id": last_computer_call_id,
-        #     "last_response_id": response.id,
-        #     "outputs": outputs,
-        #     "answer_type": answer_type,
-        # }
+    def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
+        try:
+            response = self.client.messages.create(
+                model=self.model_name,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                **self.extra_kwargs,
+            )
+            return response
+        except Exception as e:
+            logging.error(f"Failed to get a response from the API: {e}")
+            raise e
+
+    def _parse_response(self, response: dict) -> dict:
+        result = {
+            "raw_response": response,
+            "think": "",
+            "action": "noop()",
+            "last_computer_call_id": None,
+            "assistant_message": {
+                "role": "assistant",
+                "content": response.content,
+            },
+        }
+        for output in response.content:
+            if output.type == "tool_use":
+                result["action"] = (
+                    f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
+                )
+                result["last_computer_call_id"] = output.id
+            elif output.type == "text":
+                result["think"] += output.text
+        return result
 
 
-def response_to_text(action):
+def cua_response_to_text(action):
     """
     Given a computer action (e.g., click, double_click, scroll, etc.),
     convert it to a text description.
@@ -292,49 +365,6 @@ class OpenAIResponseModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
         )
-
-
-import anthropic
-
-
-class ClaudeResponseModel(ResponseModel):
-    def __init__(
-        self,
-        model_name,
-        api_key=None,
-        temperature=0.5,
-        max_tokens=100,
-        extra_kwargs=None,
-    ):
-        super().__init__(
-            model_name=model_name,
-            api_key=api_key,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            extra_kwargs=extra_kwargs,
-        )
-        self.client = anthropic.Client(api_key=api_key)
-        self.model_name = model_name
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.extra_kwargs = extra_kwargs or {}
-        self.model_name = model_name
-        self.api_key = api_key
-
-    def __call__(self, messages: list[dict], temperature: float = None) -> dict:
-        temperature = temperature if temperature is not None else self.temperature
-        try:
-            response = self.client.messages.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=self.max_tokens,
-                **self.extra_kwargs,
-            )
-            return response
-        except Exception as e:
-            logging.error(f"Failed to get a response from the API: {e}")
-            raise e
 
 
 @dataclass

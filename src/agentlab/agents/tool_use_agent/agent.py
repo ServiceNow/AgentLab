@@ -188,36 +188,16 @@ class ToolUseAgent(bgym.Agent):
             temperature=self.temperature,
         )
 
-        action = "noop()"
-        think = ""
-        # openai
-        # for output in response.output:
-        #     if output.type == "function_call":
-        #         arguments = json.loads(output.arguments)
-        #         action = f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
-        #         self.previous_call_id = output.call_id
-        #         self.messages.append(output)
-        #         break
-        #     elif output.type == "reasoning":
-        #         if len(output.summary) > 0:
-        #             think += output.summary[0].text + "\n"
-        #         self.messages.append(output)
-
-        # anthropic
-        for output in response.content:
-            if output.type == "text":
-                think += output.text
-            elif output.type == "tool_use":
-                action = f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
-                self.previous_call_id = output.id
-
-        self.messages.append({"role": "assistant", "content": response.content})
+        action = response["action"]
+        think = response["think"]
+        self.previous_call_id = response["last_computer_call_id"]
+        self.messages.append(response["assistant_message"])
 
         return (
             action,
             bgym.AgentInfo(
                 think=think,
-                chat_messages=[],
+                chat_messages=self.messages,
                 stats={},
             ),
         )
