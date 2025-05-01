@@ -23,6 +23,7 @@ from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.response_api import MessageBuilder
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -627,12 +628,43 @@ def update_axtree():
     return get_obs(key="axtree_txt", default="No AXTree")
 
 
+def dict_to_markdown(d: dict):
+    """
+    Convert a dictionary to a clean markdown representation, recursively.
+
+    dict: type = dict[str, str | list[dict[...]]]
+    """
+    if not d:
+        return "No Data"
+    res = ""
+    for k, v in d.items():
+        if isinstance(v, dict):
+            res += f"## {k}\n{dict_to_markdown(v)}\n"
+        elif isinstance(v, list):
+            res += f"## {k}\n"
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    res += f"### Item {i}\n{dict_to_markdown(item)}\n"
+                else:
+                    res += f"- {item}\n"
+        else:
+            res += f"- **{k}**: {v}\n"
+    return res
+
+
 def update_chat_messages():
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     if isinstance(chat_messages, Discussion):
         return chat_messages.to_markdown()
+
+    if isinstance(chat_messages, list) and isinstance(chat_messages[0], MessageBuilder):
+        chat_messages = [
+            m.to_markdown() if not isinstance(m, dict) else dict_to_markdown(m)
+            for m in chat_messages
+        ]
+        return "\n\n".join(chat_messages)
     messages = []  # TODO(ThibaultLSDC) remove this at some point
     for i, m in enumerate(chat_messages):
         if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated

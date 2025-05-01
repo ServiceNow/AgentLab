@@ -118,11 +118,19 @@ class MessageBuilder:
             if "text" in item:
                 content.append(item["text"])
             elif "image" in item:
-                content.append(f"![image]({item['image']})")
-        res = f"{self.role}: " + "\n".join(content)
+                content.append(f"![Image]({item['image']})")
+
+        # Format the role as a header
+        res = f"## {self.role.capitalize()} Message\n\n"
+
+        # Add content with spacing between items
+        res += "\n\n---\n\n".join(content)
+
+        # Add tool call ID if the role is "tool"
         if self.role == "tool":
             assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            res += f"\nTool call ID: {self.tool_call_id}"
+            res += f"\n\n---\n\n**Tool Call ID:** `{self.tool_call_id}`"
+
         return res
 
 
