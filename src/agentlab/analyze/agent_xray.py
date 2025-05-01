@@ -550,7 +550,7 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
         try:
             coords = action[action.index("(") + 1 : action.index(")")].split(",")
             coords = [c.strip() for c in coords]
-            if len(coords) != 2:
+            if len(coords) not in [2, 3]:
                 raise ValueError(f"Invalid coordinate format: {coords}")
             if coords[0].startswith("x="):
                 coords[0] = coords[0][2:]
