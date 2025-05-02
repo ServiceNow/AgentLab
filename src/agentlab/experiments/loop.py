@@ -25,7 +25,7 @@ from dataclasses_json import DataClassJsonMixin
 from PIL import Image
 from tqdm import tqdm
 
-from agentlab.agents.tapeagent import TapeAgent, save_tape
+# from agentlab.agents.tapeagent import TapeAgent, save_tape
 
 logger = logging.getLogger(__name__)
 
@@ -475,9 +475,9 @@ class ExpArgs:
                     err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
                 logger.info("Saving experiment info.")
                 self.save_summary_info(episode_info, Path(self.exp_dir), err_msg, stack_trace)
-                if isinstance(agent, TapeAgent):
-                    task = getattr(env, "task", {})
-                    save_tape(self.exp_dir, episode_info, task, agent.final_tape)
+                # if isinstance(agent, TapeAgent):
+                #     task = getattr(env, "task", {})
+                #     save_tape(self.exp_dir, episode_info, task, agent.final_tape)
             except Exception as e:
                 logger.exception(f"Error while saving experiment info: {e}")
             try:
@@ -880,7 +880,7 @@ def _move_old_exp(exp_dir):
 def _get_env_name(task_name: str):
     """Register tasks if needed (lazy import) and return environment name."""
 
-    # lazy benchmark import
+    # lazy import
     if task_name.startswith("miniwob"):
         import browsergym.miniwob
     elif task_name.startswith("workarena"):
