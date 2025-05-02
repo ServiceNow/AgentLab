@@ -65,6 +65,7 @@ class ToolUseAgentArgs(AgentArgs):
     model_args: OpenAIResponseModelArgs = None
     use_first_obs: bool = True
     tag_screenshot: bool = True
+    use_raw_page_output: bool = True
 
     def __post_init__(self):
         try:
