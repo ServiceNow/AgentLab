@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import bgym
 import pytest
-from bgym import HighLevelActionSetArgs
+from bgym import HighLevelActionSet, HighLevelActionSetArgs
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_3_5
