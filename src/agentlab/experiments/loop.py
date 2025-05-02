@@ -236,9 +236,9 @@ class StepInfo:
             stats = {}
         stats.update(self.agent_info.pop("stats", {}))
 
-        messages = self.agent_info.get("chat_messages", None)
-        if messages is not None:
-            stats["n_token_agent_messages"] = count_messages_token(messages)
+        # messages = self.agent_info.get("chat_messages", None)
+        # if messages is not None:
+        #     stats["n_token_agent_messages"] = count_messages_token(messages)
 
         t = self.profiling
         stats["step_elapsed"] = t.env_stop - t.env_start
