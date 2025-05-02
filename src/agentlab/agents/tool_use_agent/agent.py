@@ -220,5 +220,5 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
 
 
 AGENT_CONFIG = ToolUseAgentArgs(
-    model_args=OPENAI_MODEL_CONFIG,
+    model_args=CLAUDE_MODEL_CONFIG,
 )
