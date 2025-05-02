@@ -155,6 +155,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=28_000,
         temperature=1e-1,
     ),
+    "openrouter/meta-llama/llama-4-maverick": OpenRouterModelArgs(
+        model_name="meta-llama/llama-4-maverick",
+        max_total_tokens=128_000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
+        temperature=1e-1,
+        vision_support=True,
+    ),
     "openrouter/meta-llama/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct:free",
         max_total_tokens=128_000,
