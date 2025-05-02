@@ -12,12 +12,12 @@ from multiprocessing import Manager, Pool, Queue
 from pathlib import Path
 
 import bgym
+from bgym import DEFAULT_BENCHMARKS, Benchmark
 from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
-from agentlab.experiments.benchmark import DEFAULT_BENCHMARKS, Benchmark
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
 from agentlab.experiments.loop import EnvArgs, ExpArgs

@@ -8,11 +8,11 @@ from pathlib import Path
 
 import bgym
 import pandas as pd
+from bgym import Benchmark
 from git import InvalidGitRepositoryError, Repo
 from git.config import GitConfigParser
 
 import agentlab
-from agentlab.experiments.benchmark import Benchmark
 from agentlab.experiments.exp_utils import RESULTS_DIR
 
 

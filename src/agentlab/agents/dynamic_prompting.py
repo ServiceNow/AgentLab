@@ -9,10 +9,10 @@ from typing import Literal
 from warnings import warn
 
 import bgym
+from bgym import HighLevelActionSetArgs
 from browsergym.core.action.base import AbstractActionSet
 from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, overlay_som, prune_html
 
-from agentlab.experiments.benchmark import HighLevelActionSetArgs
 from agentlab.llm.llm_utils import (
     BaseMessage,
     ParseError,

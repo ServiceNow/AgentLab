@@ -1,7 +1,5 @@
 import bgym
-from bgym import AbstractAgentArgs
-
-from agentlab.experiments.benchmark import Benchmark
+from bgym import AbstractAgentArgs, Benchmark
 
 
 class AgentArgs(AbstractAgentArgs):

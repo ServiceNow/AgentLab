@@ -7,8 +7,7 @@ import bgym
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-
-from agentlab.experiments.benchmark import DEFAULT_BENCHMARKS
+from bgym import DEFAULT_BENCHMARKS
 
 
 def clean_dict(dependency_dict: dict[str, list[str]]) -> dict[str, list[str]]:

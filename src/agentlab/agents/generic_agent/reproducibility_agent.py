@@ -19,11 +19,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import bgym
+from bgym import HighLevelActionSetArgs
 from browsergym.experiments.agent import AgentInfo
 from bs4 import BeautifulSoup
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.experiments.benchmark import HighLevelActionSetArgs
 from agentlab.experiments.loop import ExpArgs, ExpResult, yield_all_exp_results
 from agentlab.experiments.study import Study
 from agentlab.llm.chat_api import make_assistant_message

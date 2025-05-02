@@ -5,11 +5,11 @@ from pathlib import Path
 
 import bgym
 import pytest
+from bgym import DEFAULT_BENCHMARKS
 
 from agentlab.agents.generic_agent import AGENT_4o_MINI
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util
-from agentlab.experiments.benchmark import DEFAULT_BENCHMARKS
 
 
 @pytest.mark.parametrize(

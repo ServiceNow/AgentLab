@@ -3,10 +3,10 @@ Basic flags and agent configurations for generic agents.
 """
 
 import bgym
+from bgym import HighLevelActionSetArgs
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.experiments import args
-from agentlab.experiments.benchmark import HighLevelActionSetArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 from .generic_agent import GenericAgentArgs
