@@ -15,6 +15,17 @@ type ContentItem = Dict[str, Any]
 type Message = Dict[str, Union[str, List[ContentItem]]]
 
 
+@dataclass
+class ResponseLLMOutput:
+    """Serializable object for the output of a response LLM."""
+
+    raw_response: Any
+    think: str
+    action: str
+    last_computer_call_id: str
+    assistant_message: Any
+
+
 class MessageBuilder:
     def __init__(self, role: str):
         self.role = role
@@ -63,13 +74,17 @@ class MessageBuilder:
             # tool messages can only take text with openai
             # we need to split the first content element if it's text and use it
             # then open a new (user) message with the rest
-            res[0]["tool_call_id"] = self.tool_call_id
+            # a function_call_output dict has keys "call_id", "type" and "output"
+            res[0]["call_id"] = self.tool_call_id
+            res[0]["type"] = "function_call_output"
+            res[0].pop("role", None)  # make sure to remove role
             text_content = (
                 content.pop(0)["text"]
                 if "text" in content[0]
                 else "Tool call answer in next message"
             )
-            res[0]["content"] = text_content
+            res[0]["output"] = text_content
+            res[0].pop("content", None)  # make sure to remove content
             res.append({"role": "user", "content": content})
 
         return res
@@ -116,6 +131,8 @@ class MessageBuilder:
             ]
         return res
 
+    def to_chat_completion(self) -> List[Message]: ...
+
     def to_markdown(self) -> str:
         content = []
         for item in self.content:
@@ -159,12 +176,12 @@ class BaseResponseModel(ABC):
         return self._parse_response(response)
 
     @abstractmethod
-    def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
+    def _call_api(self, messages: list[dict | MessageBuilder]) -> Any:
         """Make a call to the model API and return the raw response."""
         pass
 
     @abstractmethod
-    def _parse_response(self, response: dict) -> dict:
+    def _parse_response(self, response: Any) -> ResponseLLMOutput:
         """Parse the raw response from the model API and return a structured response."""
         pass
 
@@ -187,11 +204,17 @@ class OpenAIResponseModel(BaseResponseModel):
         )
         self.client = OpenAI(api_key=api_key)
 
-    def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
+    def _call_api(self, messages: list[Any | MessageBuilder]) -> dict:
+        input = []
+        for msg in messages:
+            if isinstance(msg, MessageBuilder):
+                input += msg.to_openai()
+            else:
+                input.append(msg)
         try:
             response = self.client.responses.create(
                 model=self.model_name,
-                input=messages,
+                input=input,
                 temperature=self.temperature,
                 # previous_response_id=content.get("previous_response_id", None),
                 max_output_tokens=self.max_tokens,
@@ -208,27 +231,25 @@ class OpenAIResponseModel(BaseResponseModel):
             raise e
 
     def _parse_response(self, response: dict) -> dict:
-        result = {
-            "raw_response": response,
-            "think": "",
-            "action": "noop()",
-            "last_computer_call_id": None,
-            "assistant_message": {
-                "role": "assistant",
-                "content": response.output,
-            },
-        }
+        result = ResponseLLMOutput(
+            raw_response=response,
+            think="",
+            action="noop()",
+            last_computer_call_id=None,
+            assistant_message=None,
+        )
         for output in response.output:
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
-                result["action"] = (
+                result.action = (
                     f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
                 )
-                result["last_computer_call_id"] = output.call_id
+                result.last_computer_call_id = output.call_id
+                result.assistant_message = output
                 break
             elif output.type == "reasoning":
                 if len(output.summary) > 0:
-                    result["think"] += output.summary[0].text + "\n"
+                    result.think += output.summary[0].text + "\n"
         return result
 
 
@@ -251,10 +272,16 @@ class ClaudeResponseModel(BaseResponseModel):
         self.client = Anthropic(api_key=api_key)
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
+        input = []
+        for msg in messages:
+            if isinstance(msg, MessageBuilder):
+                input += msg.to_anthropic()
+            else:
+                input.append(msg)
         try:
             response = self.client.messages.create(
                 model=self.model_name,
-                messages=messages,
+                messages=input,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 **self.extra_kwargs,
@@ -265,24 +292,22 @@ class ClaudeResponseModel(BaseResponseModel):
             raise e
 
     def _parse_response(self, response: dict) -> dict:
-        result = {
-            "raw_response": response,
-            "think": "",
-            "action": "noop()",
-            "last_computer_call_id": None,
-            "assistant_message": {
+        result = ResponseLLMOutput(
+            raw_response=response,
+            think="",
+            action="noop()",
+            last_computer_call_id=None,
+            assistant_message={
                 "role": "assistant",
                 "content": response.content,
             },
-        }
+        )
         for output in response.content:
             if output.type == "tool_use":
-                result["action"] = (
-                    f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
-                )
-                result["last_computer_call_id"] = output.id
+                result.action = f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
+                result.last_computer_call_id = output.id
             elif output.type == "text":
-                result["think"] += output.text
+                result.think += output.text
         return result
 
 
@@ -358,6 +383,8 @@ class OpenAIResponseModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenAI
     model."""
 
+    api = "openai"
+
     def make_model(self, extra_kwargs=None):
         return OpenAIResponseModel(
             model_name=self.model_name,
@@ -371,6 +398,8 @@ class OpenAIResponseModelArgs(BaseModelArgs):
 class ClaudeResponseModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenAI
     model."""
+
+    api = "anthropic"
 
     def make_model(self, extra_kwargs=None):
         return ClaudeResponseModel(

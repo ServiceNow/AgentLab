@@ -15,6 +15,7 @@ from agentlab.llm.response_api import (
     ClaudeResponseModelArgs,
     MessageBuilder,
     OpenAIResponseModelArgs,
+    ResponseLLMOutput,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -61,8 +62,9 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
 
 @dataclass
 class ToolUseAgentArgs(AgentArgs):
-    temperature: float = 0.1
     model_args: OpenAIResponseModelArgs = None
+    use_first_obs: bool = True
+    tag_screenshot: bool = True
 
     def __post_init__(self):
         try:
@@ -72,12 +74,10 @@ class ToolUseAgentArgs(AgentArgs):
 
     def make_agent(self) -> bgym.Agent:
         return ToolUseAgent(
-            temperature=self.temperature,
             model_args=self.model_args,
+            use_first_obs=self.use_first_obs,
+            tag_screenshot=self.tag_screenshot,
         )
-
-    def set_reproducibility_mode(self):
-        self.temperature = 0
 
     def prepare(self):
         return self.model_args.prepare_server()
@@ -89,12 +89,10 @@ class ToolUseAgentArgs(AgentArgs):
 class ToolUseAgent(bgym.Agent):
     def __init__(
         self,
-        temperature: float,
         model_args: OpenAIResponseModelArgs,
         use_first_obs: bool = True,
         tag_screenshot: bool = True,
     ):
-        self.temperature = temperature
         self.chat = model_args.make_model()
         self.model_args = model_args
         self.use_first_obs = use_first_obs
@@ -102,7 +100,7 @@ class ToolUseAgent(bgym.Agent):
 
         self.action_set = bgym.HighLevelActionSet(["coord"], multiaction=False)
 
-        self.tools = self.action_set.to_tool_description(api="anthropic")
+        self.tools = self.action_set.to_tool_description(api=model_args.api)
 
         # self.tools.append(
         #     {
@@ -131,11 +129,9 @@ class ToolUseAgent(bgym.Agent):
         if page is not None:
             obs["screenshot"] = extract_screenshot(page)
             if self.tag_screenshot:
-                obs["screenshot"] = Image.fromarray(obs["screenshot"])
-                obs["screenshot"] = tag_screenshot_with_action(
-                    obs["screenshot"], obs["last_action"]
-                )
-                obs["screenshot"] = np.array(obs["screenshot"])
+                screenshot = Image.fromarray(obs["screenshot"])
+                screenshot = tag_screenshot_with_action(screenshot, obs["last_action"])
+                obs["screenshot_tag"] = np.array(screenshot)
         else:
             raise ValueError("No page found in the observation.")
 
@@ -158,16 +154,25 @@ class ToolUseAgent(bgym.Agent):
             self.messages.append(goal_message)
 
             if self.use_first_obs:
-                message = MessageBuilder.user().add_text(
-                    "Here is the first observation. A red dot on screenshots indicate the previous click action:"
-                )
-                message.add_image(image_to_png_base64_url(obs["screenshot"]))
+                if self.tag_screenshot:
+                    message = MessageBuilder.user().add_text(
+                        "Here is the first observation. A red dot on screenshots indicate the previous click action:"
+                    )
+                    message.add_image(image_to_png_base64_url(obs["screenshot_tag"]))
+                else:
+                    message = MessageBuilder.user().add_text("Here is the first observation:")
+                    message.add_image(image_to_png_base64_url(obs["screenshot"]))
                 self.messages.append(message)
         else:
             if obs["last_action_error"] == "":
-                tool_message = MessageBuilder.tool().add_image(
-                    image_to_png_base64_url(obs["screenshot"])
-                )
+                if self.tag_screenshot:
+                    tool_message = MessageBuilder.tool().add_image(
+                        image_to_png_base64_url(obs["screenshot_tag"])
+                    )
+                else:
+                    tool_message = MessageBuilder.tool().add_image(
+                        image_to_png_base64_url(obs["screenshot"])
+                    )
                 tool_message.add_tool_id(self.previous_call_id)
                 self.messages.append(tool_message)
             else:
@@ -177,21 +182,12 @@ class ToolUseAgent(bgym.Agent):
                 tool_message.add_tool_id(self.previous_call_id)
                 self.messages.append(tool_message)
 
-        messages = []
-        for msg in self.messages:
-            if isinstance(msg, MessageBuilder):
-                messages += msg.to_anthropic()
-            else:
-                messages.append(msg)
-        response: "Response" = self.llm(
-            messages=messages,
-            temperature=self.temperature,
-        )
+        response: ResponseLLMOutput = self.llm(messages=self.messages)
 
-        action = response["action"]
-        think = response["think"]
-        self.previous_call_id = response["last_computer_call_id"]
-        self.messages.append(response["assistant_message"])
+        action = response.action
+        think = response.think
+        self.previous_call_id = response.last_computer_call_id
+        self.messages.append(response.assistant_message)
 
         return (
             action,
@@ -203,8 +199,8 @@ class ToolUseAgent(bgym.Agent):
         )
 
 
-MODEL_CONFIG = OpenAIResponseModelArgs(
-    model_name="gpt-4o",
+OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
+    model_name="gpt-4.1",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
     max_new_tokens=2_000,
@@ -224,6 +220,5 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
 
 
 AGENT_CONFIG = ToolUseAgentArgs(
-    temperature=0.1,
-    model_args=CLAUDE_MODEL_CONFIG,
+    model_args=OPENAI_MODEL_CONFIG,
 )

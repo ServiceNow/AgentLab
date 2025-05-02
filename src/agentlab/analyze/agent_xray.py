@@ -634,6 +634,9 @@ def dict_to_markdown(d: dict):
 
     dict: type = dict[str, str | list[dict[...]]]
     """
+    if not isinstance(d, dict):
+        warning(f"Expected dict, got {type(d)}")
+        return repr(d)
     if not d:
         return "No Data"
     res = ""
@@ -661,7 +664,7 @@ def update_chat_messages():
 
     if isinstance(chat_messages, list) and isinstance(chat_messages[0], MessageBuilder):
         chat_messages = [
-            m.to_markdown() if not isinstance(m, dict) else dict_to_markdown(m)
+            m.to_markdown() if isinstance(m, MessageBuilder) else dict_to_markdown(m)
             for m in chat_messages
         ]
         return "\n\n".join(chat_messages)
