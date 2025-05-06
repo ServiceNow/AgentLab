@@ -5,10 +5,11 @@ from dataclasses import dataclass
 class VLModel(ABC):
     @abstractmethod
     def __call__(self, messages: list[dict]) -> dict:
-        pass
+        raise NotImplementedError
 
+    @abstractmethod
     def get_stats(self):
-        return {}
+        raise NotImplementedError
 
 
 @dataclass
@@ -23,10 +24,12 @@ class VLModelArgs(ABC):
 
     @abstractmethod
     def make_model(self) -> VLModel:
-        pass
+        raise NotImplementedError
 
+    @abstractmethod
     def prepare(self):
-        pass
+        raise NotImplementedError
 
+    @abstractmethod
     def close(self):
-        pass
+        raise NotImplementedError

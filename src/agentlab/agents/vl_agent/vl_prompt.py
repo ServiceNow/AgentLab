@@ -85,7 +85,7 @@ Make sure to follow the template with proper tags:
         return self.observation.add_screenshot(prompt)
 
     def _parse_answer(self, text_answer):
-        ans_dict = {}
-        ans_dict.update(self.think.parse_answer(text_answer))
-        ans_dict.update(self.action_prompt.parse_answer(text_answer))
-        return ans_dict
+        answer = {}
+        answer.update(self.think.parse_answer(text_answer))
+        answer.update(self.action_prompt.parse_answer(text_answer))
+        return answer
