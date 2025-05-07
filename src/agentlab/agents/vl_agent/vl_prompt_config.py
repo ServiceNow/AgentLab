@@ -1,6 +1,6 @@
-from .vl_prompt import VLPromptFlags
 import agentlab.agents.dynamic_prompting as dp
-import bgym
+from browsergym.experiments.benchmark import HighLevelActionSetArgs
+from .vl_prompt import VLPromptFlags
 
 
 VL_PROMPT_FLAGS_DICT = {
@@ -14,7 +14,7 @@ VL_PROMPT_FLAGS_DICT = {
             openai_vision_detail="auto",
         ),
         action_flags=dp.ActionFlags(
-            action_set=bgym.HighLevelActionSetArgs(subsets=["coord"]),
+            action_set=HighLevelActionSetArgs(subsets=["coord"]),
             long_description=True,
             individual_examples=False,
         ),
