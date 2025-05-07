@@ -6,7 +6,7 @@ from sklearn.model_selection import KFold
 from statsmodels.genmod.families import Binomial
 
 
-def aggregate_success(
+def aggregate_std_err(
     run_rewards: Sequence[np.ndarray],
     baseline_rewards: np.ndarray,
     std_err_fn: Callable[[np.ndarray, np.ndarray], Tuple[float, float]] = None,
