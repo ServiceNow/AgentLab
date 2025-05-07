@@ -169,6 +169,29 @@ def std_err_diff_baselines(rewards, baselines):
     return adjusted_reward_mean, adjusted_se
 
 
+def _clean_input(rewards, baselines):
+    rewards = np.asarray(rewards)
+    baselines = np.asarray(baselines)
+    baselines = _replace_nans_by_average(baselines)
+    if rewards.shape[0] != baselines.shape[0]:
+        raise ValueError("rewards and baselines must have the same length.")
+    if rewards.ndim != 1:
+        raise ValueError("rewards must be a 1D array.")
+    if baselines.ndim != 2:
+        raise ValueError("baselines must be a 2D array.")
+
+    # remove nan rows
+    valid = ~np.isnan(rewards)
+    rewards = rewards[valid]
+    baselines = baselines[valid]
+    if rewards.size == 0:
+        raise ValueError("No valid rewards after filtering.")
+    if baselines.shape[0] != rewards.shape[0]:
+        raise ValueError("rewards and baselines must have the same length after filtering.")
+
+    return rewards, baselines
+
+
 def std_err_ancova(rewards, baselines):
     """
     Parameters:
@@ -183,9 +206,7 @@ def std_err_ancova(rewards, baselines):
     - standard_error: float
         Standard error of the adjusted mean
     """
-    # Convert inputs to numpy arrays
-    rewards = np.asarray(rewards)
-    baselines = np.asarray(baselines)
+    rewards, baselines = _clean_input(rewards, baselines)
 
     # Center the baselines
     baseline_means = baselines.mean(axis=0)
