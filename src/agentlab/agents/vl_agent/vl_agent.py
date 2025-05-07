@@ -12,107 +12,66 @@ from .vl_prompt import VLPrompt, VLPromptFlags
 
 
 @dataclass
-class VLAgentArgs(ABC):
-    agent_name: str
-
-    @abstractmethod
-    def make_agent(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def prepare(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def close(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_reproducibility_mode(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        raise NotImplementedError
-
-
-@dataclass
 class VLAgent(ABC):
     action_set: AbstractActionSet
 
     @abstractmethod
-    def get_action(self, obs: dict):
+    def get_action(self, obs: dict) -> tuple[str, dict]:
         raise NotImplementedError
 
     @abstractmethod
-    def obs_preprocessor(self, obs: dict):
+    def obs_preprocessor(self, obs: dict) -> dict:
         raise NotImplementedError
 
 
 @dataclass
-class UIAgentArgs(VLAgentArgs):
-    general_model_args: VLModelArgs
-    grounding_model_args: VLModelArgs
-    prompt_flags: VLPromptFlags
-    max_retry: int
+class VLAgentArgs(ABC):
+    agent_name: str
 
-    def __post_init__(self):
-        self.agent_name = (
-            f"ui_agent-{self.general_model_args.model_name}-{self.grounding_model_args.model_name}"
-        )
+    @abstractmethod
+    def make_agent(self) -> VLAgent:
+        raise NotImplementedError
 
-    def make_agent(self):
-        return UIAgent(
-            general_model_args=self.general_model_args,
-            grounding_model_args=self.grounding_model_args,
-            prompt_flags=self.prompt_flags,
-            max_retry=self.max_retry,
-        )
-
+    @abstractmethod
     def prepare(self):
-        self.general_model_args.prepare()
-        self.grounding_model_args.prepare()
+        raise NotImplementedError
 
+    @abstractmethod
     def close(self):
-        self.general_model_args.close()
-        self.grounding_model_args.close()
+        raise NotImplementedError
 
+    @abstractmethod
     def set_reproducibility_mode(self):
-        self.general_model_args.set_reproducibility_mode()
-        self.grounding_model_args.set_reproducibility_mode()
+        raise NotImplementedError
 
+    @abstractmethod
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        self.prompt_flags.obs_flags.use_tabs = benchmark.is_multi_tab
-        self.prompt_flags.action_flags.action_set = deepcopy(benchmark.high_level_action_set_args)
-        if demo_mode:
-            self.prompt_flags.action_flags.action_set.demo_mode = "all_blue"
+        raise NotImplementedError
 
 
 class UIAgent(VLAgent):
     def __init__(
         self,
-        general_model_args: VLModelArgs,
-        grounding_model_args: VLModelArgs,
-        prompt_flags: VLPromptFlags,
+        general_vl_model_args: VLModelArgs,
+        grounding_vl_model_args: VLModelArgs,
+        vl_prompt_flags: VLPromptFlags,
         max_retry: int,
     ):
-        self.general_model_args = general_model_args
-        self.grounding_model_args = grounding_model_args
-        self.prompt_flags = prompt_flags
+        self.general_vl_model = general_vl_model_args.make_model()
+        self.grounding_vl_model = grounding_vl_model_args.make_model()
+        self.action_set = vl_prompt_flags.action_flags.action_set.make_action_set()
+        self._obs_preprocessor = dp.make_obs_preprocessor(vl_prompt_flags.obs_flags)
+        self.vl_prompt_flags = vl_prompt_flags
         self.max_retry = max_retry
-        self.general_model = general_model_args.make_model()
-        self.grounding_model = grounding_model_args.make_model()
-        self.action_set = prompt_flags.action_flags.action_set.make_action_set()
-        self._obs_preprocessor = dp.make_obs_preprocessor(prompt_flags.obs_flags)
         self.obs_history = []
         self.actions = []
         self.thoughts = []
 
     @cost_tracker_decorator
-    def get_action(self, obs: dict):
+    def get_action(self, obs: dict) -> tuple[str, dict]:
         self.obs_history.append(obs)
         vl_prompt = VLPrompt(
-            prompt_flags=self.prompt_flags,
+            vl_prompt_flags=self.vl_prompt_flags,
             action_set=self.action_set,
             obs_history=self.obs_history,
             actions=self.actions,
@@ -120,33 +79,68 @@ class UIAgent(VLAgent):
         )
         system_prompt = SystemMessage(dp.SystemPrompt().prompt)
         try:
-            chat_messages = Discussion([system_prompt, vl_prompt.prompt])
+            messages = Discussion([system_prompt, vl_prompt.prompt])
             answer = retry(
-                self.vl_model,
-                chat_messages,
+                self.general_vl_model,
+                messages,
                 n_retry=self.max_retry,
                 parser=vl_prompt.parse_answer,
             )
+            answer["n_retry"] = (len(messages) - 3) / 2
             answer["busted_retry"] = 0
-            answer["n_retry"] = (len(chat_messages) - 3) / 2
         except ParseError:
             answer = dict(
                 action=None,
+                think=None,
                 n_retry=self.max_retry + 1,
                 busted_retry=1,
             )
-        stats = self.vl_model.get_stats()
+        self.actions.append(answer["action"])
+        self.thoughts.append(answer["think"])
+        stats = self.general_vl_model.get_stats()
         stats["n_retry"] = answer["n_retry"]
         stats["busted_retry"] = answer["busted_retry"]
-        self.actions.append(answer["action"])
-        self.thoughts.append(answer.get("think", None))
-        agent_info = AgentInfo(
-            think=answer.get("think", None),
-            chat_messages=chat_messages,
-            stats=stats,
-            extra_info={"vl_model_args": asdict(self.vl_model_args)},
-        )
-        return answer["action"], agent_info
+        agent_info = AgentInfo(think=answer["think"], chat_messages=messages, stats=stats)
+        return answer["action"], asdict(agent_info)
 
-    def obs_preprocessor(self, obs: dict):
+    def obs_preprocessor(self, obs: dict) -> dict:
         return self._obs_preprocessor(obs)
+
+
+@dataclass
+class UIAgentArgs(VLAgentArgs):
+    general_vl_model_args: VLModelArgs
+    grounding_vl_model_args: VLModelArgs
+    vl_prompt_flags: VLPromptFlags
+    max_retry: int
+
+    def __post_init__(self):
+        self.agent_name = f"ui_agent-{self.general_vl_model_args.model_name}-{self.grounding_vl_model_args.model_name}"
+
+    def make_agent(self) -> UIAgent:
+        return UIAgent(
+            general_vl_model_args=self.general_vl_model_args,
+            grounding_vl_model_args=self.grounding_vl_model_args,
+            vl_prompt_flags=self.vl_prompt_flags,
+            max_retry=self.max_retry,
+        )
+
+    def prepare(self):
+        self.general_vl_model_args.prepare()
+        self.grounding_vl_model_args.prepare()
+
+    def close(self):
+        self.general_vl_model_args.close()
+        self.grounding_vl_model_args.close()
+
+    def set_reproducibility_mode(self):
+        self.general_vl_model_args.set_reproducibility_mode()
+        self.grounding_vl_model_args.set_reproducibility_mode()
+
+    def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
+        self.vl_prompt_flags.obs_flags.use_tabs = benchmark.is_multi_tab
+        self.vl_prompt_flags.action_flags.action_set = deepcopy(
+            benchmark.high_level_action_set_args
+        )
+        if demo_mode:
+            self.vl_prompt_flags.action_flags.action_set.demo_mode = "all_blue"

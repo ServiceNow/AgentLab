@@ -19,27 +19,27 @@ class VLPromptFlags(dp.Flags):
 class VLPrompt(dp.PromptElement):
     def __init__(
         self,
-        prompt_flags: VLPromptFlags,
+        vl_prompt_flags: VLPromptFlags,
         action_set: AbstractActionSet,
         obs_history: list[dict],
         actions: list[str],
         thoughts: list[str],
     ):
         super().__init__()
-        if prompt_flags.enable_chat:
+        if vl_prompt_flags.enable_chat:
             self.instructions = dp.ChatInstructions(
                 obs_history[-1]["chat_messages"],
-                extra_instructions=prompt_flags.extra_instructions,
+                extra_instructions=vl_prompt_flags.extra_instructions,
             )
         else:
             self.instructions = dp.GoalInstructions(
                 obs_history[-1]["goal_object"],
-                extra_instructions=prompt_flags.extra_instructions,
+                extra_instructions=vl_prompt_flags.extra_instructions,
             )
-        self.observation = dp.Observation(obs_history[-1], prompt_flags.obs_flags)
-        self.history = dp.History(obs_history, actions, None, thoughts, prompt_flags.obs_flags)
-        self.think = dp.Think(visible=lambda: prompt_flags.use_thinking)
-        self.action_prompt = dp.ActionPrompt(action_set, action_flags=prompt_flags.action_flags)
+        self.observation = dp.Observation(obs_history[-1], vl_prompt_flags.obs_flags)
+        self.history = dp.History(obs_history, actions, None, thoughts, vl_prompt_flags.obs_flags)
+        self.think = dp.Think(visible=lambda: vl_prompt_flags.use_thinking)
+        self.action_prompt = dp.ActionPrompt(action_set, action_flags=vl_prompt_flags.action_flags)
         self._prompt = HumanMessage(self.instructions.prompt)
         self._prompt.add_text(
             f"""\
@@ -49,7 +49,7 @@ class VLPrompt(dp.PromptElement):
 {self.action_prompt.prompt}\
 """
         )
-        if prompt_flags.use_abstract_example:
+        if vl_prompt_flags.use_abstract_example:
             self._prompt.add_text(
                 f"""
 # Abstract Example
@@ -61,7 +61,7 @@ answer:
 {self.action_prompt.abstract_ex}\
 """
             )
-        if prompt_flags.use_concrete_example:
+        if vl_prompt_flags.use_concrete_example:
             self._prompt.add_text(
                 f"""
 # Concrete Example
@@ -74,7 +74,7 @@ Make sure to follow the template with proper tags:
             )
         self.observation.add_screenshot(self._prompt)
 
-    def _parse_answer(self, text_answer):
+    def _parse_answer(self, text_answer) -> dict:
         answer = {}
         answer.update(self.think.parse_answer(text_answer))
         answer.update(self.action_prompt.parse_answer(text_answer))

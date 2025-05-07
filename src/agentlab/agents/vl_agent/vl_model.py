@@ -7,12 +7,22 @@ import fnmatch
 import os
 
 
+class VLModel(ABC):
+    @abstractmethod
+    def __call__(self, messages: list[dict]) -> dict:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_stats(self) -> dict:
+        raise NotImplementedError
+
+
 @dataclass
 class VLModelArgs(ABC):
     model_name: str
 
     @abstractmethod
-    def make_model(self):
+    def make_model(self) -> VLModel:
         raise NotImplementedError
 
     @abstractmethod
@@ -26,45 +36,6 @@ class VLModelArgs(ABC):
     @abstractmethod
     def set_reproducibility_mode(self):
         raise NotImplementedError
-
-
-class VLModel(ABC):
-    @abstractmethod
-    def __call__(self, messages: list[dict]):
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_stats(self):
-        raise NotImplementedError
-
-
-@dataclass
-class LlamaModelArgs(VLModelArgs):
-    model_path: str
-    torch_dtype: str
-    checkpoint_dir: Optional[str]
-    max_length: int
-    max_new_tokens: int
-    reproducibility_config: dict
-
-    def make_model(self):
-        return LlamaModel(
-            model_path=self.model_path,
-            torch_dtype=self.torch_dtype,
-            checkpoint_dir=self.checkpoint_dir,
-            max_length=self.max_length,
-            max_new_tokens=self.max_new_tokens,
-            reproducibility_config=self.reproducibility_config,
-        )
-
-    def prepare(self):
-        pass
-
-    def close(self):
-        pass
-
-    def set_reproducibility_mode(self):
-        self.reproducibility_config = {"do_sample": False}
 
 
 class LlamaModel(VLModel):
@@ -94,8 +65,37 @@ class LlamaModel(VLModel):
         self.max_new_tokens = max_new_tokens
         self.reproducibility_config = reproducibility_config
 
-    def __call__(self, messages: list[dict]):
+    def __call__(self, messages: list[dict]) -> dict:
         pass
 
-    def get_stats(self):
+    def get_stats(self) -> dict:
         pass
+
+
+@dataclass
+class LlamaModelArgs(VLModelArgs):
+    model_path: str
+    torch_dtype: str
+    checkpoint_dir: Optional[str]
+    max_length: int
+    max_new_tokens: int
+    reproducibility_config: dict
+
+    def make_model(self) -> LlamaModel:
+        return LlamaModel(
+            model_path=self.model_path,
+            torch_dtype=self.torch_dtype,
+            checkpoint_dir=self.checkpoint_dir,
+            max_length=self.max_length,
+            max_new_tokens=self.max_new_tokens,
+            reproducibility_config=self.reproducibility_config,
+        )
+
+    def prepare(self):
+        pass
+
+    def close(self):
+        pass
+
+    def set_reproducibility_mode(self):
+        self.reproducibility_config = {"do_sample": False}
