@@ -9,6 +9,8 @@ import openai
 from anthropic import Anthropic
 from openai import OpenAI
 
+from agentlab.llm import tracking
+
 from .base_api import BaseModelArgs
 
 type ContentItem = Dict[str, Any]
@@ -269,6 +271,20 @@ class ClaudeResponseModel(BaseResponseModel):
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
         )
+
+        # Get pricing information
+
+        try:
+            pricing = tracking.get_pricing_anthropic()
+            self.input_cost = float(pricing[model_name]["prompt"])
+            self.output_cost = float(pricing[model_name]["completion"])
+        except KeyError:
+            logging.warning(
+                f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+            )
+            self.input_cost = 0.0
+            self.output_cost = 0.0
+
         self.client = Anthropic(api_key=api_key)
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
@@ -286,6 +302,17 @@ class ClaudeResponseModel(BaseResponseModel):
                 max_tokens=self.max_tokens,
                 **self.extra_kwargs,
             )
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+            cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+
+            print(f"response.usage: {response.usage}")
+
+            if hasattr(tracking.TRACKER, "instance") and isinstance(
+                tracking.TRACKER.instance, tracking.LLMTracker
+            ):
+                tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+
             return response
         except Exception as e:
             logging.error(f"Failed to get a response from the API: {e}")

@@ -1,10 +1,11 @@
 import os
+import re
 import threading
 from contextlib import contextmanager
 from functools import cache
 
 import requests
-from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS
+from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
 
 TRACKER = threading.local()
 
@@ -85,7 +86,7 @@ def get_pricing_openrouter():
 
 
 def get_pricing_openai():
-    cost_dict = MODEL_COST_PER_1K_TOKENS
+    cost_dict = openai_info.MODEL_COST_PER_1K_TOKENS
     cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
     res = {}
     for k in cost_dict:
@@ -98,4 +99,26 @@ def get_pricing_openai():
                 "prompt": cost_dict[prompt_key],
                 "completion": cost_dict[completion_key],
             }
+    return res
+
+
+def _remove_version_suffix(model_name):
+    no_version = re.sub(r"-v\d+(?:[.:]\d+)?$", "", model_name)
+    return re.sub(r"anthropic.", "", no_version)
+
+
+def get_pricing_anthropic():
+    input_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_INPUT_TOKENS
+    output_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_OUTPUT_TOKENS
+
+    res = {}
+    for k, v in input_cost_dict.items():
+        k = _remove_version_suffix(k)
+        res[k] = {"prompt": v / 1000}
+
+    for k, v in output_cost_dict.items():
+        k = _remove_version_suffix(k)
+        if k not in res:
+            res[k] = {}
+        res[k]["completion"] = v / 1000
     return res
