@@ -42,3 +42,46 @@ VISUAL_AGENT_CLAUDE_3_5 = VisualAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
     flags=DEFAULT_PROMPT_FLAGS,
 )
+
+VISUAL_AGENT_QWEN_2_5_VL_32B = VisualAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/qwen/qwen2.5-vl-32b-instruct"],
+    flags=DEFAULT_PROMPT_FLAGS,
+)
+
+def get_som_agent(llm_config: str):
+    """Creates basic 1-step vision SOM agent"""
+    assert llm_config in CHAT_MODEL_ARGS_DICT, f"Unsupported LLM config: {llm_config}"
+    obs_flags = dp.ObsFlags(
+        use_tabs=True, 
+        use_error_logs=True,
+        use_past_error_logs=False,
+        use_screenshot=True,
+        use_som=True,
+        openai_vision_detail="auto",
+    )
+    action_flags = dp.ActionFlags(
+        action_set=bgym.HighLevelActionSetArgs(subsets=["bid"]),
+        long_description=True,
+        individual_examples=False,
+    )
+    som_prompt_flags = PromptFlags(
+        obs=obs_flags,
+        action=action_flags,
+        use_thinking=True,
+        use_concrete_example=False,
+        use_abstract_example=True,
+        enable_chat=False,
+        extra_instructions=None,
+    )
+
+    agent_args = VisualAgentArgs(
+        chat_model_args=CHAT_MODEL_ARGS_DICT[llm_config],
+        flags=som_prompt_flags,
+    )
+    model_name = agent_args.chat_model_args.model_name
+    agent_args.agent_name = f"VisualAgent-som-{model_name}".replace("/", "_")
+
+    return agent_args
+
+
+VISUAL_SOM_AGENT_LLAMA4_17B_INSTRUCT = get_som_agent("openrouter/meta-llama/llama-4-maverick")

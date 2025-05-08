@@ -207,4 +207,20 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=64_000,
         temperature=1e-1,
     ),
+    "openrouter/qwen/qwen2.5-vl-32b-instruct": OpenRouterModelArgs(
+        model_name="qwen/qwen2.5-vl-32b-instruct",
+        max_total_tokens=128_000,
+        max_input_tokens=120_000,
+        max_new_tokens=8_000,
+        temperature=1e-1,
+        vision_support=True,
+    ),
+    "openrouter/qwen/qwen3-32b": OpenRouterModelArgs(
+        model_name="qwen/qwen3-32b",
+        max_total_tokens=128_000,
+        max_input_tokens=120_000,
+        max_new_tokens=8_000,
+        temperature=1e-1,
+        vision_support=True,
+    ),
 }

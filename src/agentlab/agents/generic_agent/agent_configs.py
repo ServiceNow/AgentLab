@@ -10,7 +10,7 @@ from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 from .generic_agent import GenericAgentArgs
 from .generic_agent_prompt import GenericPromptFlags
-from .tmlr_config import BASE_FLAGS
+from .tmlr_config import BASE_FLAGS, get_base_agent
 
 FLAGS_CUSTOM = GenericPromptFlags(
     obs=dp.ObsFlags(
@@ -301,6 +301,9 @@ AGENT_LLAMA4_17B_INSTRUCT = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-4-maverick"],
     flags=BASE_FLAGS,
 )
+
+AGENT_QWEN_2_5_VL_32B = get_base_agent("openrouter/qwen/qwen2.5-vl-32b-instruct")
+AGENT_QWEN_3_32B = get_base_agent("openrouter/qwen/qwen3-32b")
 
 DEFAULT_RS_FLAGS = GenericPromptFlags(
     flag_group="default_rs",

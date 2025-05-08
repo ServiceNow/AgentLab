@@ -9,5 +9,7 @@ This module contains the agent implementations for AgentLab. With currently:
 
 - TapeAgent: An agent that uses the Tape data structure to perform actions
 
+- VisualAgent: An agent that uses visual observations to to perform actions
+
 - VisualWebArenaAgent: An implementation of the agent used in WebArena and VisualWebArena
 """

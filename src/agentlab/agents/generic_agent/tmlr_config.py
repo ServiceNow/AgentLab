@@ -51,6 +51,7 @@ BASE_FLAGS = GenericPromptFlags(
 
 
 def get_base_agent(llm_config: str):
+    assert llm_config in CHAT_MODEL_ARGS_DICT, f"Unsupported LLM config: {llm_config}"
     return GenericAgentArgs(
         chat_model_args=CHAT_MODEL_ARGS_DICT[llm_config],
         flags=BASE_FLAGS,
