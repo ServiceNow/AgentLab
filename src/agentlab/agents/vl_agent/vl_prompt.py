@@ -22,58 +22,59 @@ class VLPrompt(dp.PromptElement):
         vl_prompt_flags: VLPromptFlags,
         action_set: AbstractActionSet,
         obs_history: list[dict],
-        actions: list[str],
         thoughts: list[str],
+        actions: list[str],
     ):
         super().__init__()
-        if vl_prompt_flags.enable_chat:
+        self.vl_prompt_flags = vl_prompt_flags
+        self.obs_history = obs_history
+        if self.vl_prompt_flags.enable_chat:
             self.instructions = dp.ChatInstructions(
-                chat_messages=obs_history[-1]["chat_messages"],
-                extra_instructions=vl_prompt_flags.extra_instructions,
+                chat_messages=self.obs_history[-1]["chat_messages"],
+                extra_instructions=self.vl_prompt_flags.extra_instructions,
             )
         else:
             self.instructions = dp.GoalInstructions(
-                goal_object=obs_history[-1]["goal_object"],
-                extra_instructions=vl_prompt_flags.extra_instructions,
+                goal_object=self.obs_history[-1]["goal_object"],
+                extra_instructions=self.vl_prompt_flags.extra_instructions,
             )
-        self.observation = dp.Observation(obs=obs_history[-1], flags=vl_prompt_flags.obs_flags)
+        self.observation = dp.Observation(
+            obs=self.obs_history[-1], flags=self.vl_prompt_flags.obs_flags
+        )
         self.history = dp.History(
-            history_obs=obs_history,
+            history_obs=self.obs_history,
             actions=actions,
             memories=None,
             thoughts=thoughts,
-            flags=vl_prompt_flags.obs_flags,
+            flags=self.vl_prompt_flags.obs_flags,
         )
-        self.think = dp.Think(visible=vl_prompt_flags.use_thinking)
+        self.think = dp.Think(visible=self.vl_prompt_flags.use_thinking)
         self.action_prompt = dp.ActionPrompt(
-            action_set=action_set, action_flags=vl_prompt_flags.action_flags
+            action_set=action_set, action_flags=self.vl_prompt_flags.action_flags
         )
-        self._prompt = HumanMessage(content=self.instructions.prompt)
-        self._prompt.add_text(
-            f"""\
-{self.observation.prompt}
-{self.history.prompt}
-{self.think.prompt}
-{self.action_prompt.prompt}
-"""
-        )
-        if vl_prompt_flags.use_abstract_example:
-            self._prompt.add_text(
-                f"""\
-# Abstract Example:
-{self.think.abstract_ex}
-{self.action_prompt.abstract_ex}
-"""
+        self._prompt = f"{self.instructions.prompt}\n{self.observation.prompt}\n{self.history.prompt}\n{self.think.prompt}\n{self.action_prompt.prompt}\n"
+        if self.vl_prompt_flags.use_abstract_example:
+            self._prompt += (
+                f"# Abstract Example:\n{self.think.abstract_ex}\n{self.action_prompt.abstract_ex}\n"
             )
-        if vl_prompt_flags.use_concrete_example:
-            self._prompt.add_text(
-                f"""\
-# Concrete Example:
-{self.think.concrete_ex}
-{self.action_prompt.concrete_ex}
-"""
+        if self.vl_prompt_flags.use_concrete_example:
+            self._prompt += (
+                f"# Concrete Example:\n{self.think.concrete_ex}\n{self.action_prompt.concrete_ex}\n"
             )
-        self.observation.add_screenshot(self._prompt)
+
+    def get_message(self) -> HumanMessage:
+        message = HumanMessage(content=self.prompt)
+        if self.vl_prompt_flags.obs_flags.use_screenshot:
+            if self.vl_prompt_flags.obs_flags.use_som:
+                screenshot = self.obs_history[-1]["screenshot_som"]
+                message.add_text(
+                    "## Screenshot:\nHere is a screenshot of the page, it is annotated with bounding boxes and corresponding bids:\n"
+                )
+            else:
+                screenshot = self.obs_history[-1]["screenshot"]
+                message.add_text("## Screenshot:\nHere is a screenshot of the page:\n")
+            message.add_image(screenshot)
+        return message
 
     def _parse_answer(self, text_answer: str) -> dict:
         answer = {}

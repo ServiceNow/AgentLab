@@ -7,6 +7,7 @@ from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from copy import deepcopy
 from dataclasses import asdict, dataclass
+from typing import Optional
 from .vl_model import VLModelArgs
 from .vl_prompt import VLPrompt, VLPromptFlags
 
@@ -52,13 +53,16 @@ class VLAgentArgs(ABC):
 class UIAgent(VLAgent):
     def __init__(
         self,
-        general_vl_model_args: VLModelArgs,
-        grounding_vl_model_args: VLModelArgs,
+        main_vl_model_args: VLModelArgs,
+        auxiliary_vl_model_args: Optional[VLModelArgs],
         vl_prompt_flags: VLPromptFlags,
         max_retry: int,
     ):
-        self.general_vl_model = general_vl_model_args.make_model()
-        self.grounding_vl_model = grounding_vl_model_args.make_model()
+        self.main_vl_model = main_vl_model_args.make_model()
+        if auxiliary_vl_model_args is None:
+            self.auxiliary_vl_model = None
+        else:
+            self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.action_set = vl_prompt_flags.action_flags.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(vl_prompt_flags.obs_flags)
         self.vl_prompt_flags = vl_prompt_flags
@@ -74,29 +78,43 @@ class UIAgent(VLAgent):
             vl_prompt_flags=self.vl_prompt_flags,
             action_set=self.action_set,
             obs_history=self.obs_history,
-            actions=self.actions,
             thoughts=self.thoughts,
+            actions=self.actions,
         )
-        system_prompt = SystemMessage(dp.SystemPrompt().prompt)
         try:
-            messages = Discussion([system_prompt, vl_prompt.prompt])
+            messages = Discussion(
+                [SystemMessage(dp.SystemPrompt().prompt), vl_prompt.get_message()]
+            )
             answer = retry(
-                chat=self.general_vl_model,
+                chat=self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_retry,
                 parser=vl_prompt.parse_answer,
             )
-            num_tries = (len(messages) - 3) / 2
-            num_busted_tries = 0
+            stats = {"num_main_retries": (len(messages) - 3) // 2}
         except ParseError:
-            answer = {"action": None, "think": None}
-            num_tries = self.max_retry + 1
-            num_busted_tries = 1
-        self.actions.append(answer["action"])
+            answer = {"think": None, "action": None}
+            stats = {"num_main_retries": self.max_retry}
+        stats.update(self.main_vl_model.get_stats())
+        if self.auxiliary_vl_model is not None:
+            try:
+                messages = Discussion(
+                    [SystemMessage(dp.SystemPrompt().prompt), vl_prompt.get_message()]
+                )
+                messages.add_text(f"{answer['think']}\n{answer['action']}\n")
+                answer = retry(
+                    chat=self.auxiliary_vl_model,
+                    messages=messages,
+                    n_retry=self.max_retry,
+                    parser=vl_prompt.parse_answer,
+                )
+                stats["num_auxiliary_retries"] = (len(messages) - 3) // 2
+            except ParseError:
+                answer = {"action": None, "think": None}
+                stats["num_auxiliary_retries"] = self.max_retry
+            stats.update(self.auxiliary_vl_model.get_stats())
         self.thoughts.append(answer["think"])
-        stats = {"num_tries": num_tries, "num_busted_tries": num_busted_tries}
-        stats.update(self.general_vl_model.get_stats())
-        stats.update(self.grounding_vl_model.get_stats())
+        self.actions.append(answer["action"])
         agent_info = AgentInfo(think=answer["think"], chat_messages=messages, stats=stats)
         return answer["action"], asdict(agent_info)
 
@@ -106,33 +124,39 @@ class UIAgent(VLAgent):
 
 @dataclass
 class UIAgentArgs(VLAgentArgs):
-    general_vl_model_args: VLModelArgs
-    grounding_vl_model_args: VLModelArgs
+    main_vl_model_args: VLModelArgs
+    auxiliary_vl_model_args: VLModelArgs
     vl_prompt_flags: VLPromptFlags
     max_retry: int
 
     def __post_init__(self):
-        self.agent_name = f"ui_agent-{self.general_vl_model_args.model_name}-{self.grounding_vl_model_args.model_name}"
+        if self.auxiliary_vl_model_args is None:
+            self.agent_name = f"ui_agent-{self.main_vl_model_args.model_name}"
+        else:
+            self.agent_name = f"ui_agent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
         return UIAgent(
-            general_vl_model_args=self.general_vl_model_args,
-            grounding_vl_model_args=self.grounding_vl_model_args,
+            main_vl_model_args=self.main_vl_model_args,
+            auxiliary_vl_model_args=self.auxiliary_vl_model_args,
             vl_prompt_flags=self.vl_prompt_flags,
             max_retry=self.max_retry,
         )
 
     def prepare(self):
-        self.general_vl_model_args.prepare()
-        self.grounding_vl_model_args.prepare()
+        self.main_vl_model_args.prepare()
+        if self.auxiliary_vl_model_args is not None:
+            self.auxiliary_vl_model_args.prepare()
 
     def close(self):
-        self.general_vl_model_args.close()
-        self.grounding_vl_model_args.close()
+        self.main_vl_model_args.close()
+        if self.auxiliary_vl_model_args is not None:
+            self.auxiliary_vl_model_args.close()
 
     def set_reproducibility_mode(self):
-        self.general_vl_model_args.set_reproducibility_mode()
-        self.grounding_vl_model_args.set_reproducibility_mode()
+        self.main_vl_model_args.set_reproducibility_mode()
+        if self.auxiliary_vl_model_args is not None:
+            self.auxiliary_vl_model_args.set_reproducibility_mode()
 
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
         self.vl_prompt_flags.obs_flags.use_tabs = benchmark.is_multi_tab
