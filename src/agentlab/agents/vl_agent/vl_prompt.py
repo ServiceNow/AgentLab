@@ -28,53 +28,54 @@ class VLPrompt(dp.PromptElement):
         super().__init__()
         if vl_prompt_flags.enable_chat:
             self.instructions = dp.ChatInstructions(
-                obs_history[-1]["chat_messages"],
+                chat_messages=obs_history[-1]["chat_messages"],
                 extra_instructions=vl_prompt_flags.extra_instructions,
             )
         else:
             self.instructions = dp.GoalInstructions(
-                obs_history[-1]["goal_object"],
+                goal_object=obs_history[-1]["goal_object"],
                 extra_instructions=vl_prompt_flags.extra_instructions,
             )
-        self.observation = dp.Observation(obs_history[-1], vl_prompt_flags.obs_flags)
-        self.history = dp.History(obs_history, actions, None, thoughts, vl_prompt_flags.obs_flags)
-        self.think = dp.Think(visible=lambda: vl_prompt_flags.use_thinking)
-        self.action_prompt = dp.ActionPrompt(action_set, action_flags=vl_prompt_flags.action_flags)
-        self._prompt = HumanMessage(self.instructions.prompt)
+        self.observation = dp.Observation(obs=obs_history[-1], flags=vl_prompt_flags.obs_flags)
+        self.history = dp.History(
+            history_obs=obs_history,
+            actions=actions,
+            memories=None,
+            thoughts=thoughts,
+            flags=vl_prompt_flags.obs_flags,
+        )
+        self.think = dp.Think(visible=vl_prompt_flags.use_thinking)
+        self.action_prompt = dp.ActionPrompt(
+            action_set=action_set, action_flags=vl_prompt_flags.action_flags
+        )
+        self._prompt = HumanMessage(content=self.instructions.prompt)
         self._prompt.add_text(
             f"""\
-{self.observation.prompt}\
-{self.history.prompt}\
-{self.think.prompt}\
-{self.action_prompt.prompt}\
+{self.observation.prompt}
+{self.history.prompt}
+{self.think.prompt}
+{self.action_prompt.prompt}
 """
         )
         if vl_prompt_flags.use_abstract_example:
             self._prompt.add_text(
-                f"""
-# Abstract Example
-
-Here is an abstract version of the answer with description of the content of
-each tag. Make sure you follow this structure, but replace the content with your
-answer:
-{self.think.abstract_ex}\
-{self.action_prompt.abstract_ex}\
+                f"""\
+# Abstract Example:
+{self.think.abstract_ex}
+{self.action_prompt.abstract_ex}
 """
             )
         if vl_prompt_flags.use_concrete_example:
             self._prompt.add_text(
-                f"""
-# Concrete Example
-
-Here is a concrete example of how to format your answer.
-Make sure to follow the template with proper tags:
-{self.think.concrete_ex}\
-{self.action_prompt.concrete_ex}\
+                f"""\
+# Concrete Example:
+{self.think.concrete_ex}
+{self.action_prompt.concrete_ex}
 """
             )
         self.observation.add_screenshot(self._prompt)
 
-    def _parse_answer(self, text_answer) -> dict:
+    def _parse_answer(self, text_answer: str) -> dict:
         answer = {}
         answer.update(self.think.parse_answer(text_answer))
         answer.update(self.action_prompt.parse_answer(text_answer))

@@ -81,25 +81,22 @@ class UIAgent(VLAgent):
         try:
             messages = Discussion([system_prompt, vl_prompt.prompt])
             answer = retry(
-                self.general_vl_model,
-                messages,
+                chat=self.general_vl_model,
+                messages=messages,
                 n_retry=self.max_retry,
                 parser=vl_prompt.parse_answer,
             )
-            answer["n_retry"] = (len(messages) - 3) / 2
-            answer["busted_retry"] = 0
+            num_tries = (len(messages) - 3) / 2
+            num_busted_tries = 0
         except ParseError:
-            answer = dict(
-                action=None,
-                think=None,
-                n_retry=self.max_retry + 1,
-                busted_retry=1,
-            )
+            answer = {"action": None, "think": None}
+            num_tries = self.max_retry + 1
+            num_busted_tries = 1
         self.actions.append(answer["action"])
         self.thoughts.append(answer["think"])
-        stats = self.general_vl_model.get_stats()
-        stats["n_retry"] = answer["n_retry"]
-        stats["busted_retry"] = answer["busted_retry"]
+        stats = {"num_tries": num_tries, "num_busted_tries": num_busted_tries}
+        stats.update(self.general_vl_model.get_stats())
+        stats.update(self.grounding_vl_model.get_stats())
         agent_info = AgentInfo(think=answer["think"], chat_messages=messages, stats=stats)
         return answer["action"], asdict(agent_info)
 

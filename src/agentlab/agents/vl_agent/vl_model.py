@@ -66,10 +66,10 @@ class LlamaModel(VLModel):
         self.reproducibility_config = reproducibility_config
 
     def __call__(self, messages: list[dict]) -> dict:
-        pass
+        return {}
 
     def get_stats(self) -> dict:
-        pass
+        return {}
 
 
 @dataclass
