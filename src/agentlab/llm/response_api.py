@@ -322,7 +322,7 @@ class ClaudeResponseModel(BaseResponseModel):
         result = ResponseLLMOutput(
             raw_response=response,
             think="",
-            action="noop()",
+            action=None,
             last_computer_call_id=None,
             assistant_message={
                 "role": "assistant",
