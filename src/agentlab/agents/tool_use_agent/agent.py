@@ -1,7 +1,6 @@
 import json
 import logging
-from copy import deepcopy as copy
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import bgym
@@ -103,6 +102,16 @@ class ToolUseAgent(bgym.Agent):
 
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
+        # count tools tokens
+        from agentlab.llm.llm_utils import count_tokens
+
+        tool_str = json.dumps(self.tools, indent=2)
+        print(f"Tool description: {tool_str}")
+        tool_tokens = count_tokens(tool_str, model_args.model_name)
+        print(f"Tool tokens: {tool_tokens}")
+
+        self.call_ids = []
+
         # self.tools.append(
         #     {
         #         "type": "function",
@@ -154,26 +163,28 @@ class ToolUseAgent(bgym.Agent):
                     goal_message.add_image(content["image_url"])
             self.messages.append(goal_message)
 
+            extra_info = []
+
+            extra_info.append(
+                "Use ControlOrMeta instead of Control and Meta for keyboard shortcuts, to be cross-platform compatible. E.g. use ControlOrMeta for mutliple selection in lists"
+            )
+
+            self.messages.append(MessageBuilder.user().add_text("\n".join(extra_info)))
+
             if self.use_first_obs:
+                msg = "Here is the first observation."
+                screenshot_key = "screenshot_tag" if self.tag_screenshot else "screenshot"
                 if self.tag_screenshot:
-                    message = MessageBuilder.user().add_text(
-                        "Here is the first observation. A red dot on screenshots indicate the previous click action:"
-                    )
-                    message.add_image(image_to_png_base64_url(obs["screenshot_tag"]))
-                else:
-                    message = MessageBuilder.user().add_text("Here is the first observation:")
-                    message.add_image(image_to_png_base64_url(obs["screenshot"]))
+                    msg += " A red dot on screenshots indicate the previous click action."
+                message = MessageBuilder.user().add_text(msg)
+                message.add_image(image_to_png_base64_url(obs[screenshot_key]))
                 self.messages.append(message)
         else:
             if obs["last_action_error"] == "":
-                if self.tag_screenshot:
-                    tool_message = MessageBuilder.tool().add_image(
-                        image_to_png_base64_url(obs["screenshot_tag"])
-                    )
-                else:
-                    tool_message = MessageBuilder.tool().add_image(
-                        image_to_png_base64_url(obs["screenshot"])
-                    )
+                screenshot_key = "screenshot_tag" if self.tag_screenshot else "screenshot"
+                tool_message = MessageBuilder.tool().add_image(
+                    image_to_png_base64_url(obs[screenshot_key])
+                )
                 tool_message.add_tool_id(self.previous_call_id)
                 self.messages.append(tool_message)
             else:
