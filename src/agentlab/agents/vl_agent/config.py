@@ -17,7 +17,6 @@ VL_MODEL_ARGS_DICT = {
     )
 }
 
-
 VL_PROMPT_ARGS_DICT = {
     "ui_prompt-default": UIPromptArgs(
         prompt_name="ui_prompt-default",
