@@ -1,7 +1,7 @@
 from browsergym.experiments.benchmark import HighLevelActionSetArgs
 from .vl_agent import UIAgentArgs
 from .vl_model import LlamaModelArgs
-from .vl_prompt import VLPromptFlags
+from .vl_prompt import UIPromptArgs
 import agentlab.agents.dynamic_prompting as dp
 
 
@@ -18,8 +18,9 @@ VL_MODEL_ARGS_DICT = {
 }
 
 
-VL_PROMPT_FLAGS_DICT = {
-    "default": VLPromptFlags(
+VL_PROMPT_ARGS_DICT = {
+    "ui_prompt-default": UIPromptArgs(
+        prompt_name="ui_prompt-default",
         obs_flags=dp.ObsFlags(
             use_tabs=True,
             use_error_logs=True,
@@ -33,19 +34,20 @@ VL_PROMPT_FLAGS_DICT = {
             long_description=True,
             individual_examples=False,
         ),
-        use_thinking=True,
-        use_concrete_example=False,
-        use_abstract_example=True,
-        enable_chat=False,
         extra_instructions=None,
+        enable_chat=False,
+        use_thinking=True,
+        use_abstract_example=True,
+        use_concrete_example=False,
     )
 }
 
 VL_AGENT_ARGS_DICT = {
-    "ui_agent-llama_32_11b": UIAgentArgs(
+    "ui_agent-llama_32_11b-llama_32_11b": UIAgentArgs(
+        agent_name="ui_agent-llama_32_11b-llama_32_11b",
         main_vl_model_args=VL_MODEL_ARGS_DICT["llama_32_11b"],
         auxiliary_vl_model_args=VL_MODEL_ARGS_DICT["llama_32_11b"],
-        vl_prompt_flags=VL_PROMPT_FLAGS_DICT["default"],
+        ui_prompt_args=VL_PROMPT_ARGS_DICT["ui_prompt-default"],
         max_retry=4,
     )
 }
