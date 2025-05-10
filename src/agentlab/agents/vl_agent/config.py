@@ -26,7 +26,6 @@ VL_PROMPT_ARGS_DICT = {
             use_past_error_logs=False,
             use_screenshot=True,
             use_som=False,
-            openai_vision_detail="auto",
         ),
         action_flags=dp.ActionFlags(
             action_set=HighLevelActionSetArgs(subsets=["coord"]),
