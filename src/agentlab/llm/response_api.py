@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
-import anthropic
 import openai
 from anthropic import Anthropic
 from openai import OpenAI
