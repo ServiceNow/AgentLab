@@ -6,7 +6,7 @@ import random
 import uuid
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from multiprocessing import Manager, Pool, Queue
 from pathlib import Path
@@ -19,7 +19,11 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
-from agentlab.experiments.launch_exp import find_incomplete, non_dummy_count, run_experiments
+from agentlab.experiments.launch_exp import (
+    find_incomplete,
+    non_dummy_count,
+    run_experiments,
+)
 from agentlab.experiments.loop import EnvArgs, ExpArgs
 from agentlab.experiments.multi_server import BaseServer
 
@@ -238,6 +242,9 @@ class Study(AbstractStudy):
         self.uuid = uuid.uuid4()
         if isinstance(self.benchmark, str):
             self.benchmark = DEFAULT_BENCHMARKS[self.benchmark.lower()]()
+
+        self.benchmark.env_args_list = _convert_env_args(self.benchmark.env_args_list)
+
         if isinstance(self.dir, str):
             self.dir = Path(self.dir)
         self.make_exp_args_list()
@@ -324,28 +331,31 @@ class Study(AbstractStudy):
             self._run(n_jobs, parallel_backend, strict_reproducibility)
 
             suffix = f"trial_{i + 1}_of_{n_relaunch}"
-            _, summary_df, _ = self.get_results(suffix=suffix)
+            _, summary_df, error_report = self.get_results(suffix=suffix)
             logger.info("\n" + str(summary_df))
 
             n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
 
             if n_error / n_exp > 0.3:
-                logger.warning("More than 30% of the experiments errored. Stopping the study.")
-                return
+                logger.warning("More than 30% of the experiments errored. Stopping the retries.")
+                break
 
             if last_error_count is not None and n_error >= last_error_count:
                 logger.warning(
-                    "Last trial did not reduce the number of errors. Stopping the study."
+                    "Last trial did not reduce the number of errors. Stopping the retries."
                 )
-                return
+                break
 
             if n_incomplete == 0:
                 logger.info(f"Study {self.name} finished.")
-                return
+                break
 
-        logger.warning(
-            f"Study {self.name} did not finish after {n_relaunch} trials. There are {n_incomplete} incomplete experiments."
-        )
+        logger.info("# Error Report:\n-------------\n\n" + error_report)
+
+        if n_incomplete != 0:
+            logger.warning(
+                f"Study {self.name} did not finish after {n_relaunch} trials. There are {n_incomplete} incomplete experiments."
+            )
 
     def _run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
         """Run all experiments in the study in parallel when possible.
@@ -713,6 +723,26 @@ def set_demo_mode(env_args_list: list[EnvArgs]):
         env_args.record_video = True
         env_args.wait_for_user_message = False
         env_args.slow_mo = 1000
+
+
+def _convert_env_args(env_args_list):
+    """Return a list where every element is the *new* EnvArgs.
+
+    For backward compatibility, we need to convert the old EnvArgs to the new one.
+    """
+    from bgym import EnvArgs as BGymEnvArgs
+
+    new_list = []
+    for ea in env_args_list:
+        # already new → keep as‑is
+        if isinstance(ea, EnvArgs):
+            new_list.append(ea)
+        # old → convert
+        elif isinstance(ea, BGymEnvArgs):
+            new_list.append(EnvArgs(**asdict(ea)))
+        else:
+            raise TypeError(f"Unexpected type: {type(ea)}")
+    return new_list
 
 
 # def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):
