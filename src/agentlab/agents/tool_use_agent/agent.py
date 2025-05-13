@@ -166,7 +166,7 @@ class ToolUseAgent(bgym.Agent):
             extra_info = []
 
             extra_info.append(
-                "Use ControlOrMeta instead of Control and Meta for keyboard shortcuts, to be cross-platform compatible. E.g. use ControlOrMeta for mutliple selection in lists"
+                """Use ControlOrMeta instead of Control and Meta for keyboard shortcuts, to be cross-platform compatible. E.g. use ControlOrMeta for mutliple selection in lists.\n"""
             )
 
             self.messages.append(MessageBuilder.user().add_text("\n".join(extra_info)))
