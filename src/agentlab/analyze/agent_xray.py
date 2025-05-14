@@ -14,7 +14,7 @@ import pandas as pd
 from attr import dataclass
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
@@ -24,6 +24,7 @@ from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
 from agentlab.llm.response_api import MessageBuilder
+from agentlab.agents import agent_utils
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -531,47 +532,10 @@ def if_active(tab_name, n_out=1):
     return decorator
 
 
-def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
-    """
-    If action is a coordinate action, try to render it on the screenshot.
-
-    e.g. mouse_click(120, 130) -> draw a dot at (120, 130) on the screenshot
-
-    Args:
-        screenshot: The screenshot to tag.
-        action: The action to tag the screenshot with.
-
-    Returns:
-        The tagged screenshot.
-
-    Raises:
-        ValueError: If the action parsing fails.
-    """
-    if action.startswith("mouse_click"):
-        try:
-            coords = action[action.index("(") + 1 : action.index(")")].split(",")
-            coords = [c.strip() for c in coords]
-            if len(coords) not in [2, 3]:
-                raise ValueError(f"Invalid coordinate format: {coords}")
-            if coords[0].startswith("x="):
-                coords[0] = coords[0][2:]
-            if coords[1].startswith("y="):
-                coords[1] = coords[1][2:]
-            x, y = float(coords[0].strip()), float(coords[1].strip())
-            draw = ImageDraw.Draw(screenshot)
-            radius = 5
-            draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius), fill="blue", outline="blue"
-            )
-        except (ValueError, IndexError) as e:
-            warning(f"Failed to parse action '{action}': {e}")
-    return screenshot
-
-
 def update_screenshot(som_or_not: str):
     global info
     action = info.exp_result.steps_info[info.step].action
-    return tag_screenshot_with_action(get_screenshot(info, som_or_not=som_or_not), action)
+    return agent_utils.tag_screenshot_with_action(get_screenshot(info, som_or_not=som_or_not), action)
 
 
 def get_screenshot(info: Info, step: int = None, som_or_not: str = "Raw Screenshots"):
@@ -590,7 +554,7 @@ def update_screenshot_pair(som_or_not: str):
     s2 = get_screenshot(info, info.step + 1, som_or_not)
 
     if s1 is not None:
-        s1 = tag_screenshot_with_action(s1, info.exp_result.steps_info[info.step].action)
+        s1 = agent_utils.tag_screenshot_with_action(s1, info.exp_result.steps_info[info.step].action)
     return s1, s2
 
 
