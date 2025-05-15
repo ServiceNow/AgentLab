@@ -535,7 +535,9 @@ def if_active(tab_name, n_out=1):
 def update_screenshot(som_or_not: str):
     global info
     action = info.exp_result.steps_info[info.step].action
-    return agent_utils.tag_screenshot_with_action(get_screenshot(info, som_or_not=som_or_not), action)
+    return agent_utils.tag_screenshot_with_action(
+        get_screenshot(info, som_or_not=som_or_not), action
+    )
 
 
 def get_screenshot(info: Info, step: int = None, som_or_not: str = "Raw Screenshots"):
@@ -554,7 +556,9 @@ def update_screenshot_pair(som_or_not: str):
     s2 = get_screenshot(info, info.step + 1, som_or_not)
 
     if s1 is not None:
-        s1 = agent_utils.tag_screenshot_with_action(s1, info.exp_result.steps_info[info.step].action)
+        s1 = agent_utils.tag_screenshot_with_action(
+            s1, info.exp_result.steps_info[info.step].action
+        )
     return s1, s2
 
 
@@ -596,7 +600,12 @@ def dict_to_markdown(d: dict):
     """
     Convert a dictionary to a clean markdown representation, recursively.
 
-    dict: type = dict[str, str | list[dict[...]]]
+    Args:
+        d (dict): A dictionary where keys are strings and values can be strings,
+                  lists of dictionaries, or nested dictionaries.
+
+    Returns:
+        str: A markdown-formatted string representation of the dictionary.
     """
     if not isinstance(d, dict):
         warning(f"Expected dict, got {type(d)}")

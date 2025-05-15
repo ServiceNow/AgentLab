@@ -2,10 +2,10 @@ from PIL import Image, ImageDraw
 from logging import warning
 
 
-
 """
 This module contains utility functions for handling observations and actions in the context of agent interactions.
 """
+
 
 def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
     """
