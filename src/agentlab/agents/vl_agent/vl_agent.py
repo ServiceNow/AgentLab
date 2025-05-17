@@ -24,7 +24,10 @@ class VLAgent(ABC):
 
 @dataclass
 class VLAgentArgs(ABC):
-    agent_name: str
+    @property
+    @abstractmethod
+    def agent_name(self) -> str:
+        raise NotImplementedError
 
     @abstractmethod
     def make_agent(self) -> VLAgent:
@@ -69,7 +72,12 @@ class UIAgent(VLAgent):
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
         self.obs_history.append(obs)
-        ui_prompt = self.ui_prompt_args.make_prompt(self.obs_history, self.actions, self.thoughts)
+        ui_prompt = self.ui_prompt_args.make_prompt(
+            obs_history=self.obs_history,
+            actions=self.actions,
+            thoughts=self.thoughts,
+            extra_instructions=None,
+        )
         try:
             messages = Discussion(
                 [SystemMessage(dp.SystemPrompt().prompt), ui_prompt.get_message()]
@@ -118,6 +126,10 @@ class UIAgentArgs(VLAgentArgs):
     auxiliary_vl_model_args: VLModelArgs
     ui_prompt_args: UIPromptArgs
     max_retry: int
+
+    @property
+    def agent_name(self) -> str:
+        return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
         return UIAgent(

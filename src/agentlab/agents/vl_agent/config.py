@@ -7,7 +7,6 @@ import agentlab.agents.dynamic_prompting as dp
 
 VL_MODEL_ARGS_DICT = {
     "llama_32_11b": LlamaModelArgs(
-        model_name="llama_32_11b",
         model_path="meta-llama/Llama-3.2-11B-Vision-Instruct",
         torch_dtype="bfloat16",
         checkpoint_dir=None,
@@ -19,7 +18,6 @@ VL_MODEL_ARGS_DICT = {
 
 VL_PROMPT_ARGS_DICT = {
     "ui_prompt-default": UIPromptArgs(
-        prompt_name="ui_prompt-default",
         obs_flags=dp.ObsFlags(
             use_tabs=True,
             use_error_logs=True,
@@ -41,8 +39,7 @@ VL_PROMPT_ARGS_DICT = {
 }
 
 VL_AGENT_ARGS_DICT = {
-    "ui_agent-llama_32_11b-llama_32_11b": UIAgentArgs(
-        agent_name="ui_agent-llama_32_11b-llama_32_11b",
+    "ui_agent-default": UIAgentArgs(
         main_vl_model_args=VL_MODEL_ARGS_DICT["llama_32_11b"],
         auxiliary_vl_model_args=VL_MODEL_ARGS_DICT["llama_32_11b"],
         ui_prompt_args=VL_PROMPT_ARGS_DICT["ui_prompt-default"],

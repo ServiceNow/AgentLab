@@ -17,9 +17,11 @@ class VLModel(ABC):
         raise NotImplementedError
 
 
-@dataclass
 class VLModelArgs(ABC):
-    model_name: str
+    @property
+    @abstractmethod
+    def model_name(self) -> str:
+        raise NotImplementedError
 
     @abstractmethod
     def make_model(self) -> VLModel:
@@ -80,6 +82,10 @@ class LlamaModelArgs(VLModelArgs):
     max_length: int
     max_new_tokens: int
     reproducibility_config: dict
+
+    @property
+    def model_name(self) -> str:
+        return self.model_path.split("/")[-1].replace("-", "_").replace(".", "")
 
     def make_model(self) -> LlamaModel:
         return LlamaModel(
