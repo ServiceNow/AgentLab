@@ -11,12 +11,14 @@ from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
+    BaseModelArgs,
     ClaudeResponseModelArgs,
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
     OpenRouterModelArgs,
     ResponseLLMOutput,
+    VLLMModelArgs,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.core.observation import extract_screenshot
@@ -264,7 +266,7 @@ def get_openrouter_tool_use_agent(
     tag_screenshot=True,
     use_raw_page_output=True,
 ) -> ToolUseAgentArgs:
-    #To Do : Check if OpenRouter endpoint specific args are working
+    # To Do : Check if OpenRouter endpoint specific args are working
     if not supports_tool_calling(model_name):
         raise ValueError(f"Model {model_name} does not support tool calling.")
 
@@ -301,11 +303,41 @@ CHATAPI_AGENT_CONFIG = ToolUseAgentArgs(
 
 
 OAI_CHAT_TOOl_AGENT = ToolUseAgentArgs(
-    model_args=OpenAIChatModelArgs(model_name="gpt-4o-2024-08-06"),
-    use_first_obs=False,
-    tag_screenshot=False,
-    use_raw_page_output=True,
+    model_args=OpenAIChatModelArgs(model_name="gpt-4o-2024-08-06")
 )
+
+
+PROVIDER_FACTORY_MAP = {
+    "openai": {"chatcompletion": OpenAIChatModelArgs, "response": OpenAIResponseModelArgs},
+    "openrouter": OpenRouterModelArgs,
+    "vllm": VLLMModelArgs,
+    "antrophic": ClaudeResponseModelArgs,
+}
+
+
+def get_tool_use_agent(
+    api_provider: str,
+    model_args: "BaseModelArgs",
+    tool_use_agent_args: dict = None,
+    api_provider_spec=None,
+) -> ToolUseAgentArgs:
+
+    if api_provider == "openai":
+        assert (
+            api_provider_spec is not None
+        ), "Endpoint specification is required for OpenAI provider. Choose between 'chatcompletion' and 'response'."
+
+    model_args_factory = (
+        PROVIDER_FACTORY_MAP[api_provider]
+        if api_provider_spec is None
+        else PROVIDER_FACTORY_MAP[api_provider][api_provider_spec]
+    )
+
+    # Create the agent with model arguments from the factory
+    agent = ToolUseAgentArgs(
+        model_args=model_args_factory(**model_args), **(tool_use_agent_args or {})
+    )
+    return agent
 
 
 ## We have three providers that we want to support.

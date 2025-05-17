@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union, Type
+from typing import Any, Dict, List, Optional, Type, Union
+
 import openai
 from anthropic import Anthropic
 from openai import OpenAI
@@ -42,25 +44,25 @@ class MessageBuilder:
         self.tool_call_id: Optional[str] = None
 
     @classmethod
-    def system(cls) -> "MessageBuilder": 
+    def system(cls) -> "MessageBuilder":
         return cls("system")
 
     @classmethod
-    def user(cls) -> "MessageBuilder": 
+    def user(cls) -> "MessageBuilder":
         return cls("user")
-    
+
     @classmethod
-    def assistant(cls) -> "MessageBuilder": 
+    def assistant(cls) -> "MessageBuilder":
         return cls("assistant")
-    
+
     @classmethod
-    def tool(cls) -> "MessageBuilder": 
+    def tool(cls) -> "MessageBuilder":
         return cls("tool")
-    
+
     def update_last_raw_response(self, raw_response: Any) -> "MessageBuilder":
         self.last_response = raw_response
         return self
-    
+
     def add_tool_id(self, id: str) -> "MessageBuilder":
         self.tool_call_id = id
         return self
@@ -72,7 +74,7 @@ class MessageBuilder:
     def add_image(self, image: str) -> "MessageBuilder":
         self.content.append({"image": image})
         return self
-     
+
     def to_markdown(self) -> str:
         parts = []
         for item in self.content:
@@ -140,16 +142,15 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
     def add_tool_id(self, id: str) -> "MessageBuilder":
         self.tool_call_id = id
         return self
-    
+
     def prepare_message(self) -> List[Message]:
         content = []
 
         if self.role == "system":
             logging.info(
-                "Treating system message as 'user'. In the Anthropic API, system messages should be passed as a direct input to the client." \
-                
+                "Treating system message as 'user'. In the Anthropic API, system messages should be passed as a direct input to the client."
             )
-            return [{"role": 'user', "content": content}]
+            return [{"role": "user", "content": content}]
 
         for item in self.content:
             if "text" in item:
@@ -204,8 +205,7 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
             if "text" in item:
                 content.append({"type": "text", "text": item["text"]})
             elif "image" in item:
-                content.append({"type": "image_url", 
-                                "image_url": {"url": item["image"]}})
+                content.append({"type": "image_url", "image_url": {"url": item["image"]}})
         res = [{"role": self.role, "content": content}]
 
         if self.role == "tool":
@@ -217,7 +217,7 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
             res[0]["tool_call_id"] = self.tool_call_id
             res[0]["type"] = "function_call_output"
             message = self.last_response.raw_response.choices[0].message.to_dict()
-            res[0]["tool_name"] = message['tool_calls'][0]['function']['name']
+            res[0]["tool_name"] = message["tool_calls"][0]["function"]["name"]
             text_content = (
                 content.pop(0)["text"]
                 if "text" in content[0]
@@ -226,6 +226,7 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
             res[0]["content"] = text_content
             res.append({"role": "user", "content": content})
         return res
+
 
 class OpenRouterAPIMessageBuilder(MessageBuilder):
 
@@ -268,6 +269,7 @@ class OpenRouterAPIMessageBuilder(MessageBuilder):
             res.append({"role": "user", "content": content})
         return res
 
+
 # # Base class for all API Endpoints
 class BaseResponseModel(ABC):
     def __init__(
@@ -277,7 +279,6 @@ class BaseResponseModel(ABC):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-
     ):
         self.model_name = model_name
         self.api_key = api_key
@@ -368,6 +369,7 @@ class OpenAIResponseModel(BaseResponseModel):
                     result.think += output.summary[0].text + "\n"
         return result
 
+
 class OpenAIChatCompletionModel(BaseResponseModel):
     def __init__(
         self,
@@ -383,9 +385,13 @@ class OpenAIChatCompletionModel(BaseResponseModel):
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
         )
-        self.extra_kwargs['tools'] = self.format_tools_for_chat_completion(
-                                            self.extra_kwargs.get('tools', []))
-        self.client = OpenAI(**client_args)  # Ensures client_args is a dict or defaults to an empty dict
+        self.extra_kwargs["tools"] = self.format_tools_for_chat_completion(
+            self.extra_kwargs.get("tools", [])
+        )
+        self.client = OpenAI(
+            **client_args
+        )  # Ensures client_args is a dict or defaults to an empty dict
+
     def _call_api(self, messages: list[dict | MessageBuilder]) -> openai.types.chat.ChatCompletion:
         chat_messages: List[Message] = []
         for msg in messages:
@@ -400,12 +406,12 @@ class OpenAIChatCompletionModel(BaseResponseModel):
             "messages": chat_messages,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "tool_choice":"auto",
+            "tool_choice": "auto",
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
 
         response = self.call_with_retries(self.client.chat.completions.create, api_params)
-            # Basic token tracking (if usage information is available)
+        # Basic token tracking (if usage information is available)
         if response.usage:
             input_tokens = response.usage.prompt_tokens
             output_tokens = response.usage.completion_tokens
@@ -417,7 +423,6 @@ class OpenAIChatCompletionModel(BaseResponseModel):
             #     tracking.TRACKER.instance(input_tokens, output_tokens, cost) # Placeholder for cost
 
         return response
- 
 
     def _parse_response(self, response: openai.types.chat.ChatCompletion) -> ResponseLLMOutput:
 
@@ -431,7 +436,7 @@ class OpenAIChatCompletionModel(BaseResponseModel):
                 "content": response.choices[0].message.content,
             },
         )
-        message = response.choices[0].message.to_dict() 
+        message = response.choices[0].message.to_dict()
 
         if tool_calls := message.get("tool_calls", None):
             for tool_call in tool_calls:
@@ -441,9 +446,11 @@ class OpenAIChatCompletionModel(BaseResponseModel):
                     f"{function['name']}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
                 )
                 output.last_computer_call_id = tool_call["id"]
-                output.assistant_message = {"role": "assistant",
-                                             "tool_calls": message["tool_calls"]}
-                break # only first tool call is used
+                output.assistant_message = {
+                    "role": "assistant",
+                    "tool_calls": message["tool_calls"],
+                }
+                break  # only first tool call is used
 
         elif "content" in message and message["content"]:
             output.think = message["content"]
@@ -481,7 +488,9 @@ class OpenAIChatCompletionModel(BaseResponseModel):
 
                 # Check for explicit error field in response object
                 if getattr(response, "error", None):
-                    logging.warning(f"[Attempt {attempt}] API returned error: {response.error}. Retrying...")
+                    logging.warning(
+                        f"[Attempt {attempt}] API returned error: {response.error}. Retrying..."
+                    )
                     continue
 
                 # Check for valid response with choices
@@ -489,7 +498,9 @@ class OpenAIChatCompletionModel(BaseResponseModel):
                     logging.info(f"[Attempt {attempt}] API call succeeded.")
                     return response
 
-                logging.warning(f"[Attempt {attempt}] API returned empty or malformed response. Retrying...")
+                logging.warning(
+                    f"[Attempt {attempt}] API returned empty or malformed response. Retrying..."
+                )
 
             except openai.APIError as e:
                 logging.error(f"[Attempt {attempt}] APIError: {e}")
@@ -507,6 +518,41 @@ class OpenAIChatCompletionModel(BaseResponseModel):
 
         logging.error("Exceeded maximum retry attempts. API call failed.")
         raise RuntimeError("API call failed after maximum retries.")
+
+
+# class VLLMChatCompletionModel(OpenAIChatCompletionModel):
+#     def _parse_response(self, response: openai.types.chat.ChatCompletion) -> ResponseLLMOutput:
+
+#         output = ResponseLLMOutput(
+#             raw_response=response,
+#             think="",
+#             action="noop()",  # Default if no tool call
+#             last_computer_call_id=None,
+#             assistant_message={
+#                 "role": "assistant",
+#                 "content": response.choices[0].message.content,
+#             },
+#         )
+#         message = response.choices[0].message.to_dict()
+
+#         if tool_calls := message.get("tool_calls", None):
+#             for tool_call in tool_calls:
+#                 function = tool_call["function"]
+#                 arguments = json.loads(function["arguments"])
+#                 output.action = (
+#                     f"{function['name']}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
+#                 )
+#                 output.last_computer_call_id = '0000' # ID not returned by VLLM
+#                 output.assistant_message = {
+#                     "role": "assistant",
+#                     "tool_calls": message["tool_calls"],
+#                 }
+#                 break  # only first tool call is used
+
+#         elif "content" in message and message["content"]:
+#             output.think = message["content"]
+
+#         return output
 
 
 class ClaudeResponseModel(BaseResponseModel):
@@ -678,13 +724,14 @@ class OpenAIResponseModelArgs(BaseModelArgs):
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIResponseAPIMessageBuilder
 
+
 @dataclass
 class ClaudeResponseModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenAI
     model."""
 
     api = "anthropic"
-    
+
     def make_model(self, extra_kwargs=None):
         return ClaudeResponseModel(
             model_name=self.model_name,
@@ -692,6 +739,7 @@ class ClaudeResponseModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
         )
+
     def get_message_builder(self) -> MessageBuilder:
         return AnthropicAPIMessageBuilder
 
@@ -702,6 +750,7 @@ class OpenAIChatModelArgs(BaseModelArgs):
     model."""
 
     api = "openai"
+
     def make_model(self, extra_kwargs=None):
         return OpenAIChatCompletionModel(
             model_name=self.model_name,
@@ -719,16 +768,9 @@ class OpenRouterModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenRouter
     model."""
 
-    api: str = "openai" # tool description format used by actionset.to_tool_description() in bgym
-    open_router_args: Dict = field(default_factory=dict)
+    api: str = "openai"  # tool description format used by actionset.to_tool_description() in bgym
 
     def make_model(self, extra_kwargs=None):
-        import os
-
-        extra_kwargs = self.open_router_args.copy()
-        if extra_kwargs:
-            extra_kwargs.update(extra_kwargs)
-
         return OpenAIChatCompletionModel(
             client_args={
                 "base_url": "https://openrouter.ai/api/v1",
@@ -737,8 +779,80 @@ class OpenRouterModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            extra_kwargs= extra_kwargs,
+            extra_kwargs=extra_kwargs,
         )
-    
+
     def get_message_builder(self) -> MessageBuilder:
         return OpenRouterAPIMessageBuilder
+
+
+class VLLMModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with a VLLM
+    model."""
+
+    api = "openai"  # tool description format used by actionset.to_tool_description() in bgym
+    client_args: Dict = {
+        "base_url": "http://localhost:8000/v1",
+        "api_key": os.getenv("VLLM_API_KEY", "EMPTY"),
+    }
+
+    def __post_init__(self):
+        # tests
+        assert self.is_model_available(
+            self.model_name
+        ), f"Model {self.model_name} is not available on the VLLM server. \
+                Please check the model name or server configuration."
+
+    def make_model(self, extra_kwargs=None):
+        return OpenAIChatCompletionModel(
+            client_args=self.client_args,
+            model_name=self.model_name,  # this needs to be set
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenAIChatCompletionAPIMessageBuilder
+
+    ## Some Tests for VLLM server
+    def test_vllm_server_reachability(self):
+        import requests
+
+        try:
+            response = requests.get(
+                f"{self.client_args['base_url']}/v1/models",
+                headers={"Authorization": f"Bearer {self.client_args['api_key']}"},
+            )
+            if response.status_code == 200:
+                return True
+            else:
+                return False
+        except requests.RequestException as e:
+            logging.error(f"Error checking VLLM server reachability: {e}")
+            return False
+
+    def is_model_available(self, model_name: str) -> bool:
+        # import requests
+
+        # """Check if the model is available on the VLLM server."""
+        # if not self.test_vllm_server_reachability():
+        #     logging.error("VLLM server is not reachable.")
+        #     return False
+        # try:
+        #     response = requests.get(
+        #         f"{self.client_args['base_url']}/v1/models",
+        #         headers={"Authorization": f"Bearer {self.client_args['api_key']}"},
+        #     )
+        #     if response.status_code == 200:
+        #         models = response.json().get("data", [])
+        #         return any(model.get("id") == model_name for model in models)
+        #     else:
+        #         logging.error(
+        #             f"Failed to fetch vllm hosted models: {response.status_code} - {response.text}"
+        #         )
+        #         return False
+        # except requests.RequestException as e:
+        #     logging.error(f"Error checking model availability: {e}")
+        #     return False
+        return True
