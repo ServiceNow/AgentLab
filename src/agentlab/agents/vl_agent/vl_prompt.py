@@ -11,7 +11,7 @@ import numpy as np
 
 class VLPromptPart(ABC):
     @abstractmethod
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         raise NotImplementedError
 
 
@@ -41,7 +41,7 @@ This action will be executed and the state of the browser will be updated.
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -68,7 +68,7 @@ Review the current state of the browser and all other information to find the ne
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -79,7 +79,7 @@ class ScreenshotPromptPart(VLPromptPart):
 """
         self.image_url = image_to_image_url(screenshot)
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [
             {"type": "text", "text": self.text},
             {"type": "image_url", "image_url": {"url": self.image_url}},
@@ -99,7 +99,7 @@ Tab {index}{' (active tab)' if index == active_page_index else ''}: {title} ({ur
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -127,7 +127,7 @@ class ErrorPromptPart(VLPromptPart):
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -146,7 +146,7 @@ class HistoryPromptPart(VLPromptPart):
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -160,7 +160,7 @@ They are Python functions based on the Playwright library.
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -211,7 +211,7 @@ You can refine it to obtain your answer.
 """
         self.text = text
 
-    def get_message_items(self) -> list[dict]:
+    def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
 
@@ -227,24 +227,22 @@ class UIPrompt(VLPrompt):
     answer_prompt_part: AnswerPromptPart
 
     def get_messages(self) -> list[Union[SystemMessage, HumanMessage]]:
-        system_message_items = self.system_prompt_part.get_message_items()
-        human_message_items = self.instruction_prompt_part.get_message_items()
+        system_message_content = self.system_prompt_part.get_message_content()
+        human_message_content = self.instruction_prompt_part.get_message_content()
         if self.screenshot_prompt_part is not None:
-            human_message_items.extend(self.screenshot_prompt_part.get_message_items())
+            human_message_content.extend(self.screenshot_prompt_part.get_message_content())
         if self.tabs_prompt_part is not None:
-            human_message_items.extend(self.tabs_prompt_part.get_message_items())
+            human_message_content.extend(self.tabs_prompt_part.get_message_content())
         if self.history_prompt_part is not None:
-            human_message_items.extend(self.history_prompt_part.get_message_items())
+            human_message_content.extend(self.history_prompt_part.get_message_content())
         if self.error_prompt_part is not None:
-            human_message_items.extend(self.error_prompt_part.get_message_items())
-        human_message_items.extend(self.action_prompt_part.get_message_items())
-        human_message_items.extend(self.answer_prompt_part.get_message_items())
-        return [SystemMessage(system_message_items), HumanMessage(human_message_items)]
+            human_message_content.extend(self.error_prompt_part.get_message_content())
+        human_message_content.extend(self.action_prompt_part.get_message_content())
+        human_message_content.extend(self.answer_prompt_part.get_message_content())
+        return [SystemMessage(system_message_content), HumanMessage(human_message_content)]
 
     def parse_answer(self, answer_text: str) -> dict:
         answer_dict = {}
-        answer_dict.update(self.think.parse_answer(answer_text))
-        answer_dict.update(self.action_prompt.parse_answer(answer_text))
         return answer_dict
 
 
