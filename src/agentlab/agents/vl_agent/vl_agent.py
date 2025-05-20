@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from agentlab.agents import dynamic_prompting as dp
-from agentlab.llm.llm_utils import Discussion, ParseError, retry, SystemMessage
+from agentlab.llm.llm_utils import Discussion, ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
@@ -65,59 +64,66 @@ class UIAgent(VLAgent):
             self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.ui_prompt_args = ui_prompt_args
         self.max_retry = max_retry
-        self.obs_history = []
         self.actions = []
         self.thoughts = []
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
-        self.obs_history.append(obs)
         ui_prompt = self.ui_prompt_args.make_prompt(
-            obs_history=self.obs_history,
+            obs=obs,
             actions=self.actions,
             thoughts=self.thoughts,
             extra_instructions=None,
+            preliminary_answer=None,
         )
         try:
-            messages = Discussion(
-                [SystemMessage(dp.SystemPrompt().prompt), ui_prompt.get_message()]
-            )
-            answer = retry(
+            messages = Discussion(ui_prompt.get_messages())
+            messages.merge()
+            preliminary_answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_retry,
-                parser=ui_prompt.answer_parser,
+                parser=ui_prompt.parse_answer,
             )
             stats = {"num_main_retries": (len(messages) - 3) // 2}
         except ParseError:
-            answer = {"think": None, "action": None}
+            preliminary_answer = {"thought": None, "action": None}
             stats = {"num_main_retries": self.max_retry}
         stats.update(self.main_vl_model.get_stats())
-        if self.auxiliary_vl_model is not None:
+        if self.auxiliary_vl_model is None:
+            final_answer = preliminary_answer
+        else:
             try:
-                messages = Discussion(
-                    [SystemMessage(dp.SystemPrompt().prompt), ui_prompt.get_message()]
+                ui_prompt = self.ui_prompt_args.make_prompt(
+                    obs=obs,
+                    actions=self.actions,
+                    thoughts=self.thoughts,
+                    extra_instructions=None,
+                    preliminary_answer=preliminary_answer,
                 )
-                messages.add_text(f"{answer['think']}\n{answer['action']}\n")
-                answer = retry(
+                messages = Discussion(ui_prompt.get_messages())
+                messages.merge()
+                final_answer = retry(
                     chat=self.auxiliary_vl_model,
                     messages=messages,
                     n_retry=self.max_retry,
-                    parser=ui_prompt.answer_parser,
+                    parser=ui_prompt.parse_answer,
                 )
                 stats["num_auxiliary_retries"] = (len(messages) - 3) // 2
             except ParseError:
-                answer = {"action": None, "think": None}
+                final_answer = preliminary_answer
                 stats["num_auxiliary_retries"] = self.max_retry
             stats.update(self.auxiliary_vl_model.get_stats())
-        self.thoughts.append(answer["think"])
-        self.actions.append(answer["action"])
-        agent_info = AgentInfo(think=answer["think"], chat_messages=messages, stats=stats)
-        return answer["action"], asdict(agent_info)
+        self.thoughts.append(str(final_answer["thought"]))
+        self.actions.append(str(final_answer["action"]))
+        agent_info = AgentInfo(
+            think=str(final_answer["thought"]), chat_messages=messages, stats=stats
+        )
+        return final_answer["action"], asdict(agent_info)
 
     @property
-    def obs_preprocessor(self) -> callable:
-        return dp.make_obs_preprocessor(self.ui_prompt_args.obs_flags)
+    def obs_preprocessor(self, obs: dict) -> dict:
+        return obs
 
 
 @dataclass

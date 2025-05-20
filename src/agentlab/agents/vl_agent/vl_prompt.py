@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
-from agentlab.llm.llm_utils import HumanMessage, SystemMessage
+from agentlab.llm.llm_utils import (
+    extract_code_blocks,
+    HumanMessage,
+    ParseError,
+    parse_html_tags_raise,
+    SystemMessage,
+)
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
-from browsergym.core.action.highlevel import HighLevelActionSet
 from dataclasses import dataclass
 from PIL import Image
 from typing import Optional, Union
@@ -17,7 +22,7 @@ class VLPromptPart(ABC):
 
 class VLPrompt(ABC):
     @abstractmethod
-    def get_messages(self) -> list[Union[SystemMessage, HumanMessage]]:
+    def get_messages(self) -> list[Union[HumanMessage, SystemMessage]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -27,19 +32,24 @@ class VLPrompt(ABC):
 
 class VLPromptArgs(ABC):
     @abstractmethod
-    def make_prompt(self, obs: dict, actions: list[str], thoughts: list[str]) -> VLPrompt:
+    def make_prompt(
+        self,
+        obs: dict,
+        actions: list[str],
+        thoughts: list[str],
+        extra_instruction: Optional[str],
+        preliminary_answer: Optional[dict],
+    ) -> VLPrompt:
         raise NotImplementedError
 
 
 class SystemPromptPart(VLPromptPart):
-    def __init__(self, text: Optional[str]):
-        if text is None:
-            text = """\
+    def __init__(self):
+        self.text = """\
 You are an agent working to address a web-based task through step-by-step interactions with the browser. \
 At each step, you need to submit an action according to the current state of the browser. \
 This action will be executed and the state of the browser will be updated.
 """
-        self.text = text
 
     def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
@@ -53,7 +63,7 @@ class InstructionPromptPart(VLPromptPart):
     ):
         text = """\
 # Instruction
-Review the current state of the browser and all other information to find the next action to achieve the goal.
+Review the current state of the browser and all other information to find the best next action to achieve the goal.
 ## Goal
 """
         for item in goal_object:
@@ -75,7 +85,7 @@ Review the current state of the browser and all other information to find the ne
 class ScreenshotPromptPart(VLPromptPart):
     def __init__(self, screenshot: Union[Image.Image, np.ndarray]):
         self.text = """\
-# The Screenshot of the Current Page
+# The Screenshot of the Current Web Page
 """
         self.image_url = image_to_image_url(screenshot)
 
@@ -94,8 +104,31 @@ class TabsPromptPart(VLPromptPart):
 # The Open Tabs of the Browser
 """
         for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
-            text += f"""\
-Tab {index}{' (active tab)' if index == active_page_index else ''}: {title} ({url})
+            text += f"""
+## Tab {index}{' (active tab)' if index == active_page_index else ''}
+### Title
+{title}
+### URL
+{url}
+"""
+        self.text = text
+
+    def get_message_content(self) -> list[dict]:
+        return [{"type": "text", "text": self.text}]
+
+
+class HistoryPromptPart(VLPromptPart):
+    def __init__(self, thoughts: list[str], actions: list[str]):
+        text = """\
+# The Previous Steps
+"""
+        for index, (thought, action) in enumerate(zip(thoughts, actions)):
+            text += f"""
+## Step {index}
+### Thought
+{thought}
+### Action
+{action}
 """
         self.text = text
 
@@ -131,50 +164,23 @@ class ErrorPromptPart(VLPromptPart):
         return [{"type": "text", "text": self.text}]
 
 
-class HistoryPromptPart(VLPromptPart):
-    def __init__(self, thoughts: list[str], actions: list[str]):
-        text = """\
-# The Previous Steps
-"""
-        for index, (thought, action) in enumerate(zip(thoughts, actions)):
-            text += f"""
-## Step {index}
-### Thought
-{thought}
-### Action
-{action}
-"""
-        self.text = text
-
-    def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
-
-
-class ActionPromptPart(VLPromptPart):
-    def __init__(self, action_set: HighLevelActionSet):
-        text = f"""\
-# Action Space
-Here are the actions you can take to interact with the browser. \
-They are Python functions based on the Playwright library.
-{action_set.describe(with_long_description=True, with_examples=False)}
-"""
-        self.text = text
-
-    def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
-
-
 class AnswerPromptPart(VLPromptPart):
     def __init__(
         self,
+        action_set_description: str,
         use_abstract_example: bool,
         use_concrete_example: bool,
         preliminary_answer: Optional[dict],
     ):
-        text = """\
-# Answer Format
-Think about the next action, and choose it from the action space. \
-Your answer should include both the thought and the next action.
+        text = f"""\
+# Answer Requirements
+## Action Space
+Here are all the actions you can take to interact with the browser. \
+They are Python functions based on the Playwright library.
+{action_set_description}
+## Answer Format
+Think about the next action to take, and choose it from the action space. \
+Your answer should include both the thought and the action.
 """
         if use_abstract_example:
             text += """
@@ -183,7 +189,7 @@ Your answer should include both the thought and the next action.
 The thought about the next action.
 </thought>
 <action>
-The next action to take.
+The next action.
 </action>
 """
         if use_concrete_example:
@@ -199,9 +205,9 @@ click('a324')
 """
         if preliminary_answer is not None:
             text += f"""
-## A Preliminary Answer to Refine
-Here is a preliminary anser, which might be incorrect or inaccurate. \
-You can refine it to obtain your answer.
+## A Preliminary Answer
+Here is a preliminary answer, which might be incorrect or inaccurate. \
+You can refine it to get your answer.
 <thought>
 {preliminary_answer['thought']}
 </thought>
@@ -223,10 +229,10 @@ class UIPrompt(VLPrompt):
     tabs_prompt_part: Optional[TabsPromptPart]
     history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
-    action_prompt_part: ActionPromptPart
     answer_prompt_part: AnswerPromptPart
+    action_validator: callable
 
-    def get_messages(self) -> list[Union[SystemMessage, HumanMessage]]:
+    def get_messages(self) -> list[Union[HumanMessage, SystemMessage]]:
         system_message_content = self.system_prompt_part.get_message_content()
         human_message_content = self.instruction_prompt_part.get_message_content()
         if self.screenshot_prompt_part is not None:
@@ -237,12 +243,36 @@ class UIPrompt(VLPrompt):
             human_message_content.extend(self.history_prompt_part.get_message_content())
         if self.error_prompt_part is not None:
             human_message_content.extend(self.error_prompt_part.get_message_content())
-        human_message_content.extend(self.action_prompt_part.get_message_content())
         human_message_content.extend(self.answer_prompt_part.get_message_content())
         return [SystemMessage(system_message_content), HumanMessage(human_message_content)]
 
     def parse_answer(self, answer_text: str) -> dict:
         answer_dict = {}
+        try:
+            answer_dict.update(
+                parse_html_tags_raise(answer_text, keys=["thought"], merge_multiple=True)
+            )
+        except ParseError as error:
+            answer_dict["thought"] = answer_text
+            answer_dict["thought_parse_error"] = str(error)
+        try:
+            answer_dict.update(
+                parse_html_tags_raise(answer_text, keys=["action"], merge_multiple=True)
+            )
+        except ParseError as error:
+            code_blocks = extract_code_blocks(answer_text)
+            if len(code_blocks) == 0:
+                raise error
+            else:
+                answer_dict["action"] = "\n".join([block for _, block in code_blocks])
+                answer_dict["action_parse_error"] = str(error)
+        if answer_dict["action"] == "None":
+            answer_dict["action"] = None
+        else:
+            try:
+                self.action_validator(answer_dict["action"])
+            except Exception as error:
+                raise ParseError(str(error))
         return answer_dict
 
 
@@ -264,10 +294,9 @@ class UIPromptArgs(VLPromptArgs):
         extra_instruction: Optional[str],
         preliminary_answer: Optional[dict],
     ) -> UIPrompt:
-        system_prompt_part = SystemPromptPart(None)
+        system_prompt_part = SystemPromptPart()
         instruction_prompt_part = InstructionPromptPart(
-            goal_object=obs["goal_object"],
-            extra_instruction=extra_instruction,
+            goal_object=obs["goal_object"], extra_instruction=extra_instruction
         )
         if self.use_screenshot:
             screenshot_prompt_part = ScreenshotPromptPart(obs["screenshot"])
@@ -289,12 +318,16 @@ class UIPromptArgs(VLPromptArgs):
             error_prompt_part = ErrorPromptPart(obs["last_action_error"])
         else:
             error_prompt_part = None
-        action_prompt_part = ActionPromptPart(self.action_set_args.make_action_set())
+        action_set = self.action_set_args.make_action_set()
         answer_prompt_part = AnswerPromptPart(
+            action_set_description=action_set.describe(
+                with_long_description=True, with_examples=False
+            ),
             use_abstract_example=self.use_abstract_example,
             use_concrete_example=self.use_concrete_example,
             preliminary_answer=preliminary_answer,
         )
+        action_validator = action_set.to_python_code
         return UIPrompt(
             system_prompt_part=system_prompt_part,
             instruction_prompt_part=instruction_prompt_part,
@@ -302,6 +335,6 @@ class UIPromptArgs(VLPromptArgs):
             tabs_prompt_part=tabs_prompt_part,
             history_prompt_part=history_prompt_part,
             error_prompt_part=error_prompt_part,
-            action_prompt_part=action_prompt_part,
             answer_prompt_part=answer_prompt_part,
+            action_validator=action_validator,
         )
