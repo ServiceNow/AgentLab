@@ -322,18 +322,34 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            res = AIMessage(completion.choices[0].message.content)
+            res = AIMessage(self.extract_content_with_reasoning(completion.choices[0].message))
             if self.log_probs:
                 res["log_probs"] = completion.choices[0].log_probs
             return res
         else:
-            return [AIMessage(c.message.content) for c in completion.choices]
+            return [
+                AIMessage(self.extract_content_with_reasoning(c.message))
+                for c in completion.choices
+            ]
 
     def get_stats(self):
         return {
             "n_retry_llm": self.retries,
             # "busted_retry_llm": int(not self.success), # not logged if it occurs anyways
         }
+
+    # Support for models that return reasoning.
+    def extract_content_with_reasoning(self, message, wrap_tag="think"):
+        """Extracts the content from the message, including reasoning if available.
+        It wraps the reasoning around <think>...</think> for backward compatibility."""
+
+        reasoning_content = getattr(message, "reasoning", None)
+        if reasoning_content:
+            # Wrap reasoning in <think> tags with newlines for clarity
+            reasoning_content = f"<{wrap_tag}>\n{reasoning_content}\n</{wrap_tag}>\n"
+        else:
+            reasoning_content = ""
+        return f"{reasoning_content}{message.content}"
 
 
 class OpenAIChatModel(ChatModel):
