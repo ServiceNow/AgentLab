@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import (
     Discussion,
     extract_code_blocks,
@@ -12,37 +11,9 @@ from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
 from dataclasses import dataclass
 from PIL import Image
 from typing import Optional, Union
-from .utils import image_to_image_url
+from .base import VLPrompt, VLPromptArgs, VLPromptPart
+from ..utils import image_to_image_url
 import numpy as np
-
-
-class VLPromptPart(ABC):
-    @abstractmethod
-    def get_message_content(self) -> list[dict]:
-        raise NotImplementedError
-
-
-class VLPrompt(ABC):
-    @abstractmethod
-    def get_messages(self) -> Discussion:
-        raise NotImplementedError
-
-    @abstractmethod
-    def parse_answer(self, answer_text: str) -> dict:
-        raise NotImplementedError
-
-
-class VLPromptArgs(ABC):
-    @abstractmethod
-    def make_prompt(
-        self,
-        obs: dict,
-        actions: list[str],
-        thoughts: list[str],
-        extra_instruction: Optional[str],
-        preliminary_answer: Optional[dict],
-    ) -> VLPrompt:
-        raise NotImplementedError
 
 
 class SystemPromptPart(VLPromptPart):
@@ -61,7 +32,7 @@ class InstructionPromptPart(VLPromptPart):
     def __init__(
         self,
         goal_object: list[dict],
-        extra_instruction: Optional[str],
+        extra_instruction: Optional[str] = None,
     ):
         text = """\
 # Instruction
@@ -139,20 +110,23 @@ class HistoryPromptPart(VLPromptPart):
 
 
 class ErrorPromptPart(VLPromptPart):
-    def __init__(self, last_action_error: str):
+    def __init__(
+        self,
+        last_action_error: str,
+        logs_separator: str = "Call log:",
+        logs_limit: int = 5,
+    ):
         text = """\
-# The Error from the Last Action
+# The Error from Last Action
 """
-        separator = "Call log:"
-        if separator in last_action_error:
-            error, logs = last_action_error.split(separator)
-            error = error.strip()
-            logs = logs.split("\n")
+        if logs_separator in last_action_error:
+            error, logs = last_action_error.split(logs_separator)
+            logs = logs.split("\n")[:logs_limit]
             text += f"""\
 {error}
-{separator}
+{logs_separator}
 """
-            for log in logs[:10]:
+            for log in logs:
                 text += f"""\
 {log}
 """
@@ -172,7 +146,7 @@ class AnswerPromptPart(VLPromptPart):
         action_set_description: str,
         use_abstract_example: bool,
         use_concrete_example: bool,
-        preliminary_answer: Optional[dict],
+        preliminary_answer: Optional[dict] = None,
     ):
         text = f"""\
 # Answer Requirements
@@ -186,17 +160,17 @@ Your answer should include both the thought and the action.
 """
         if use_abstract_example:
             text += """\
-## An Abstract Example of the Answer
+### An Abstract Example of the Answer
 <thought>
 The thought about the next action.
 </thought>
 <action>
-The next action.
+The next action to take.
 </action>
 """
         if use_concrete_example:
             text += """\
-## A Concrete Example of the Answer
+### A Concrete Example of the Answer
 <thought>
 From previous action I tried to set the value of year to "2022", using select_option, but it doesn't appear to be in the form. \
 It may be a dynamic dropdown, I will try using click with the bid "a324" and look at the response from the page.
@@ -296,10 +270,10 @@ class UIPromptArgs(VLPromptArgs):
     def make_prompt(
         self,
         obs: dict,
-        actions: list[str],
         thoughts: list[str],
-        extra_instruction: Optional[str],
-        preliminary_answer: Optional[dict],
+        actions: list[str],
+        extra_instruction: Optional[str] = None,
+        preliminary_answer: Optional[dict] = None,
     ) -> UIPrompt:
         action_set = self.action_set_args.make_action_set()
         system_prompt_part = SystemPromptPart()

@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
@@ -7,47 +6,9 @@ from browsergym.utils.obs import overlay_som
 from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
 from typing import Optional
-from .vl_model import VLModelArgs
-from .vl_prompt import UIPromptArgs
-
-
-class VLAgent(ABC):
-    @abstractmethod
-    def get_action(self, obs: dict) -> tuple[str, dict]:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def obs_preprocessor(self) -> callable:
-        raise NotImplementedError
-
-
-@dataclass
-class VLAgentArgs(ABC):
-    @property
-    @abstractmethod
-    def agent_name(self) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
-    def make_agent(self) -> VLAgent:
-        raise NotImplementedError
-
-    @abstractmethod
-    def prepare(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def close(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_reproducibility_mode(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        raise NotImplementedError
+from .base import VLAgent, VLAgentArgs
+from ..vl_model import VLModelArgs
+from ..vl_prompt import UIPromptArgs
 
 
 class UIAgent(VLAgent):
