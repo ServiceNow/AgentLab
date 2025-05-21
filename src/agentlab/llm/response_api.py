@@ -228,48 +228,6 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
         return res
 
 
-class OpenRouterAPIMessageBuilder(MessageBuilder):
-
-    def __init__(self, role: str):
-        super().__init__(role)
-        self.tool_call_id = None
-        self.tool_name = None
-        self.last_response = None
-
-    def update_tool_info(self, id: str) -> "MessageBuilder":
-        self.tool_call_id = id
-        return self
-
-    def prepare_message(self) -> List[Message]:
-        """Prepare the message for the OpenAI API."""
-        content = []
-        for item in self.content:
-            if "text" in item:
-                content.append({"type": "text", "text": item["text"]})
-            elif "image" in item:
-                content.append({"type": "image_url", "image_url": {"url": item["image"]}})
-        res = [{"role": self.role, "content": content}]
-
-        if self.role == "tool":
-            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            # tool messages can only take text with openai
-            # we need to split the first content element if it's text and use it
-            # then open a new (user) message with the rest
-            # a function_call_output dict has keys "call_id", "type" and "output"
-            res[0]["tool_call_id"] = self.tool_call_id
-            res[0]["type"] = "function_call_output"
-            message = self.last_response.raw_response.choices[0].message.to_dict()
-            res[0]["tool_name"] = message["tool_calls"][0]["function"]["name"]
-            text_content = (
-                content.pop(0)["text"]
-                if "text" in content[0]
-                else "Tool call answer in next message"
-            )
-            res[0]["content"] = text_content
-            res.append({"role": "user", "content": content})
-        return res
-
-
 # # Base class for all API Endpoints
 class BaseResponseModel(ABC):
     def __init__(
@@ -702,7 +660,7 @@ class OpenRouterModelArgs(BaseModelArgs):
         )
 
     def get_message_builder(self) -> MessageBuilder:
-        return OpenRouterAPIMessageBuilder
+        return OpenAIChatCompletionAPIMessageBuilder
 
     def __post_init__(self):
         # Some runtime checks
@@ -717,7 +675,7 @@ class VLLMModelArgs(BaseModelArgs):
     api = "openai"  # tool description format used by actionset.to_tool_description() in bgym
 
     def __post_init__(self):
-        # tests
+        # error handeling
         assert self.is_model_available(
             self.model_name
         ), f"Model {self.model_name} is not available on the VLLM server. \
