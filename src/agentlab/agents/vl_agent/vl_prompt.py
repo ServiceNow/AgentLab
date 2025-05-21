@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import (
+    Discussion,
     extract_code_blocks,
     HumanMessage,
     ParseError,
     parse_html_tags_raise,
     SystemMessage,
 )
+from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
 from dataclasses import dataclass
 from PIL import Image
@@ -22,7 +24,7 @@ class VLPromptPart(ABC):
 
 class VLPrompt(ABC):
     @abstractmethod
-    def get_messages(self) -> list[Union[HumanMessage, SystemMessage]]:
+    def get_messages(self) -> Discussion:
         raise NotImplementedError
 
     @abstractmethod
@@ -104,7 +106,7 @@ class TabsPromptPart(VLPromptPart):
 # The Open Tabs of the Browser
 """
         for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
-            text += f"""
+            text += f"""\
 ## Tab {index}{' (active tab)' if index == active_page_index else ''}
 ### Title
 {title}
@@ -123,7 +125,7 @@ class HistoryPromptPart(VLPromptPart):
 # The Previous Steps
 """
         for index, (thought, action) in enumerate(zip(thoughts, actions)):
-            text += f"""
+            text += f"""\
 ## Step {index}
 ### Thought
 {thought}
@@ -183,7 +185,7 @@ Think about the next action to take, and choose it from the action space. \
 Your answer should include both the thought and the action.
 """
         if use_abstract_example:
-            text += """
+            text += """\
 ## An Abstract Example of the Answer
 <thought>
 The thought about the next action.
@@ -193,7 +195,7 @@ The next action.
 </action>
 """
         if use_concrete_example:
-            text += """
+            text += """\
 ## A Concrete Example of the Answer
 <thought>
 From previous action I tried to set the value of year to "2022", using select_option, but it doesn't appear to be in the form. \
@@ -204,7 +206,7 @@ click('a324')
 </action>
 """
         if preliminary_answer is not None:
-            text += f"""
+            text += f"""\
 ## A Preliminary Answer
 Here is a preliminary answer, which might be incorrect or inaccurate. \
 You can refine it to get your answer.
@@ -223,6 +225,7 @@ You can refine it to get your answer.
 
 @dataclass
 class UIPrompt(VLPrompt):
+    action_set: HighLevelActionSet
     system_prompt_part: SystemPromptPart
     instruction_prompt_part: InstructionPromptPart
     screenshot_prompt_part: Optional[ScreenshotPromptPart]
@@ -230,9 +233,8 @@ class UIPrompt(VLPrompt):
     history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
     answer_prompt_part: AnswerPromptPart
-    action_validator: callable
 
-    def get_messages(self) -> list[Union[HumanMessage, SystemMessage]]:
+    def get_messages(self) -> Discussion:
         system_message_content = self.system_prompt_part.get_message_content()
         human_message_content = self.instruction_prompt_part.get_message_content()
         if self.screenshot_prompt_part is not None:
@@ -244,7 +246,11 @@ class UIPrompt(VLPrompt):
         if self.error_prompt_part is not None:
             human_message_content.extend(self.error_prompt_part.get_message_content())
         human_message_content.extend(self.answer_prompt_part.get_message_content())
-        return [SystemMessage(system_message_content), HumanMessage(human_message_content)]
+        messages = Discussion(
+            [SystemMessage(system_message_content), HumanMessage(human_message_content)]
+        )
+        messages.merge()
+        return messages
 
     def parse_answer(self, answer_text: str) -> dict:
         answer_dict = {}
@@ -270,7 +276,7 @@ class UIPrompt(VLPrompt):
             answer_dict["action"] = None
         else:
             try:
-                self.action_validator(answer_dict["action"])
+                self.action_set.to_python_code(answer_dict["action"])
             except Exception as error:
                 raise ParseError(str(error))
         return answer_dict
@@ -280,6 +286,7 @@ class UIPrompt(VLPrompt):
 class UIPromptArgs(VLPromptArgs):
     action_set_args: HighLevelActionSetArgs
     use_screenshot: bool
+    use_screenshot_som: bool
     use_tabs: bool
     use_history: bool
     use_error: bool
@@ -294,6 +301,7 @@ class UIPromptArgs(VLPromptArgs):
         extra_instruction: Optional[str],
         preliminary_answer: Optional[dict],
     ) -> UIPrompt:
+        action_set = self.action_set_args.make_action_set()
         system_prompt_part = SystemPromptPart()
         instruction_prompt_part = InstructionPromptPart(
             goal_object=obs["goal_object"], extra_instruction=extra_instruction
@@ -318,7 +326,6 @@ class UIPromptArgs(VLPromptArgs):
             error_prompt_part = ErrorPromptPart(obs["last_action_error"])
         else:
             error_prompt_part = None
-        action_set = self.action_set_args.make_action_set()
         answer_prompt_part = AnswerPromptPart(
             action_set_description=action_set.describe(
                 with_long_description=True, with_examples=False
@@ -327,8 +334,8 @@ class UIPromptArgs(VLPromptArgs):
             use_concrete_example=self.use_concrete_example,
             preliminary_answer=preliminary_answer,
         )
-        action_validator = action_set.to_python_code
         return UIPrompt(
+            action_set=action_set,
             system_prompt_part=system_prompt_part,
             instruction_prompt_part=instruction_prompt_part,
             screenshot_prompt_part=screenshot_prompt_part,
@@ -336,5 +343,4 @@ class UIPromptArgs(VLPromptArgs):
             history_prompt_part=history_prompt_part,
             error_prompt_part=error_prompt_part,
             answer_prompt_part=answer_prompt_part,
-            action_validator=action_validator,
         )

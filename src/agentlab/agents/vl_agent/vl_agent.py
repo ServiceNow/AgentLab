@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from agentlab.llm.llm_utils import Discussion, ParseError, retry
+from agentlab.llm.llm_utils import ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
-from copy import deepcopy
+from browsergym.utils.obs import overlay_som
+from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
 from typing import Optional
 from .vl_model import VLModelArgs
@@ -77,9 +78,8 @@ class UIAgent(VLAgent):
             preliminary_answer=None,
         )
         try:
-            messages = Discussion(ui_prompt.get_messages())
-            messages.merge()
-            preliminary_answer = retry(
+            messages = ui_prompt.get_messages()
+            answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_retry,
@@ -87,23 +87,21 @@ class UIAgent(VLAgent):
             )
             stats = {"num_main_retries": (len(messages) - 3) // 2}
         except ParseError:
-            preliminary_answer = {"thought": None, "action": None}
+            answer = {"thought": None, "action": None}
             stats = {"num_main_retries": self.max_retry}
         stats.update(self.main_vl_model.get_stats())
-        if self.auxiliary_vl_model is None:
-            final_answer = preliminary_answer
-        else:
+        if self.auxiliary_vl_model is not None:
+            preliminary_answer = answer
+            ui_prompt = self.ui_prompt_args.make_prompt(
+                obs=obs,
+                actions=self.actions,
+                thoughts=self.thoughts,
+                extra_instructions=None,
+                preliminary_answer=preliminary_answer,
+            )
             try:
-                ui_prompt = self.ui_prompt_args.make_prompt(
-                    obs=obs,
-                    actions=self.actions,
-                    thoughts=self.thoughts,
-                    extra_instructions=None,
-                    preliminary_answer=preliminary_answer,
-                )
-                messages = Discussion(ui_prompt.get_messages())
-                messages.merge()
-                final_answer = retry(
+                messages = ui_prompt.get_messages()
+                answer = retry(
                     chat=self.auxiliary_vl_model,
                     messages=messages,
                     n_retry=self.max_retry,
@@ -111,18 +109,25 @@ class UIAgent(VLAgent):
                 )
                 stats["num_auxiliary_retries"] = (len(messages) - 3) // 2
             except ParseError:
-                final_answer = preliminary_answer
+                answer = {"thought": None, "action": None}
                 stats["num_auxiliary_retries"] = self.max_retry
             stats.update(self.auxiliary_vl_model.get_stats())
-        self.thoughts.append(str(final_answer["thought"]))
-        self.actions.append(str(final_answer["action"]))
+        else:
+            preliminary_answer = None
+        self.thoughts.append(str(answer["thought"]))
+        self.actions.append(str(answer["action"]))
         agent_info = AgentInfo(
-            think=str(final_answer["thought"]), chat_messages=messages, stats=stats
+            think=str(answer["thought"]), stats=stats, extra_info=preliminary_answer
         )
-        return final_answer["action"], asdict(agent_info)
+        return answer["action"], asdict(agent_info)
 
     @property
     def obs_preprocessor(self, obs: dict) -> dict:
+        obs = copy(obs)
+        if self.ui_prompt_args.use_screenshot and self.ui_prompt_args.use_screenshot_som:
+            obs["screenshot"] = overlay_som(
+                obs["screenshot"], extra_properties=obs["extra_element_properties"]
+            )
         return obs
 
 
@@ -161,7 +166,7 @@ class UIAgentArgs(VLAgentArgs):
             self.auxiliary_vl_model_args.set_reproducibility_mode()
 
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        self.ui_prompt_args.obs_flags.use_tabs = benchmark.is_multi_tab
-        self.ui_prompt_args.action_flags.action_set = deepcopy(benchmark.high_level_action_set_args)
+        self.ui_prompt_args.use_tabs = benchmark.is_multi_tab
+        self.ui_prompt_args.action_set_args = deepcopy(benchmark.high_level_action_set_args)
         if demo_mode:
-            self.ui_prompt_args.action_flags.action_set.demo_mode = "all_blue"
+            self.ui_prompt_args.action_set_args.demo_mode = "all_blue"
