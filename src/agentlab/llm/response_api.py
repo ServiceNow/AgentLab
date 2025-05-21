@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 import openai
 from anthropic import Anthropic
 from openai import OpenAI
-
+from .llm_utils import call_with_retries, supports_tool_calling_for_openrouter
 from agentlab.llm import tracking
 
 from .base_api import BaseModelArgs
@@ -410,7 +410,7 @@ class OpenAIChatCompletionModel(BaseResponseModel):
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
 
-        response = self.call_with_retries(self.client.chat.completions.create, api_params)
+        response = call_with_retries(self.client.chat.completions.create, api_params)
         # Basic token tracking (if usage information is available)
         if response.usage:
             input_tokens = response.usage.prompt_tokens
@@ -459,7 +459,11 @@ class OpenAIChatCompletionModel(BaseResponseModel):
 
     @staticmethod
     def format_tools_for_chat_completion(tools_flat):
-        """Formats response tools format for OpenAI Chat Completion API."""
+        """Formats response tools format for OpenAI Chat Completion API.
+        Why we need this? 
+        Ans: actionset.to_tool_description() in bgym only returns description 
+        format valid for OpenAI Response API.
+        """
         return [
             {
                 "type": tool["type"],
@@ -468,91 +472,6 @@ class OpenAIChatCompletionModel(BaseResponseModel):
             for tool in tools_flat
         ]
 
-    @staticmethod
-    def call_with_retries(client_function, api_params, max_retries=5):
-        """
-        Makes a API call with retries for transient failures,
-        rate limiting, and invalid or error-containing responses.
-
-        Args:
-            client_function (Callable): Function to call the API (e.g., openai.ChatCompletion.create).
-            api_params (dict): Parameters to pass to the API function.
-            max_retries (int): Maximum number of retry attempts.
-
-        Returns:
-            response: Valid API response object.
-        """
-        for attempt in range(1, max_retries + 1):
-            try:
-                response = client_function(**api_params)
-
-                # Check for explicit error field in response object
-                if getattr(response, "error", None):
-                    logging.warning(
-                        f"[Attempt {attempt}] API returned error: {response.error}. Retrying..."
-                    )
-                    continue
-
-                # Check for valid response with choices
-                if hasattr(response, "choices") and response.choices:
-                    logging.info(f"[Attempt {attempt}] API call succeeded.")
-                    return response
-
-                logging.warning(
-                    f"[Attempt {attempt}] API returned empty or malformed response. Retrying..."
-                )
-
-            except openai.APIError as e:
-                logging.error(f"[Attempt {attempt}] APIError: {e}")
-                if e.http_status == 429:
-                    logging.warning("Rate limit exceeded. Retrying...")
-                elif e.http_status >= 500:
-                    logging.warning("Server error encountered. Retrying...")
-                else:
-                    logging.error("Non-retriable API error occurred.")
-                    raise
-
-            except Exception as e:
-                logging.exception(f"[Attempt {attempt}] Unexpected exception occurred.")
-                raise
-
-        logging.error("Exceeded maximum retry attempts. API call failed.")
-        raise RuntimeError("API call failed after maximum retries.")
-
-
-# class VLLMChatCompletionModel(OpenAIChatCompletionModel):
-#     def _parse_response(self, response: openai.types.chat.ChatCompletion) -> ResponseLLMOutput:
-
-#         output = ResponseLLMOutput(
-#             raw_response=response,
-#             think="",
-#             action="noop()",  # Default if no tool call
-#             last_computer_call_id=None,
-#             assistant_message={
-#                 "role": "assistant",
-#                 "content": response.choices[0].message.content,
-#             },
-#         )
-#         message = response.choices[0].message.to_dict()
-
-#         if tool_calls := message.get("tool_calls", None):
-#             for tool_call in tool_calls:
-#                 function = tool_call["function"]
-#                 arguments = json.loads(function["arguments"])
-#                 output.action = (
-#                     f"{function['name']}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
-#                 )
-#                 output.last_computer_call_id = '0000' # ID not returned by VLLM
-#                 output.assistant_message = {
-#                     "role": "assistant",
-#                     "tool_calls": message["tool_calls"],
-#                 }
-#                 break  # only first tool call is used
-
-#         elif "content" in message and message["content"]:
-#             output.think = message["content"]
-
-#         return output
 
 
 class ClaudeResponseModel(BaseResponseModel):
@@ -785,16 +704,17 @@ class OpenRouterModelArgs(BaseModelArgs):
     def get_message_builder(self) -> MessageBuilder:
         return OpenRouterAPIMessageBuilder
 
+    def __post_init__(self):
+        # Some runtime checks
+        assert supports_tool_calling_for_openrouter(
+            self.model_name
+            ), f"Model {self.model_name} does not support tool calling." 
 
 class VLLMModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with a VLLM
     model."""
 
     api = "openai"  # tool description format used by actionset.to_tool_description() in bgym
-    client_args: Dict = {
-        "base_url": "http://localhost:8000/v1",
-        "api_key": os.getenv("VLLM_API_KEY", "EMPTY"),
-    }
 
     def __post_init__(self):
         # tests
@@ -805,7 +725,10 @@ class VLLMModelArgs(BaseModelArgs):
 
     def make_model(self, extra_kwargs=None):
         return OpenAIChatCompletionModel(
-            client_args=self.client_args,
+            client_args={
+                "base_url": "http://localhost:8000/v1",
+                "api_key": os.getenv("VLLM_API_KEY", "EMPTY"),
+            },
             model_name=self.model_name,  # this needs to be set
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
@@ -815,7 +738,7 @@ class VLLMModelArgs(BaseModelArgs):
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIChatCompletionAPIMessageBuilder
 
-    ## Some Tests for VLLM server
+    ## Some Tests for VLLM server in the works! 
     def test_vllm_server_reachability(self):
         import requests
 

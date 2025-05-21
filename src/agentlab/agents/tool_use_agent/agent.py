@@ -203,93 +203,52 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
 )
 
 
-def supports_tool_calling(model_name: str) -> bool:
-    """
-    Check if the model supports tool calling.
-
-    Args:
-        model_name (str): The name of the model.
-
-    Returns:
-        bool: True if the model supports tool calling, False otherwise.
-    """
-    import os
-
-    import openai
-
-    client = openai.Client(
-        api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1"
-    )
-    try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": "Call the test tool"}],
-            tools=[
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "dummy_tool",
-                        "description": "Just a test tool",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {},
-                        },
-                    },
-                }
-            ],
-            tool_choice="required",
-        )
-        response = response.to_dict()
-        return "tool_calls" in response["choices"][0]["message"]
-    except Exception as e:
-        print(f"Model '{model_name}' error: {e}")
-        return False
 
 
-def get_openrouter_model(model_name: str, **open_router_args) -> OpenRouterModelArgs:
-    default_model_args = {
-        "max_total_tokens": 200_000,
-        "max_input_tokens": 180_000,
-        "max_new_tokens": 2_000,
-        "temperature": 0.1,
-        "vision_support": True,
-    }
-    merged_args = {**default_model_args, **open_router_args}
+# def get_openrouter_model(model_name: str, **open_router_args) -> OpenRouterModelArgs:
+#     default_model_args = {
+#         "max_total_tokens": 200_000,
+#         "max_input_tokens": 180_000,
+#         "max_new_tokens": 2_000,
+#         "temperature": 0.1,
+#         "vision_support": True,
+#     }
+#     merged_args = {**default_model_args, **open_router_args}
 
-    return OpenRouterModelArgs(model_name=model_name, **merged_args)
-
-
-def get_openrouter_tool_use_agent(
-    model_name: str,
-    model_args: dict = {},
-    use_first_obs=True,
-    tag_screenshot=True,
-    use_raw_page_output=True,
-) -> ToolUseAgentArgs:
-    # To Do : Check if OpenRouter endpoint specific args are working
-    if not supports_tool_calling(model_name):
-        raise ValueError(f"Model {model_name} does not support tool calling.")
-
-    model_args = get_openrouter_model(model_name, **model_args)
-
-    return ToolUseAgentArgs(
-        model_args=model_args,
-        use_first_obs=use_first_obs,
-        tag_screenshot=tag_screenshot,
-        use_raw_page_output=use_raw_page_output,
-    )
+#     return OpenRouterModelArgs(model_name=model_name, **merged_args)
 
 
-OPENROUTER_MODEL = get_openrouter_tool_use_agent("google/gemini-2.5-pro-preview")
+# def get_openrouter_tool_use_agent(
+#     model_name: str,
+#     model_args: dict = {},
+#     use_first_obs=True,
+#     tag_screenshot=True,
+#     use_raw_page_output=True,
+# ) -> ToolUseAgentArgs:
+#     # To Do : Check if OpenRouter endpoint specific args are working
+#     if not supports_tool_calling(model_name):
+#         raise ValueError(f"Model {model_name} does not support tool calling.")
+
+#     model_args = get_openrouter_model(model_name, **model_args)
+
+#     return ToolUseAgentArgs(
+#         model_args=model_args,
+#         use_first_obs=use_first_obs,
+#         tag_screenshot=tag_screenshot,
+#         use_raw_page_output=use_raw_page_output,
+#     )
+
+
+# OPENROUTER_MODEL = get_openrouter_tool_use_agent("google/gemini-2.5-pro-preview")
 
 
 AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
 )
 
-MT_TOOL_USE_AGENT = ToolUseAgentArgs(
-    model_args=OPENROUTER_MODEL,
-)
+# MT_TOOL_USE_AGENT = ToolUseAgentArgs(
+#     model_args=OPENROUTER_MODEL,
+# )
 CHATAPI_AGENT_CONFIG = ToolUseAgentArgs(
     model_args=OpenAIChatModelArgs(
         model_name="gpt-4o-2024-11-20",
