@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
 import numpy as np
+import openai
 import tiktoken
 import yaml
 from langchain.schema import BaseMessage
@@ -88,6 +89,102 @@ def retry(
             messages.append(dict(role="user", content=str(parsing_error)))
 
     raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
+
+
+def call_with_retries(client_function, api_params, max_retries=5):
+    """
+    Makes a API call with retries for transient failures,
+    rate limiting, and invalid or error-containing responses.
+
+    Args:
+        client_function (Callable): Function to call the API (e.g., openai.ChatCompletion.create).
+        api_params (dict): Parameters to pass to the API function.
+        max_retries (int): Maximum number of retry attempts.
+
+    Returns:
+        response: Valid API response object.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = client_function(**api_params)
+
+            # Check for explicit error field in response object
+            if getattr(response, "error", None):
+                logging.warning(
+                    f"[Attempt {attempt}] API returned error: {response.error}. Retrying..."
+                )
+                continue
+
+            # Check for valid response with choices
+            if hasattr(response, "choices") and response.choices:
+                logging.info(f"[Attempt {attempt}] API call succeeded.")
+                return response
+
+            logging.warning(
+                f"[Attempt {attempt}] API returned empty or malformed response. Retrying..."
+            )
+
+        except openai.APIError as e:
+            logging.error(f"[Attempt {attempt}] APIError: {e}")
+            if e.http_status == 429:
+                logging.warning("Rate limit exceeded. Retrying...")
+            elif e.http_status >= 500:
+                logging.warning("Server error encountered. Retrying...")
+            else:
+                logging.error("Non-retriable API error occurred.")
+                raise
+
+        except Exception as e:
+            logging.exception(f"[Attempt {attempt}] Unexpected exception occurred: {e}")
+            raise
+
+    logging.error("Exceeded maximum retry attempts. API call failed.")
+    raise RuntimeError("API call failed after maximum retries.")
+
+
+def supports_tool_calling_for_openrouter(
+    model_name: str,
+) -> bool:
+    """
+    Check if the openrouter model supports tool calling.
+
+    Args:
+        model_name (str): The name of the model.
+
+    Returns:
+        bool: True if the model supports tool calling, False otherwise.
+    """
+    import os
+
+    import openai
+
+    client = openai.Client(
+        api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1"
+    )
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": "Call the test tool"}],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "dummy_tool",
+                        "description": "Just a test tool",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                        },
+                    },
+                }
+            ],
+            tool_choice="required",
+        )
+        response = response.to_dict()
+        return "tool_calls" in response["choices"][0]["message"]
+    except Exception as e:
+        print(f"Model '{model_name}' error: {e}")
+        return False
 
 
 def retry_multiple(

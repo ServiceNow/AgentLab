@@ -1,16 +1,25 @@
 import json
 import logging
+import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Type, Union
 
 import openai
 from anthropic import Anthropic
 from openai import OpenAI
-
+from .llm_utils import call_with_retries, supports_tool_calling_for_openrouter
 from agentlab.llm import tracking
 
 from .base_api import BaseModelArgs
+
+"""This module contains utlity classes for building input messages and interacting with LLM APIs. 
+It includes:
+    1. Message Builder for building input messages
+    2. Base Reponse class for different LLM APIs (OpenAI, Anthropic, etc.)
+    3. Factory classes (inherits from BaseModelArgs) for creating instances of LLM Response models.
+"""
+
 
 type ContentItem = Dict[str, Any]
 type Message = Dict[str, Union[str, List[ContentItem]]]
@@ -31,23 +40,32 @@ class MessageBuilder:
     def __init__(self, role: str):
         self.role = role
         self.content: List[ContentItem] = []
-        self.tool_call_id = None
+        self.last_response: ResponseLLMOutput = None
+        self.tool_call_id: Optional[str] = None
 
-    @staticmethod
-    def system() -> "MessageBuilder":
-        return MessageBuilder(role="system")
+    @classmethod
+    def system(cls) -> "MessageBuilder":
+        return cls("system")
 
-    @staticmethod
-    def user() -> "MessageBuilder":
-        return MessageBuilder(role="user")
+    @classmethod
+    def user(cls) -> "MessageBuilder":
+        return cls("user")
 
-    @staticmethod
-    def assistant() -> "MessageBuilder":
-        return MessageBuilder(role="assistant")
+    @classmethod
+    def assistant(cls) -> "MessageBuilder":
+        return cls("assistant")
 
-    @staticmethod
-    def tool() -> "MessageBuilder":
-        return MessageBuilder(role="tool")
+    @classmethod
+    def tool(cls) -> "MessageBuilder":
+        return cls("tool")
+
+    def update_last_raw_response(self, raw_response: Any) -> "MessageBuilder":
+        self.last_response = raw_response
+        return self
+
+    def add_tool_id(self, id: str) -> "MessageBuilder":
+        self.tool_call_id = id
+        return self
 
     def add_text(self, text: str) -> "MessageBuilder":
         self.content.append({"text": text})
@@ -57,11 +75,35 @@ class MessageBuilder:
         self.content.append({"image": image})
         return self
 
-    def add_tool_id(self, tool_id: str) -> "MessageBuilder":
-        self.tool_call_id = tool_id
+    def to_markdown(self) -> str:
+        parts = []
+        for item in self.content:
+            if "text" in item:
+                parts.append(item["text"])
+            elif "image" in item:
+                parts.append(f"![Image]({item['image']})")
+
+        markdown = f"## {self.role.capitalize()} Message\n\n"
+        markdown += "\n\n---\n\n".join(parts)
+
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+            markdown += f"\n\n---\n\n**Tool Call ID:** `{self.tool_call_id}`"
+
+        return markdown
+
+
+class OpenAIResponseAPIMessageBuilder(MessageBuilder):
+
+    def __init__(self, role: str):
+        super().__init__(role)
+        self.tool_call_id = None
+
+    def add_tool_id(self, id: str) -> "MessageBuilder":
+        self.tool_call_id = id
         return self
 
-    def to_openai(self) -> List[Message]:
+    def prepare_message(self) -> List[Message]:
         content = []
         for item in self.content:
             if "text" in item:
@@ -90,14 +132,25 @@ class MessageBuilder:
 
         return res
 
-    def to_anthropic(self) -> List[Message]:
+
+class AnthropicAPIMessageBuilder(MessageBuilder):
+
+    def __init__(self, role: str):
+        super().__init__(role)
+        self.tool_call_id = None
+
+    def add_tool_id(self, id: str) -> "MessageBuilder":
+        self.tool_call_id = id
+        return self
+
+    def prepare_message(self) -> List[Message]:
         content = []
 
         if self.role == "system":
-            logging.warning(
-                "In the Anthropic API, system messages should be passed as a direct input to the client."
+            logging.info(
+                "Treating system message as 'user'. In the Anthropic API, system messages should be passed as a direct input to the client."
             )
-            return []
+            return [{"role": "user", "content": content}]
 
         for item in self.content:
             if "text" in item:
@@ -132,30 +185,92 @@ class MessageBuilder:
             ]
         return res
 
-    def to_chat_completion(self) -> List[Message]: ...
 
-    def to_markdown(self) -> str:
+class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
+
+    def __init__(self, role: str):
+        super().__init__(role)
+        self.tool_call_id = None
+        self.tool_name = None
+        self.last_response = None
+
+    def update_tool_info(self, id: str) -> "MessageBuilder":
+        self.tool_call_id = id
+        return self
+
+    def prepare_message(self) -> List[Message]:
+        """Prepare the message for the OpenAI API."""
         content = []
         for item in self.content:
             if "text" in item:
-                content.append(item["text"])
+                content.append({"type": "text", "text": item["text"]})
             elif "image" in item:
-                content.append(f"![Image]({item['image']})")
+                content.append({"type": "image_url", "image_url": {"url": item["image"]}})
+        res = [{"role": self.role, "content": content}]
 
-        # Format the role as a header
-        res = f"## {self.role.capitalize()} Message\n\n"
-
-        # Add content with spacing between items
-        res += "\n\n---\n\n".join(content)
-
-        # Add tool call ID if the role is "tool"
         if self.role == "tool":
             assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            res += f"\n\n---\n\n**Tool Call ID:** `{self.tool_call_id}`"
-
+            # tool messages can only take text with openai
+            # we need to split the first content element if it's text and use it
+            # then open a new (user) message with the rest
+            # a function_call_output dict has keys "call_id", "type" and "output"
+            res[0]["tool_call_id"] = self.tool_call_id
+            res[0]["type"] = "function_call_output"
+            message = self.last_response.raw_response.choices[0].message.to_dict()
+            res[0]["tool_name"] = message["tool_calls"][0]["function"]["name"]
+            text_content = (
+                content.pop(0)["text"]
+                if "text" in content[0]
+                else "Tool call answer in next message"
+            )
+            res[0]["content"] = text_content
+            res.append({"role": "user", "content": content})
         return res
 
 
+class OpenRouterAPIMessageBuilder(MessageBuilder):
+
+    def __init__(self, role: str):
+        super().__init__(role)
+        self.tool_call_id = None
+        self.tool_name = None
+        self.last_response = None
+
+    def update_tool_info(self, id: str) -> "MessageBuilder":
+        self.tool_call_id = id
+        return self
+
+    def prepare_message(self) -> List[Message]:
+        """Prepare the message for the OpenAI API."""
+        content = []
+        for item in self.content:
+            if "text" in item:
+                content.append({"type": "text", "text": item["text"]})
+            elif "image" in item:
+                content.append({"type": "image_url", "image_url": {"url": item["image"]}})
+        res = [{"role": self.role, "content": content}]
+
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+            # tool messages can only take text with openai
+            # we need to split the first content element if it's text and use it
+            # then open a new (user) message with the rest
+            # a function_call_output dict has keys "call_id", "type" and "output"
+            res[0]["tool_call_id"] = self.tool_call_id
+            res[0]["type"] = "function_call_output"
+            message = self.last_response.raw_response.choices[0].message.to_dict()
+            res[0]["tool_name"] = message["tool_calls"][0]["function"]["name"]
+            text_content = (
+                content.pop(0)["text"]
+                if "text" in content[0]
+                else "Tool call answer in next message"
+            )
+            res[0]["content"] = text_content
+            res.append({"role": "user", "content": content})
+        return res
+
+
+# # Base class for all API Endpoints
 class BaseResponseModel(ABC):
     def __init__(
         self,
@@ -209,7 +324,7 @@ class OpenAIResponseModel(BaseResponseModel):
         input = []
         for msg in messages:
             if isinstance(msg, MessageBuilder):
-                input += msg.to_openai()
+                input += msg.prepare_message()
             else:
                 input.append(msg)
         try:
@@ -226,6 +341,7 @@ class OpenAIResponseModel(BaseResponseModel):
                 #     "summary": "detailed",
                 # },
             )
+
             return response
         except openai.OpenAIError as e:
             logging.error(f"Failed to get a response from the API: {e}")
@@ -252,6 +368,110 @@ class OpenAIResponseModel(BaseResponseModel):
                 if len(output.summary) > 0:
                     result.think += output.summary[0].text + "\n"
         return result
+
+
+class OpenAIChatCompletionModel(BaseResponseModel):
+    def __init__(
+        self,
+        model_name: str,
+        client_args: Optional[Dict[str, Any]] = {},
+        temperature: float = 0.5,
+        max_tokens: int = 100,
+        extra_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+        self.extra_kwargs["tools"] = self.format_tools_for_chat_completion(
+            self.extra_kwargs.get("tools", [])
+        )
+        self.client = OpenAI(
+            **client_args
+        )  # Ensures client_args is a dict or defaults to an empty dict
+
+    def _call_api(self, messages: list[dict | MessageBuilder]) -> openai.types.chat.ChatCompletion:
+        chat_messages: List[Message] = []
+        for msg in messages:
+            if isinstance(msg, MessageBuilder):
+                chat_messages.extend(msg.prepare_message())
+            else:
+                # Assuming msg is already in OpenAI Chat Completion message format
+                chat_messages.append(msg)  # type: ignore
+
+        api_params: Dict[str, Any] = {
+            "model": self.model_name,
+            "messages": chat_messages,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "tool_choice": "auto",
+            **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
+        }
+
+        response = call_with_retries(self.client.chat.completions.create, api_params)
+        # Basic token tracking (if usage information is available)
+        if response.usage:
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
+            # Cost calculation would require pricing data
+            # cost = ...
+            # if hasattr(tracking.TRACKER, "instance") and isinstance(
+            #     tracking.TRACKER.instance, tracking.LLMTracker
+            # ):
+            #     tracking.TRACKER.instance(input_tokens, output_tokens, cost) # Placeholder for cost
+
+        return response
+
+    def _parse_response(self, response: openai.types.chat.ChatCompletion) -> ResponseLLMOutput:
+
+        output = ResponseLLMOutput(
+            raw_response=response,
+            think="",
+            action="noop()",  # Default if no tool call
+            last_computer_call_id=None,
+            assistant_message={
+                "role": "assistant",
+                "content": response.choices[0].message.content,
+            },
+        )
+        message = response.choices[0].message.to_dict()
+
+        if tool_calls := message.get("tool_calls", None):
+            for tool_call in tool_calls:
+                function = tool_call["function"]
+                arguments = json.loads(function["arguments"])
+                output.action = (
+                    f"{function['name']}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
+                )
+                output.last_computer_call_id = tool_call["id"]
+                output.assistant_message = {
+                    "role": "assistant",
+                    "tool_calls": message["tool_calls"],
+                }
+                break  # only first tool call is used
+
+        elif "content" in message and message["content"]:
+            output.think = message["content"]
+
+        return output
+
+    @staticmethod
+    def format_tools_for_chat_completion(tools_flat):
+        """Formats response tools format for OpenAI Chat Completion API.
+        Why we need this? 
+        Ans: actionset.to_tool_description() in bgym only returns description 
+        format valid for OpenAI Response API.
+        """
+        return [
+            {
+                "type": tool["type"],
+                "function": {k: tool[k] for k in ("name", "description", "parameters")},
+            }
+            for tool in tools_flat
+        ]
+
 
 
 class ClaudeResponseModel(BaseResponseModel):
@@ -290,7 +510,7 @@ class ClaudeResponseModel(BaseResponseModel):
         input = []
         for msg in messages:
             if isinstance(msg, MessageBuilder):
-                input += msg.to_anthropic()
+                input += msg.prepare_message()
             else:
                 input.append(msg)
         try:
@@ -404,6 +624,7 @@ def cua_response_to_text(action):
         print(f"Error handling action {action}: {e}")
 
 
+# Factory classes to create the appropriate model based on the API endpoint.
 @dataclass
 class OpenAIResponseModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenAI
@@ -418,6 +639,9 @@ class OpenAIResponseModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
         )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenAIResponseAPIMessageBuilder
 
 
 @dataclass
@@ -434,3 +658,124 @@ class ClaudeResponseModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
         )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return AnthropicAPIMessageBuilder
+
+
+@dataclass
+class OpenAIChatModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenAI
+    model."""
+
+    api = "openai"
+
+    def make_model(self, extra_kwargs=None):
+        return OpenAIChatCompletionModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenAIChatCompletionAPIMessageBuilder
+
+
+@dataclass
+class OpenRouterModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenRouter
+    model."""
+
+    api: str = "openai"  # tool description format used by actionset.to_tool_description() in bgym
+
+    def make_model(self, extra_kwargs=None):
+        return OpenAIChatCompletionModel(
+            client_args={
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": os.getenv("OPENROUTER_API_KEY"),
+            },
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenRouterAPIMessageBuilder
+
+    def __post_init__(self):
+        # Some runtime checks
+        assert supports_tool_calling_for_openrouter(
+            self.model_name
+            ), f"Model {self.model_name} does not support tool calling." 
+
+class VLLMModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with a VLLM
+    model."""
+
+    api = "openai"  # tool description format used by actionset.to_tool_description() in bgym
+
+    def __post_init__(self):
+        # tests
+        assert self.is_model_available(
+            self.model_name
+        ), f"Model {self.model_name} is not available on the VLLM server. \
+                Please check the model name or server configuration."
+
+    def make_model(self, extra_kwargs=None):
+        return OpenAIChatCompletionModel(
+            client_args={
+                "base_url": "http://localhost:8000/v1",
+                "api_key": os.getenv("VLLM_API_KEY", "EMPTY"),
+            },
+            model_name=self.model_name,  # this needs to be set
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            extra_kwargs=extra_kwargs,
+        )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenAIChatCompletionAPIMessageBuilder
+
+    ## Some Tests for VLLM server in the works! 
+    def test_vllm_server_reachability(self):
+        import requests
+
+        try:
+            response = requests.get(
+                f"{self.client_args['base_url']}/v1/models",
+                headers={"Authorization": f"Bearer {self.client_args['api_key']}"},
+            )
+            if response.status_code == 200:
+                return True
+            else:
+                return False
+        except requests.RequestException as e:
+            logging.error(f"Error checking VLLM server reachability: {e}")
+            return False
+
+    def is_model_available(self, model_name: str) -> bool:
+        # import requests
+
+        # """Check if the model is available on the VLLM server."""
+        # if not self.test_vllm_server_reachability():
+        #     logging.error("VLLM server is not reachable.")
+        #     return False
+        # try:
+        #     response = requests.get(
+        #         f"{self.client_args['base_url']}/v1/models",
+        #         headers={"Authorization": f"Bearer {self.client_args['api_key']}"},
+        #     )
+        #     if response.status_code == 200:
+        #         models = response.json().get("data", [])
+        #         return any(model.get("id") == model_name for model in models)
+        #     else:
+        #         logging.error(
+        #             f"Failed to fetch vllm hosted models: {response.status_code} - {response.text}"
+        #         )
+        #         return False
+        # except requests.RequestException as e:
+        #     logging.error(f"Error checking model availability: {e}")
+        #     return False
+        return True
