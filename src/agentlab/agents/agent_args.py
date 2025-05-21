@@ -1,5 +1,5 @@
 import bgym
-from bgym import AbstractAgentArgs
+from bgym import AbstractAgentArgs, Benchmark
 
 
 class AgentArgs(AbstractAgentArgs):
@@ -14,7 +14,7 @@ class AgentArgs(AbstractAgentArgs):
     Note: for working properly with AgentXRay, the arguments need to be serializable and hasable.
     """
 
-    def set_benchmark(self, benchmark: bgym.Benchmark, demo_mode: bool):
+    def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
         """Optional method to set benchmark specific flags.
 
         This allows the agent to have minor adjustments based on the benchmark.

@@ -14,7 +14,7 @@ import pandas as pd
 from attr import dataclass
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
@@ -23,6 +23,8 @@ from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.response_api import MessageBuilder
+from agentlab.agents import agent_utils
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -530,47 +532,12 @@ def if_active(tab_name, n_out=1):
     return decorator
 
 
-def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
-    """
-    If action is a coordinate action, try to render it on the screenshot.
-
-    e.g. mouse_click(120, 130) -> draw a dot at (120, 130) on the screenshot
-
-    Args:
-        screenshot: The screenshot to tag.
-        action: The action to tag the screenshot with.
-
-    Returns:
-        The tagged screenshot.
-
-    Raises:
-        ValueError: If the action parsing fails.
-    """
-    if action.startswith("mouse_click"):
-        try:
-            coords = action[action.index("(") + 1 : action.index(")")].split(",")
-            coords = [c.strip() for c in coords]
-            if len(coords) not in [2, 3]:
-                raise ValueError(f"Invalid coordinate format: {coords}")
-            if coords[0].startswith("x="):
-                coords[0] = coords[0][2:]
-            if coords[1].startswith("y="):
-                coords[1] = coords[1][2:]
-            x, y = float(coords[0].strip()), float(coords[1].strip())
-            draw = ImageDraw.Draw(screenshot)
-            radius = 5
-            draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius), fill="red", outline="red"
-            )
-        except (ValueError, IndexError) as e:
-            warning(f"Failed to parse action '{action}': {e}")
-    return screenshot
-
-
 def update_screenshot(som_or_not: str):
     global info
     action = info.exp_result.steps_info[info.step].action
-    return tag_screenshot_with_action(get_screenshot(info, som_or_not=som_or_not), action)
+    return agent_utils.tag_screenshot_with_action(
+        get_screenshot(info, som_or_not=som_or_not), action
+    )
 
 
 def get_screenshot(info: Info, step: int = None, som_or_not: str = "Raw Screenshots"):
@@ -589,7 +556,9 @@ def update_screenshot_pair(som_or_not: str):
     s2 = get_screenshot(info, info.step + 1, som_or_not)
 
     if s1 is not None:
-        s1 = tag_screenshot_with_action(s1, info.exp_result.steps_info[info.step].action)
+        s1 = agent_utils.tag_screenshot_with_action(
+            s1, info.exp_result.steps_info[info.step].action
+        )
     return s1, s2
 
 
@@ -627,12 +596,51 @@ def update_axtree():
     return get_obs(key="axtree_txt", default="No AXTree")
 
 
+def dict_to_markdown(d: dict):
+    """
+    Convert a dictionary to a clean markdown representation, recursively.
+
+    Args:
+        d (dict): A dictionary where keys are strings and values can be strings,
+                  lists of dictionaries, or nested dictionaries.
+
+    Returns:
+        str: A markdown-formatted string representation of the dictionary.
+    """
+    if not isinstance(d, dict):
+        warning(f"Expected dict, got {type(d)}")
+        return repr(d)
+    if not d:
+        return "No Data"
+    res = ""
+    for k, v in d.items():
+        if isinstance(v, dict):
+            res += f"## {k}\n{dict_to_markdown(v)}\n"
+        elif isinstance(v, list):
+            res += f"## {k}\n"
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    res += f"### Item {i}\n{dict_to_markdown(item)}\n"
+                else:
+                    res += f"- {item}\n"
+        else:
+            res += f"- **{k}**: {v}\n"
+    return res
+
+
 def update_chat_messages():
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     if isinstance(chat_messages, Discussion):
         return chat_messages.to_markdown()
+
+    if isinstance(chat_messages, list) and isinstance(chat_messages[0], MessageBuilder):
+        chat_messages = [
+            m.to_markdown() if isinstance(m, MessageBuilder) else dict_to_markdown(m)
+            for m in chat_messages
+        ]
+        return "\n\n".join(chat_messages)
     messages = []  # TODO(ThibaultLSDC) remove this at some point
     for i, m in enumerate(chat_messages):
         if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated

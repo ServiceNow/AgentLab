@@ -25,7 +25,7 @@ from dataclasses_json import DataClassJsonMixin
 from PIL import Image
 from tqdm import tqdm
 
-from agentlab.agents.tapeagent import TapeAgent, save_tape
+# from agentlab.agents.tapeagent import TapeAgent, save_tape
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,9 @@ class EnvArgs(DataClassJsonMixin):
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
 
-    def make_env(self, action_mapping, exp_dir, exp_task_kwargs: dict = {}):
+    def make_env(
+        self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True
+    ):
         """
         Instantiates the BrowserGym environment corresponding to the arguments (with some tweaks).
 
@@ -85,6 +87,7 @@ class EnvArgs(DataClassJsonMixin):
             headless=self.headless,
             wait_for_user_message=self.wait_for_user_message,
             action_mapping=action_mapping,  # action mapping is provided by the agent
+            use_raw_page_output=use_raw_page_output,
             **extra_kwargs,
         )
 
@@ -233,9 +236,9 @@ class StepInfo:
             stats = {}
         stats.update(self.agent_info.pop("stats", {}))
 
-        messages = self.agent_info.get("chat_messages", None)
-        if messages is not None:
-            stats["n_token_agent_messages"] = count_messages_token(messages)
+        # messages = self.agent_info.get("chat_messages", None)
+        # if messages is not None:
+        #     stats["n_token_agent_messages"] = count_messages_token(messages)
 
         t = self.profiling
         stats["step_elapsed"] = t.env_stop - t.env_start
@@ -398,9 +401,15 @@ class ExpArgs:
             agent = self.agent_args.make_agent()
             logger.debug("Agent created.")
 
+            if hasattr(self.agent_args, "use_raw_page_output"):
+                use_raw_page_output = self.agent_args.use_raw_page_output
+            else:
+                use_raw_page_output = False
+
             env = self.env_args.make_env(
                 action_mapping=agent.action_set.to_python_code,
                 exp_dir=self.exp_dir,
+                use_raw_page_output=use_raw_page_output,
             )
 
             logger.debug("Environment created.")
@@ -470,9 +479,9 @@ class ExpArgs:
                     err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
                 logger.info("Saving experiment info.")
                 self.save_summary_info(episode_info, Path(self.exp_dir), err_msg, stack_trace)
-                if isinstance(agent, TapeAgent):
-                    task = getattr(env, "task", {})
-                    save_tape(self.exp_dir, episode_info, task, agent.final_tape)
+                # if isinstance(agent, TapeAgent):
+                #     task = getattr(env, "task", {})
+                #     save_tape(self.exp_dir, episode_info, task, agent.final_tape)
             except Exception as e:
                 logger.exception(f"Error while saving experiment info: {e}")
             try:
@@ -875,7 +884,7 @@ def _move_old_exp(exp_dir):
 def _get_env_name(task_name: str):
     """Register tasks if needed (lazy import) and return environment name."""
 
-    # lazy benchmark import
+    # lazy import
     if task_name.startswith("miniwob"):
         import browsergym.miniwob
     elif task_name.startswith("workarena"):

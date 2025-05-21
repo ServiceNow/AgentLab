@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import bgym
+from bgym import HighLevelActionSetArgs
 from browsergym.experiments.agent import AgentInfo
 from bs4 import BeautifulSoup
 
@@ -144,7 +145,7 @@ def _make_backward_compatible(agent_args: GenericAgentArgs):
         if isinstance(action_set, str):
             action_set = action_set.split("+")
 
-        agent_args.flags.action.action_set = bgym.HighLevelActionSetArgs(
+        agent_args.flags.action.action_set = HighLevelActionSetArgs(
             subsets=action_set,
             multiaction=agent_args.flags.action.multi_actions,
         )
