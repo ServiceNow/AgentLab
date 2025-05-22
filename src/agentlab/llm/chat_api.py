@@ -116,7 +116,7 @@ class AzureModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            deployment_name=self.deployment_name,
+            # deployment_name=self.deployment_name,
             log_probs=self.log_probs,
         )
 
@@ -206,9 +206,7 @@ class RetryError(Exception):
 def handle_error(error, itr, min_retry_wait_time, max_retry):
     if not isinstance(error, openai.OpenAIError):
         raise error
-    logging.warning(
-        f"Failed to get a response from the API: \n{error}\n" f"Retrying... ({itr+1}/{max_retry})"
-    )
+    logging.warning(f"Failed to get a response from the API: \n{error}\n" f"Retrying... ({itr+1}/{max_retry})")
     wait_time = _extract_wait_time(
         error.args[0],
         min_retry_wait_time=min_retry_wait_time,
@@ -307,18 +305,13 @@ class ChatModel(AbstractChatModel):
                 self.error_types.append(error_type)
 
         if not completion:
-            raise RetryError(
-                f"Failed to get a response from the API after {self.max_retry} retries\n"
-                f"Last error: {error_type}"
-            )
+            raise RetryError(f"Failed to get a response from the API after {self.max_retry} retries\n" f"Last error: {error_type}")
 
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if hasattr(tracking.TRACKER, "instance") and isinstance(
-            tracking.TRACKER.instance, tracking.LLMTracker
-        ):
+        if hasattr(tracking.TRACKER, "instance") and isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
@@ -395,7 +388,7 @@ class AzureChatModel(ChatModel):
         self,
         model_name,
         api_key=None,
-        deployment_name=None,
+        # deployment_name=None,
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
@@ -404,12 +397,13 @@ class AzureChatModel(ChatModel):
     ):
         api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        api_version = os.getenv("AZURE_OPENAI_API_VERSION")
         assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
 
         client_args = {
-            "azure_deployment": deployment_name,
+            # "azure_deployment": deployment_name,
             "azure_endpoint": endpoint,
-            "api_version": "2024-02-01",
+            "api_version": api_version,
         }
         super().__init__(
             model_name=model_name,
