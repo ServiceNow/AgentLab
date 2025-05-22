@@ -6,6 +6,8 @@ from functools import cache
 
 import requests
 from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
+from typing import Optional
+import logging
 
 TRACKER = threading.local()
 
@@ -68,6 +70,7 @@ def cost_tracker_decorator(get_action, suffix=""):
 
 @cache
 def get_pricing_openrouter():
+    """Returns a dictionary of model pricing for OpenRouter models."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     assert api_key, "OpenRouter API key is required"
     # query api to get model metadata
@@ -86,6 +89,7 @@ def get_pricing_openrouter():
 
 
 def get_pricing_openai():
+    """Returns a dictionary of model pricing for OpenAI models."""
     cost_dict = openai_info.MODEL_COST_PER_1K_TOKENS
     cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
     res = {}
@@ -108,6 +112,7 @@ def _remove_version_suffix(model_name):
 
 
 def get_pricing_anthropic():
+    """Returns a dictionary of model pricing for Anthropic models."""
     input_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_INPUT_TOKENS
     output_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_OUTPUT_TOKENS
 
@@ -122,3 +127,91 @@ def get_pricing_anthropic():
             res[k] = {}
         res[k]["completion"] = v / 1000
     return res
+
+
+class TrackAPIPricingMixin:
+    """Mixin class to handle pricing information for different models.
+    This populates the tracker.stats used by the cost_tracker_decorator
+
+    Usage: provide the pricing_api to use in the constructor.
+    """
+
+    def __init__(self, *args, **kwargs):
+        pricing_api = kwargs.pop("pricing_api", None)
+        self._pricing_api = pricing_api
+        super().__init__(*args, **kwargs)
+        self.set_pricing_attributes()
+
+    def __call__(self, *args, **kwargs):
+        """Call the API and update the pricing tracker."""
+        response = self._call_api(*args, **kwargs)
+        self.update_pricing_tracker(response)
+        return self._parse_response(response)
+
+    def fetch_pricing_information_from_provider(self) -> Optional[dict]:
+        """
+        Fetch the pricing information dictionary for the given provider.
+        Returns a dict mapping model names to pricing info, or None if not found.
+        """
+        pricing_fn_map = {
+            "openai": get_pricing_openai,
+            "anthropic": get_pricing_anthropic,
+            "openrouter": get_pricing_openrouter,
+        }
+        pricing_fn = pricing_fn_map.get(self._pricing_api, None)
+        if pricing_fn is None:
+            logging.warning(
+                f"Unsupported provider: {self._pricing_api}. Supported providers are: {list(pricing_fn_map.keys())}"
+            )
+            return None
+        return pricing_fn()
+
+    def set_pricing_attributes(self) -> None:
+        """Set the pricing attributes for the model based on the provider."""
+        model_to_price_dict = self.fetch_pricing_information_from_provider()
+        model_costs = model_to_price_dict.get(self.model_name) if model_to_price_dict else None
+        if model_costs:
+            self.input_cost = float(model_costs["prompt"])
+            self.output_cost = float(model_costs["completion"])
+        else:
+            logging.warning(f"Model {self.model_name} not found in the pricing information.")
+            self.input_cost = 0.0
+            self.output_cost = 0.0
+
+    def update_pricing_tracker(self, raw_response) -> None:
+        """Update the pricing tracker with the input and output tokens and cost."""
+
+        input_tokens, output_tokens = self.get_tokens_counts_from_response(raw_response)
+        cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+
+        if hasattr(TRACKER, "instance") and isinstance(
+            TRACKER.instance, LLMTracker
+        ):
+            TRACKER.instance(input_tokens, output_tokens, cost)
+
+    def get_tokens_counts_from_response(self, response) -> tuple:
+        """Get the input and output tokens counts from the response, provider-agnostic."""
+        # Try OpenAI/Anthropic style
+        usage = getattr(response, "usage", None)
+        if usage:
+            input_tokens = getattr(usage, "input_tokens", None) or getattr(
+                usage, "prompt_tokens", None
+            )
+            output_tokens = getattr(usage, "output_tokens", None) or getattr(
+                usage, "completion_tokens", None
+            )
+            if input_tokens is not None and output_tokens is not None:
+                return input_tokens, output_tokens
+
+        # Try dict style
+        if isinstance(response, dict) and "usage" in response:
+            usage = response["usage"]
+            input_tokens = usage.get("input_tokens") or usage.get("prompt_tokens")
+            output_tokens = usage.get("output_tokens") or usage.get("completion_tokens")
+            if input_tokens is not None and output_tokens is not None:
+                return input_tokens, output_tokens
+
+        logging.warning(
+            "Unable to extract input and output tokens from the response. Defaulting to 0."
+        )
+        return 0, 0
