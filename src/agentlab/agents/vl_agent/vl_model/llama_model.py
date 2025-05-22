@@ -41,12 +41,15 @@ class LlamaModel(VLModel):
         input_images = []
         for message in messages:
             input_message = {"role": message["role"], "content": []}
-            for item in message["content"]:
-                if item["type"] == "text":
-                    input_message["content"].append(item)
-                elif item["type"] == "image_url":
-                    input_message["content"].append({"type": "image"})
-                    input_images.append(image_url_to_image(item["image_url"]["url"]))
+            if isinstance(message["content"], str):
+                input_message["content"].append({"type": "text", "text": message["content"]})
+            else:
+                for item in message["content"]:
+                    if item["type"] == "text":
+                        input_message["content"].append(item)
+                    elif item["type"] == "image_url":
+                        input_message["content"].append({"type": "image"})
+                        input_images.append(image_url_to_image(item["image_url"]["url"]))
             input_messages.append(input_message)
         input_text = self.processor.apply_chat_template(
             input_messages, add_generation_prompt=True, tokenize=False
