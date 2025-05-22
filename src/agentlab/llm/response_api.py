@@ -8,10 +8,17 @@ from typing import Any, Dict, List, Optional, Type, Union
 import openai
 from anthropic import Anthropic
 from openai import OpenAI
-from .llm_utils import call_with_retries, supports_tool_calling_for_openrouter
+
+
 from agentlab.llm import tracking
 
 from .base_api import BaseModelArgs
+from .llm_utils import (
+    call_anthropic_api_with_retries,
+    call_openai_api_with_retries,
+    supports_tool_calling_for_openrouter,
+)
+from .tracking import TrackAPIPricingMixin
 
 """This module contains utlity classes for building input messages and interacting with LLM APIs. 
 It includes:
@@ -237,12 +244,15 @@ class BaseResponseModel(ABC):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
+        *args, **kwargs
     ):
         self.model_name = model_name
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_kwargs = extra_kwargs or {}
+        
+        super().__init__(*args, **kwargs)
 
     def __call__(self, messages: list[dict | MessageBuilder]) -> dict:
         """Make a call to the model and return the parsed response."""
@@ -260,7 +270,13 @@ class BaseResponseModel(ABC):
         pass
 
 
-class OpenAIResponseModel(BaseResponseModel):
+class BaseModelWithPricing(TrackAPIPricingMixin, BaseResponseModel):
+    pass
+
+
+# To Do: Add the call_with_tries in the openAI response model.
+
+class OpenAIResponseModel(BaseModelWithPricing):
     def __init__(
         self,
         model_name: str,
@@ -268,6 +284,8 @@ class OpenAIResponseModel(BaseResponseModel):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs,
     ):
         super().__init__(
             model_name=model_name,
@@ -275,6 +293,8 @@ class OpenAIResponseModel(BaseResponseModel):
             temperature=temperature,
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
+            *args,
+            **kwargs,
         )
         self.client = OpenAI(api_key=api_key)
 
@@ -285,25 +305,26 @@ class OpenAIResponseModel(BaseResponseModel):
                 input += msg.prepare_message()
             else:
                 input.append(msg)
-        try:
-            response = self.client.responses.create(
-                model=self.model_name,
-                input=input,
-                temperature=self.temperature,
-                # previous_response_id=content.get("previous_response_id", None),
-                max_output_tokens=self.max_tokens,
-                **self.extra_kwargs,
-                tool_choice="required",
-                # reasoning={
-                #     "effort": "low",
-                #     "summary": "detailed",
-                # },
-            )
+        
+        api_params: Dict[str, Any] = {
+            "model": self.model_name,
+            "input": input,
+            "temperature": self.temperature,
+            "max_output_tokens": self.max_tokens,
+            **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
+        }
+        if self.extra_kwargs.get("tool_choice", None) == "required":
+            api_params["tool_choice"] = "required"
+        if self.extra_kwargs.get("reasoning", None) is not None:
+            api_params["reasoning"] = self.extra_kwargs["reasoning"]
 
-            return response
-        except openai.OpenAIError as e:
-            logging.error(f"Failed to get a response from the API: {e}")
-            raise e
+        response = call_openai_api_with_retries(
+            self.client.responses.create,
+            api_params,
+        )
+
+        return response
+
 
     def _parse_response(self, response: dict) -> dict:
         result = ResponseLLMOutput(
@@ -328,7 +349,7 @@ class OpenAIResponseModel(BaseResponseModel):
         return result
 
 
-class OpenAIChatCompletionModel(BaseResponseModel):
+class OpenAIChatCompletionModel(BaseModelWithPricing):
     def __init__(
         self,
         model_name: str,
@@ -336,16 +357,20 @@ class OpenAIChatCompletionModel(BaseResponseModel):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
+        *args,**kwargs,
     ):
         super().__init__(
             model_name=model_name,
             temperature=temperature,
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
+            *args, **kwargs,
         )
+
         self.extra_kwargs["tools"] = self.format_tools_for_chat_completion(
             self.extra_kwargs.get("tools", [])
         )
+
         self.client = OpenAI(
             **client_args
         )  # Ensures client_args is a dict or defaults to an empty dict
@@ -364,21 +389,14 @@ class OpenAIChatCompletionModel(BaseResponseModel):
             "messages": chat_messages,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "tool_choice": "auto",
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
+        if self.extra_kwargs.get("tool_choice", None) == "required":
+            api_params["tool_choice"] = "required"
+        if self.extra_kwargs.get("reasoning", None) is not None:
+            api_params["reasoning"] = self.extra_kwargs["reasoning"]
 
-        response = call_with_retries(self.client.chat.completions.create, api_params)
-        # Basic token tracking (if usage information is available)
-        if response.usage:
-            input_tokens = response.usage.prompt_tokens
-            output_tokens = response.usage.completion_tokens
-            # Cost calculation would require pricing data
-            # cost = ...
-            # if hasattr(tracking.TRACKER, "instance") and isinstance(
-            #     tracking.TRACKER.instance, tracking.LLMTracker
-            # ):
-            #     tracking.TRACKER.instance(input_tokens, output_tokens, cost) # Placeholder for cost
+        response = call_openai_api_with_retries(self.client.chat.completions.create, api_params)
 
         return response
 
@@ -418,8 +436,8 @@ class OpenAIChatCompletionModel(BaseResponseModel):
     @staticmethod
     def format_tools_for_chat_completion(tools_flat):
         """Formats response tools format for OpenAI Chat Completion API.
-        Why we need this? 
-        Ans: actionset.to_tool_description() in bgym only returns description 
+        Why we need this?
+        Ans: actionset.to_tool_description() in bgym only returns description
         format valid for OpenAI Response API.
         """
         return [
@@ -431,8 +449,11 @@ class OpenAIChatCompletionModel(BaseResponseModel):
         ]
 
 
+# To Do: Double check the expected action format by browsergym. 
+# openai action output do not have parenthesis but the antropic action parsing does.
+# Confirm with allac if this is the expected format.
 
-class ClaudeResponseModel(BaseResponseModel):
+class ClaudeResponseModel(BaseModelWithPricing):
     def __init__(
         self,
         model_name: str,
@@ -440,6 +461,7 @@ class ClaudeResponseModel(BaseResponseModel):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
+        *args, **kwargs,
     ):
         super().__init__(
             model_name=model_name,
@@ -447,20 +469,9 @@ class ClaudeResponseModel(BaseResponseModel):
             temperature=temperature,
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
+            *args,
+            **kwargs,
         )
-
-        # Get pricing information
-
-        try:
-            pricing = tracking.get_pricing_anthropic()
-            self.input_cost = float(pricing[model_name]["prompt"])
-            self.output_cost = float(pricing[model_name]["completion"])
-        except KeyError:
-            logging.warning(
-                f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
-            )
-            self.input_cost = 0.0
-            self.output_cost = 0.0
 
         self.client = Anthropic(api_key=api_key)
 
@@ -471,35 +482,28 @@ class ClaudeResponseModel(BaseResponseModel):
                 input += msg.prepare_message()
             else:
                 input.append(msg)
-        try:
-            response = self.client.messages.create(
-                model=self.model_name,
-                messages=input,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                **self.extra_kwargs,
-            )
-            input_tokens = response.usage.input_tokens
-            output_tokens = response.usage.output_tokens
-            cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-            print(f"response.usage: {response.usage}")
+        api_params: Dict[str, Any] = {
+            "model": self.model_name,
+            "messages": input,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
+        }
+        if self.extra_kwargs.get("tool_choice", None) == "required":
+            api_params["tool_choice"] = "required"
+        if self.extra_kwargs.get("reasoning", None) is not None:
+            api_params["reasoning"] = self.extra_kwargs["reasoning"]
 
-            if hasattr(tracking.TRACKER, "instance") and isinstance(
-                tracking.TRACKER.instance, tracking.LLMTracker
-            ):
-                tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+        response = call_anthropic_api_with_retries(self.client.messages.create, api_params)
 
-            return response
-        except Exception as e:
-            logging.error(f"Failed to get a response from the API: {e}")
-            raise e
+        return response
 
     def _parse_response(self, response: dict) -> dict:
         result = ResponseLLMOutput(
             raw_response=response,
             think="",
-            action=None,
+            action="noop()",
             last_computer_call_id=None,
             assistant_message={
                 "role": "assistant",
@@ -596,6 +600,7 @@ class OpenAIResponseModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
+            pricing_api="openai",
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -615,6 +620,7 @@ class ClaudeResponseModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
+            pricing_api="anthropic",
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -634,6 +640,7 @@ class OpenAIChatModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
+            pricing_api="openai",
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -657,6 +664,7 @@ class OpenRouterModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
+            pricing_api="openrouter",
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -666,7 +674,8 @@ class OpenRouterModelArgs(BaseModelArgs):
         # Some runtime checks
         assert supports_tool_calling_for_openrouter(
             self.model_name
-            ), f"Model {self.model_name} does not support tool calling." 
+        ), f"Model {self.model_name} does not support tool calling."
+
 
 class VLLMModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with a VLLM
@@ -696,7 +705,7 @@ class VLLMModelArgs(BaseModelArgs):
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIChatCompletionAPIMessageBuilder
 
-    ## Some Tests for VLLM server in the works! 
+    ## Some Tests for VLLM server in the works!
     def test_vllm_server_reachability(self):
         import requests
 
