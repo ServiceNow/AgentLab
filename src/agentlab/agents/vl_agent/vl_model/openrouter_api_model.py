@@ -27,16 +27,17 @@ class OpenRouterAPIModel(VLModel):
                 model=self.model_id, messages=messages, max_tokens=max_tokens, **kwargs
             )
             try:
-                response = AIMessage(completion.choices[0].message.content)
+                response = completion.choices[0].message.content
             except:
-                response = AIMessage("")
+                response = ""
             return response
 
-        return asyncio.run(
+        response = asyncio.run(
             get_response(
                 messages=messages, max_tokens=self.max_tokens, **self.reproducibility_config
             )
         )
+        return AIMessage([{"type": "text", "text": response}])
 
     def get_stats(self) -> dict:
         return {}
