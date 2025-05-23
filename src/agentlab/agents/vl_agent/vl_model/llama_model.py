@@ -1,12 +1,11 @@
+from accelerate import Accelerator
 from accelerate.utils.modeling import load_checkpoint_in_model
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
 from transformers import AutoProcessor, MllamaForConditionalGeneration
 from typing import Optional
 from .base import VLModel, VLModelArgs
-from ..utils import image_url_to_image
-import fnmatch
-import os
+from ..utils import auto_dispatch_model, image_url_to_image
 
 
 class LlamaModel(VLModel):
@@ -14,27 +13,19 @@ class LlamaModel(VLModel):
         self,
         model_path: str,
         torch_dtype: str,
-        checkpoint_dir: str,
+        accelerator_config: dict,
+        reproducibility_config: dict,
         max_length: int,
         max_new_tokens: int,
-        reproducibility_config: dict,
     ):
         self.model = MllamaForConditionalGeneration.from_pretrained(
             model_path, torch_dtype=torch_dtype
         )
-        if checkpoint_dir is not None:
-            checkpoint_file = None
-            for item in os.listdir(checkpoint_dir):
-                if fnmatch.fnmatch(item, "pytorch_model*.bin") or fnmatch.fnmatch(
-                    item, "model*.safetensors"
-                ):
-                    checkpoint_file = os.path.join(checkpoint_dir, item)
-                    break
-            load_checkpoint_in_model(self.model, checkpoint_file)
         self.processor = AutoProcessor.from_pretrained(model_path)
+        self.accelerator = Accelerator(**accelerator_config)
+        self.reproducibility_config = reproducibility_config
         self.max_length = max_length
         self.max_new_tokens = max_new_tokens
-        self.reproducibility_config = reproducibility_config
 
     def __call__(self, messages: Discussion) -> AIMessage:
         input_messages = []
@@ -62,13 +53,14 @@ class LlamaModel(VLModel):
             truncation=True,
             max_length=self.max_length,
         ).to(self.model.device)
-        output = self.model.generate(
-            **input,
-            eos_token_id=self.processor.tokenizer.eos_token_id,
-            max_new_tokens=self.max_new_tokens,
-            use_cache=True,
-            **self.reproducibility_config,
-        )
+        with self.accelerator.autocast():
+            output = self.model.generate(
+                **input,
+                eos_token_id=self.processor.tokenizer.eos_token_id,
+                max_new_tokens=self.max_new_tokens,
+                use_cache=True,
+                **self.reproducibility_config,
+            )
         output_text = self.processor.tokenizer.batch_decode(
             output[:, input["input_ids"].shape[1] :],
             skip_special_tokens=True,
@@ -84,24 +76,44 @@ class LlamaModel(VLModel):
 class LlamaModelArgs(VLModelArgs):
     model_path: str
     torch_dtype: str
-    checkpoint_dir: Optional[str]
+    accelerator_config: dict
+    reproducibility_config: dict
     max_length: int
     max_new_tokens: int
-    reproducibility_config: dict
+    checkpoint_file: Optional[str]
+    device: Optional[str]
 
     @property
     def model_name(self) -> str:
         return self.model_path.split("/")[-1].replace("-", "_").replace(".", "")
 
     def make_model(self) -> LlamaModel:
-        return LlamaModel(
+        llama_model = LlamaModel(
             model_path=self.model_path,
             torch_dtype=self.torch_dtype,
-            checkpoint_dir=self.checkpoint_dir,
+            accelerator_config=self.accelerator_config,
+            reproducibility_config=self.reproducibility_config,
             max_length=self.max_length,
             max_new_tokens=self.max_new_tokens,
-            reproducibility_config=self.reproducibility_config,
         )
+        if self.checkpoint_file is not None:
+            load_checkpoint_in_model(llama_model.model, checkpoint=self.checkpoint_file)
+        if self.device is None:
+            layer_classes = set()
+            for layer in llama_model.model.language_model.model.layers:
+                layer_classes.add(layer.__class__)
+            for layer in llama_model.model.vision_model.transformer.layers:
+                layer_classes.add(layer.__class__)
+            for layer in llama_model.model.vision_model.global_transformer.layers:
+                layer_classes.add(layer.__class__)
+            llama_model.model = auto_dispatch_model(
+                llama_model.model,
+                no_split_module_classes=[layer_class.__name__ for layer_class in layer_classes],
+            )
+        else:
+            llama_model.model = llama_model.model.to(self.device)
+        llama_model.model.eval()
+        return llama_model
 
     def prepare(self):
         pass
