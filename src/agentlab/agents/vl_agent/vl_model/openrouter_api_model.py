@@ -22,7 +22,7 @@ class OpenRouterAPIModel(VLModel):
 
     def __call__(self, messages: Discussion) -> AIMessage:
         @backoff.on_exception(backoff.expo, RateLimitError)
-        async def get_response(messages: list[dict], max_tokens: int, **kwargs):
+        async def get_response(messages, max_tokens, **kwargs):
             completion = await self.client.chat.completions.create(
                 model=self.model_id, messages=messages, max_tokens=max_tokens, **kwargs
             )
@@ -33,9 +33,7 @@ class OpenRouterAPIModel(VLModel):
             return response
 
         response = asyncio.run(
-            get_response(
-                messages=messages, max_tokens=self.max_tokens, **self.reproducibility_config
-            )
+            get_response(messages, self.max_tokens, **self.reproducibility_config)
         )
         return AIMessage([{"type": "text", "text": response}])
 
