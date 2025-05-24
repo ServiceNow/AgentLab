@@ -8,9 +8,8 @@ class VLAgent(ABC):
     def get_action(self, obs: dict) -> tuple[str, dict]:
         raise NotImplementedError
 
-    @property
     @abstractmethod
-    def obs_preprocessor(self) -> callable:
+    def obs_preprocessor(self, obs: dict) -> dict:
         raise NotImplementedError
 
 

@@ -7,8 +7,8 @@ from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
 from typing import Optional
 from .base import VLAgent, VLAgentArgs
-from ..vl_model import VLModelArgs
-from ..vl_prompt import UIPromptArgs
+from ..vl_model.base import VLModelArgs
+from ..vl_prompt.ui_prompt import UIPromptArgs
 
 
 class UIAgent(VLAgent):
@@ -82,7 +82,6 @@ class UIAgent(VLAgent):
         )
         return answer["action"], asdict(agent_info)
 
-    @property
     def obs_preprocessor(self, obs: dict) -> dict:
         obs = copy(obs)
         if self.ui_prompt_args.use_screenshot and self.ui_prompt_args.use_screenshot_som:
