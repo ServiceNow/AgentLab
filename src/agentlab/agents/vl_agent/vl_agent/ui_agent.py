@@ -26,15 +26,15 @@ class UIAgent(VLAgent):
             self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.ui_prompt_args = ui_prompt_args
         self.max_retry = max_retry
-        self.actions = []
         self.thoughts = []
+        self.actions = []
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
         ui_prompt = self.ui_prompt_args.make_prompt(
             obs=obs,
-            actions=self.actions,
             thoughts=self.thoughts,
+            actions=self.actions,
             extra_instructions=None,
             preliminary_answer=None,
         )
@@ -55,8 +55,8 @@ class UIAgent(VLAgent):
             preliminary_answer = answer
             ui_prompt = self.ui_prompt_args.make_prompt(
                 obs=obs,
-                actions=self.actions,
                 thoughts=self.thoughts,
+                actions=self.actions,
                 extra_instructions=None,
                 preliminary_answer=preliminary_answer,
             )
@@ -94,13 +94,16 @@ class UIAgent(VLAgent):
 @dataclass
 class UIAgentArgs(VLAgentArgs):
     main_vl_model_args: VLModelArgs
-    auxiliary_vl_model_args: VLModelArgs
+    auxiliary_vl_model_args: Optional[VLModelArgs]
     ui_prompt_args: UIPromptArgs
     max_retry: int
 
     @property
     def agent_name(self) -> str:
-        return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
+        if self.auxiliary_vl_model_args is None:
+            return f"UIAgent-{self.main_vl_model_args.model_name}"
+        else:
+            return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
         return UIAgent(
