@@ -7,7 +7,6 @@ from agentlab.llm.llm_utils import (
     SystemMessage,
 )
 from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
 from dataclasses import dataclass
 from PIL import Image
 from typing import Optional, Union
@@ -199,7 +198,6 @@ You can refine it to get your answer.
 
 @dataclass
 class UIPrompt(VLPrompt):
-    action_set: HighLevelActionSet
     system_prompt_part: SystemPromptPart
     instruction_prompt_part: InstructionPromptPart
     screenshot_prompt_part: Optional[ScreenshotPromptPart]
@@ -207,6 +205,7 @@ class UIPrompt(VLPrompt):
     history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
     answer_prompt_part: AnswerPromptPart
+    action_validator: callable
 
     def get_messages(self) -> Discussion:
         system_message_content = self.system_prompt_part.get_message_content()
@@ -250,7 +249,7 @@ class UIPrompt(VLPrompt):
             answer_dict["action"] = None
         else:
             try:
-                self.action_set.to_python_code(answer_dict["action"])
+                self.action_validator(answer_dict["action"])
             except Exception as error:
                 raise ParseError(str(error))
         return answer_dict
@@ -258,7 +257,6 @@ class UIPrompt(VLPrompt):
 
 @dataclass
 class UIPromptArgs(VLPromptArgs):
-    action_set_args: HighLevelActionSetArgs
     use_screenshot: bool
     use_screenshot_som: bool
     use_tabs: bool
@@ -272,10 +270,10 @@ class UIPromptArgs(VLPromptArgs):
         obs: dict,
         thoughts: list[str],
         actions: list[str],
+        action_set: HighLevelActionSet,
         extra_instruction: Optional[str] = None,
         preliminary_answer: Optional[dict] = None,
     ) -> UIPrompt:
-        action_set = self.action_set_args.make_action_set()
         system_prompt_part = SystemPromptPart()
         instruction_prompt_part = InstructionPromptPart(
             goal_object=obs["goal_object"], extra_instruction=extra_instruction
@@ -309,7 +307,6 @@ class UIPromptArgs(VLPromptArgs):
             preliminary_answer=preliminary_answer,
         )
         return UIPrompt(
-            action_set=action_set,
             system_prompt_part=system_prompt_part,
             instruction_prompt_part=instruction_prompt_part,
             screenshot_prompt_part=screenshot_prompt_part,
@@ -317,4 +314,5 @@ class UIPromptArgs(VLPromptArgs):
             history_prompt_part=history_prompt_part,
             error_prompt_part=error_prompt_part,
             answer_prompt_part=answer_prompt_part,
+            action_validator=action_set.to_python_code,
         )

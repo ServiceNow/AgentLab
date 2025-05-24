@@ -2,6 +2,7 @@ from agentlab.llm.llm_utils import ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
+from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
 from browsergym.utils.obs import overlay_som
 from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
@@ -16,6 +17,7 @@ class UIAgent(VLAgent):
         self,
         main_vl_model_args: VLModelArgs,
         auxiliary_vl_model_args: Optional[VLModelArgs],
+        action_set_args: HighLevelActionSetArgs,
         ui_prompt_args: UIPromptArgs,
         max_retry: int,
     ):
@@ -24,6 +26,7 @@ class UIAgent(VLAgent):
             self.auxiliary_vl_model = None
         else:
             self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
+        self.action_set = action_set_args.make_action_set()
         self.ui_prompt_args = ui_prompt_args
         self.max_retry = max_retry
         self.thoughts = []
@@ -35,6 +38,7 @@ class UIAgent(VLAgent):
             obs=obs,
             thoughts=self.thoughts,
             actions=self.actions,
+            action_set=self.action_set,
             extra_instructions=None,
             preliminary_answer=None,
         )
@@ -57,6 +61,7 @@ class UIAgent(VLAgent):
                 obs=obs,
                 thoughts=self.thoughts,
                 actions=self.actions,
+                action_set=self.action_set,
                 extra_instructions=None,
                 preliminary_answer=preliminary_answer,
             )
@@ -95,6 +100,7 @@ class UIAgent(VLAgent):
 class UIAgentArgs(VLAgentArgs):
     main_vl_model_args: VLModelArgs
     auxiliary_vl_model_args: Optional[VLModelArgs]
+    action_set_args: HighLevelActionSetArgs
     ui_prompt_args: UIPromptArgs
     max_retry: int
 
@@ -109,6 +115,7 @@ class UIAgentArgs(VLAgentArgs):
         return UIAgent(
             main_vl_model_args=self.main_vl_model_args,
             auxiliary_vl_model_args=self.auxiliary_vl_model_args,
+            action_set_args=self.action_set_args,
             ui_prompt_args=self.ui_prompt_args,
             max_retry=self.max_retry,
         )
@@ -130,6 +137,6 @@ class UIAgentArgs(VLAgentArgs):
 
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
         self.ui_prompt_args.use_tabs = benchmark.is_multi_tab
-        self.ui_prompt_args.action_set_args = deepcopy(benchmark.high_level_action_set_args)
+        self.action_set_args = deepcopy(benchmark.high_level_action_set_args)
         if demo_mode:
-            self.ui_prompt_args.action_set_args.demo_mode = "all_blue"
+            self.action_set_args.demo_mode = "all_blue"

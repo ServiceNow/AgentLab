@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import Discussion
+from browsergym.core.action.highlevel import HighLevelActionSet
 from typing import Optional
 
 
@@ -26,6 +27,7 @@ class VLPromptArgs(ABC):
         obs: dict,
         thoughts: list[str],
         actions: list[str],
+        action_set: HighLevelActionSet,
         extra_instruction: Optional[str] = None,
         preliminary_answer: Optional[dict] = None,
     ) -> VLPrompt:
