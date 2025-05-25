@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import AIMessage, Discussion
-from torch.nn import Module
 
 
-class VLModel(ABC, Module):
+class VLModel(ABC):
     @abstractmethod
     def __call__(self, messages: Discussion) -> AIMessage:
         raise NotImplementedError

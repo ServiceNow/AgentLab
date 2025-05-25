@@ -1,8 +1,7 @@
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
-from openai import AsyncOpenAI, RateLimitError
+from openai import OpenAI, RateLimitError
 from .base import VLModel, VLModelArgs
-import asyncio
 import backoff
 import os
 
@@ -15,15 +14,15 @@ class OpenRouterAPIModel(VLModel):
         max_tokens: int,
         reproducibility_config: dict,
     ):
-        self.client = AsyncOpenAI(base_url=base_url, api_key=os.getenv("OPENROUTER_API_KEY"))
+        self.client = OpenAI(base_url=base_url, api_key=os.getenv("OPENROUTER_API_KEY"))
         self.model_id = model_id
         self.max_tokens = max_tokens
         self.reproducibility_config = reproducibility_config
 
     def __call__(self, messages: Discussion) -> AIMessage:
         @backoff.on_exception(backoff.expo, RateLimitError)
-        async def get_response(messages, max_tokens, **kwargs):
-            completion = await self.client.chat.completions.create(
+        def get_response(messages, max_tokens, **kwargs):
+            completion = self.client.chat.completions.create(
                 model=self.model_id, messages=messages, max_tokens=max_tokens, **kwargs
             )
             try:
@@ -32,9 +31,7 @@ class OpenRouterAPIModel(VLModel):
                 response = ""
             return response
 
-        response = asyncio.run(
-            get_response(messages, self.max_tokens, **self.reproducibility_config)
-        )
+        response = get_response(messages, self.max_tokens, **self.reproducibility_config)
         return AIMessage([{"type": "text", "text": response}])
 
     def get_stats(self) -> dict:
