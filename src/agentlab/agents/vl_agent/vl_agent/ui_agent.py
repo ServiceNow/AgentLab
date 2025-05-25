@@ -35,12 +35,7 @@ class UIAgent(VLAgent):
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
         ui_prompt = self.ui_prompt_args.make_prompt(
-            obs=obs,
-            thoughts=self.thoughts,
-            actions=self.actions,
-            action_set=self.action_set,
-            extra_instructions=None,
-            preliminary_answer=None,
+            obs=obs, thoughts=self.thoughts, actions=self.actions, action_set=self.action_set
         )
         try:
             messages = ui_prompt.get_messages()
@@ -62,7 +57,6 @@ class UIAgent(VLAgent):
                 thoughts=self.thoughts,
                 actions=self.actions,
                 action_set=self.action_set,
-                extra_instructions=None,
                 preliminary_answer=preliminary_answer,
             )
             try:

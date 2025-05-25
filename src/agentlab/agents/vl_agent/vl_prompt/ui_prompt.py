@@ -264,6 +264,7 @@ class UIPromptArgs(VLPromptArgs):
     use_error: bool
     use_abstract_example: bool
     use_concrete_example: bool
+    extra_instruction: Optional[str]
 
     def make_prompt(
         self,
@@ -271,12 +272,11 @@ class UIPromptArgs(VLPromptArgs):
         thoughts: list[str],
         actions: list[str],
         action_set: HighLevelActionSet,
-        extra_instruction: Optional[str] = None,
         preliminary_answer: Optional[dict] = None,
     ) -> UIPrompt:
         system_prompt_part = SystemPromptPart()
         instruction_prompt_part = InstructionPromptPart(
-            goal_object=obs["goal_object"], extra_instruction=extra_instruction
+            goal_object=obs["goal_object"], extra_instruction=self.extra_instruction
         )
         if self.use_screenshot:
             screenshot_prompt_part = ScreenshotPromptPart(obs["screenshot"])

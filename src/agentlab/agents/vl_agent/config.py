@@ -33,6 +33,7 @@ VL_PROMPT_ARGS_DICT = {
         use_error=True,
         use_abstract_example=True,
         use_concrete_example=False,
+        extra_instruction=None,
     )
 }
 
