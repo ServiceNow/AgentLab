@@ -9,7 +9,6 @@ import openai
 from anthropic import Anthropic
 from openai import OpenAI
 
-
 from agentlab.llm import tracking
 
 from .base_api import BaseModelArgs
@@ -33,7 +32,7 @@ type Message = Dict[str, Union[str, List[ContentItem]]]
 
 
 @dataclass
-class ResponseLLMOutput: # TODO: May rename this to LLMOutput
+class ResponseLLMOutput:  # TODO: May rename this to LLMOutput
     """Serializable object for the output of a response LLM."""
 
     raw_response: Any
@@ -65,6 +64,11 @@ class MessageBuilder:
     @classmethod
     def tool(cls) -> "MessageBuilder":
         return cls("tool")
+
+    @abstractmethod
+    def prepare_message(self) -> List[Message]:
+        """Prepare the message for the API call."""
+        raise NotImplementedError("Subclasses must implement this method.")
 
     def update_last_raw_response(self, raw_response: Any) -> "MessageBuilder":
         self.last_response = raw_response
@@ -244,23 +248,25 @@ class BaseResponseModel(ABC):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-        *args, **kwargs
+        *args,
+        **kwargs,
     ):
         self.model_name = model_name
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_kwargs = extra_kwargs or {}
-        
+     
+
         super().__init__(*args, **kwargs)
 
-    def __call__(self, messages: list[dict | MessageBuilder]) -> dict:
+    def __call__(self, messages: list[dict | MessageBuilder], *args, **kwargs) -> dict:
         """Make a call to the model and return the parsed response."""
-        response = self._call_api(messages)
+        response = self._call_api(messages, *args, **kwargs)
         return self._parse_response(response)
 
     @abstractmethod
-    def _call_api(self, messages: list[dict | MessageBuilder]) -> Any:
+    def _call_api(self, messages: list[dict | MessageBuilder],  *args, **kwargs) -> Any:
         """Make a call to the model API and return the raw response."""
         pass
 
@@ -285,36 +291,33 @@ class OpenAIResponseModel(BaseModelWithPricing):
         *args,
         **kwargs,
     ):
+        self.tools = kwargs.pop("tools", None)
+        self.tool_choice = kwargs.pop("tool_choice", None)
         super().__init__(
             model_name=model_name,
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            extra_kwargs=extra_kwargs,
+            extra_kwargs=extra_kwargs,  # TODO: Remove this
             *args,
             **kwargs,
         )
         self.client = OpenAI(api_key=api_key)
 
     def _call_api(self, messages: list[Any | MessageBuilder]) -> dict:
-        input = []
-        for msg in messages:
-            if isinstance(msg, MessageBuilder):
-                input += msg.prepare_message()
-            else:
-                input.append(msg)
-        
+        input = [msg.prepare_message() if isinstance(msg ,MessageBuilder) else msg for msg in messages]
+
         api_params: Dict[str, Any] = {
             "model": self.model_name,
             "input": input,
             "temperature": self.temperature,
             "max_output_tokens": self.max_tokens,
-            **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
+            # **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
-        if self.extra_kwargs.get("tool_choice", None) == "required":
-            api_params["tool_choice"] = "required"
-        if self.extra_kwargs.get("reasoning", None) is not None:
-            api_params["reasoning"] = self.extra_kwargs["reasoning"]
+        if self.tools is not None:
+            api_params["tools"] = self.tools
+        if self.tool_choice is not None:
+            api_params["tool_choice"] = self.tool_choice
 
         response = call_openai_api_with_retries(
             self.client.responses.create,
@@ -322,7 +325,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
         )
 
         return response
-
 
     def _parse_response(self, response: dict) -> dict:
         result = ResponseLLMOutput(
@@ -344,7 +346,13 @@ class OpenAIResponseModel(BaseModelWithPricing):
             elif output.type == "reasoning":
                 if len(output.summary) > 0:
                     result.think += output.summary[0].text + "\n"
+
+            elif output.type == "message" and output.content:
+                assert len(output.content) == 1, "More than one content item in message"
+                result.think += output.content[0].text + "\n"
+
         return result
+
 
 
 class OpenAIChatCompletionModel(BaseModelWithPricing):
@@ -355,33 +363,31 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-        *args,**kwargs,
+        *args,
+        **kwargs,
     ):
+        
+        self.tools = self.format_tools_for_chat_completion(kwargs.pop("tools", None))
+        self.tool_choice = kwargs.pop("tool_choice", None)
+        
         super().__init__(
             model_name=model_name,
             temperature=temperature,
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
 
-        self.extra_kwargs["tools"] = self.format_tools_for_chat_completion(
-            self.extra_kwargs.get("tools", [])
-        )
 
         self.client = OpenAI(
             **client_args
         )  # Ensures client_args is a dict or defaults to an empty dict
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> openai.types.chat.ChatCompletion:
-        chat_messages: List[Message] = []
-        for msg in messages:
-            if isinstance(msg, MessageBuilder):
-                chat_messages.extend(msg.prepare_message())
-            else:
-                # Assuming msg is already in OpenAI Chat Completion message format
-                chat_messages.append(msg)  # type: ignore
-
+        chat_messages = [
+            msg.prepare_message() if isinstance(msg, MessageBuilder) else msg for msg in messages
+        ]
         api_params: Dict[str, Any] = {
             "model": self.model_name,
             "messages": chat_messages,
@@ -389,11 +395,10 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             "max_tokens": self.max_tokens,
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
-        
-        if self.extra_kwargs.get("tool_choice", None) == "required":
-            api_params["tool_choice"] = "required"
-        if self.extra_kwargs.get("reasoning", None) is not None:
-            api_params["reasoning"] = self.extra_kwargs["reasoning"]
+        if self.tools is not None:
+            api_params["tools"] = self.tools
+        if self.tool_choice is not None:
+            api_params["tool_choice"] = self.tool_choice
 
         response = call_openai_api_with_retries(self.client.chat.completions.create, api_params)
 
@@ -421,25 +426,31 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
                 output.last_computer_call_id = tool_call["id"]
                 output.assistant_message = {
                     "role": "assistant",
-                    "tool_calls": [message["tool_calls"][0]], # Use only the first tool call
+                    "tool_calls": [message["tool_calls"][0]],  # Use only the first tool call
                 }
                 break  # only first tool call is used
         return output
 
     @staticmethod
-    def format_tools_for_chat_completion(tools_flat):
+    def format_tools_for_chat_completion(tools):
         """Formats response tools format for OpenAI Chat Completion API.
         Why we need this?
         Ans: actionset.to_tool_description() in bgym only returns description
         format valid for OpenAI Response API.
         """
-        return [
-            {
-                "type": tool["type"],
-                "function": {k: tool[k] for k in ("name", "description", "parameters")},
-            }
-            for tool in tools_flat
-        ]
+        formatted_tools = None
+        if tools is not None:
+            formatted_tools = [
+                {
+                    "type": tool["type"],
+                    "function": {k: tool[k] for k in ("name", "description", "parameters")},
+                }
+                for tool in tools
+            ] 
+        return formatted_tools
+
+
+ 
 
     @staticmethod
     def extract_content_with_reasoning(message, wrap_tag="think"):
@@ -463,6 +474,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
 # openai action output do not have parenthesis but the antropic action parsing does.
 # Confirm with allac if this is the expected format.
 
+
 class ClaudeResponseModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -471,8 +483,12 @@ class ClaudeResponseModel(BaseModelWithPricing):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-        *args, **kwargs,
+        *args,
+        **kwargs,
     ):
+        self.tools = kwargs.pop("tools", None)
+        self.tool_choice = kwargs.pop("tool_choice", None)
+        
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -483,15 +499,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
             **kwargs,
         )
 
+
         self.client = Anthropic(api_key=api_key)
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
-        input = []
-        for msg in messages:
-            if isinstance(msg, MessageBuilder):
-                input += msg.prepare_message()
-            else:
-                input.append(msg)
+        input = [
+            msg.prepare_message() if isinstance(msg, MessageBuilder) else msg for msg in messages
+        ]
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
@@ -500,8 +514,8 @@ class ClaudeResponseModel(BaseModelWithPricing):
             "max_tokens": self.max_tokens,
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
-        if self.extra_kwargs.get("tool_choice", None) == "required":
-            api_params["tool_choice"] = "required"
+        if self.tools is not None:
+            api_params["tools"] = self.tools
         if self.extra_kwargs.get("reasoning", None) is not None:
             api_params["reasoning"] = self.extra_kwargs["reasoning"]
 
@@ -604,13 +618,15 @@ class OpenAIResponseModelArgs(BaseModelArgs):
 
     api = "openai"
 
-    def make_model(self, extra_kwargs=None):
+    def make_model(self, extra_kwargs=None, *args, **kwargs):
         return OpenAIResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="openai",
+            *args,
+            **kwargs,
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -624,13 +640,15 @@ class ClaudeResponseModelArgs(BaseModelArgs):
 
     api = "anthropic"
 
-    def make_model(self, extra_kwargs=None):
+    def make_model(self, extra_kwargs=None, *args, **kwargs):
         return ClaudeResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="anthropic",
+            *args,
+            **kwargs,
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -644,13 +662,16 @@ class OpenAIChatModelArgs(BaseModelArgs):
 
     api = "openai"
 
-    def make_model(self, extra_kwargs=None):
+    def make_model(self, extra_kwargs=None, *args, **kwargs):
         return OpenAIChatCompletionModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="openai",
+            *args,
+            **kwargs,
+
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -664,7 +685,7 @@ class OpenRouterModelArgs(BaseModelArgs):
 
     api: str = "openai"  # tool description format used by actionset.to_tool_description() in bgym
 
-    def make_model(self, extra_kwargs=None):
+    def make_model(self, extra_kwargs=None, *args, **kwargs):
         return OpenAIChatCompletionModel(
             client_args={
                 "base_url": "https://openrouter.ai/api/v1",
@@ -675,6 +696,8 @@ class OpenRouterModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="openrouter",
+            *args,
+            **kwargs,
         )
 
     def get_message_builder(self) -> MessageBuilder:
@@ -700,7 +723,7 @@ class VLLMModelArgs(BaseModelArgs):
         ), f"Model {self.model_name} is not available on the VLLM server. \
                 Please check the model name or server configuration."
 
-    def make_model(self, extra_kwargs=None):
+    def make_model(self, extra_kwargs=None, *args, **kwargs):
         return OpenAIChatCompletionModel(
             client_args={
                 "base_url": "http://localhost:8000/v1",
@@ -710,6 +733,9 @@ class VLLMModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
+            pricing_api="vllm",
+            *args,
+            **kwargs,
         )
 
     def get_message_builder(self) -> MessageBuilder:
