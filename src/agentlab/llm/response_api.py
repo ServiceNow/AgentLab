@@ -33,7 +33,7 @@ type Message = Dict[str, Union[str, List[ContentItem]]]
 
 
 @dataclass
-class ResponseLLMOutput:
+class ResponseLLMOutput: # TODO: May rename this to LLMOutput
     """Serializable object for the output of a response LLM."""
 
     raw_response: Any
@@ -198,7 +198,7 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
     def __init__(self, role: str):
         super().__init__(role)
         self.tool_call_id = None
-        self.tool_name = None
+        # self.tool_name = None
         self.last_response = None
 
     def update_tool_info(self, id: str) -> "MessageBuilder":
@@ -273,8 +273,6 @@ class BaseResponseModel(ABC):
 class BaseModelWithPricing(TrackAPIPricingMixin, BaseResponseModel):
     pass
 
-
-# To Do: Add the call_with_tries in the openAI response model.
 
 class OpenAIResponseModel(BaseModelWithPricing):
     def __init__(
@@ -391,6 +389,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             "max_tokens": self.max_tokens,
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
+        
         if self.extra_kwargs.get("tool_choice", None) == "required":
             api_params["tool_choice"] = "required"
         if self.extra_kwargs.get("reasoning", None) is not None:
@@ -407,12 +406,10 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             think="",
             action="noop()",  # Default if no tool call
             last_computer_call_id=None,
-            assistant_message={
-                "role": "assistant",
-                "content": response.choices[0].message.content,
-            },
+            assistant_message=None,
         )
         message = response.choices[0].message.to_dict()
+        output.think = self.extract_content_with_reasoning(message)
 
         if tool_calls := message.get("tool_calls", None):
             for tool_call in tool_calls:
@@ -424,13 +421,9 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
                 output.last_computer_call_id = tool_call["id"]
                 output.assistant_message = {
                     "role": "assistant",
-                    "tool_calls": message["tool_calls"],
+                    "tool_calls": [message["tool_calls"][0]], # Use only the first tool call
                 }
                 break  # only first tool call is used
-
-        elif "content" in message and message["content"]:
-            output.think = message["content"]
-
         return output
 
     @staticmethod
@@ -448,8 +441,25 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             for tool in tools_flat
         ]
 
+    @staticmethod
+    def extract_content_with_reasoning(message, wrap_tag="think"):
+        """Extracts the content from the message, including reasoning if available.
+        It wraps the reasoning around <think>...</think> for backward compatibility."""
+        if not isinstance(message, dict):
+            message = message.to_dict()
 
-# To Do: Double check the expected action format by browsergym. 
+        reasoning_content = message.get("reasoning", None)
+        msg_content = message.get("text", "")
+        if reasoning_content:
+            # Wrap reasoning in <think> tags with newlines for clarity
+            reasoning_content = f"<{wrap_tag}>\n{reasoning_content}\n</{wrap_tag}>\n"
+            logging.debug("Extracting content from response.choices[i].message.reasoning")
+        else:
+            reasoning_content = ""
+        return f"{reasoning_content}{msg_content}"
+
+
+# To Do: Double check the expected action format by browsergym.
 # openai action output do not have parenthesis but the antropic action parsing does.
 # Confirm with allac if this is the expected format.
 
