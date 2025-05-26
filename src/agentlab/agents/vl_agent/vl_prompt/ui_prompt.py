@@ -225,7 +225,8 @@ class UIPrompt(VLPrompt):
         messages.merge()
         return messages
 
-    def parse_answer(self, answer_text: str) -> dict:
+    def parse_answer(self, answer_content: list[dict]) -> dict:
+        answer_text = answer_content[0]["text"]
         answer_dict = {}
         try:
             answer_dict.update(
