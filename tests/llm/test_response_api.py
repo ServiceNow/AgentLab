@@ -1,10 +1,9 @@
 import os
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
-from typing import List, Optional, Dict, Any
-
-import openai
 import anthropic
+import openai
 import pytest
 
 from agentlab.llm import tracking
@@ -17,7 +16,6 @@ from agentlab.llm.response_api import (
     OpenAIResponseModelArgs,
     ResponseLLMOutput,
 )
-
 
 # --- Test MessageBuilders ---
 
@@ -97,7 +95,7 @@ def test_openai_chat_completion_api_message_builder_text():
     builder = OpenAIChatCompletionAPIMessageBuilder.user()
     builder.add_text("Hello, ChatCompletion!")
     # Mock last_response as it's used by tool role
-    builder.last_response = MagicMock(spec=ResponseLLMOutput)
+    builder.last_response = MagicMock(spec=LLMOutput)
     builder.last_response.raw_response = MagicMock()
     builder.last_response.raw_response.choices = [MagicMock()]
     builder.last_response.raw_response.choices[0].message.to_dict.return_value = {
@@ -114,7 +112,7 @@ def test_openai_chat_completion_api_message_builder_image():
     builder = OpenAIChatCompletionAPIMessageBuilder.user()
     builder.add_image("data:image/jpeg;base64,CHATCOMPLETIONBASE64")
     # Mock last_response
-    builder.last_response = MagicMock(spec=ResponseLLMOutput)
+    builder.last_response = MagicMock(spec=LLMOutput)
     builder.last_response.raw_response = MagicMock()
     builder.last_response.raw_response.choices = [MagicMock()]
     builder.last_response.raw_response.choices[0].message.to_dict.return_value = {
@@ -150,7 +148,7 @@ def test_openai_chat_completion_api_message_builder_tool_response():
     mock_choice.message = mock_message
     mock_raw_openai_response.choices = [mock_choice]
 
-    builder.last_response = ResponseLLMOutput(
+    builder.last_response = LLMOutput(
         raw_response=mock_raw_openai_response,
         think="",
         action="",
@@ -293,7 +291,7 @@ def test_openai_chat_completion_model_parse_and_cost():
 
     mock_create.assert_called_once()
     assert parsed_output.raw_response.choices[0].message.content == "This is a test thought."
-    assert parsed_output.action == 'get_weather(location=Paris)'
+    assert parsed_output.action == "get_weather(location=Paris)"
     assert parsed_output.last_computer_call_id == "call_123"
 
     # Check cost tracking (token counts)
@@ -341,7 +339,7 @@ def create_mock_openai_responses_api_response(
     openai.resources.Responses.create() would return.
     Compatible with OpenAIResponseModel and TrackAPIPricingMixin.
     """
-    
+
     response_mock = MagicMock(openai.types.responses.response)
     response_mock.type = "response"
     response_mock.output = []
@@ -371,7 +369,6 @@ def create_mock_openai_responses_api_response(
     response_mock.usage.output_tokens = output_tokens
     response_mock.usage.prompt_tokens = input_tokens
     response_mock.usage.completion_tokens = output_tokens
-
 
     return response_mock
 
@@ -421,6 +418,7 @@ def test_openai_response_model_parse_and_cost():
 
 # --- Test Response Models (Pricy - require API keys and actual calls) ---
 
+
 @pytest.mark.pricy
 @pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
 def test_openai_chat_completion_model_pricy_call():
@@ -428,7 +426,8 @@ def test_openai_chat_completion_model_pricy_call():
     args = OpenAIChatModelArgs(
         model_name="gpt-4.1",
         temperature=1e-5,
-        max_new_tokens=100,)
+        max_new_tokens=100,
+    )
 
     tools = [
         {
@@ -453,7 +452,7 @@ def test_openai_chat_completion_model_pricy_call():
         }
     ]
 
-    model = args.make_model(extra_kwargs={'tools': tools})
+    model = args.make_model(tools=tools, tool_choice="required")
 
     with tracking.set_tracker() as global_tracker:
         messages = [
@@ -481,8 +480,7 @@ def test_claude_response_model_pricy_call():
         model_name="claude-3-haiku-20240307",
         temperature=1e-5,
         max_new_tokens=100,
-        
-    ) 
+    )
     tools = [
         {
             "name": "get_weather",
@@ -499,7 +497,7 @@ def test_claude_response_model_pricy_call():
             },
         }
     ]
-    model = args.make_model(extra_kwargs={'tools': tools})
+    model = args.make_model(tools=tools)
 
     with tracking.set_tracker() as global_tracker:
         messages = [
@@ -525,24 +523,31 @@ def test_openai_response_model_pricy_call():
     Tests OpenAIResponseModel output parsing and cost tracking with both
     function_call and reasoning outputs.
     """
-    args = OpenAIResponseModelArgs(
-        model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
+    args = OpenAIResponseModelArgs(model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
 
     tools = [
-        {   "type": "function",
+        {
+            "type": "function",
             "name": "get_weather",
             "description": "Get the current weather in a given location.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "location": {"type": "string", "description": "The location to get the weather for."},
-                    "unit": {"type": "string", "enum": ["celsius", "fahrenheit"], "description": "The unit of temperature."},
+                    "location": {
+                        "type": "string",
+                        "description": "The location to get the weather for.",
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The unit of temperature.",
+                    },
                 },
                 "required": ["location"],
             },
         }
     ]
-    model = args.make_model(extra_kwargs={'tools': tools})
+    model = args.make_model(tools=tools)
 
     with tracking.set_tracker() as global_tracker:
         messages = [
@@ -554,11 +559,90 @@ def test_openai_response_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == 'get_weather(location=Paris)'
+        parsed_output.action == "get_weather(location=Paris)"
     ), f" Expected get_weather('Paris') but got {parsed_output.action}"
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
+def test_openai_response_model_with_multiple_messages_pricy_call():
+    """
+    Tests OpenAIResponseModel output parsing and cost tracking with both
+    function_call and reasoning outputs.
+    """
+    args = OpenAIResponseModelArgs(model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
+
+    tools = [
+        {
+            "type": "function",
+            "name": "get_weather",
+            "description": "Get the current weather in a given location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The location to get the weather for.",
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The unit of temperature.",
+                    },
+                },
+                "required": ["location"],
+            },
+        }
+    ]
+    model = args.make_model(tools=tools, tool_choice="required")
+    msg_builder = args.get_message_builder()
+    messages = []
+    messages.append(msg_builder.user().add_text("What is the weather in Paris?"))
+    with tracking.set_tracker() as global_tracker:
+        parsed_output = model(messages)
+
+        previous_input_tokens = global_tracker.stats["input_tokens"]
+        previous_output_tokens = global_tracker.stats["output_tokens"]
+        previous_cost_value = global_tracker.stats["cost"]
+
+        messages.append(parsed_output.assistant_message)  # add tool call
+        messages.append(
+            msg_builder.tool()
+            .add_tool_id(parsed_output.last_computer_call_id)
+            .add_text("its Sunny! 25C")
+        )  # execute and append tool call response
+        messages.append(
+            msg_builder.user().add_text("What is the weather in Delhi?")
+        )  # follow-up question
+
+        parsed_output = model(messages)
+
+    new_input_tokens = global_tracker.stats["input_tokens"] - previous_input_tokens
+    new_output_tokens = global_tracker.stats["output_tokens"] - previous_output_tokens
+    new_cost_value = global_tracker.stats["cost"] - previous_cost_value
+
+    assert previous_input_tokens > 0, "Expected previous input tokens to be greater than 0"
+    assert previous_output_tokens > 0
+    assert previous_cost_value > 0, "Expected previous cost value to be greater than 0"
+    assert parsed_output.raw_response is not None
+    assert (
+        parsed_output.action == "get_weather(location=Delhi)"
+    ), f" Expected get_weather(location=Delhi) but got {parsed_output.action}"
+    assert (
+        global_tracker.stats["input_tokens"] > previous_input_tokens
+    ), "Expected new input tokens to be greater than 0"
+    assert (
+        global_tracker.stats["output_tokens"] > previous_output_tokens
+    ), "Expected new output tokens to be greater than 0"
+    assert (
+        global_tracker.stats["cost"] > previous_cost_value
+    ), "Expected new cost value to be greater than 0"
+    assert global_tracker.stats["input_tokens"] == previous_input_tokens + new_input_tokens
+    assert global_tracker.stats["output_tokens"] == previous_output_tokens + new_output_tokens
+    assert global_tracker.stats["cost"] == previous_cost_value + new_cost_value
 
 
 # TODO: Add tests for image token costing (this is complex and model-specific)
@@ -572,9 +656,11 @@ def test_openai_response_model_pricy_call():
 #         if you want to measure deltas. Or, assert total cost and tokens reflect the full conversation.
 
 if __name__ == "__main__":
-    test_openai_chat_completion_model_parse_and_cost()
-    test_claude_response_model_parse_and_cost()
-    test_openai_response_model_parse_and_cost()
+    # test_openai_chat_completion_model_parse_and_cost()
+    # test_claude_response_model_parse_and_cost()
+    # test_openai_response_model_parse_and_cost()
+
     test_openai_chat_completion_model_pricy_call()
     test_claude_response_model_pricy_call()
     test_openai_response_model_pricy_call()
+    # test_openai_response_model_with_multiple_messages_pricy_call()
