@@ -10,167 +10,12 @@ from agentlab.llm import tracking
 from agentlab.llm.response_api import (
     AnthropicAPIMessageBuilder,
     ClaudeResponseModelArgs,
+    LLMOutput,
     OpenAIChatCompletionAPIMessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseAPIMessageBuilder,
     OpenAIResponseModelArgs,
-    ResponseLLMOutput,
 )
-
-# --- Test MessageBuilders ---
-
-
-def test_openai_response_api_message_builder_text():
-    builder = OpenAIResponseAPIMessageBuilder.user()
-    builder.add_text("Hello, world!")
-    messages = builder.prepare_message()
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == [{"type": "input_text", "text": "Hello, world!"}]
-
-
-def test_openai_response_api_message_builder_image():
-    builder = OpenAIResponseAPIMessageBuilder.user()
-    builder.add_image("data:image/png;base64,SIMPLEBASE64STRING")
-    messages = builder.prepare_message()
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == [
-        {"type": "input_image", "image_url": "data:image/png;base64,SIMPLEBASE64STRING"}
-    ]
-
-
-def test_openai_response_api_message_builder_tool_response():
-    builder = OpenAIResponseAPIMessageBuilder.tool()
-    builder.add_tool_id("tool_call_123")
-    builder.add_text("Tool output here")
-    messages = builder.prepare_message()
-    assert len(messages) == 2  # Tool response and a follow-up user message for any extra content
-    assert messages[0]["call_id"] == "tool_call_123"
-    assert messages[0]["type"] == "function_call_output"
-    assert messages[0]["output"] == "Tool output here"
-    assert "role" not in messages[0]  # Role should be removed for tool output
-    assert messages[1]["role"] == "user"  # For any subsequent content
-    assert messages[1]["content"] == []  # No subsequent content in this case
-
-
-def test_anthropic_api_message_builder_text():
-    builder = AnthropicAPIMessageBuilder.user()
-    builder.add_text("Hello, Anthropic!")
-    messages = builder.prepare_message()
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == [{"type": "text", "text": "Hello, Anthropic!"}]
-
-
-def test_anthropic_api_message_builder_image():
-    builder = AnthropicAPIMessageBuilder.user()
-    builder.add_image("data:image/png;base64,ANTHROPICBASE64")
-    messages = builder.prepare_message()
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"
-    assert len(messages[0]["content"]) == 1
-    image_content = messages[0]["content"][0]
-    assert image_content["type"] == "image"
-    assert image_content["source"]["type"] == "base64"
-    assert image_content["source"]["media_type"] == "image/png"
-    assert image_content["source"]["data"] == "ANTHROPICBASE64"  # Base64 prefix should be stripped
-
-
-def test_anthropic_api_message_builder_tool_response():
-    builder = AnthropicAPIMessageBuilder.tool()
-    builder.add_tool_id("anthropic_tool_456")
-    builder.add_text("Anthropic tool result")
-    messages = builder.prepare_message()
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"  # Tool responses are user role for Anthropic
-    assert len(messages[0]["content"]) == 1
-    tool_result_content = messages[0]["content"][0]
-    assert tool_result_content["type"] == "tool_result"
-    assert tool_result_content["tool_use_id"] == "anthropic_tool_456"
-    assert tool_result_content["content"] == [{"type": "text", "text": "Anthropic tool result"}]
-
-
-def test_openai_chat_completion_api_message_builder_text():
-    builder = OpenAIChatCompletionAPIMessageBuilder.user()
-    builder.add_text("Hello, ChatCompletion!")
-    # Mock last_response as it's used by tool role
-    builder.last_response = MagicMock(spec=LLMOutput)
-    builder.last_response.raw_response = MagicMock()
-    builder.last_response.raw_response.choices = [MagicMock()]
-    builder.last_response.raw_response.choices[0].message.to_dict.return_value = {
-        "tool_calls": [{"function": {"name": "some_function"}}]
-    }
-    messages = builder.prepare_message()
-
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == [{"type": "text", "text": "Hello, ChatCompletion!"}]
-
-
-def test_openai_chat_completion_api_message_builder_image():
-    builder = OpenAIChatCompletionAPIMessageBuilder.user()
-    builder.add_image("data:image/jpeg;base64,CHATCOMPLETIONBASE64")
-    # Mock last_response
-    builder.last_response = MagicMock(spec=LLMOutput)
-    builder.last_response.raw_response = MagicMock()
-    builder.last_response.raw_response.choices = [MagicMock()]
-    builder.last_response.raw_response.choices[0].message.to_dict.return_value = {
-        "tool_calls": [{"function": {"name": "some_function"}}]
-    }
-    messages = builder.prepare_message()
-
-    assert len(messages) == 1
-    assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == [
-        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,CHATCOMPLETIONBASE64"}}
-    ]
-
-
-def test_openai_chat_completion_api_message_builder_tool_response():
-    builder = OpenAIChatCompletionAPIMessageBuilder.tool()
-    builder.add_tool_id("chat_tool_789")
-    builder.add_text("Chat tool output")
-
-    # Mocking last_response which is needed for tool role in OpenAIChatCompletionAPIMessageBuilder
-    mock_raw_openai_response = MagicMock()
-    mock_message = MagicMock()
-    mock_message.to_dict.return_value = {
-        "tool_calls": [
-            {
-                "id": "chat_tool_789",
-                "type": "function",
-                "function": {"name": "test_func", "arguments": "{}"},
-            }
-        ]
-    }
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
-    mock_raw_openai_response.choices = [mock_choice]
-
-    builder.last_response = LLMOutput(
-        raw_response=mock_raw_openai_response,
-        think="",
-        action="",
-        last_computer_call_id="chat_tool_789",
-        assistant_message={},
-    )
-
-    messages = builder.prepare_message()
-    assert len(messages) == 2  # Tool response and a follow-up user message for any extra content
-    assert messages[0]["tool_call_id"] == "chat_tool_789"
-    assert (
-        messages[0]["type"] == "function_call_output"
-    )  # This was an error in your OpenAIChatCompletionAPIMessageBuilder
-    # it should be 'tool' for role and content for the output string.
-    # I'm testing current behavior.
-    assert messages[0]["content"] == "Chat tool output"
-    # The OpenAIChatCompletionAPIMessageBuilder for role 'tool' has a bug:
-    # It sets res[0]["type"] = "function_call_output" and res[0]["tool_name"]
-    # but for OpenAI Chat Completions, a tool response message should have:
-    # {"role": "tool", "tool_call_id": "...", "content": "..."}
-    # I'll assert current (buggy) behavior. If you fix it, this test will need an update.
-    assert "tool_name" in messages[0]
 
 
 # Helper to create a mock OpenAI ChatCompletion response
@@ -260,77 +105,6 @@ def create_mock_anthropic_response(
     return response
 
 
-def test_openai_chat_completion_model_parse_and_cost():
-    args = OpenAIChatModelArgs(model_name="gpt-3.5-turbo")  # A cheap model for testing
-    model = args.make_model()
-
-    # Mock the API call
-    mock_response = create_mock_openai_chat_completion(
-        content="This is a test thought.",
-        tool_calls=[
-            {
-                "id": "call_123",
-                "type": "function",
-                "function": {"name": "get_weather", "arguments": '{"location": "Paris"}'},
-            }
-        ],
-        prompt_tokens=50,
-        completion_tokens=30,
-    )
-
-    with patch.object(
-        model.client.chat.completions, "create", return_value=mock_response
-    ) as mock_create:
-        with tracking.set_tracker() as global_tracker:  # Use your global tracker
-            messages = [
-                OpenAIChatCompletionAPIMessageBuilder.user()
-                .add_text("What's the weather in Paris?")
-                .prepare_message()[0]
-            ]
-            parsed_output = model(messages)
-
-    mock_create.assert_called_once()
-    assert parsed_output.raw_response.choices[0].message.content == "This is a test thought."
-    assert parsed_output.action == "get_weather(location=Paris)"
-    assert parsed_output.last_computer_call_id == "call_123"
-
-    # Check cost tracking (token counts)
-    assert global_tracker.stats["input_tokens"] == 50
-    assert global_tracker.stats["output_tokens"] == 30
-    assert global_tracker.stats["cost"] > 0
-
-
-def test_claude_response_model_parse_and_cost():
-    args = ClaudeResponseModelArgs(model_name="claude-3-haiku-20240307")  # A cheap model
-    model = args.make_model()
-
-    mock_anthropic_api_response = create_mock_anthropic_response(
-        text_content="Thinking about the request.",
-        tool_use={"id": "tool_abc", "name": "search_web", "input": {"query": "latest news"}},
-        input_tokens=40,
-        output_tokens=20,
-    )
-
-    with patch.object(
-        model.client.messages, "create", return_value=mock_anthropic_api_response
-    ) as mock_create:
-        with tracking.set_tracker() as global_tracker:
-            messages = [
-                AnthropicAPIMessageBuilder.user()
-                .add_text("Search for latest news")
-                .prepare_message()[0]
-            ]
-            parsed_output = model(messages)
-
-    mock_create.assert_called_once()
-    assert "Thinking about the request." in parsed_output.think
-    assert parsed_output.action == 'search_web(query="latest news")'
-    assert parsed_output.last_computer_call_id == "tool_abc"
-    assert global_tracker.stats["input_tokens"] == 40
-    assert global_tracker.stats["output_tokens"] == 20
-    # assert global_tracker.stats["cost"] > 0 # Verify cost is calculated
-
-
 def create_mock_openai_responses_api_response(
     outputs: Optional[List[Dict[str, Any]]] = None, input_tokens: int = 10, output_tokens: int = 20
 ) -> MagicMock:
@@ -373,6 +147,159 @@ def create_mock_openai_responses_api_response(
     return response_mock
 
 
+# --- Test MessageBuilders ---
+
+
+def test_openai_response_api_message_builder_text():
+    builder = OpenAIResponseAPIMessageBuilder.user()
+    builder.add_text("Hello, world!")
+    messages = builder.prepare_message()
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == [{"type": "input_text", "text": "Hello, world!"}]
+
+
+def test_openai_response_api_message_builder_image():
+    builder = OpenAIResponseAPIMessageBuilder.user()
+    builder.add_image("data:image/png;base64,SIMPLEBASE64STRING")
+    messages = builder.prepare_message()
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == [
+        {"type": "input_image", "image_url": "data:image/png;base64,SIMPLEBASE64STRING"}
+    ]
+
+
+def test_anthropic_api_message_builder_text():
+    builder = AnthropicAPIMessageBuilder.user()
+    builder.add_text("Hello, Anthropic!")
+    messages = builder.prepare_message()
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == [{"type": "text", "text": "Hello, Anthropic!"}]
+
+
+def test_anthropic_api_message_builder_image():
+    builder = AnthropicAPIMessageBuilder.user()
+    builder.add_image("data:image/png;base64,ANTHROPICBASE64")
+    messages = builder.prepare_message()
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert len(messages[0]["content"]) == 1
+    image_content = messages[0]["content"][0]
+    assert image_content["type"] == "image"
+    assert image_content["source"]["type"] == "base64"
+    assert image_content["source"]["media_type"] == "image/png"
+    assert image_content["source"]["data"] == "ANTHROPICBASE64"  # Base64 prefix should be stripped
+
+
+def test_openai_chat_completion_api_message_builder_text():
+    builder = OpenAIChatCompletionAPIMessageBuilder.user()
+    builder.add_text("Hello, ChatCompletion!")
+    # Mock last_response as it's used by tool role
+    builder.last_raw_response = MagicMock(spec=LLMOutput)
+    builder.last_raw_response.raw_response = MagicMock()
+    builder.last_raw_response.raw_response.choices = [MagicMock()]
+    builder.last_raw_response.raw_response.choices[0].message.to_dict.return_value = {
+        "tool_calls": [{"function": {"name": "some_function"}}]
+    }
+    messages = builder.prepare_message()
+
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == [{"type": "text", "text": "Hello, ChatCompletion!"}]
+
+
+def test_openai_chat_completion_api_message_builder_image():
+    builder = OpenAIChatCompletionAPIMessageBuilder.user()
+    builder.add_image("data:image/jpeg;base64,CHATCOMPLETIONBASE64")
+    # Mock last_response
+    builder.last_raw_response = MagicMock(spec=LLMOutput)
+    builder.last_raw_response.raw_response = MagicMock()
+    builder.last_raw_response.raw_response.choices = [MagicMock()]
+    builder.last_raw_response.raw_response.choices[0].message.to_dict.return_value = {
+        "tool_calls": [{"function": {"name": "some_function"}}]
+    }
+    messages = builder.prepare_message()
+
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == [
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,CHATCOMPLETIONBASE64"}}
+    ]
+
+
+def test_openai_chat_completion_model_parse_and_cost():
+    args = OpenAIChatModelArgs(model_name="gpt-3.5-turbo")  # A cheap model for testing
+    model = args.make_model()
+
+    # Mock the API call
+    mock_response = create_mock_openai_chat_completion(
+        content="This is a test thought.",
+        tool_calls=[
+            {
+                "id": "call_123",
+                "type": "function",
+                "function": {"name": "get_weather", "arguments": '{"location": "Paris"}'},
+            }
+        ],
+        prompt_tokens=50,
+        completion_tokens=30,
+    )
+
+    with patch.object(
+        model.client.chat.completions, "create", return_value=mock_response
+    ) as mock_create:
+        with tracking.set_tracker() as global_tracker:  # Use your global tracker
+            messages = [
+                OpenAIChatCompletionAPIMessageBuilder.user()
+                .add_text("What's the weather in Paris?")
+                .prepare_message()[0]
+            ]
+            parsed_output = model(messages)
+
+    mock_create.assert_called_once()
+    assert parsed_output.raw_response.choices[0].message.content == "This is a test thought."
+    assert parsed_output.action == "get_weather(location=Paris)"
+    assert parsed_output.raw_response.choices[0].message.tool_calls[0].id == "call_123"
+    # Check cost tracking (token counts)
+    assert global_tracker.stats["input_tokens"] == 50
+    assert global_tracker.stats["output_tokens"] == 30
+    assert global_tracker.stats["cost"] > 0
+
+
+def test_claude_response_model_parse_and_cost():
+    args = ClaudeResponseModelArgs(model_name="claude-3-haiku-20240307")  # A cheap model
+    model = args.make_model()
+
+    mock_anthropic_api_response = create_mock_anthropic_response(
+        text_content="Thinking about the request.",
+        tool_use={"id": "tool_abc", "name": "search_web", "input": {"query": "latest news"}},
+        input_tokens=40,
+        output_tokens=20,
+    )
+
+    with patch.object(
+        model.client.messages, "create", return_value=mock_anthropic_api_response
+    ) as mock_create:
+        with tracking.set_tracker() as global_tracker:
+            messages = [
+                AnthropicAPIMessageBuilder.user()
+                .add_text("Search for latest news")
+                .prepare_message()[0]
+            ]
+            parsed_output = model(messages)
+
+    mock_create.assert_called_once()
+    fn_calls = [content for content in parsed_output.raw_response.content if content.type == "tool_use"]
+    assert "Thinking about the request." in parsed_output.think
+    assert parsed_output.action == 'search_web(query="latest news")'
+    assert fn_calls[0].id == "tool_abc"
+    assert global_tracker.stats["input_tokens"] == 40
+    assert global_tracker.stats["output_tokens"] == 20
+    # assert global_tracker.stats["cost"] > 0 # Verify cost is calculated
+
+
 def test_openai_response_model_parse_and_cost():
     """
     Tests OpenAIResponseModel output parsing and cost tracking with both
@@ -407,11 +334,10 @@ def test_openai_response_model_parse_and_cost():
             parsed_output = model(messages)
 
     mock_create_method.assert_called_once()
+    fn_calls = [content for content in parsed_output.raw_response.output if content.type == "function_call"]
     assert parsed_output.action == "get_current_weather(location=Boston, MA, unit=celsius)"
-    assert parsed_output.last_computer_call_id == "call_abc123"
+    assert fn_calls[0].call_id == "call_abc123"
     assert parsed_output.raw_response == mock_api_resp
-    assert parsed_output.assistant_message.type == "function_call"
-    assert parsed_output.assistant_message.name == "get_current_weather"
     assert global_tracker.stats["input_tokens"] == 70
     assert global_tracker.stats["output_tokens"] == 40
 
@@ -568,10 +494,10 @@ def test_openai_response_model_pricy_call():
 
 @pytest.mark.pricy
 @pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
-def test_openai_response_model_with_multiple_messages_pricy_call():
+def test_openai_response_model_with_multiple_messages_and_cost_tracking():
     """
-    Tests OpenAIResponseModel output parsing and cost tracking with both
-    function_call and reasoning outputs.
+    Test OpenAIResponseModel's output parsing and cost tracking
+    with a tool-using assistant and follow-up interaction.
     """
     args = OpenAIResponseModelArgs(model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
 
@@ -597,70 +523,184 @@ def test_openai_response_model_with_multiple_messages_pricy_call():
             },
         }
     ]
+
     model = args.make_model(tools=tools, tool_choice="required")
-    msg_builder = args.get_message_builder()
+    builder = args.get_message_builder()
+
+    messages = [builder.user().add_text("What is the weather in Paris?")]
+
+    with tracking.set_tracker() as tracker:
+        # First turn: get initial tool call
+        parsed = model(messages)
+        prev_input = tracker.stats["input_tokens"]
+        prev_output = tracker.stats["output_tokens"]
+        prev_cost = tracker.stats["cost"]
+
+        # Simulate tool execution and user follow-up
+        messages += [
+            parsed.tool_calls,  # Add tool call from the model
+            builder.tool(parsed.raw_response).add_text("Its sunny! 25°C"),
+            builder.user().add_text("What is the weather in Delhi?"),
+        ]
+
+        parsed = model(messages)
+
+        # Token and cost deltas
+        delta_input = tracker.stats["input_tokens"] - prev_input
+        delta_output = tracker.stats["output_tokens"] - prev_output
+        delta_cost = tracker.stats["cost"] - prev_cost
+
+    # Assertions
+    assert prev_input > 0
+    assert prev_output > 0
+    assert prev_cost > 0
+    assert parsed.raw_response is not None
+    assert parsed.action == "get_weather(location=Delhi)", f"Unexpected action: {parsed.action}"
+    assert delta_input > 0
+    assert delta_output > 0
+    assert delta_cost > 0
+    assert tracker.stats["input_tokens"] == prev_input + delta_input
+    assert tracker.stats["output_tokens"] == prev_output + delta_output
+    assert tracker.stats["cost"] == pytest.approx(prev_cost + delta_cost)
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
+def test_openai_chat_completion_model_with_multiple_messages_and_cost_tracking():
+    """
+    Test OpenAIResponseModel's output parsing and cost tracking
+    with a tool-using assistant and follow-up interaction.
+    """
+    args = OpenAIChatModelArgs(model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
+
+    tools = [
+        {
+            "type": "function",
+            "name": "get_weather",
+            "description": "Get the current weather in a given location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The location to get the weather for.",
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The unit of temperature.",
+                    },
+                },
+                "required": ["location"],
+            },
+        }
+    ]
+
+    model = args.make_model(tools=tools, tool_choice="required")
+    builder = args.get_message_builder()
+
+    messages = [builder.user().add_text("What is the weather in Paris?")]
+
+    with tracking.set_tracker() as tracker:
+        # First turn: get initial tool call
+        parsed = model(messages)
+        prev_input = tracker.stats["input_tokens"]
+        prev_output = tracker.stats["output_tokens"]
+        prev_cost = tracker.stats["cost"]
+
+        # Simulate tool execution and user follow-up
+        messages += [
+            parsed.tool_calls,  # Add tool call from the model
+            builder.tool(parsed.raw_response).add_text("Its sunny! 25°C"),
+            builder.user().add_text("What is the weather in Delhi?"),
+        ]
+
+        parsed = model(messages)
+
+        # Token and cost deltas
+        delta_input = tracker.stats["input_tokens"] - prev_input
+        delta_output = tracker.stats["output_tokens"] - prev_output
+        delta_cost = tracker.stats["cost"] - prev_cost
+
+    # Assertions
+    assert prev_input > 0
+    assert prev_output > 0
+    assert prev_cost > 0
+    assert parsed.raw_response is not None
+    assert parsed.action == "get_weather(location=Delhi)", f"Unexpected action: {parsed.action}"
+    assert delta_input > 0
+    assert delta_output > 0
+    assert delta_cost > 0
+    assert tracker.stats["input_tokens"] == prev_input + delta_input
+    assert tracker.stats["output_tokens"] == prev_output + delta_output
+    assert tracker.stats["cost"] == pytest.approx(prev_cost + delta_cost)
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set")
+def test_claude_model_with_multiple_messages_pricy_call():
+    model_factory = ClaudeResponseModelArgs(
+        model_name="claude-3-haiku-20240307", temperature=1e-5, max_new_tokens=100
+    )
+    tools = [
+        {
+            "name": "get_weather",
+            "description": "Get the current weather in a given location.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The location to get the weather for.",
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The unit of temperature.",
+                    },
+                },
+                "required": ["location"],
+            },
+        }
+    ]
+    model = model_factory.make_model(tools=tools)
+    msg_builder = model_factory.get_message_builder()
     messages = []
+
     messages.append(msg_builder.user().add_text("What is the weather in Paris?"))
     with tracking.set_tracker() as global_tracker:
-        parsed_output = model(messages)
+        llm_output1 = model(messages)
 
-        previous_input_tokens = global_tracker.stats["input_tokens"]
-        previous_output_tokens = global_tracker.stats["output_tokens"]
-        previous_cost_value = global_tracker.stats["cost"]
+        prev_input = global_tracker.stats["input_tokens"]
+        prev_output = global_tracker.stats["output_tokens"]
+        prev_cost = global_tracker.stats["cost"]
 
-        messages.append(parsed_output.assistant_message)  # add tool call
-        messages.append(
-            msg_builder.tool()
-            .add_tool_id(parsed_output.last_computer_call_id)
-            .add_text("its Sunny! 25C")
-        )  # execute and append tool call response
-        messages.append(
-            msg_builder.user().add_text("What is the weather in Delhi?")
-        )  # follow-up question
+        messages.append(llm_output1.tool_calls)
+        messages.append(msg_builder.tool(llm_output1.raw_response).add_text("Its sunny! 25°C"))
+        messages.append(msg_builder.user().add_text("What is the weather in Delhi?"))
+        llm_output2 = model(messages)
+        # Token and cost deltas
+        delta_input = global_tracker.stats["input_tokens"] - prev_input
+        delta_output = global_tracker.stats["output_tokens"] - prev_output
+        delta_cost = global_tracker.stats["cost"] - prev_cost
 
-        parsed_output = model(messages)
-
-    new_input_tokens = global_tracker.stats["input_tokens"] - previous_input_tokens
-    new_output_tokens = global_tracker.stats["output_tokens"] - previous_output_tokens
-    new_cost_value = global_tracker.stats["cost"] - previous_cost_value
-
-    assert previous_input_tokens > 0, "Expected previous input tokens to be greater than 0"
-    assert previous_output_tokens > 0
-    assert previous_cost_value > 0, "Expected previous cost value to be greater than 0"
-    assert parsed_output.raw_response is not None
+    # Assertions
+    assert prev_input > 0, "Expected previous input tokens to be greater than 0"
+    assert prev_output > 0, "Expected previous output tokens to be greater than 0"
+    assert prev_cost > 0, "Expected previous cost value to be greater than 0"
+    assert llm_output2.raw_response is not None
     assert (
-        parsed_output.action == "get_weather(location=Delhi)"
-    ), f" Expected get_weather(location=Delhi) but got {parsed_output.action}"
-    assert (
-        global_tracker.stats["input_tokens"] > previous_input_tokens
-    ), "Expected new input tokens to be greater than 0"
-    assert (
-        global_tracker.stats["output_tokens"] > previous_output_tokens
-    ), "Expected new output tokens to be greater than 0"
-    assert (
-        global_tracker.stats["cost"] > previous_cost_value
-    ), "Expected new cost value to be greater than 0"
-    assert global_tracker.stats["input_tokens"] == previous_input_tokens + new_input_tokens
-    assert global_tracker.stats["output_tokens"] == previous_output_tokens + new_output_tokens
-    assert global_tracker.stats["cost"] == previous_cost_value + new_cost_value
+        llm_output2.action == 'get_weather(location="Delhi", unit="celsius")'
+    ), f'Expected get_weather("Delhi") but got {llm_output2.action}'
+    assert delta_input > 0, "Expected new input tokens to be greater than 0"
+    assert delta_output > 0, "Expected new output tokens to be greater than 0"
+    assert delta_cost > 0, "Expected new cost value to be greater than 0"
+    assert global_tracker.stats["input_tokens"] == prev_input + delta_input
+    assert global_tracker.stats["output_tokens"] == prev_output + delta_output
+    assert global_tracker.stats["cost"] == pytest.approx(prev_cost + delta_cost)
 
 
 # TODO: Add tests for image token costing (this is complex and model-specific)
 #       - For OpenAI, you'd need to know how they bill for images (e.g., fixed cost per image + tokens for text parts)
 #       - You'd likely need to mock the response from client.chat.completions.create to include specific usage for images.
-# TODO: Add tests for incremental cost tracking when extending conversations.
-#       - Make an initial call.
-#       - Make a second call adding to the previous messages.
-#       - Assert that the cost increase in the tracker reflects only the new tokens from the second call.
-#         This requires careful management of the tracker's state or resetting it between "interactions"
-#         if you want to measure deltas. Or, assert total cost and tokens reflect the full conversation.
 
-if __name__ == "__main__":
-    # test_openai_chat_completion_model_parse_and_cost()
-    # test_claude_response_model_parse_and_cost()
-    # test_openai_response_model_parse_and_cost()
-
-    test_openai_chat_completion_model_pricy_call()
-    test_claude_response_model_pricy_call()
-    test_openai_response_model_pricy_call()
-    # test_openai_response_model_with_multiple_messages_pricy_call()

@@ -10,6 +10,7 @@ from anthropic import Anthropic
 from openai import OpenAI
 
 from agentlab.llm import tracking
+from agentlab.llm.llm_utils import image_to_png_base64_url
 
 from .base_api import BaseModelArgs
 from .llm_utils import (
@@ -32,21 +33,21 @@ type Message = Dict[str, Union[str, List[ContentItem]]]
 
 
 @dataclass
-class ResponseLLMOutput:  # TODO: May rename this to LLMOutput
+class LLMOutput:  # TODO: May rename this to LLMOutput
     """Serializable object for the output of a response LLM."""
 
     raw_response: Any
     think: str
     action: str
-    last_computer_call_id: str
-    assistant_message: Any
+    tool_calls: Any
 
 
 class MessageBuilder:
     def __init__(self, role: str):
+
         self.role = role
+        self.last_raw_response: LLMOutput = None
         self.content: List[ContentItem] = []
-        self.last_response: ResponseLLMOutput = None
         self.tool_call_id: Optional[str] = None
 
     @classmethod
@@ -62,16 +63,16 @@ class MessageBuilder:
         return cls("assistant")
 
     @classmethod
-    def tool(cls) -> "MessageBuilder":
-        return cls("tool")
+    def tool(cls, last_raw_response) -> "MessageBuilder":
+        return cls("tool").update_last_raw_response(last_raw_response)
 
     @abstractmethod
     def prepare_message(self) -> List[Message]:
         """Prepare the message for the API call."""
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def update_last_raw_response(self, raw_response: Any) -> "MessageBuilder":
-        self.last_response = raw_response
+    def update_last_raw_response(self, last_raw_response: Any) -> "MessageBuilder":
+        self.last_raw_response = last_raw_response
         return self
 
     def add_tool_id(self, id: str) -> "MessageBuilder":
@@ -103,16 +104,16 @@ class MessageBuilder:
 
         return markdown
 
+    def add_image_url(self, image_url: str) -> "MessageBuilder":
+        """Add an image URL to the message content."""
+        self.content.append({"image": image_to_png_base64_url(image_url)})
+        return self
+
+
+# TODO: Support parallel tool calls.
+
 
 class OpenAIResponseAPIMessageBuilder(MessageBuilder):
-
-    def __init__(self, role: str):
-        super().__init__(role)
-        self.tool_call_id = None
-
-    def add_tool_id(self, id: str) -> "MessageBuilder":
-        self.tool_call_id = id
-        return self
 
     def prepare_message(self) -> List[Message]:
         content = []
@@ -121,122 +122,133 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
                 content.append({"type": "input_text", "text": item["text"]})
             elif "image" in item:
                 content.append({"type": "input_image", "image_url": item["image"]})
-        res = [{"role": self.role, "content": content}]
 
-        if self.role == "tool":
-            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            # tool messages can only take text with openai
-            # we need to split the first content element if it's text and use it
-            # then open a new (user) message with the rest
-            # a function_call_output dict has keys "call_id", "type" and "output"
-            res[0]["call_id"] = self.tool_call_id
-            res[0]["type"] = "function_call_output"
-            res[0].pop("role", None)  # make sure to remove role
-            text_content = (
-                content.pop(0)["text"]
-                if "text" in content[0]
-                else "Tool call answer in next message"
-            )
-            res[0]["output"] = text_content
-            res[0].pop("content", None)  # make sure to remove content
-            res.append({"role": "user", "content": content})
+        output = [{"role": self.role, "content": content}]
+        if self.role != "tool":
+            return output
+        else:
+            tool_call_response = self.handle_tool_call(content)
+            return tool_call_response
 
-        return res
+    def handle_tool_call(self, content):
+        """Handle the tool call response from the last raw response."""
+        output = []
+        head_content, *tail_content = content
+        api_response = self.last_raw_response
+        fn_calls = [content for content in api_response.output
+                     if content.type == "function_call"]
+        assert len(fn_calls) > 0, "No function calls found in the last response"
+        if len(fn_calls) > 1: 
+            logging.warning("Using only the first tool call from many.")
+
+        first_fn_call_id = fn_calls[0].call_id
+        fn_output = head_content.get("text", "Function call answer in next message")
+        fn_call_response = {
+                "type": "function_call_output",
+                "call_id": first_fn_call_id,
+                "output": fn_output,
+            }
+        output.append(fn_call_response)
+        if tail_content:
+            # if there are more content items, add them as a new user message
+            output.append({"role": "user", "content": tail_content})
+        return output
 
 
 class AnthropicAPIMessageBuilder(MessageBuilder):
 
-    def __init__(self, role: str):
-        super().__init__(role)
-        self.tool_call_id = None
-
-    def add_tool_id(self, id: str) -> "MessageBuilder":
-        self.tool_call_id = id
-        return self
-
     def prepare_message(self) -> List[Message]:
-        content = []
+        content = [self.transform_content(item) for item in self.content]
+        output = {"role": self.role, "content": content}
 
         if self.role == "system":
             logging.info(
                 "Treating system message as 'user'. In the Anthropic API, system messages should be passed as a direct input to the client."
             )
-            return [{"role": "user", "content": content}]
-
-        for item in self.content:
-            if "text" in item:
-                content.append({"type": "text", "text": item["text"]})
-            elif "image" in item:
-                img_str: str = item["image"]
-                # make sure to get rid of the image type for anthropic
-                # e.g. "data:image/png;base64"
-                if img_str.startswith("data:image/png;base64,"):
-                    img_str = img_str[len("data:image/png;base64,") :]
-                content.append(
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",  # currently only base64 is supported
-                            "media_type": "image/png",  # currently only png is supported
-                            "data": img_str,
-                        },
-                    }
-                )
-        res = [{"role": self.role, "content": content}]
+            output["role"] = "user"
 
         if self.role == "tool":
-            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            res[0]["role"] = "user"
-            res[0]["content"] = [
+            # assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+            api_response = self.last_raw_response
+            fn_calls = [content for content in api_response.content if content.type == "tool_use"]
+            assert len(fn_calls) > 0, "No tool calls found in the last response"
+            if len(fn_calls) > 1: 
+                logging.warning("Using only the first tool call from many.")
+            tool_call_id = fn_calls[0].id  # Using the first tool call ID
+
+            output["role"] = "user"
+            output["content"] = [
                 {
                     "type": "tool_result",
-                    "tool_use_id": self.tool_call_id,
-                    "content": res[0]["content"],
+                    "tool_use_id": tool_call_id,
+                    "content": output["content"],
                 }
             ]
-        return res
+        return [output]
 
+    def transform_content(self, content: ContentItem) -> ContentItem:
+        """Transform content item to the format expected by Anthropic API."""
+        if "text" in content:
+            return {"type": "text", "text": content["text"]}
+        elif "image" in content:
+            img_str: str = content["image"]
+            # make sure to get rid of the image type for anthropic
+            # e.g. "data:image/png;base64"
+            if img_str.startswith("data:image/png;base64,"):
+                img_str = img_str[len("data:image/png;base64,") :]
+            return {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": img_str,
+                },
+            }
+        else:
+            raise ValueError(f"Unsupported content type: {content}")
 
 class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
 
-    def __init__(self, role: str):
-        super().__init__(role)
-        self.tool_call_id = None
-        # self.tool_name = None
-        self.last_response = None
-
-    def update_tool_info(self, id: str) -> "MessageBuilder":
-        self.tool_call_id = id
-        return self
-
     def prepare_message(self) -> List[Message]:
         """Prepare the message for the OpenAI API."""
-        content = []
-        for item in self.content:
-            if "text" in item:
-                content.append({"type": "text", "text": item["text"]})
-            elif "image" in item:
-                content.append({"type": "image_url", "image_url": {"url": item["image"]}})
-        res = [{"role": self.role, "content": content}]
-
+        content = [self.transform_content(item) for item in self.content]
         if self.role == "tool":
-            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            # tool messages can only take text with openai
-            # we need to split the first content element if it's text and use it
-            # then open a new (user) message with the rest
-            # a function_call_output dict has keys "call_id", "type" and "output"
-            res[0]["tool_call_id"] = self.tool_call_id
-            res[0]["type"] = "function_call_output"
-            message = self.last_response.raw_response.choices[0].message.to_dict()
-            res[0]["tool_name"] = message["tool_calls"][0]["function"]["name"]
-            text_content = (
-                content.pop(0)["text"]
-                if "text" in content[0]
-                else "Tool call answer in next message"
-            )
-            res[0]["content"] = text_content
-            res.append({"role": "user", "content": content})
-        return res
+            return self.handle_tool_call(content)
+        else:
+            return [{"role": self.role, "content": content}]
+
+    def transform_content(self, content: ContentItem) -> ContentItem:
+        """Transform content item to the format expected by OpenAI ChatCompletion."""
+        if "text" in content:
+            return {"type": "text", "text": content["text"]}
+        elif "image" in content:
+            return {"type": "image_url", "image_url": {"url": content["image"]}}
+        else:
+            raise ValueError(f"Unsupported content type: {content}")
+
+    def handle_tool_call(self, content) -> List[Message]:
+        """Handle the tool call response from the last raw response."""
+        output = []
+        content_head, *content_tail = content
+        api_response = self.last_raw_response.choices[0].message
+        fn_calls = getattr(api_response,"tool_calls", None)
+        assert fn_calls is not None, "Tool calls not found in the last response"
+        if len(fn_calls) > 1: 
+            logging.warning("Using only the first tool call from many.")   
+
+        # a function_call_output dict has keys "role", "tool_call_id" and "content"
+        tool_call_reponse = {
+            'role': 'tool',
+            'tool_call_id': fn_calls[0].id, # using the first tool call ID
+            'content': content_head.get("text", "Tool call answer in next message"),
+            'name': fn_calls[0].function.name, # required with OpenRouter
+        }         
+
+        output.append(tool_call_reponse)
+        if content_tail:
+            # if there are more content items, add them as a new user message
+            output.append({"role": "user", "content": content_tail})
+        return output
 
 
 # # Base class for all API Endpoints
@@ -256,7 +268,6 @@ class BaseResponseModel(ABC):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_kwargs = extra_kwargs or {}
-     
 
         super().__init__(*args, **kwargs)
 
@@ -266,12 +277,12 @@ class BaseResponseModel(ABC):
         return self._parse_response(response)
 
     @abstractmethod
-    def _call_api(self, messages: list[dict | MessageBuilder],  *args, **kwargs) -> Any:
+    def _call_api(self, messages: list[dict | MessageBuilder], *args, **kwargs) -> Any:
         """Make a call to the model API and return the raw response."""
         pass
 
     @abstractmethod
-    def _parse_response(self, response: Any) -> ResponseLLMOutput:
+    def _parse_response(self, response: Any) -> LLMOutput:
         """Parse the raw response from the model API and return a structured response."""
         pass
 
@@ -305,7 +316,9 @@ class OpenAIResponseModel(BaseModelWithPricing):
         self.client = OpenAI(api_key=api_key)
 
     def _call_api(self, messages: list[Any | MessageBuilder]) -> dict:
-        input = [msg.prepare_message() if isinstance(msg ,MessageBuilder) else msg for msg in messages]
+        input = []
+        for msg in messages:
+            input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
@@ -327,12 +340,11 @@ class OpenAIResponseModel(BaseModelWithPricing):
         return response
 
     def _parse_response(self, response: dict) -> dict:
-        result = ResponseLLMOutput(
+        result = LLMOutput(
             raw_response=response,
             think="",
             action="noop()",
-            last_computer_call_id=None,
-            assistant_message=None,
+            tool_calls=None,
         )
         for output in response.output:
             if output.type == "function_call":
@@ -340,8 +352,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
                 result.action = (
                     f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
                 )
-                result.last_computer_call_id = output.call_id
-                result.assistant_message = output
+                result.tool_calls = output
                 break
             elif output.type == "reasoning":
                 if len(output.summary) > 0:
@@ -352,7 +363,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
                 result.think += output.content[0].text + "\n"
 
         return result
-
 
 
 class OpenAIChatCompletionModel(BaseModelWithPricing):
@@ -366,10 +376,10 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         *args,
         **kwargs,
     ):
-        
+
         self.tools = self.format_tools_for_chat_completion(kwargs.pop("tools", None))
         self.tool_choice = kwargs.pop("tool_choice", None)
-        
+
         super().__init__(
             model_name=model_name,
             temperature=temperature,
@@ -379,18 +389,17 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             **kwargs,
         )
 
-
         self.client = OpenAI(
             **client_args
         )  # Ensures client_args is a dict or defaults to an empty dict
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> openai.types.chat.ChatCompletion:
-        chat_messages = [
-            msg.prepare_message() if isinstance(msg, MessageBuilder) else msg for msg in messages
-        ]
+        input = []
+        for msg in messages:
+            input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
         api_params: Dict[str, Any] = {
             "model": self.model_name,
-            "messages": chat_messages,
+            "messages": input,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
@@ -404,14 +413,13 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
 
         return response
 
-    def _parse_response(self, response: openai.types.chat.ChatCompletion) -> ResponseLLMOutput:
+    def _parse_response(self, response: openai.types.chat.ChatCompletion) -> LLMOutput:
 
-        output = ResponseLLMOutput(
+        output = LLMOutput(
             raw_response=response,
             think="",
             action="noop()",  # Default if no tool call
-            last_computer_call_id=None,
-            assistant_message=None,
+            tool_calls=None,
         )
         message = response.choices[0].message.to_dict()
         output.think = self.extract_content_with_reasoning(message)
@@ -423,8 +431,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
                 output.action = (
                     f"{function['name']}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
                 )
-                output.last_computer_call_id = tool_call["id"]
-                output.assistant_message = {
+                output.tool_calls = {
                     "role": "assistant",
                     "tool_calls": [message["tool_calls"][0]],  # Use only the first tool call
                 }
@@ -446,11 +453,8 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
                     "function": {k: tool[k] for k in ("name", "description", "parameters")},
                 }
                 for tool in tools
-            ] 
+            ]
         return formatted_tools
-
-
- 
 
     @staticmethod
     def extract_content_with_reasoning(message, wrap_tag="think"):
@@ -488,7 +492,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
     ):
         self.tools = kwargs.pop("tools", None)
         self.tool_choice = kwargs.pop("tool_choice", None)
-        
+
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -499,13 +503,12 @@ class ClaudeResponseModel(BaseModelWithPricing):
             **kwargs,
         )
 
-
         self.client = Anthropic(api_key=api_key)
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
-        input = [
-            msg.prepare_message() if isinstance(msg, MessageBuilder) else msg for msg in messages
-        ]
+        input = []
+        for msg in messages:
+            input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
@@ -524,12 +527,11 @@ class ClaudeResponseModel(BaseModelWithPricing):
         return response
 
     def _parse_response(self, response: dict) -> dict:
-        result = ResponseLLMOutput(
+        result = LLMOutput(
             raw_response=response,
             think="",
             action="noop()",
-            last_computer_call_id=None,
-            assistant_message={
+            tool_calls={
                 "role": "assistant",
                 "content": response.content,
             },
@@ -537,7 +539,6 @@ class ClaudeResponseModel(BaseModelWithPricing):
         for output in response.content:
             if output.type == "tool_use":
                 result.action = f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
-                result.last_computer_call_id = output.id
             elif output.type == "text":
                 result.think += output.text
         return result
@@ -640,7 +641,9 @@ class ClaudeResponseModelArgs(BaseModelArgs):
 
     api = "anthropic"
 
-    def make_model(self, extra_kwargs=None, *args, **kwargs):
+    def make_model(
+        self, extra_kwargs=None, *args, **kwargs
+    ):  # TODO: You can remove the *args from everywhere.
         return ClaudeResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,
@@ -671,7 +674,6 @@ class OpenAIChatModelArgs(BaseModelArgs):
             pricing_api="openai",
             *args,
             **kwargs,
-
         )
 
     def get_message_builder(self) -> MessageBuilder:
