@@ -33,7 +33,7 @@ type Message = Dict[str, Union[str, List[ContentItem]]]
 
 
 @dataclass
-class LLMOutput:  # TODO: May rename this to LLMOutput
+class LLMOutput: 
     """Serializable object for the output of a response LLM."""
 
     raw_response: Any
@@ -95,12 +95,12 @@ class MessageBuilder:
             elif "image" in item:
                 parts.append(f"![Image]({item['image']})")
 
-        markdown = f"## {self.role.capitalize()} Message\n\n"
+        markdown = f"### {self.role.capitalize()}\n"
         markdown += "\n\n---\n\n".join(parts)
 
-        if self.role == "tool":
-            assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-            markdown += f"\n\n---\n\n**Tool Call ID:** `{self.tool_call_id}`"
+        # if self.role == "tool":
+        #     assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+        #     markdown += f"\n\n---\n\n**Tool Call ID:** `{self.tool_call_id}`"
 
         return markdown
 
@@ -114,12 +114,18 @@ class MessageBuilder:
 
 
 class OpenAIResponseAPIMessageBuilder(MessageBuilder):
+    @classmethod
+    def system(cls) -> "OpenAIResponseAPIMessageBuilder":
+        # OpenAI Responses API uses 'developer' role for system messages
+        return cls("developer") 
 
     def prepare_message(self) -> List[Message]:
         content = []
         for item in self.content:
             if "text" in item:
-                content.append({"type": "input_text", "text": item["text"]})
+                content_type = "input_text" if self.role != 'assistant' else 'output_text'
+                content.append({"type": content_type, "text": item["text"]}) 
+
             elif "image" in item:
                 content.append({"type": "input_image", "image_url": item["image"]})
 
@@ -260,8 +266,6 @@ class BaseResponseModel(ABC):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-        *args,
-        **kwargs,
     ):
         self.model_name = model_name
         self.api_key = api_key
@@ -269,15 +273,15 @@ class BaseResponseModel(ABC):
         self.max_tokens = max_tokens
         self.extra_kwargs = extra_kwargs or {}
 
-        super().__init__(*args, **kwargs)
+        super().__init__()
 
-    def __call__(self, messages: list[dict | MessageBuilder], *args, **kwargs) -> dict:
+    def __call__(self, messages: list[dict | MessageBuilder], **kwargs) -> dict:
         """Make a call to the model and return the parsed response."""
-        response = self._call_api(messages, *args, **kwargs)
+        response = self._call_api(messages, **kwargs)
         return self._parse_response(response)
 
     @abstractmethod
-    def _call_api(self, messages: list[dict | MessageBuilder], *args, **kwargs) -> Any:
+    def _call_api(self, messages: list[dict | MessageBuilder], **kwargs) -> Any:
         """Make a call to the model API and return the raw response."""
         pass
 
@@ -299,7 +303,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-        *args,
         **kwargs,
     ):
         self.tools = kwargs.pop("tools", None)
@@ -309,13 +312,12 @@ class OpenAIResponseModel(BaseModelWithPricing):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            extra_kwargs=extra_kwargs,  # TODO: Remove this
-            *args,
+            extra_kwargs=extra_kwargs,
             **kwargs,
         )
         self.client = OpenAI(api_key=api_key)
 
-    def _call_api(self, messages: list[Any | MessageBuilder]) -> dict:
+    def _call_api(self, messages: list[Any | MessageBuilder], **kwargs) -> dict:
         input = []
         for msg in messages:
             input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
@@ -325,13 +327,15 @@ class OpenAIResponseModel(BaseModelWithPricing):
             "input": input,
             "temperature": self.temperature,
             "max_output_tokens": self.max_tokens,
-            # **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
+            **self.extra_kwargs,  
         }
+
         if self.tools is not None:
             api_params["tools"] = self.tools
         if self.tool_choice is not None:
             api_params["tool_choice"] = self.tool_choice
 
+        api_params |= kwargs  # Merge any additional parameters passed
         response = call_openai_api_with_retries(
             self.client.responses.create,
             api_params,
@@ -346,6 +350,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
             action="noop()",
             tool_calls=None,
         )
+        interesting_keys = ['output_text']
         for output in response.output:
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
@@ -358,10 +363,11 @@ class OpenAIResponseModel(BaseModelWithPricing):
                 if len(output.summary) > 0:
                     result.think += output.summary[0].text + "\n"
 
-            elif output.type == "message" and output.content:
-                assert len(output.content) == 1, "More than one content item in message"
+            elif output.type == "message" and output.content: # Why did i add a 'message' here?
                 result.think += output.content[0].text + "\n"
-
+        for key in interesting_keys:
+            if key_content := getattr(output, "output_text", None) is not None:
+                result.think += f"<{key}>{key_content}</{key}>"
         return result
 
 
@@ -429,13 +435,14 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
                 function = tool_call["function"]
                 arguments = json.loads(function["arguments"])
                 output.action = (
-                    f"{function['name']}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
+                    #  Maybe replace this for responses API also.
+                    f"{function['name']}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
                 )
                 output.tool_calls = {
                     "role": "assistant",
                     "tool_calls": [message["tool_calls"][0]],  # Use only the first tool call
                 }
-                break  # only first tool call is used
+                break 
         return output
 
     @staticmethod
@@ -464,14 +471,15 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             message = message.to_dict()
 
         reasoning_content = message.get("reasoning", None)
-        msg_content = message.get("text", "")
+        msg_content = message.get("text", "") #works for OR 
+
         if reasoning_content:
             # Wrap reasoning in <think> tags with newlines for clarity
-            reasoning_content = f"<{wrap_tag}>\n{reasoning_content}\n</{wrap_tag}>\n"
+            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n" # why I do need to enclose reasoning in <think> tags?
             logging.debug("Extracting content from response.choices[i].message.reasoning")
         else:
             reasoning_content = ""
-        return f"{reasoning_content}{msg_content}"
+        return f"{reasoning_content}{msg_content}{message.get('content', '')}"
 
 
 # To Do: Double check the expected action format by browsergym.
@@ -487,7 +495,6 @@ class ClaudeResponseModel(BaseModelWithPricing):
         temperature: float = 0.5,
         max_tokens: int = 100,
         extra_kwargs: Optional[Dict[str, Any]] = None,
-        *args,
         **kwargs,
     ):
         self.tools = kwargs.pop("tools", None)
@@ -499,7 +506,6 @@ class ClaudeResponseModel(BaseModelWithPricing):
             temperature=temperature,
             max_tokens=max_tokens,
             extra_kwargs=extra_kwargs,
-            *args,
             **kwargs,
         )
 
@@ -619,14 +625,13 @@ class OpenAIResponseModelArgs(BaseModelArgs):
 
     api = "openai"
 
-    def make_model(self, extra_kwargs=None, *args, **kwargs):
+    def make_model(self, extra_kwargs=None, **kwargs):
         return OpenAIResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="openai",
-            *args,
             **kwargs,
         )
 
@@ -641,16 +646,13 @@ class ClaudeResponseModelArgs(BaseModelArgs):
 
     api = "anthropic"
 
-    def make_model(
-        self, extra_kwargs=None, *args, **kwargs
-    ):  # TODO: You can remove the *args from everywhere.
+    def make_model(self, extra_kwargs=None, **kwargs): 
         return ClaudeResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="anthropic",
-            *args,
             **kwargs,
         )
 
@@ -665,14 +667,13 @@ class OpenAIChatModelArgs(BaseModelArgs):
 
     api = "openai"
 
-    def make_model(self, extra_kwargs=None, *args, **kwargs):
+    def make_model(self, extra_kwargs=None, **kwargs):
         return OpenAIChatCompletionModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="openai",
-            *args,
             **kwargs,
         )
 
@@ -687,7 +688,7 @@ class OpenRouterModelArgs(BaseModelArgs):
 
     api: str = "openai"  # tool description format used by actionset.to_tool_description() in bgym
 
-    def make_model(self, extra_kwargs=None, *args, **kwargs):
+    def make_model(self, extra_kwargs=None, **kwargs):
         return OpenAIChatCompletionModel(
             client_args={
                 "base_url": "https://openrouter.ai/api/v1",
@@ -698,18 +699,11 @@ class OpenRouterModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="openrouter",
-            *args,
             **kwargs,
         )
 
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIChatCompletionAPIMessageBuilder
-
-    def __post_init__(self):
-        # Some runtime checks
-        assert supports_tool_calling_for_openrouter(
-            self.model_name
-        ), f"Model {self.model_name} does not support tool calling."
 
 
 class VLLMModelArgs(BaseModelArgs):
@@ -718,14 +712,7 @@ class VLLMModelArgs(BaseModelArgs):
 
     api = "openai"  # tool description format used by actionset.to_tool_description() in bgym
 
-    def __post_init__(self):
-        # error handeling
-        assert self.is_model_available(
-            self.model_name
-        ), f"Model {self.model_name} is not available on the VLLM server. \
-                Please check the model name or server configuration."
-
-    def make_model(self, extra_kwargs=None, *args, **kwargs):
+    def make_model(self, extra_kwargs=None, **kwargs):
         return OpenAIChatCompletionModel(
             client_args={
                 "base_url": "http://localhost:8000/v1",
@@ -736,51 +723,8 @@ class VLLMModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             extra_kwargs=extra_kwargs,
             pricing_api="vllm",
-            *args,
             **kwargs,
         )
 
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIChatCompletionAPIMessageBuilder
-
-    ## Some Tests for VLLM server in the works!
-    def test_vllm_server_reachability(self):
-        import requests
-
-        try:
-            response = requests.get(
-                f"{self.client_args['base_url']}/v1/models",
-                headers={"Authorization": f"Bearer {self.client_args['api_key']}"},
-            )
-            if response.status_code == 200:
-                return True
-            else:
-                return False
-        except requests.RequestException as e:
-            logging.error(f"Error checking VLLM server reachability: {e}")
-            return False
-
-    def is_model_available(self, model_name: str) -> bool:
-        # import requests
-
-        # """Check if the model is available on the VLLM server."""
-        # if not self.test_vllm_server_reachability():
-        #     logging.error("VLLM server is not reachable.")
-        #     return False
-        # try:
-        #     response = requests.get(
-        #         f"{self.client_args['base_url']}/v1/models",
-        #         headers={"Authorization": f"Bearer {self.client_args['api_key']}"},
-        #     )
-        #     if response.status_code == 200:
-        #         models = response.json().get("data", [])
-        #         return any(model.get("id") == model_name for model in models)
-        #     else:
-        #         logging.error(
-        #             f"Failed to fetch vllm hosted models: {response.status_code} - {response.text}"
-        #         )
-        #         return False
-        # except requests.RequestException as e:
-        #     logging.error(f"Error checking model availability: {e}")
-        #     return False
-        return True

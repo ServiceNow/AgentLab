@@ -615,12 +615,12 @@ def dict_to_markdown(d: dict):
     res = ""
     for k, v in d.items():
         if isinstance(v, dict):
-            res += f"## {k}\n{dict_to_markdown(v)}\n"
+            res += f"### {k}\n{dict_to_markdown(v)}\n"
         elif isinstance(v, list):
-            res += f"## {k}\n"
+            res += f"### {k}\n"
             for i, item in enumerate(v):
                 if isinstance(item, dict):
-                    res += f"### Item {i}\n{dict_to_markdown(item)}\n"
+                    res += f"#### Item {i}\n{dict_to_markdown(item)}\n"
                 else:
                     res += f"- {item}\n"
         else:
