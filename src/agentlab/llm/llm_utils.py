@@ -340,7 +340,7 @@ def call_anthropic_api_with_retries(client_function, api_params, max_retries=5):
         # if you want to customize them from their defaults in the generic function.
     )
 
-# ...existing code...
+
 def supports_tool_calling_for_openrouter(
     model_name: str,
 ) -> bool:
@@ -382,8 +382,8 @@ def supports_tool_calling_for_openrouter(
         response = response.to_dict()
         return "tool_calls" in response["choices"][0]["message"]
     except Exception as e:
-        print(f"Model '{model_name}' error: {e}")
-        return False
+        print(f"Skipping tool callign support check in openrouter for {model_name}: {e}")
+        return True
 
 
 def retry_multiple(
