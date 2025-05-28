@@ -2,6 +2,7 @@ from accelerate import Accelerator
 from accelerate.utils.modeling import load_checkpoint_in_model
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
+from functools import cache
 from transformers import AutoProcessor, MllamaForConditionalGeneration
 from typing import Optional
 from .base import VLModel, VLModelArgs
@@ -84,6 +85,7 @@ class LlamaModelArgs(VLModelArgs):
     device: Optional[str]
 
     @property
+    @cache
     def model_name(self) -> str:
         return self.model_path.split("/")[-1].replace("-", "_").replace(".", "")
 
@@ -113,13 +115,14 @@ class LlamaModelArgs(VLModelArgs):
         else:
             llama_model.model = llama_model.model.to(self.device)
         llama_model.model.eval()
-        return llama_model
+        self.llama_model = llama_model
+        return self.llama_model
 
     def prepare(self):
         pass
 
     def close(self):
-        pass
+        del self.llama_model.model
 
     def set_reproducibility_mode(self):
         self.reproducibility_config = {"do_sample": False}

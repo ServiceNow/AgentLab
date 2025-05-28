@@ -1,11 +1,13 @@
 from agentlab.llm.llm_utils import ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
+from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
 from browsergym.utils.obs import overlay_som
 from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
+from functools import cache
 from typing import Optional
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
@@ -17,8 +19,8 @@ class UIAgent(VLAgent):
         self,
         main_vl_model_args: VLModelArgs,
         auxiliary_vl_model_args: Optional[VLModelArgs],
-        action_set_args: HighLevelActionSetArgs,
         ui_prompt_args: UIPromptArgs,
+        action_set_args: HighLevelActionSetArgs,
         max_retry: int,
     ):
         self.main_vl_model = main_vl_model_args.make_model()
@@ -26,11 +28,16 @@ class UIAgent(VLAgent):
             self.auxiliary_vl_model = None
         else:
             self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
-        self.action_set = action_set_args.make_action_set()
         self.ui_prompt_args = ui_prompt_args
+        self.action_set_args = action_set_args
         self.max_retry = max_retry
         self.thoughts = []
         self.actions = []
+
+    @property
+    @cache
+    def action_set(self) -> HighLevelActionSet:
+        return self.action_set_args.make_action_set()
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
@@ -94,11 +101,12 @@ class UIAgent(VLAgent):
 class UIAgentArgs(VLAgentArgs):
     main_vl_model_args: VLModelArgs
     auxiliary_vl_model_args: Optional[VLModelArgs]
-    action_set_args: HighLevelActionSetArgs
     ui_prompt_args: UIPromptArgs
+    action_set_args: HighLevelActionSetArgs
     max_retry: int
 
     @property
+    @cache
     def agent_name(self) -> str:
         if self.auxiliary_vl_model_args is None:
             return f"UIAgent-{self.main_vl_model_args.model_name}"
@@ -106,13 +114,14 @@ class UIAgentArgs(VLAgentArgs):
             return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
-        return UIAgent(
+        self.ui_agent = UIAgent(
             main_vl_model_args=self.main_vl_model_args,
             auxiliary_vl_model_args=self.auxiliary_vl_model_args,
-            action_set_args=self.action_set_args,
             ui_prompt_args=self.ui_prompt_args,
+            action_set_args=self.action_set_args,
             max_retry=self.max_retry,
         )
+        return self.ui_agent
 
     def prepare(self):
         self.main_vl_model_args.prepare()

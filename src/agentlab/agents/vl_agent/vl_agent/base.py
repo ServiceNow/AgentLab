@@ -1,9 +1,15 @@
 from abc import ABC, abstractmethod
+from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.benchmark import Benchmark
 from dataclasses import dataclass
 
 
 class VLAgent(ABC):
+    @property
+    @abstractmethod
+    def action_set(self) -> HighLevelActionSet:
+        raise NotImplementedError
+
     @abstractmethod
     def get_action(self, obs: dict) -> tuple[str, dict]:
         raise NotImplementedError
