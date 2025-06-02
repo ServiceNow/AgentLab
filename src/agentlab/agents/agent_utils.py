@@ -1,6 +1,6 @@
-from PIL import Image, ImageDraw
 from logging import warning
 
+from PIL import Image, ImageDraw
 
 """
 This module contains utility functions for handling observations and actions in the context of agent interactions.
@@ -42,3 +42,43 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
         except (ValueError, IndexError) as e:
             warning(f"Failed to parse action '{action}': {e}")
     return screenshot
+
+
+def add_mouse_pointer_from_action(screenshot: Image, action: str) -> Image.Image:
+    if action.startswith("mouse_click"):
+        try:
+            coords = action[action.index("(") + 1 : action.index(")")].split(",")
+            coords = [c.strip() for c in coords]
+            if len(coords) not in [2, 3]:
+                raise ValueError(f"Invalid coordinate format: {coords}")
+            if coords[0].startswith("x="):
+                coords[0] = coords[0][2:]
+            if coords[1].startswith("y="):
+                coords[1] = coords[1][2:]
+            x, y = int(coords[0].strip()), int(coords[1].strip())
+            screenshot = draw_mouse_pointer(screenshot, x, y)
+        except (ValueError, IndexError) as e:
+            warning(f"Failed to parse action '{action}': {e}")
+    return screenshot
+
+
+def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
+    """
+    Draws a semi-transparent mouse pointer at (x, y) on the image.
+    Returns a new image with the pointer drawn.
+    """
+    pointer_size = 20  # Length of the pointer
+    overlay = image.convert("RGBA").copy()
+    draw = ImageDraw.Draw(overlay)
+
+    # Define pointer shape (a simple arrow)
+    pointer_shape = [
+        (x, y),
+        (x + pointer_size, y + pointer_size // 2),
+        (x + pointer_size // 2, y + pointer_size // 2),
+        (x + pointer_size // 2, y + pointer_size),
+    ]
+
+    draw.polygon(pointer_shape, fill=(0, 0, 0, 128))  # 50% transparent black
+
+    return Image.alpha_composite(image.convert("RGBA"), overlay)

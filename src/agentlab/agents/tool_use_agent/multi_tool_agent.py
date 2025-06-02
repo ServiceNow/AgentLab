@@ -30,6 +30,7 @@ from agentlab.llm.tracking import cost_tracker_decorator
 
 
 class Block:
+
     def make(self):
         return self
 
@@ -40,7 +41,7 @@ class Goal(Block):
 
     goal_as_system_msg: bool = True
 
-    def __call__(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
+    def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
         system_message = llm.msg.system().add_text(
             "You are an agent. Based on the observation, you will decide which action to take to accomplish your goal."
         )
@@ -76,8 +77,9 @@ class Obs(Block):
     use_dom: bool = False
     use_som: bool = False
     use_tabs: bool = False
+    add_mouse_pointer: bool = True
 
-    def __call__(
+    def apply(
         self, llm, messages: list[MessageBuilder], obs: dict, last_llm_output: LLMOutput
     ) -> dict:
 
@@ -92,10 +94,19 @@ class Obs(Block):
                 obs_msg.add_text(f"Last action error:\n{obs['last_action_error']}")
 
         if self.use_screenshot:
+
             if self.use_som:
                 screenshot = obs["screenshot_som"]
             else:
                 screenshot = obs["screenshot"]
+
+            if self.add_mouse_pointer:
+                screenshot = np.array(
+                    agent_utils.add_mouse_pointer_from_action(
+                        Image.fromarray(obs["screenshot"]), obs["last_action"]
+                    )
+                )
+
             obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
             obs_msg.add_text(f"AXTree:\n{AXTREE_NOTE}\n{obs['axtree_txt']}")
@@ -129,7 +140,7 @@ class GeneralHints(Block):
 
     use_hints: bool = True
 
-    def __call__(self, llm, messages: list[MessageBuilder]) -> dict:
+    def apply(self, llm, messages: list[MessageBuilder]) -> dict:
         if not self.use_hints:
             return
 
@@ -146,7 +157,7 @@ class GeneralHints(Block):
 class Summarizer(Block):
     """Block to summarize the last action and the current state of the environment."""
 
-    def __call__(self, llm, messages: list[MessageBuilder]) -> dict:
+    def apply(self, llm, messages: list[MessageBuilder]) -> dict:
         msg = llm.msg.user().add_text(
             "Summarize the effect of the last action and the current state of the environment."
         )
@@ -164,7 +175,7 @@ class ToolCall(Block):
     def __init__(self, tool_server):
         self.tool_server = tool_server
 
-    def __call__(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
+    def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
         # build the message by adding components to obs
         response: LLMOutput = llm(messages=self.messages)
 
@@ -231,11 +242,11 @@ class ToolUseAgent(bgym.Agent):
         self.msg_builder = model_args.get_message_builder()
         self.llm.msg = self.msg_builder
 
-        # blocks
-        self.goal_block = self.config.goal.make()
-        self.obs_block = self.config.obs.make()
-        self.summarizer_block = self.config.summarizer.make()
-        self.general_hints_block = self.config.general_hints.make()
+        # # blocks
+        # self.goal_block = self.config.goal
+        # self.obs_block = self.config.obs
+        # self.summarizer_block = self.config.summarizer
+        # self.general_hints_block = self.config.general_hints
 
         self.messages: list[MessageBuilder] = []
         self.last_response: LLMOutput = LLMOutput()
@@ -266,21 +277,21 @@ class ToolUseAgent(bgym.Agent):
                     obs["screenshot"], extra_properties=obs["extra_element_properties"]
                 )
 
-        if self.config.tag_screenshot:
-            screenshot = Image.fromarray(obs["screenshot"])
-            screenshot = agent_utils.tag_screenshot_with_action(screenshot, obs["last_action"])
-            obs["screenshot"] = np.array(screenshot)
+        # if self.config.tag_screenshot:
+        #     screenshot = Image.fromarray(obs["screenshot"])
+        #     screenshot = agent_utils.tag_screenshot_with_action(screenshot, obs["last_action"])
+        #     obs["screenshot"] = np.array(screenshot)
 
         return obs
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> float:
         if len(self.messages) == 0:
-            self.goal_block(self.llm, self.messages, obs)
-            self.general_hints_block(self.llm, self.messages)
+            self.config.goal.apply(self.llm, self.messages, obs)
+            self.config.general_hints.apply(self.llm, self.messages)
 
-        self.obs_block(self.llm, self.messages, obs, last_llm_output=self.last_response)
-        self.summarizer_block(self.llm, self.messages)
+        self.config.obs.apply(self.llm, self.messages, obs, last_llm_output=self.last_response)
+        self.config.summarizer.apply(self.llm, self.messages)
 
         response: LLMOutput = self.llm(messages=self.messages)
 
