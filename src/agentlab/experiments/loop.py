@@ -401,15 +401,10 @@ class ExpArgs:
             agent = self.agent_args.make_agent()
             logger.debug("Agent created.")
 
-            if hasattr(self.agent_args, "use_raw_page_output"):
-                use_raw_page_output = self.agent_args.use_raw_page_output
-            else:
-                use_raw_page_output = False
-
             env = self.env_args.make_env(
                 action_mapping=agent.action_set.to_python_code,
                 exp_dir=self.exp_dir,
-                use_raw_page_output=use_raw_page_output,
+                use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
             )
 
             logger.debug("Environment created.")
