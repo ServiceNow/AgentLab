@@ -1,6 +1,10 @@
 from logging import warning
+from playwright.sync_api import Page 
 
 from PIL import Image, ImageDraw
+from logging import warning
+from playwright.sync_api import Page 
+
 
 """
 This module contains utility functions for handling observations and actions in the context of agent interactions.
@@ -82,3 +86,18 @@ def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
     draw.polygon(pointer_shape, fill=(0, 0, 0, 128))  # 50% transparent black
 
     return Image.alpha_composite(image.convert("RGBA"), overlay)
+
+def zoom_webpage(page: Page, zoom_factor: float = 1.5):
+    """
+    Zooms the webpage to the specified zoom factor.
+
+    Args:
+        page: The Playwright Page object.
+        zoom_factor: The zoom factor to apply (default is 1.0, which means no zoom).
+    """
+
+    if zoom_factor <= 0:
+        raise ValueError("Zoom factor must be greater than 0.")
+
+    page.evaluate(f"document.documentElement.style.zoom='{zoom_factor*100}%'")
+    return page

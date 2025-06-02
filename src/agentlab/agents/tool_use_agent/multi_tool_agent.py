@@ -78,6 +78,7 @@ class Obs(Block):
     use_som: bool = False
     use_tabs: bool = False
     add_mouse_pointer: bool = True
+    use_zoomed_webpage: bool = False  
 
     def apply(
         self, llm, messages: list[MessageBuilder], obs: dict, last_llm_output: LLMOutput
@@ -224,6 +225,11 @@ class ToolUseAgentArgs(AgentArgs):
     def close(self):
         return self.model_args.close_server()
 
+    def set_benchmark(self, benchmark, demo_mode):
+
+        if benchmark in ["miniwob", "miniwob_tiny_test"]:
+            self.config.obs.use_zoomed_webpage = True
+
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
@@ -276,7 +282,8 @@ class ToolUseAgent(bgym.Agent):
                 obs["screenshot_som"] = overlay_som(
                     obs["screenshot"], extra_properties=obs["extra_element_properties"]
                 )
-
+            if self.config.obs.use_zoomed_webpage:
+                pass
         # if self.config.tag_screenshot:
         #     screenshot = Image.fromarray(obs["screenshot"])
         #     screenshot = agent_utils.tag_screenshot_with_action(screenshot, obs["last_action"])

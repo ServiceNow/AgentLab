@@ -171,3 +171,4 @@ results/
 outputs/
 miniwob-plusplus/
 .miniwob-server.pid
+debugging_results/
