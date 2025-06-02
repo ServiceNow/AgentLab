@@ -34,10 +34,10 @@ type Message = Dict[str, Union[str, List[ContentItem]]]
 class LLMOutput:
     """Serializable object for the output of a response LLM."""
 
-    raw_response: Any
-    think: str
-    action: str
-    tool_calls: Any
+    raw_response: Any = field(default_factory=dict)
+    think: str = field(default="")
+    action: str = field(default="noop()")  # Default action if no tool call is made
+    tool_calls: Any = field(default=None)  # This will hold the tool call response if any
 
 
 class MessageBuilder:
@@ -73,9 +73,9 @@ class MessageBuilder:
         self.last_raw_response = last_raw_response
         return self
 
-    def add_tool_id(self, id: str) -> "MessageBuilder":
-        self.tool_call_id = id
-        return self
+    # def add_tool_id(self, id: str) -> "MessageBuilder":
+    #     self.tool_call_id = id
+    #     return self
 
     def add_text(self, text: str) -> "MessageBuilder":
         self.content.append({"text": text})
