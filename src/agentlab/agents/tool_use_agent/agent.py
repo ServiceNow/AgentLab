@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import bgym
 import numpy as np
+from browsergym.core.observation import extract_screenshot
 from PIL import Image, ImageDraw
 
 from agentlab.agents import agent_utils
@@ -20,7 +21,6 @@ from agentlab.llm.response_api import (
     VLLMModelArgs,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
-from browsergym.core.observation import extract_screenshot
 
 
 @dataclass
