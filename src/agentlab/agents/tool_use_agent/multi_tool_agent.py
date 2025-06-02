@@ -77,12 +77,15 @@ class Obs(Block):
     use_som: bool = False
     use_tabs: bool = False
 
-    def __call__(self, llm, messages: list[MessageBuilder], obs: dict, tool_call_id=None) -> dict:
+    def __call__(
+        self, llm, messages: list[MessageBuilder], obs: dict, last_llm_output: LLMOutput
+    ) -> dict:
 
-        if tool_call_id is None:
+        if last_llm_output.tool_calls is None:
             obs_msg = llm.msg.user()  # type: MessageBuilder
         else:
-            obs_msg = llm.msg.tool().add_tool_id(tool_call_id)  # type: MessageBuilder
+            messages.append(last_llm_output.tool_calls)  # TODO move else where
+            obs_msg = llm.msg.tool(last_llm_output.raw_response)  # type: MessageBuilder
 
         if self.use_last_error:
             if obs["last_action_error"] != "":
@@ -235,6 +238,8 @@ class ToolUseAgent(bgym.Agent):
         self.general_hints_block = self.config.general_hints.make()
 
         self.messages: list[MessageBuilder] = []
+        self.last_response: LLMOutput = LLMOutput()
+        self._responses: list[LLMOutput] = []
 
     def obs_preprocessor(self, obs):
         obs = copy(obs)
@@ -274,7 +279,7 @@ class ToolUseAgent(bgym.Agent):
             self.goal_block(self.llm, self.messages, obs)
             self.general_hints_block(self.llm, self.messages)
 
-        self.obs_block(self.llm, self.messages, obs, tool_call_id=self.last_response)
+        self.obs_block(self.llm, self.messages, obs, last_llm_output=self.last_response)
         self.summarizer_block(self.llm, self.messages)
 
         response: LLMOutput = self.llm(messages=self.messages)
@@ -282,7 +287,8 @@ class ToolUseAgent(bgym.Agent):
         action = response.action
         think = response.think
         self.last_response = response
-        self.messages.append(response.assistant_message)  # this is tool call
+        self._responses.append(response)  # may be useful for debugging
+        # self.messages.append(response.assistant_message)  # this is tool call
 
         agent_info = bgym.AgentInfo(think=think, chat_messages=self.messages, stats={})
         return action, agent_info
