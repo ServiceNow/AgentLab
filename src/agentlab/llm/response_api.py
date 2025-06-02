@@ -9,14 +9,12 @@ import openai
 from anthropic import Anthropic
 from openai import OpenAI
 
-from agentlab.llm import tracking
 from agentlab.llm.llm_utils import image_to_png_base64_url
 
 from .base_api import BaseModelArgs
 from .llm_utils import (
     call_anthropic_api_with_retries,
     call_openai_api_with_retries,
-    supports_tool_calling_for_openrouter,
 )
 from .tracking import TrackAPIPricingMixin
 
@@ -33,7 +31,7 @@ type Message = Dict[str, Union[str, List[ContentItem]]]
 
 
 @dataclass
-class LLMOutput: 
+class LLMOutput:
     """Serializable object for the output of a response LLM."""
 
     raw_response: Any
@@ -117,14 +115,14 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
     @classmethod
     def system(cls) -> "OpenAIResponseAPIMessageBuilder":
         # OpenAI Responses API uses 'developer' role for system messages
-        return cls("developer") 
+        return cls("developer")
 
     def prepare_message(self) -> List[Message]:
         content = []
         for item in self.content:
             if "text" in item:
-                content_type = "input_text" if self.role != 'assistant' else 'output_text'
-                content.append({"type": content_type, "text": item["text"]}) 
+                content_type = "input_text" if self.role != "assistant" else "output_text"
+                content.append({"type": content_type, "text": item["text"]})
 
             elif "image" in item:
                 content.append({"type": "input_image", "image_url": item["image"]})
@@ -141,19 +139,18 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
         output = []
         head_content, *tail_content = content
         api_response = self.last_raw_response
-        fn_calls = [content for content in api_response.output
-                     if content.type == "function_call"]
+        fn_calls = [content for content in api_response.output if content.type == "function_call"]
         assert len(fn_calls) > 0, "No function calls found in the last response"
-        if len(fn_calls) > 1: 
+        if len(fn_calls) > 1:
             logging.warning("Using only the first tool call from many.")
 
         first_fn_call_id = fn_calls[0].call_id
         fn_output = head_content.get("text", "Function call answer in next message")
         fn_call_response = {
-                "type": "function_call_output",
-                "call_id": first_fn_call_id,
-                "output": fn_output,
-            }
+            "type": "function_call_output",
+            "call_id": first_fn_call_id,
+            "output": fn_output,
+        }
         output.append(fn_call_response)
         if tail_content:
             # if there are more content items, add them as a new user message
@@ -178,7 +175,7 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             api_response = self.last_raw_response
             fn_calls = [content for content in api_response.content if content.type == "tool_use"]
             assert len(fn_calls) > 0, "No tool calls found in the last response"
-            if len(fn_calls) > 1: 
+            if len(fn_calls) > 1:
                 logging.warning("Using only the first tool call from many.")
             tool_call_id = fn_calls[0].id  # Using the first tool call ID
 
@@ -213,6 +210,7 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
         else:
             raise ValueError(f"Unsupported content type: {content}")
 
+
 class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
 
     def prepare_message(self) -> List[Message]:
@@ -237,18 +235,18 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
         output = []
         content_head, *content_tail = content
         api_response = self.last_raw_response.choices[0].message
-        fn_calls = getattr(api_response,"tool_calls", None)
+        fn_calls = getattr(api_response, "tool_calls", None)
         assert fn_calls is not None, "Tool calls not found in the last response"
-        if len(fn_calls) > 1: 
-            logging.warning("Using only the first tool call from many.")   
+        if len(fn_calls) > 1:
+            logging.warning("Using only the first tool call from many.")
 
         # a function_call_output dict has keys "role", "tool_call_id" and "content"
         tool_call_reponse = {
-            'role': 'tool',
-            'tool_call_id': fn_calls[0].id, # using the first tool call ID
-            'content': content_head.get("text", "Tool call answer in next message"),
-            'name': fn_calls[0].function.name, # required with OpenRouter
-        }         
+            "role": "tool",
+            "tool_call_id": fn_calls[0].id,  # using the first tool call ID
+            "content": content_head.get("text", "Tool call answer in next message"),
+            "name": fn_calls[0].function.name,  # required with OpenRouter
+        }
 
         output.append(tool_call_reponse)
         if content_tail:
@@ -327,7 +325,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
             "input": input,
             "temperature": self.temperature,
             "max_output_tokens": self.max_tokens,
-            **self.extra_kwargs,  
+            **self.extra_kwargs,
         }
 
         if self.tools is not None:
@@ -335,7 +333,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         if self.tool_choice is not None:
             api_params["tool_choice"] = self.tool_choice
 
-        api_params |= kwargs  # Merge any additional parameters passed
+        # api_params |= kwargs  # Merge any additional parameters passed
         response = call_openai_api_with_retries(
             self.client.responses.create,
             api_params,
@@ -350,12 +348,13 @@ class OpenAIResponseModel(BaseModelWithPricing):
             action="noop()",
             tool_calls=None,
         )
-        interesting_keys = ['output_text']
+        interesting_keys = ["output_text"]
         for output in response.output:
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
                 result.action = (
-                    f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
+                    # f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
+                    f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
                 )
                 result.tool_calls = output
                 break
@@ -363,7 +362,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
                 if len(output.summary) > 0:
                     result.think += output.summary[0].text + "\n"
 
-            elif output.type == "message" and output.content: # Why did i add a 'message' here?
+            elif output.type == "message" and output.content:  # Why did i add a 'message' here?
                 result.think += output.content[0].text + "\n"
         for key in interesting_keys:
             if key_content := getattr(output, "output_text", None) is not None:
@@ -434,15 +433,12 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             for tool_call in tool_calls:
                 function = tool_call["function"]
                 arguments = json.loads(function["arguments"])
-                output.action = (
-                    #  Maybe replace this for responses API also.
-                    f"{function['name']}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
-                )
+                output.action = f"{function['name']}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
                 output.tool_calls = {
                     "role": "assistant",
                     "tool_calls": [message["tool_calls"][0]],  # Use only the first tool call
                 }
-                break 
+                break
         return output
 
     @staticmethod
@@ -471,11 +467,11 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             message = message.to_dict()
 
         reasoning_content = message.get("reasoning", None)
-        msg_content = message.get("text", "") #works for OR 
+        msg_content = message.get("text", "")  # works for OR
 
         if reasoning_content:
             # Wrap reasoning in <think> tags with newlines for clarity
-            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n" # why I do need to enclose reasoning in <think> tags?
+            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"  # why I do need to enclose reasoning in <think> tags?
             logging.debug("Extracting content from response.choices[i].message.reasoning")
         else:
             reasoning_content = ""
@@ -646,7 +642,7 @@ class ClaudeResponseModelArgs(BaseModelArgs):
 
     api = "anthropic"
 
-    def make_model(self, extra_kwargs=None, **kwargs): 
+    def make_model(self, extra_kwargs=None, **kwargs):
         return ClaudeResponseModel(
             model_name=self.model_name,
             temperature=self.temperature,

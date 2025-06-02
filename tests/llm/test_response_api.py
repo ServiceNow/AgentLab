@@ -390,8 +390,8 @@ def test_openai_chat_completion_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == "get_weather(location=Paris)"
-    ), f" Expected get_weather('Paris') but got {parsed_output.action}"
+        parsed_output.action == 'get_weather(location="Paris")'
+    ), f""" Expected get_weather(location="Paris") but got {parsed_output.action}"""
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -485,8 +485,8 @@ def test_openai_response_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == "get_weather(location=Paris)"
-    ), f" Expected get_weather('Paris') but got {parsed_output.action}"
+        parsed_output.action == """get_weather(location="Paris")"""
+    ), f""" Expected get_weather(location="Paris") but got {parsed_output.action}"""
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -555,7 +555,7 @@ def test_openai_response_model_with_multiple_messages_and_cost_tracking():
     assert prev_output > 0
     assert prev_cost > 0
     assert parsed.raw_response is not None
-    assert parsed.action == "get_weather(location=Delhi)", f"Unexpected action: {parsed.action}"
+    assert parsed.action == 'get_weather(location="Delhi")', f"Unexpected action: {parsed.action}"
     assert delta_input > 0
     assert delta_output > 0
     assert delta_cost > 0
@@ -627,7 +627,7 @@ def test_openai_chat_completion_model_with_multiple_messages_and_cost_tracking()
     assert prev_output > 0
     assert prev_cost > 0
     assert parsed.raw_response is not None
-    assert parsed.action == "get_weather(location=Delhi)", f"Unexpected action: {parsed.action}"
+    assert parsed.action == 'get_weather(location="Delhi")', f"Unexpected action: {parsed.action}"
     assert delta_input > 0
     assert delta_output > 0
     assert delta_cost > 0
@@ -703,4 +703,3 @@ def test_claude_model_with_multiple_messages_pricy_call():
 # TODO: Add tests for image token costing (this is complex and model-specific)
 #       - For OpenAI, you'd need to know how they bill for images (e.g., fixed cost per image + tokens for text parts)
 #       - You'd likely need to mock the response from client.chat.completions.create to include specific usage for images.
-
