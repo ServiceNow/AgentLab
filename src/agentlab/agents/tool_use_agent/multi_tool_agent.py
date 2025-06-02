@@ -19,11 +19,11 @@ from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     BaseModelArgs,
     ClaudeResponseModelArgs,
+    LLMOutput,
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
     OpenRouterModelArgs,
-    ResponseLLMOutput,
     VLLMModelArgs,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
@@ -163,7 +163,7 @@ class ToolCall(Block):
 
     def __call__(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
         # build the message by adding components to obs
-        response: ResponseLLMOutput = llm(messages=self.messages)
+        response: LLMOutput = llm(messages=self.messages)
 
         messages.append(response.assistant_message)  # this is tool call
 
@@ -235,7 +235,6 @@ class ToolUseAgent(bgym.Agent):
         self.general_hints_block = self.config.general_hints.make()
 
         self.messages: list[MessageBuilder] = []
-        self.previous_call_id = None
 
     def obs_preprocessor(self, obs):
         obs = copy(obs)
@@ -275,15 +274,14 @@ class ToolUseAgent(bgym.Agent):
             self.goal_block(self.llm, self.messages, obs)
             self.general_hints_block(self.llm, self.messages)
 
-        self.obs_block(self.llm, self.messages, obs, tool_call_id=self.previous_call_id)
+        self.obs_block(self.llm, self.messages, obs, tool_call_id=self.last_response)
         self.summarizer_block(self.llm, self.messages)
 
-        response: ResponseLLMOutput = self.llm(messages=self.messages)
+        response: LLMOutput = self.llm(messages=self.messages)
 
         action = response.action
         think = response.think
         self.last_response = response
-        self.previous_call_id = response.last_computer_call_id
         self.messages.append(response.assistant_message)  # this is tool call
 
         agent_info = bgym.AgentInfo(think=think, chat_messages=self.messages, stats={})

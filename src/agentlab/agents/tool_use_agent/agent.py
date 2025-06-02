@@ -5,36 +5,34 @@ from typing import TYPE_CHECKING, Any
 
 import bgym
 import numpy as np
+from browsergym.core.observation import extract_screenshot
 from PIL import Image, ImageDraw
 
 from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     BaseModelArgs,
     ClaudeResponseModelArgs,
     LLMOutput,
-    Message,
+    MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
     OpenRouterModelArgs,
     VLLMModelArgs,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
-from browsergym.core.observation import extract_screenshot
 
-
-@dataclass
-class ToolUseAgentFlags:
-    use_first_obs: bool = True
-    tag_screenshot: bool = True
-    add_thoughts_to_history: bool = True
+if TYPE_CHECKING:
+    from openai.types.responses import Response
 
 
 @dataclass
 class ToolUseAgentArgs(AgentArgs):
-    model_args: BaseModelArgs = None
-    flags: ToolUseAgentFlags = ToolUseAgentFlags
-    use_raw_page_output: bool = True # This attribute is used in loop.py to setup the env.
+    model_args: OpenAIResponseModelArgs = None
+    use_first_obs: bool = True
+    tag_screenshot: bool = True
+    use_raw_page_output: bool = True
 
     def __post_init__(self):
         try:
@@ -45,7 +43,8 @@ class ToolUseAgentArgs(AgentArgs):
     def make_agent(self) -> bgym.Agent:
         return ToolUseAgent(
             model_args=self.model_args,
-            flags=self.flags,
+            use_first_obs=self.use_first_obs,
+            tag_screenshot=self.tag_screenshot,
         )
 
     def prepare(self):
@@ -59,26 +58,45 @@ class ToolUseAgent(bgym.Agent):
     def __init__(
         self,
         model_args: OpenAIResponseModelArgs,
-        flags: ToolUseAgentFlags = ToolUseAgentFlags,
+        use_first_obs: bool = True,
+        tag_screenshot: bool = True,
     ):
+        self.chat = model_args.make_model()
         self.model_args = model_args
-        self.flags = flags
+        self.use_first_obs = use_first_obs
+        self.tag_screenshot = tag_screenshot
         self.action_set = bgym.HighLevelActionSet(["coord"], multiaction=False)
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
         self.call_ids = []
-        self.llm = model_args.make_model(
-            tools=self.tools
-        )  #  Passing tools like may need changing if we want on-demand tools for agents
+
+        # self.tools.append(
+        #     {
+        #         "type": "function",
+        #         "name": "chain_of_thought",
+        #         "description": "A tool that allows the agent to think step by step. Every other action must ALWAYS be preceeded by a call to this tool.",
+        #         "parameters": {
+        #             "type": "object",
+        #             "properties": {
+        #                 "thoughts": {
+        #                     "type": "string",
+        #                     "description": "The agent's reasoning process.",
+        #                 },
+        #             },
+        #             "required": ["thoughts"],
+        #         },
+        #     }
+        # )
+
+        self.llm = model_args.make_model(extra_kwargs={"tools": self.tools})
         self.msg_builder = model_args.get_message_builder()
-        self.messages: list[Message] = []
-        self.all_responses = []
+        self.messages: list[MessageBuilder] = []
 
     def obs_preprocessor(self, obs):
         page = obs.pop("page", None)
         if page is not None:
             obs["screenshot"] = extract_screenshot(page)
-            if self.flags.tag_screenshot:
+            if self.tag_screenshot:
                 screenshot = Image.fromarray(obs["screenshot"])
                 screenshot = agent_utils.tag_screenshot_with_action(screenshot, obs["last_action"])
                 obs["screenshot_tag"] = np.array(screenshot)
@@ -87,44 +105,34 @@ class ToolUseAgent(bgym.Agent):
 
         return obs
 
-    ## noop() actions are treated as tool calls. but they should not be.
-    #  As noop tool was never called and but noop is the default action in the action set. When no tools are called.
-    ## What if we do not include the tool calls in the messages and just execute them and prodice the observations.
-
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> float:
         if len(self.messages) == 0:
-            self.messages += self.get_initalize_messages(obs)
-            self.messages += [
-                self.msg_builder.user().add_text("Remember, You can call only one tool at a time.")
-            ]
+            self.initalize_messages(obs)
         else:
-
-            if obs["last_action_error"] != "":
-                self.messages.append(
-                    self.msg_builder.user().add_text(f"Last Action Error:{obs['last_action_error']}")
+            if obs["last_action_error"] == "":  # Check No error in the last action
+                screenshot_key = "screenshot_tag" if self.tag_screenshot else "screenshot"
+                tool_message = self.msg_builder.tool().add_image(
+                    image_to_png_base64_url(obs[screenshot_key])
                 )
+                tool_message.update_last_raw_response(self.last_response)
+                tool_message.add_tool_id(self.previous_call_id)
+                self.messages.append(tool_message)
+            else:
+                tool_message = self.msg_builder.tool().add_text(
+                    f"Function call failed: {obs['last_action_error']}"
+                )
+                tool_message.add_tool_id(self.previous_call_id)
+                tool_message.update_last_raw_response(self.last_response)
+                self.messages.append(tool_message)
 
-            if self.flags.add_thoughts_to_history:
-                self.messages.append(self.msg_builder.assistant().add_text(f"{self.last_llm_output.think}\n"))
-            # noop() is the default action in the absence of tool calls.
-            if self.last_llm_output.tool_calls is not None:
-                # Handle tool calls
-                self.messages += [self.last_llm_output.tool_calls]
-                self.messages += [
-                    self.msg_builder.tool(self.last_llm_output.raw_response).add_text(
-                        "See observation below."
-                    )
-                ]
-            screenshot_key = "screenshot_tag" if self.flags.tag_screenshot else "screenshot"
-            self.messages += [self.msg_builder.user().add_image_url(obs[screenshot_key])]
+        response: LLMOutput = self.llm(messages=self.messages)
 
-        llm_output: "LLMOutput" = self.llm(messages=self.messages)
-
-        self.last_llm_output = llm_output
-        self.all_responses.append(llm_output.raw_response)
-        action = llm_output.action
-        think = llm_output.think
+        action = response.action
+        think = response.think
+        self.last_response = response
+        self.previous_call_id = response.last_computer_call_id
+        self.messages.append(response.assistant_message)  # this is tool call
 
         return (
             action,
@@ -135,10 +143,11 @@ class ToolUseAgent(bgym.Agent):
             ),
         )
 
-    def get_initalize_messages(self, obs: Any) -> None:
-        sys_msg = self.msg_builder.system().add_text(
-            "You are an web-agent. Based on the observation, you will decide which action to take to accomplish your goal."
+    def initalize_messages(self, obs: Any) -> None:
+        system_message = self.msg_builder.system().add_text(
+            "You are an agent. Based on the observation, you will decide which action to take to accomplish your goal."
         )
+        self.messages.append(system_message)
 
         goal_message = self.msg_builder.user()
         for content in obs["goal_object"]:
@@ -146,24 +155,24 @@ class ToolUseAgent(bgym.Agent):
                 goal_message.add_text(content["text"])
             elif content["type"] == "image_url":
                 goal_message.add_image(content["image_url"])
+        self.messages.append(goal_message)
 
         extra_info = []
+
         extra_info.append(
             """Use ControlOrMeta instead of Control and Meta for keyboard shortcuts, to be cross-platform compatible. E.g. use ControlOrMeta for mutliple selection in lists.\n"""
         )
 
-        extra_info_msg = self.msg_builder.user().add_text("\n".join(extra_info))
+        self.messages.append(self.msg_builder.user().add_text("\n".join(extra_info)))
 
-        first_obs_msg = []
-        if self.flags.use_first_obs:
+        if self.use_first_obs:
             msg = "Here is the first observation."
-            screenshot_key = "screenshot_tag" if self.flags.tag_screenshot else "screenshot"
-            if self.flags.tag_screenshot:
-                msg += " A blue dot on screenshots indicate the previous click action."
-
-            first_obs_msg = self.msg_builder.user().add_text(msg).add_image_url(obs[screenshot_key])
-
-        return [sys_msg, goal_message, extra_info_msg, first_obs_msg]
+            screenshot_key = "screenshot_tag" if self.tag_screenshot else "screenshot"
+            if self.tag_screenshot:
+                msg += " A red dot on screenshots indicate the previous click action."
+            message = self.msg_builder.user().add_text(msg)
+            message.add_image(image_to_png_base64_url(obs[screenshot_key]))
+            self.messages.append(message)
 
 
 OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
@@ -194,10 +203,50 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
 )
 
 
+# def get_openrouter_model(model_name: str, **open_router_args) -> OpenRouterModelArgs:
+#     default_model_args = {
+#         "max_total_tokens": 200_000,
+#         "max_input_tokens": 180_000,
+#         "max_new_tokens": 2_000,
+#         "temperature": 0.1,
+#         "vision_support": True,
+#     }
+#     merged_args = {**default_model_args, **open_router_args}
+
+#     return OpenRouterModelArgs(model_name=model_name, **merged_args)
+
+
+# def get_openrouter_tool_use_agent(
+#     model_name: str,
+#     model_args: dict = {},
+#     use_first_obs=True,
+#     tag_screenshot=True,
+#     use_raw_page_output=True,
+# ) -> ToolUseAgentArgs:
+#     # To Do : Check if OpenRouter endpoint specific args are working
+#     if not supports_tool_calling(model_name):
+#         raise ValueError(f"Model {model_name} does not support tool calling.")
+
+#     model_args = get_openrouter_model(model_name, **model_args)
+
+#     return ToolUseAgentArgs(
+#         model_args=model_args,
+#         use_first_obs=use_first_obs,
+#         tag_screenshot=tag_screenshot,
+#         use_raw_page_output=use_raw_page_output,
+#     )
+
+
+# OPENROUTER_MODEL = get_openrouter_tool_use_agent("google/gemini-2.5-pro-preview")
+
+
 AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
 )
 
+# MT_TOOL_USE_AGENT = ToolUseAgentArgs(
+#     model_args=OPENROUTER_MODEL,
+# )
 CHATAPI_AGENT_CONFIG = ToolUseAgentArgs(
     model_args=OpenAIChatModelArgs(
         model_name="gpt-4o-2024-11-20",
@@ -219,7 +268,7 @@ PROVIDER_FACTORY_MAP = {
     "openai": {"chatcompletion": OpenAIChatModelArgs, "response": OpenAIResponseModelArgs},
     "openrouter": OpenRouterModelArgs,
     "vllm": VLLMModelArgs,
-    "anthropic": ClaudeResponseModelArgs,
+    "antrophic": ClaudeResponseModelArgs,
 }
 
 
