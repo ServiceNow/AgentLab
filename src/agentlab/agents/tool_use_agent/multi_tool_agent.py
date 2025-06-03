@@ -78,7 +78,7 @@ class Obs(Block):
     use_som: bool = False
     use_tabs: bool = False
     add_mouse_pointer: bool = True
-    use_zoomed_webpage: bool = False  
+    use_zoomed_webpage: bool = False
 
     def apply(
         self, llm, messages: list[MessageBuilder], obs: dict, last_llm_output: LLMOutput
@@ -102,6 +102,7 @@ class Obs(Block):
                 screenshot = obs["screenshot"]
 
             if self.add_mouse_pointer:
+                # TODO this mouse pointer should be added at the browsergym level
                 screenshot = np.array(
                     agent_utils.add_mouse_pointer_from_action(
                         Image.fromarray(obs["screenshot"]), obs["last_action"]
@@ -346,8 +347,8 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     obs=Obs(
         use_last_error=True,
         use_screenshot=True,
-        use_axtree=True,
-        use_dom=False,
+        use_axtree=False,
+        use_dom=True,
         use_som=False,
         use_tabs=False,
     ),
