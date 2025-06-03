@@ -516,7 +516,9 @@ class ClaudeResponseModel(BaseModelWithPricing):
     def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
         input = []
 
-        for msg in messages:
+        sys_msg, other_msgs = self.filter_system_messages(messages)
+        sys_msg_text = "\n".join(c['text'] for m in sys_msg for c in m.content) 
+        for msg in other_msgs:
             input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
 
         api_params: Dict[str, Any] = {
@@ -524,6 +526,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
             "messages": input,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            "system": sys_msg_text,  # Anthropic API expects system message as a string
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
         if self.tools is not None:
@@ -534,6 +537,23 @@ class ClaudeResponseModel(BaseModelWithPricing):
         response = call_anthropic_api_with_retries(self.client.messages.create, api_params)
 
         return response
+
+    @staticmethod
+    def filter_system_messages(messages: list[dict | MessageBuilder]) -> tuple[MessageBuilder]:
+        """Filter system messages from the list of messages."""
+        # System message cannot have an image in the middle of the text sequences.
+        # Images can be appended in the end of the system message.
+
+        sys_msgs, other_msgs = [], []
+        for msg in messages:
+            if isinstance(msg, MessageBuilder) and msg.role == "system":
+                sys_msgs.append(msg)
+                for c in msg.content:
+                    if c.get("type") == "image":
+                        raise TypeError("System messages cannot contain images.")
+            else:
+                other_msgs.append(msg)
+        return sys_msgs, other_msgs
 
     def _parse_response(self, response: dict) -> dict:
         result = LLMOutput(
