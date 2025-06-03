@@ -187,6 +187,12 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
                     "content": output["content"],
                 }
             ]
+        if self.role == "assistant":
+            # Strip whitespace from assistant text responses. See anthropic error code 400.
+            for c in output["content"]:
+                if 'text' in c:
+                    c["text"] = c["text"].strip()  
+
         return [output]
 
     def transform_content(self, content: ContentItem) -> ContentItem:
