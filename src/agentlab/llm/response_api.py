@@ -89,12 +89,12 @@ class MessageBuilder:
         parts = []
         for item in self.content:
             if "text" in item:
-                parts.append(item["text"])
+                parts.append(f"\n```\n{item["text"]}\n```\n")
             elif "image" in item:
                 parts.append(f"![Image]({item['image']})")
 
         markdown = f"### {self.role.capitalize()}\n"
-        markdown += "\n\n---\n\n".join(parts)
+        markdown += "\n".join(parts)
 
         # if self.role == "tool":
         #     assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
@@ -509,6 +509,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
 
     def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
         input = []
+
         for msg in messages:
             input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
 
