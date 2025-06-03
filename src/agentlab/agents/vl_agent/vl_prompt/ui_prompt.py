@@ -104,7 +104,7 @@ class ErrorPromptPart(VLPromptPart):
         logs_limit: int = 5,
     ):
         text = """\
-# The error from the last action
+# The error caused by the last action
 """
         if logs_separator in last_action_error:
             error, logs = last_action_error.split(logs_separator)
@@ -136,10 +136,9 @@ class AnswerPromptPart(VLPromptPart):
 Here are all the actions you can take to interact with the browser. \
 They are Python functions based on the Playwright library.
 {action_set_description}
-# The format requirements for the answer
+# The format of the answer
 Think about the action to take, and choose it from the action space. \
-Your answer should include both the thought and the action. \
-Your answer should only include one thought and one action.
+Your answer should include one thought and one action.
 """
         if use_abstract_example:
             text += """\
@@ -157,8 +156,7 @@ The action to take.
 <thought>
 The goal is to click on the numbers in ascending order. \
 The smallest number visible on the screen is '1'. \
-Based on the screenshot, '1' is located in the top-left quadrant of the white area. \
-I will use the 'mouse_click' action to directly click on the visible '1' by specifying its coordinates.
+I will use the 'mouse_click' action to directly click on the number '1'.
 </thought>
 <action>
 mouse_click(50, 50)
