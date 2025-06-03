@@ -176,7 +176,7 @@ Here are all the actions you can take to interact with the browser. \
 They are Python functions based on the Playwright library.
 {action_set_description}
 # The format of the answer
-Think about the action to take, and choose it from the action space. \
+Think about the action to take, and choose the action from the action space. \
 Your answer should include one thought and one action.
 """
         if use_abstract_example:
