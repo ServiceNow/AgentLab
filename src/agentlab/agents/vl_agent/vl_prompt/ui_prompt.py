@@ -126,6 +126,45 @@ class ErrorPromptPart(VLPromptPart):
     def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
+class PreliminaryAnswerPromptPart(VLPromptPart):
+    def __init__(
+        self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool
+    ):
+        text = f"""\
+# The action space
+Here are all the actions you can take to interact with the browser. \
+They are Python functions based on the Playwright library.
+{action_set_description}
+# The format of the answer
+Think about the action to take, and describe the location to take the action. \
+Your answer should include one thought and one location.
+"""
+        if use_abstract_example:
+            text += """\
+# An abstract example of the answer
+<thought>
+The thought about the action.
+</thought>
+<location>
+The description of the location.
+</location>
+"""
+        if use_concrete_example:
+            text += """\
+# A concrete example of the answer
+<thought>
+The goal is to click on the numbers in ascending order. \
+The smallest number visible on the screen is '1'. \
+I will use the 'mouse_click' action to directly click on the number '1'.
+</thought>
+<location>
+The number '1' in the top-left quadrant of the white area.
+</location>
+"""
+        self.text = text
+
+    def get_message_content(self) -> list[dict]:
+        return [{"type": "text", "text": self.text}]
 
 class AnswerPromptPart(VLPromptPart):
     def __init__(
