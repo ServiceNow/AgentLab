@@ -28,12 +28,12 @@ This action will be executed to update the state of the browser, and you will pr
 
 class GoalPromptPart(VLPromptPart):
     def __init__(self, goal_object: list[dict]):
-        text = """\
+        text = """
 # The goal of the task
 """
         for item in goal_object:
             if item["type"] == "text":
-                text += f"""\
+                text += f"""
 {item['text']}
 """
         self.text = text
@@ -44,7 +44,7 @@ class GoalPromptPart(VLPromptPart):
 
 class ScreenshotPromptPart(VLPromptPart):
     def __init__(self, screenshot: Union[Image.Image, np.ndarray]):
-        self.text = """\
+        self.text = """
 # The screenshot of the current web page
 """
         self.image_url = image_to_image_url(screenshot)
@@ -60,15 +60,19 @@ class TabsPromptPart(VLPromptPart):
     def __init__(
         self, open_pages_titles: list[str], open_pages_urls: list[str], active_page_index: int
     ):
-        text = """\
-# The open tabs of the browser
+        text = """
+# The titles and URLs of the open tabs
 """
         for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
-            text += f"""\
+            text += f"""
 ## Tab {index}{' (active tab)' if index == active_page_index else ''}
+
 ### Title
+
 {title}
+
 ### URL
+
 {url}
 """
         self.text = text
@@ -79,15 +83,19 @@ class TabsPromptPart(VLPromptPart):
 
 class HistoryPromptPart(VLPromptPart):
     def __init__(self, thoughts: list[str], actions: list[str]):
-        text = """\
+        text = """
 # The thoughts and actions of the previous steps
 """
         for index, (thought, action) in enumerate(zip(thoughts, actions)):
-            text += f"""\
+            text += f"""
 ## Step {index}
-### Thought
+
+### Though
+
 {thought}
+
 ### Action
+
 {action}
 """
         self.text = text
@@ -103,22 +111,23 @@ class ErrorPromptPart(VLPromptPart):
         logs_separator: str = "Call log:",
         logs_limit: int = 5,
     ):
-        text = """\
+        text = """
 # The error caused by the last action
 """
         if logs_separator in last_action_error:
             error, logs = last_action_error.split(logs_separator)
             logs = logs.split("\n")[:logs_limit]
-            text += f"""\
+            text += f"""
 {error}
+
 {logs_separator}
 """
             for log in logs:
-                text += f"""\
+                text += f"""
 {log}
 """
         else:
-            text += f"""\
+            text += f"""
 {last_action_error}
 """
         self.text = text
@@ -131,28 +140,33 @@ class PreliminaryAnswerPromptPart(VLPromptPart):
     def __init__(
         self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool
     ):
-        text = f"""\
+        text = f"""
 # The action space
-Here are all the actions you can take to interact with the browser. \
-They are Python functions based on the Playwright library.
+
+Here are all the actions you can take to interact with the browser.
+
 {action_set_description}
-# The format of the answer
-Think about the action to take, and describe the location to take the action. \
-Your answer should include one thought and one location.
+
+# The answer requirements
+
+Think about the action, and describe the location to take the action. \
+Your answer should contain one thought and one location.
 """
         if use_abstract_example:
-            text += """\
+            text += """
 # An abstract example of the answer
+
 <thought>
 The thought about the action.
 </thought>
 <location>
-The description of the location.
+The description of the location to take the action.
 </location>
 """
         if use_concrete_example:
-            text += """\
+            text += """
 # A concrete example of the answer
+
 <thought>
 The goal is to click on the numbers in ascending order. \
 The smallest number visible on the screen is '1'. \
@@ -170,37 +184,47 @@ The number '1' in the top-left quadrant of the white area.
 
 class FinalAnswerPromptPart(VLPromptPart):
     def __init__(
-        self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool, preliminary_answer: dict
+        self,
+        action_set_description: str,
+        use_abstract_example: bool,
+        use_concrete_example: bool,
+        preliminary_answer: dict,
     ):
-        text = f"""\
+        text = f"""
 # The action space
-Here are all the actions you can take to interact with the browser. \
-They are Python functions based on the Playwright library.
+
+Here are all the actions you can take to interact with the browser.
+
 {action_set_description}
-# The format of the answer
-Choose the action to take from the action space. \
-Your answer should include only one action.
+
+# The thought about the action
+
+{preliminary_answer['thought']}
+
+# The location to take the action
+
+{preliminary_answer['location']}
+
+# The answer requirements
+
+Formulate the action. \
+Your answer should contain only one action.
 """
         if use_abstract_example:
-            text += """\
+            text += """
 # An abstract example of the answer
+
 <action>
-The action to take.
+The action.
 </action>
 """
         if use_concrete_example:
-            text += """\
+            text += """
 # A concrete example of the answer
+
 <action>
 mouse_click(50, 50)
 </action>
-"""
-        text += f"""\
-# A preliminary answer to refine
-## The thought about the action to take
-{preliminary_answer['thought']}
-## The location to take the action
-{preliminary_answer['location']}
 """
         self.text = text
 
@@ -214,12 +238,15 @@ class AnswerPromptPart(VLPromptPart):
     ):
         text = f"""\
 # The action space
-Here are all the actions you can take to interact with the browser. \
-They are Python functions based on the Playwright library.
+
+Here are all the actions you can take to interact with the browser.
+
 {action_set_description}
-# The format of the answer
-Think about the action to take, and choose the action from the action space. \
-Your answer should include one thought and one action.
+
+# The answer requirements
+
+Think about the action, and formulate the action. \
+Your answer should contain one thought and one action.
 """
         if use_abstract_example:
             text += """\
@@ -228,7 +255,7 @@ Your answer should include one thought and one action.
 The thought about the action.
 </thought>
 <action>
-The action to take.
+The action.
 </action>
 """
         if use_concrete_example:
