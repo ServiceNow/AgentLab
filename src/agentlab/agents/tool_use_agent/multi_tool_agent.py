@@ -87,7 +87,6 @@ class Obs(Block):
         if last_llm_output.tool_calls is None:
             obs_msg = llm.msg.user()  # type: MessageBuilder
         else:
-            messages.append(last_llm_output.tool_calls)  # TODO move else where
             obs_msg = llm.msg.tool(last_llm_output.raw_response)  # type: MessageBuilder
 
         if self.use_last_error:
@@ -159,7 +158,12 @@ class GeneralHints(Block):
 class Summarizer(Block):
     """Block to summarize the last action and the current state of the environment."""
 
+    do_summary: bool = False
+
     def apply(self, llm, messages: list[MessageBuilder]) -> dict:
+        if not self.do_summary:
+            return
+
         msg = llm.msg.user().add_text(
             "Summarize the effect of the last action and the current state of the environment."
         )
@@ -306,6 +310,9 @@ class ToolUseAgent(bgym.Agent):
 
         action = response.action
         think = response.think
+
+        self.messages.append(response.tool_calls)
+
         self.last_response = response
         self._responses.append(response)  # may be useful for debugging
         # self.messages.append(response.assistant_message)  # this is tool call
@@ -353,7 +360,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
         use_last_error=True,
         use_screenshot=True,
         use_axtree=False,
-        use_dom=True,
+        use_dom=False,
         use_som=False,
         use_tabs=False,
     ),
