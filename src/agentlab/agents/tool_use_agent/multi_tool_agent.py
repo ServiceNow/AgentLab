@@ -294,6 +294,7 @@ class ToolUseAgent(bgym.Agent):
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> float:
+        self.llm.reset_stats()
         if len(self.messages) == 0:
             self.config.goal.apply(self.llm, self.messages, obs)
             self.config.general_hints.apply(self.llm, self.messages)
@@ -309,7 +310,11 @@ class ToolUseAgent(bgym.Agent):
         self._responses.append(response)  # may be useful for debugging
         # self.messages.append(response.assistant_message)  # this is tool call
 
-        agent_info = bgym.AgentInfo(think=think, chat_messages=self.messages, stats={})
+        agent_info = bgym.AgentInfo(
+            think=think,
+            chat_messages=self.messages,
+            stats=self.llm.stats.stats_dict,
+        )
         return action, agent_info
 
 

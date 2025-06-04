@@ -1,13 +1,16 @@
+import logging
 import os
 import re
 import threading
+from collections import defaultdict
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from functools import cache
+from typing import Optional
 
 import requests
 from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
-from typing import Optional
-import logging
+
 
 TRACKER = threading.local()
 
@@ -136,15 +139,25 @@ class TrackAPIPricingMixin:
     Usage: provide the pricing_api to use in the constructor.
     """
 
+    def reset_stats(self):
+        self.stats = Stats()
+
     def __init__(self, *args, **kwargs):
         pricing_api = kwargs.pop("pricing_api", None)
         self._pricing_api = pricing_api
         super().__init__(*args, **kwargs)
         self.set_pricing_attributes()
+        self.reset_stats()
 
     def __call__(self, *args, **kwargs):
         """Call the API and update the pricing tracker."""
         response = self._call_api(*args, **kwargs)
+
+        usage = dict(getattr(response, "usage", {}))
+        usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
+        usage |= {"n_api_calls": 1}
+        self.stats.increment_stats_dict(usage)
+
         self.update_pricing_tracker(response)
         return self._parse_response(response)
 
@@ -215,3 +228,15 @@ class TrackAPIPricingMixin:
             "Unable to extract input and output tokens from the response. Defaulting to 0."
         )
         return 0, 0
+
+
+@dataclass
+class Stats:
+    stats_dict: dict = field(default_factory=lambda: defaultdict(float))
+
+    def increment_stats_dict(self, stats_dict: dict):
+        """increment the stats_dict with the given values."""
+        for k, v in stats_dict.items():
+            self.stats_dict[k] += v
+
+
