@@ -126,6 +126,7 @@ class ErrorPromptPart(VLPromptPart):
     def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
 
+
 class PreliminaryAnswerPromptPart(VLPromptPart):
     def __init__(
         self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool
@@ -165,6 +166,47 @@ The number '1' in the top-left quadrant of the white area.
 
     def get_message_content(self) -> list[dict]:
         return [{"type": "text", "text": self.text}]
+
+
+class FinalAnswerPromptPart(VLPromptPart):
+    def __init__(
+        self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool, preliminary_answer: dict
+    ):
+        text = f"""\
+# The action space
+Here are all the actions you can take to interact with the browser. \
+They are Python functions based on the Playwright library.
+{action_set_description}
+# The format of the answer
+Choose the action to take from the action space. \
+Your answer should include only one action.
+"""
+        if use_abstract_example:
+            text += """\
+# An abstract example of the answer
+<action>
+The action to take.
+</action>
+"""
+        if use_concrete_example:
+            text += """\
+# A concrete example of the answer
+<action>
+mouse_click(50, 50)
+</action>
+"""
+        text += f"""\
+# A preliminary answer to refine
+## The thought about the action to take
+{preliminary_answer['thought']}
+## The location to take the action
+{preliminary_answer['location']}
+"""
+        self.text = text
+
+    def get_message_content(self) -> list[dict]:
+        return [{"type": "text", "text": self.text}]
+
 
 class AnswerPromptPart(VLPromptPart):
     def __init__(
