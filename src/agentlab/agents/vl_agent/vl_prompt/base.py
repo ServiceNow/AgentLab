@@ -28,7 +28,6 @@ class VLPromptArgs(ABC):
         thoughts: list[str],
         actions: list[str],
         action_set: HighLevelActionSet,
-        extra_instruction: Optional[str] = None,
         preliminary_answer: Optional[dict] = None,
     ) -> VLPrompt:
         raise NotImplementedError

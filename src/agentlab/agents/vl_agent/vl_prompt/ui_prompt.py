@@ -18,7 +18,7 @@ class IntroductionPromptPart(VLPromptPart):
     def __init__(self):
         self.text = """\
 You are an agent working to address a web-based task through step-by-step interactions with the browser. \
-To achieve the goal of the task, at each step, you need to submit an action according to the current state of the browser. \
+To achieve the goal of the task, at each step, you need to submit an action based on the current state of the browser. \
 This action will be executed to update the state of the browser, and you will proceed to the next step.
 """
 
@@ -232,50 +232,6 @@ mouse_click(50, 50)
         return [{"type": "text", "text": self.text}]
 
 
-class AnswerPromptPart(VLPromptPart):
-    def __init__(
-        self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool
-    ):
-        text = f"""\
-# The action space
-
-Here are all the actions you can take to interact with the browser.
-
-{action_set_description}
-
-# The answer requirements
-
-Think about the action, and formulate the action. \
-Your answer should contain one thought and one action.
-"""
-        if use_abstract_example:
-            text += """\
-# An abstract example of the answer
-<thought>
-The thought about the action.
-</thought>
-<action>
-The action.
-</action>
-"""
-        if use_concrete_example:
-            text += """\
-# A concrete example of the answer
-<thought>
-The goal is to click on the numbers in ascending order. \
-The smallest number visible on the screen is '1'. \
-I will use the 'mouse_click' action to directly click on the number '1'.
-</thought>
-<action>
-mouse_click(50, 50)
-</action>
-"""
-        self.text = text
-
-    def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
-
-
 @dataclass
 class UIPrompt(VLPrompt):
     introduction_prompt_part: IntroductionPromptPart
@@ -284,7 +240,7 @@ class UIPrompt(VLPrompt):
     tabs_prompt_part: Optional[TabsPromptPart]
     history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
-    answer_prompt_part: AnswerPromptPart
+    answer_prompt_part: Union[PreliminaryAnswerPromptPart, FinalAnswerPromptPart]
     action_validator: callable
 
     def get_messages(self) -> Discussion:
@@ -306,23 +262,31 @@ class UIPrompt(VLPrompt):
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
         answer_dict = {}
-        try:
-            answer_dict.update(parse_html_tags_raise(answer_text, keys=["thought", "action"]))
-        except ParseError as error:
-            answer_dict["parse_error"] = str(error)
-            answer_dict["thought"] = answer_text
-            code_blocks = extract_code_blocks(answer_text)
-            if len(code_blocks) == 0:
-                raise error
-            else:
-                answer_dict["action"] = "\n".join([block for _, block in code_blocks])
-        if answer_dict["action"] == "None":
-            answer_dict["action"] = None
-        else:
+        if isinstance(self.answer_prompt_part, PreliminaryAnswerPromptPart):
             try:
-                self.action_validator(answer_dict["action"])
-            except Exception as error:
-                raise ParseError(str(error))
+                answer_dict.update(parse_html_tags_raise(answer_text, keys=["thought", "location"]))
+            except ParseError as error:
+                raise error
+        elif isinstance(self.answer_prompt_part, FinalAnswerPromptPart):
+            try:
+                answer_dict.update(parse_html_tags_raise(answer_text, keys=["action"]))
+            except ParseError as error:
+                code_blocks = extract_code_blocks(answer_text)
+                if len(code_blocks) == 0:
+                    raise error
+                else:
+                    answer_dict["action"] = "\n".join([block for _, block in code_blocks])
+            if answer_dict["action"] == "None":
+                answer_dict["action"] = None
+            else:
+                try:
+                    self.action_validator(answer_dict["action"])
+                except:
+                    raise ParseError(f"Invalid action: {answer_dict['action']}")
+        else:
+            raise ValueError(
+                f"Unsupported answer prompt part type: {type(self.answer_prompt_part)}"
+            )
         return answer_dict
 
 
@@ -338,8 +302,13 @@ class UIPromptArgs(VLPromptArgs):
     extra_instruction: Optional[str]
 
     def make_prompt(
-        self, obs: dict, thoughts: list[str], actions: list[str], action_set: HighLevelActionSet
-    ) -> UIPrompt:
+        self,
+        obs: dict,
+        thoughts: list[str],
+        actions: list[str],
+        action_set: HighLevelActionSet,
+        preliminary_answer: Optional[dict] = None,
+    ) -> VLPrompt:
         introduction_prompt_part = IntroductionPromptPart()
         goal_prompt_part = GoalPromptPart(obs["goal_object"])
         if self.use_screenshot:
