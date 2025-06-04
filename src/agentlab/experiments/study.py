@@ -364,7 +364,7 @@ class Study(AbstractStudy):
             n_jobs: int
                 Number of parallel jobs.
             parallel_backend: str
-                Parallel backend to use. Either "joblib", "dask" or "sequential".
+                Parallel backend to use. Either "joblib", "ray" or "sequential".
             strict_reproducibility: bool
                 If True, all modifications have to be committed before running the experiments.
                 Also, if relaunching a study, it will not be possible if the code has changed.
