@@ -16,6 +16,7 @@ from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
 from PIL import Image
 
+from agentlab.agents import agent_utils
 from agentlab.analyze import inspect_results
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpResult, StepInfo
@@ -24,7 +25,6 @@ from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
 from agentlab.llm.response_api import MessageBuilder
-from agentlab.agents import agent_utils
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -628,6 +628,31 @@ def dict_to_markdown(d: dict):
     return res
 
 
+def dict_msg_to_markdown(d: dict):
+    if "role" not in d:
+        return dict_to_markdown(d)
+    parts = []
+    for item in d["content"]:
+
+        if hasattr(item, "dict"):
+            item = item.dict()
+
+        match item["type"]:
+            case "image":
+                parts.append(f"![Image]({item['image']})")
+            case "text":
+                parts.append(f"\n```\n{item['text']}\n```\n")
+            case "tool_use":
+                tool_use = f"Tool Use: {item['name']} {item['input']} (id = {item['id']})"
+                parts.append(f"\n```\n{tool_use}\n```\n")
+            case _:
+                parts.append(f"\n```\n{str(item)}\n```\n")
+
+    markdown = f"### {d["role"].capitalize()}\n"
+    markdown += "\n".join(parts)
+    return markdown
+
+
 def update_chat_messages():
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
@@ -637,7 +662,7 @@ def update_chat_messages():
 
     if isinstance(chat_messages, list) and isinstance(chat_messages[0], MessageBuilder):
         chat_messages = [
-            m.to_markdown() if isinstance(m, MessageBuilder) else dict_to_markdown(m)
+            m.to_markdown() if isinstance(m, MessageBuilder) else dict_msg_to_markdown(m)
             for m in chat_messages
         ]
         return "\n\n".join(chat_messages)
