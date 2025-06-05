@@ -26,8 +26,7 @@ VL_MODEL_ARGS_DICT = {
 
 VL_PROMPT_ARGS_DICT = {
     "ui_prompt": UIPromptArgs(
-        use_screenshot=True,
-        use_tabs=False,
+        use_tabs=True,
         use_history=True,
         use_error=True,
         use_abstract_example=True,
@@ -41,6 +40,6 @@ VL_AGENT_ARGS_DICT = {
         auxiliary_vl_model_args=VL_MODEL_ARGS_DICT["llama_32_11b"],
         ui_prompt_args=VL_PROMPT_ARGS_DICT["ui_prompt"],
         action_set_args=HighLevelActionSetArgs(subsets=["coord"]),
-        max_retry=4,
+        max_num_retries=4,
     )
 }

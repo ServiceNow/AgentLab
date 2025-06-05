@@ -21,13 +21,13 @@ class UIAgent(VLAgent):
         auxiliary_vl_model_args: VLModelArgs,
         ui_prompt_args: UIPromptArgs,
         action_set_args: HighLevelActionSetArgs,
-        max_retry: int,
+        max_num_retries: int,
     ):
         self.main_vl_model = main_vl_model_args.make_model()
         self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.ui_prompt_args = ui_prompt_args
         self.action_set_args = action_set_args
-        self.max_retry = max_retry
+        self.max_num_retries = max_num_retries
         self.thoughts = []
         self.actions = []
 
@@ -47,13 +47,13 @@ class UIAgent(VLAgent):
             preliminary_answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
-                n_retry=self.max_retry,
+                n_retry=self.max_num_retries,
                 parser=preliminary_main_ui_prompt.parse_answer,
             )
-            stats["preliminary_main_retry"] = (len(messages) - 3) // 2
+            stats["preliminary_main_num_retries"] = (len(messages) - 3) // 2
         except ParseError:
             preliminary_answer = {"thought": None, "location": None}
-            stats["preliminary_main_retry"] = self.max_retry
+            stats["preliminary_main_num_retries"] = self.max_num_retries
         auxiliary_ui_prompt = self.ui_prompt_args.make_prompt(
             obs=obs,
             thoughts=self.thoughts,
@@ -66,13 +66,13 @@ class UIAgent(VLAgent):
             auxiliary_answer = retry(
                 chat=self.auxiliary_vl_model,
                 messages=messages,
-                n_retry=self.max_retry,
+                n_retry=self.max_num_retries,
                 parser=auxiliary_ui_prompt.parse_answer,
             )
-            stats["auxiliary_retry"] = (len(messages) - 3) // 2
+            stats["auxiliary_num_retries"] = (len(messages) - 3) // 2
         except ParseError:
             auxiliary_answer = {"coordinates": None}
-            stats["auxiliary_retry"] = self.max_retry
+            stats["auxiliary_num_retries"] = self.max_num_retries
         preliminary_answer.update(auxiliary_answer)
         final_main_ui_prompt = self.ui_prompt_args.make_prompt(
             obs=obs,
@@ -86,13 +86,13 @@ class UIAgent(VLAgent):
             final_answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
-                n_retry=self.max_retry,
+                n_retry=self.max_num_retries,
                 parser=final_main_ui_prompt.parse_answer,
             )
-            stats["final_main_retry"] = (len(messages) - 3) // 2
+            stats["final_main_num_retries"] = (len(messages) - 3) // 2
         except ParseError:
             final_answer = {"action": None}
-            stats["final_main_retry"] = self.max_retry
+            stats["final_main_num_retries"] = self.max_num_retries
         stats.update(self.main_vl_model.get_stats())
         stats.update(self.auxiliary_vl_model.get_stats())
         self.thoughts.append(str(preliminary_answer["thought"]))
@@ -111,7 +111,7 @@ class UIAgentArgs(VLAgentArgs):
     auxiliary_vl_model_args: Optional[VLModelArgs]
     ui_prompt_args: UIPromptArgs
     action_set_args: HighLevelActionSetArgs
-    max_retry: int
+    max_num_retries: int
 
     @property
     @cache
@@ -127,7 +127,7 @@ class UIAgentArgs(VLAgentArgs):
             auxiliary_vl_model_args=self.auxiliary_vl_model_args,
             ui_prompt_args=self.ui_prompt_args,
             action_set_args=self.action_set_args,
-            max_retry=self.max_retry,
+            max_num_retries=self.max_num_retries,
         )
         return self.ui_agent
 

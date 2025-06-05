@@ -236,7 +236,7 @@ mouse_click(50, 50)
 class MainUIPrompt(VLPrompt):
     introduction_prompt_part: IntroductionPromptPart
     goal_prompt_part: GoalPromptPart
-    screenshot_prompt_part: Optional[ScreenshotPromptPart]
+    screenshot_prompt_part: ScreenshotPromptPart
     tabs_prompt_part: Optional[TabsPromptPart]
     history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
@@ -246,8 +246,7 @@ class MainUIPrompt(VLPrompt):
     def get_messages(self) -> Discussion:
         message_content = self.introduction_prompt_part.get_message_content()
         message_content.extend(self.goal_prompt_part.get_message_content())
-        if self.screenshot_prompt_part is not None:
-            message_content.extend(self.screenshot_prompt_part.get_message_content())
+        message_content.extend(self.screenshot_prompt_part.get_message_content())
         if self.tabs_prompt_part is not None:
             message_content.extend(self.tabs_prompt_part.get_message_content())
         if self.history_prompt_part is not None:
