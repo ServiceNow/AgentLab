@@ -149,7 +149,7 @@ Here are all the actions you can take to interact with the browser.
 
 # The answer requirements
 
-Think about the action, and describe the location to take the action. \
+Think about the action, and describe the location where the action is to be taken. \
 Your answer should contain one thought and one location.
 """
         if use_abstract_example:
@@ -160,7 +160,7 @@ Your answer should contain one thought and one location.
 The thought about the action.
 </thought>
 <location>
-The description of the location to take the action.
+The description of the location where the action is to be taken.
 </location>
 """
         if use_concrete_example:
@@ -201,13 +201,13 @@ Here are all the actions you can take to interact with the browser.
 
 {preliminary_answer['thought']}
 
-# The location to take the action
+# The coordinates where the action is to be taken
 
-{preliminary_answer['location']}
+{preliminary_answer['coordinates']}
 
 # The answer requirements
 
-Formulate the action. \
+Formulate the action to be taken. \
 Your answer should contain only one action.
 """
         if use_abstract_example:
@@ -215,7 +215,7 @@ Your answer should contain only one action.
 # An abstract example of the answer
 
 <action>
-The action.
+The action to be taken.
 </action>
 """
         if use_concrete_example:
@@ -233,7 +233,7 @@ mouse_click(50, 50)
 
 
 @dataclass
-class UIPrompt(VLPrompt):
+class UIMainPrompt(VLPrompt):
     introduction_prompt_part: IntroductionPromptPart
     goal_prompt_part: GoalPromptPart
     screenshot_prompt_part: Optional[ScreenshotPromptPart]
@@ -291,8 +291,35 @@ class UIPrompt(VLPrompt):
 
 
 @dataclass
+class UIAuxiliaryPrompt(VLPrompt):
+    screenshot: Union[Image.Image, np.ndarray]
+    location: str
+
+    def get_messages(self) -> Discussion:
+        image_url = image_to_image_url(self.screenshot)
+        text = f"""\
+Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on this screen based on a description. \
+Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible. \
+If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
+Your answer should be a single string (x, y) corresponding to the point of interest.
+
+Description: {self.location}
+"""
+        message_content = [
+            {"type": "image_url", "image_url": {"url": image_url}},
+            {"type": "text", "text": text},
+        ]
+        messages = Discussion([HumanMessage(message_content)])
+        return messages
+
+    def parse_answer(self, answer_content: list[dict]) -> dict:
+        answer_text = answer_content[0]["text"]
+        answer_dict = {"coordinates": answer_text}
+        return answer_dict
+
+
+@dataclass
 class UIPromptArgs(VLPromptArgs):
-    use_screenshot: bool
     use_tabs: bool
     use_history: bool
     use_error: bool
@@ -309,10 +336,7 @@ class UIPromptArgs(VLPromptArgs):
     ) -> VLPrompt:
         introduction_prompt_part = IntroductionPromptPart()
         goal_prompt_part = GoalPromptPart(obs["goal_object"])
-        if self.use_screenshot:
-            screenshot_prompt_part = ScreenshotPromptPart(obs["screenshot"])
-        else:
-            screenshot_prompt_part = None
+        screenshot_prompt_part = ScreenshotPromptPart(obs["screenshot"])
         if self.use_tabs:
             tabs_prompt_part = TabsPromptPart(
                 open_pages_titles=obs["open_pages_titles"],
@@ -330,30 +354,47 @@ class UIPromptArgs(VLPromptArgs):
         else:
             error_prompt_part = None
         if preliminary_answer is None:
-            answer_prompt_part = PreliminaryAnswerPromptPart(
+            preliminary_answer_prompt_part = PreliminaryAnswerPromptPart(
                 action_set_description=action_set.describe(
                     with_long_description=True, with_examples=False
                 ),
                 use_abstract_example=self.use_abstract_example,
                 use_concrete_example=self.use_concrete_example,
             )
+            self.preliminary_ui_main_prompt = UIMainPrompt(
+                introduction_prompt_part=introduction_prompt_part,
+                goal_prompt_part=goal_prompt_part,
+                screenshot_prompt_part=screenshot_prompt_part,
+                tabs_prompt_part=tabs_prompt_part,
+                history_prompt_part=history_prompt_part,
+                error_prompt_part=error_prompt_part,
+                answer_prompt_part=preliminary_answer_prompt_part,
+                action_validator=action_set.to_python_code,
+            )
+            return self.preliminary_ui_main_prompt
         else:
-            answer_prompt_part = FinalAnswerPromptPart(
-                action_set_description=action_set.describe(
-                    with_long_description=True, with_examples=False
-                ),
-                preliminary_answer=preliminary_answer,
-                use_abstract_example=self.use_abstract_example,
-                use_concrete_example=self.use_concrete_example,
-            )
-        self.ui_prompt = UIPrompt(
-            introduction_prompt_part=introduction_prompt_part,
-            goal_prompt_part=goal_prompt_part,
-            screenshot_prompt_part=screenshot_prompt_part,
-            tabs_prompt_part=tabs_prompt_part,
-            history_prompt_part=history_prompt_part,
-            error_prompt_part=error_prompt_part,
-            answer_prompt_part=answer_prompt_part,
-            action_validator=action_set.to_python_code,
-        )
-        return self.ui_prompt
+            if "coordinates" in preliminary_answer:
+                final_answer_prompt_part = FinalAnswerPromptPart(
+                    action_set_description=action_set.describe(
+                        with_long_description=True, with_examples=False
+                    ),
+                    preliminary_answer=preliminary_answer,
+                    use_abstract_example=self.use_abstract_example,
+                    use_concrete_example=self.use_concrete_example,
+                )
+                self.final_ui_main_prompt = UIMainPrompt(
+                    introduction_prompt_part=introduction_prompt_part,
+                    goal_prompt_part=goal_prompt_part,
+                    screenshot_prompt_part=screenshot_prompt_part,
+                    tabs_prompt_part=tabs_prompt_part,
+                    history_prompt_part=history_prompt_part,
+                    error_prompt_part=error_prompt_part,
+                    answer_prompt_part=final_answer_prompt_part,
+                    action_validator=action_set.to_python_code,
+                )
+                return self.final_ui_main_prompt
+            else:
+                self.ui_auxiliary_prompt = UIAuxiliaryPrompt(
+                    screenshot=obs["screenshot"], location=preliminary_answer["location"]
+                )
+                return self.ui_auxiliary_prompt
