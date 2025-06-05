@@ -233,7 +233,7 @@ mouse_click(50, 50)
 
 
 @dataclass
-class UIMainPrompt(VLPrompt):
+class MainUIPrompt(VLPrompt):
     introduction_prompt_part: IntroductionPromptPart
     goal_prompt_part: GoalPromptPart
     screenshot_prompt_part: Optional[ScreenshotPromptPart]
@@ -291,7 +291,7 @@ class UIMainPrompt(VLPrompt):
 
 
 @dataclass
-class UIAuxiliaryPrompt(VLPrompt):
+class AuxiliaryUIPrompt(VLPrompt):
     screenshot: Union[Image.Image, np.ndarray]
     location: str
 
@@ -361,7 +361,7 @@ class UIPromptArgs(VLPromptArgs):
                 use_abstract_example=self.use_abstract_example,
                 use_concrete_example=self.use_concrete_example,
             )
-            self.preliminary_ui_main_prompt = UIMainPrompt(
+            self.preliminary_main_ui_prompt = MainUIPrompt(
                 introduction_prompt_part=introduction_prompt_part,
                 goal_prompt_part=goal_prompt_part,
                 screenshot_prompt_part=screenshot_prompt_part,
@@ -371,7 +371,7 @@ class UIPromptArgs(VLPromptArgs):
                 answer_prompt_part=preliminary_answer_prompt_part,
                 action_validator=action_set.to_python_code,
             )
-            return self.preliminary_ui_main_prompt
+            return self.preliminary_main_ui_prompt
         else:
             if "coordinates" in preliminary_answer:
                 final_answer_prompt_part = FinalAnswerPromptPart(
@@ -382,7 +382,7 @@ class UIPromptArgs(VLPromptArgs):
                     use_abstract_example=self.use_abstract_example,
                     use_concrete_example=self.use_concrete_example,
                 )
-                self.final_ui_main_prompt = UIMainPrompt(
+                self.final_main_ui_prompt = MainUIPrompt(
                     introduction_prompt_part=introduction_prompt_part,
                     goal_prompt_part=goal_prompt_part,
                     screenshot_prompt_part=screenshot_prompt_part,
@@ -392,9 +392,9 @@ class UIPromptArgs(VLPromptArgs):
                     answer_prompt_part=final_answer_prompt_part,
                     action_validator=action_set.to_python_code,
                 )
-                return self.final_ui_main_prompt
+                return self.final_main_ui_prompt
             else:
-                self.ui_auxiliary_prompt = UIAuxiliaryPrompt(
+                self.auxiliary_ui_prompt = AuxiliaryUIPrompt(
                     screenshot=obs["screenshot"], location=preliminary_answer["location"]
                 )
-                return self.ui_auxiliary_prompt
+                return self.auxiliary_ui_prompt

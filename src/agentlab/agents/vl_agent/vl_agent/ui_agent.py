@@ -38,23 +38,23 @@ class UIAgent(VLAgent):
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
-        ui_prompt = self.ui_prompt_args.make_prompt(
+        stats = {}
+        preliminary_main_ui_prompt = self.ui_prompt_args.make_prompt(
             obs=obs, thoughts=self.thoughts, actions=self.actions, action_set=self.action_set
         )
         try:
-            messages = ui_prompt.get_messages()
+            messages = preliminary_main_ui_prompt.get_messages()
             preliminary_answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_retry,
-                parser=ui_prompt.parse_answer,
+                parser=preliminary_main_ui_prompt.parse_answer,
             )
-            stats = {"num_main_retries": (len(messages) - 3) // 2}
+            stats["preliminary_main_retry"] = (len(messages) - 3) // 2
         except ParseError:
             preliminary_answer = {"thought": None, "location": None}
-            stats = {"num_main_retries": self.max_retry}
-        stats.update(self.main_vl_model.get_stats())
-        ui_prompt = self.ui_prompt_args.make_prompt(
+            stats["preliminary_main_retry"] = self.max_retry
+        auxiliary_ui_prompt = self.ui_prompt_args.make_prompt(
             obs=obs,
             thoughts=self.thoughts,
             actions=self.actions,
@@ -62,22 +62,42 @@ class UIAgent(VLAgent):
             preliminary_answer=preliminary_answer,
         )
         try:
-            messages = ui_prompt.get_messages()
+            messages = auxiliary_ui_prompt.get_messages()
+            auxiliary_answer = retry(
+                chat=self.auxiliary_vl_model,
+                messages=messages,
+                n_retry=self.max_retry,
+                parser=auxiliary_ui_prompt.parse_answer,
+            )
+            stats["auxiliary_retry"] = (len(messages) - 3) // 2
+        except ParseError:
+            auxiliary_answer = {"coordinates": None}
+            stats["auxiliary_retry"] = self.max_retry
+        preliminary_answer.update(auxiliary_answer)
+        final_main_ui_prompt = self.ui_prompt_args.make_prompt(
+            obs=obs,
+            thoughts=self.thoughts,
+            actions=self.actions,
+            action_set=self.action_set,
+            preliminary_answer=preliminary_answer,
+        )
+        try:
+            messages = final_main_ui_prompt.get_messages()
             final_answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_retry,
-                parser=ui_prompt.parse_answer,
+                parser=final_main_ui_prompt.parse_answer,
             )
-            stats["num_auxiliary_retries"] = (len(messages) - 3) // 2
+            stats["final_main_retry"] = (len(messages) - 3) // 2
         except ParseError:
             final_answer = {"action": None}
-            stats["num_auxiliary_retries"] = self.max_retry
+            stats["final_main_retry"] = self.max_retry
+        stats.update(self.main_vl_model.get_stats())
         stats.update(self.auxiliary_vl_model.get_stats())
-
         self.thoughts.append(str(preliminary_answer["thought"]))
         self.actions.append(str(final_answer["action"]))
-        agent_info = AgentInfo(think=str(preliminary_answer["thought"]), stats=stats)
+        agent_info = AgentInfo(stats=stats, extra_info=preliminary_answer)
         return final_answer["action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:
