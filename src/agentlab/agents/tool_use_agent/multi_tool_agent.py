@@ -1,9 +1,13 @@
+import fnmatch
+from abc import ABC, abstractmethod
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 import bgym
 import numpy as np
+import pandas as pd
 from browsergym.core.observation import extract_screenshot
 from browsergym.utils.obs import (
     flatten_axtree_to_str,
@@ -29,10 +33,39 @@ from agentlab.llm.response_api import (
 from agentlab.llm.tracking import cost_tracker_decorator
 
 
-class Block:
+@dataclass
+class Block(ABC):
 
-    def make(self):
-        return self
+    def _init(self):
+        """Initialize the block."""
+        pass
+
+    def make(self) -> "Block":
+        """Returns a copy so the init can start adding some stuff to `self` without changing the
+        original datatclass that should only contain a config.
+        The aim is avoid having 2 calss definition for each block, e.g. Block and BlockArgs."""
+        block = self.__class__(**asdict(self))
+        block._init()
+        return block
+
+    @abstractmethod
+    def apply(self, llm, messages: list[MessageBuilder], **kwargs):
+        pass
+
+
+# @dataclass
+# class BlockArgs(ABC):
+
+#     @abstractmethod
+#     def make(self) -> Block:
+#         """Make a block from the arguments."""
+#         return self.__class__(**asdict(self))
+
+
+SYS_MSG = """You are a web agent. Based on the observation, you will decide which action to take to accomplish your goal. 
+You strive for excellence and need to be as meticulous as possible. Make sure to explore when not sure.
+Your chain of thought should have 3 sections: 1) Analyze the effect of the action, 2) Summarize the current state of the environment, 3) Reflect on the next action to take.
+"""
 
 
 @dataclass
@@ -42,9 +75,7 @@ class Goal(Block):
     goal_as_system_msg: bool = True
 
     def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
-        system_message = llm.msg.system().add_text(
-            "You are an agent. Based on the observation, you will decide which action to take to accomplish your goal."
-        )
+        system_message = llm.msg.system().add_text(SYS_MSG)
         messages.append(system_message)
 
         if self.goal_as_system_msg:
@@ -176,6 +207,39 @@ class Summarizer(Block):
         messages.append(summary_msg)
 
 
+@dataclass
+class TaskHint(Block):
+    use_task_hint: bool = True
+    hint_db_rel_path: str = "hint_db.csv"
+
+    def _init(self):
+        """Initialize the block."""
+        hint_db_path = Path(__file__).parent / self.hint_db_rel_path
+        self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
+
+        # index the task_name for fast lookup
+        # self.hint_db.set_index("task_name", inplace=True, drop=False)
+
+    def apply(self, llm, messages: list[MessageBuilder], task_name: str) -> dict:
+        if not self.use_task_hint:
+            return
+
+        task_hints = self.hint_db[
+            self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
+        ]
+
+        hints = []
+        for hint in task_hints["hint"]:
+            hint = hint.strip()
+            if hint:
+                hints.append(f"- {hint}")
+
+        hints_str = "Here are some hints for the task you are working on:\n" + "\n".join(hints)
+        msg = llm.msg.user().add_text(hints_str)
+
+        messages.append(msg)
+
+
 class ToolCall(Block):
 
     def __init__(self, tool_server):
@@ -202,6 +266,7 @@ class PromptConfig:
     obs: Obs = None
     summarizer: Summarizer = None
     general_hints: GeneralHints = None
+    task_hint: TaskHint = None
 
 
 @dataclass
@@ -230,11 +295,6 @@ class ToolUseAgentArgs(AgentArgs):
     def close(self):
         return self.model_args.close_server()
 
-    def set_benchmark(self, benchmark, demo_mode):
-
-        if benchmark in ["miniwob", "miniwob_tiny_test"]:
-            self.config.obs.use_zoomed_webpage = True
-
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
@@ -253,11 +313,7 @@ class ToolUseAgent(bgym.Agent):
         self.msg_builder = model_args.get_message_builder()
         self.llm.msg = self.msg_builder
 
-        # # blocks
-        # self.goal_block = self.config.goal
-        # self.obs_block = self.config.obs
-        # self.summarizer_block = self.config.summarizer
-        # self.general_hints_block = self.config.general_hints
+        self.task_hint = self.config.task_hint.make()
 
         self.messages: list[MessageBuilder] = []
         self.last_response: LLMOutput = LLMOutput()
@@ -289,12 +345,12 @@ class ToolUseAgent(bgym.Agent):
                 )
             if self.config.obs.use_zoomed_webpage:
                 pass
-        # if self.config.tag_screenshot:
-        #     screenshot = Image.fromarray(obs["screenshot"])
-        #     screenshot = agent_utils.tag_screenshot_with_action(screenshot, obs["last_action"])
-        #     obs["screenshot"] = np.array(screenshot)
 
         return obs
+
+    def set_task_name(self, task_name: str):
+        """Cheater function that is supposed to be called by loop.py before callling get_action"""
+        self.task_name = task_name
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> float:
@@ -302,6 +358,7 @@ class ToolUseAgent(bgym.Agent):
         if len(self.messages) == 0:
             self.config.goal.apply(self.llm, self.messages, obs)
             self.config.general_hints.apply(self.llm, self.messages)
+            self.task_hint.apply(self.llm, self.messages, self.task_name)
 
         self.config.obs.apply(self.llm, self.messages, obs, last_llm_output=self.last_response)
         self.config.summarizer.apply(self.llm, self.messages)
@@ -366,6 +423,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     ),
     summarizer=Summarizer(),
     general_hints=GeneralHints(use_hints=False),
+    task_hint=TaskHint(use_task_hint=True),
 )
 
 AGENT_CONFIG = ToolUseAgentArgs(

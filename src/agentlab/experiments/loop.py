@@ -399,6 +399,9 @@ class ExpArgs:
         try:
             logger.info(f"Running experiment {self.exp_name} in:\n  {self.exp_dir}")
             agent = self.agent_args.make_agent()
+            if hasattr(agent, "set_task_name"):
+                agent.set_task_name(self.env_args.task_name)
+
             logger.debug("Agent created.")
 
             env = self.env_args.make_env(

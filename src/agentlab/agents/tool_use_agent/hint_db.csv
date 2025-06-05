@@ -1,0 +1,5 @@
+time_stamp,task_name,task_seed,base_llm,agent_name,domain_name,user_name,source,semantic_keys,hint
+June 4,miniwob.book-flight,2,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,drop down menu,"some drop down menu will have a list of choice to select from, after typing. Make sure you select an element from that list."
+June 4,miniwob.book-flight,2,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,active input,the currently activated input is surrounded by a blue rectangle
+June 4,miniwob.book-flight,2,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,active input,GUI elements surrounded by a red rectangle often means there is an error in the content
+June 4,miniwob.book-flight,2,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,active input,The scroll bar indicates that there is more than 1 flights available in the search. Make sure to select the one matching the task goal among all possible flights. 
