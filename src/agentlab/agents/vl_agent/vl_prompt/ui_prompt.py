@@ -8,7 +8,7 @@ from agentlab.llm.llm_utils import (
 from browsergym.core.action.highlevel import HighLevelActionSet
 from dataclasses import dataclass
 from PIL import Image
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 from .base import VLPrompt, VLPromptArgs, VLPromptPart
 from ..utils import image_to_image_url
 import numpy as np
@@ -186,9 +186,9 @@ class FinalAnswerPromptPart(VLPromptPart):
     def __init__(
         self,
         action_set_description: str,
+        preliminary_answer: dict,
         use_abstract_example: bool,
         use_concrete_example: bool,
-        preliminary_answer: dict,
     ):
         text = f"""
 # The action space
@@ -241,7 +241,7 @@ class UIPrompt(VLPrompt):
     history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
     answer_prompt_part: Union[PreliminaryAnswerPromptPart, FinalAnswerPromptPart]
-    action_validator: callable
+    action_validator: Callable
 
     def get_messages(self) -> Discussion:
         message_content = self.introduction_prompt_part.get_message_content()
@@ -293,13 +293,11 @@ class UIPrompt(VLPrompt):
 @dataclass
 class UIPromptArgs(VLPromptArgs):
     use_screenshot: bool
-    use_screenshot_som: bool
     use_tabs: bool
     use_history: bool
     use_error: bool
     use_abstract_example: bool
     use_concrete_example: bool
-    extra_instruction: Optional[str]
 
     def make_prompt(
         self,
@@ -331,13 +329,23 @@ class UIPromptArgs(VLPromptArgs):
             error_prompt_part = ErrorPromptPart(obs["last_action_error"])
         else:
             error_prompt_part = None
-        answer_prompt_part = AnswerPromptPart(
-            action_set_description=action_set.describe(
-                with_long_description=True, with_examples=False
-            ),
-            use_abstract_example=self.use_abstract_example,
-            use_concrete_example=self.use_concrete_example,
-        )
+        if preliminary_answer is None:
+            answer_prompt_part = PreliminaryAnswerPromptPart(
+                action_set_description=action_set.describe(
+                    with_long_description=True, with_examples=False
+                ),
+                use_abstract_example=self.use_abstract_example,
+                use_concrete_example=self.use_concrete_example,
+            )
+        else:
+            answer_prompt_part = FinalAnswerPromptPart(
+                action_set_description=action_set.describe(
+                    with_long_description=True, with_examples=False
+                ),
+                preliminary_answer=preliminary_answer,
+                use_abstract_example=self.use_abstract_example,
+                use_concrete_example=self.use_concrete_example,
+            )
         self.ui_prompt = UIPrompt(
             introduction_prompt_part=introduction_prompt_part,
             goal_prompt_part=goal_prompt_part,

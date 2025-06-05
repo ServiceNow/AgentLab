@@ -18,16 +18,13 @@ class UIAgent(VLAgent):
     def __init__(
         self,
         main_vl_model_args: VLModelArgs,
-        auxiliary_vl_model_args: Optional[VLModelArgs],
+        auxiliary_vl_model_args: VLModelArgs,
         ui_prompt_args: UIPromptArgs,
         action_set_args: HighLevelActionSetArgs,
         max_retry: int,
     ):
         self.main_vl_model = main_vl_model_args.make_model()
-        if auxiliary_vl_model_args is None:
-            self.auxiliary_vl_model = None
-        else:
-            self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
+        self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.ui_prompt_args = ui_prompt_args
         self.action_set_args = action_set_args
         self.max_retry = max_retry
@@ -46,7 +43,7 @@ class UIAgent(VLAgent):
         )
         try:
             messages = ui_prompt.get_messages()
-            answer = retry(
+            preliminary_answer = retry(
                 chat=self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_retry,
@@ -54,46 +51,37 @@ class UIAgent(VLAgent):
             )
             stats = {"num_main_retries": (len(messages) - 3) // 2}
         except ParseError:
-            answer = {"thought": None, "action": None}
+            preliminary_answer = {"thought": None, "location": None}
             stats = {"num_main_retries": self.max_retry}
         stats.update(self.main_vl_model.get_stats())
-        if self.auxiliary_vl_model is not None:
-            preliminary_answer = answer
-            ui_prompt = self.ui_prompt_args.make_prompt(
-                obs=obs,
-                thoughts=self.thoughts,
-                actions=self.actions,
-                action_set=self.action_set,
-                preliminary_answer=preliminary_answer,
-            )
-            try:
-                messages = ui_prompt.get_messages()
-                answer = retry(
-                    chat=self.auxiliary_vl_model,
-                    messages=messages,
-                    n_retry=self.max_retry,
-                    parser=ui_prompt.parse_answer,
-                )
-                stats["num_auxiliary_retries"] = (len(messages) - 3) // 2
-            except ParseError:
-                answer = {"thought": None, "action": None}
-                stats["num_auxiliary_retries"] = self.max_retry
-            stats.update(self.auxiliary_vl_model.get_stats())
-        else:
-            preliminary_answer = None
-        self.thoughts.append(str(answer["thought"]))
-        self.actions.append(str(answer["action"]))
-        agent_info = AgentInfo(
-            think=str(answer["thought"]), stats=stats, extra_info=preliminary_answer
+        ui_prompt = self.ui_prompt_args.make_prompt(
+            obs=obs,
+            thoughts=self.thoughts,
+            actions=self.actions,
+            action_set=self.action_set,
+            preliminary_answer=preliminary_answer,
         )
-        return answer["action"], asdict(agent_info)
+        try:
+            messages = ui_prompt.get_messages()
+            final_answer = retry(
+                chat=self.main_vl_model,
+                messages=messages,
+                n_retry=self.max_retry,
+                parser=ui_prompt.parse_answer,
+            )
+            stats["num_auxiliary_retries"] = (len(messages) - 3) // 2
+        except ParseError:
+            final_answer = {"action": None}
+            stats["num_auxiliary_retries"] = self.max_retry
+        stats.update(self.auxiliary_vl_model.get_stats())
+
+        self.thoughts.append(str(preliminary_answer["thought"]))
+        self.actions.append(str(final_answer["action"]))
+        agent_info = AgentInfo(think=str(preliminary_answer["thought"]), stats=stats)
+        return final_answer["action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:
         obs = copy(obs)
-        if self.ui_prompt_args.use_screenshot and self.ui_prompt_args.use_screenshot_som:
-            obs["screenshot"] = overlay_som(
-                obs["screenshot"], extra_properties=obs["extra_element_properties"]
-            )
         return obs
 
 
