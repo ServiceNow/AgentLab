@@ -14,6 +14,16 @@ from langchain_community.callbacks import bedrock_anthropic_callback, openai_inf
 
 TRACKER = threading.local()
 
+ANTHROPHIC_CACHE_PRICING_FACTOR = {
+    "cache_read_tokens": 0.1,  # Cost for 5 min ephemeral cache. See Pricing Here: https://docs.anthropic.com/en/docs/about-claude/pricing#model-pricing
+    "cache_write_tokens": 1.25,
+}
+
+OPENAI_CACHE_PRICING_FACTOR = {
+    "cache_read_tokens": 0.5,  # This is a an upper bound. See Pricing Here: https://platform.openai.com/docs/pricing
+    "cache_write_tokens": 1,
+}
+
 
 class LLMTracker:
     def __init__(self, suffix=""):
@@ -156,8 +166,8 @@ class TrackAPIPricingMixin:
         usage = dict(getattr(response, "usage", {}))
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
+        usage |= {"effective_cost": self.get_effective_cost(response)}
         self.stats.increment_stats_dict(usage)
-
         self.update_pricing_tracker(response)
         return self._parse_response(response)
 
@@ -228,6 +238,67 @@ class TrackAPIPricingMixin:
             "Unable to extract input and output tokens from the response. Defaulting to 0."
         )
         return 0, 0
+
+    def get_effective_cost(self, response):
+        """Get the effective cost from the response based on the provider."""
+        if self._pricing_api == "anthropic":
+            return self.get_effective_cost_from_antrophic_api(response)
+        elif self._pricing_api == "openai":
+            return self.get_effective_cost_from_openai_api(response)
+        else:
+            logging.warning(
+                f"Unsupported provider: {self._pricing_api}. No effective cost calculated."
+            )
+            return 0.0
+
+    def get_effective_cost_from_antrophic_api(self, response):
+        """Get the effective cost from the Anthropic API response.
+        ## Anthropic usage 'input_tokens' are new input tokens (tokens that are not cached).
+        ## Anthorphic has different pricing for cache write and cache read tokens.
+        ## See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#tracking-cache-performance
+        """
+        usage = getattr(response, "usage", {})
+        new_input_tokens = getattr(usage, "input_tokens", 0)  # new input tokens
+        output_tokens = getattr(usage, "output_tokens", 0)
+        cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
+        cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
+
+        cache_read_cost = self.input_cost * ANTHROPHIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
+        cache_write_cost = self.input_cost * ANTHROPHIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+
+        # Calculate the effective cost
+        effective_cost = (
+            new_input_tokens * self.input_cost
+            + output_tokens * self.output_cost
+            + cache_read_tokens * cache_read_cost
+            + cache_write_tokens * cache_write_cost
+        )
+        return effective_cost
+
+    def get_effective_cost_from_openai_api(self, response):
+        """Get the effective cost from the OpenAI API response.
+        ## OpenAI usage 'prompt_tokens' are the total input tokens (cache read tokens + new input tokens).
+        ## See https://openai.com/index/api-prompt-caching/
+        ## OpenAI has only one price for cache tokens i.e. cache read price. (Generally 50% cheaper)
+        ## OpenAI had no extra charge for cache write tokens.
+        ## See Pricing Here: https://platform.openai.com/docs/pricing
+        """
+        usage = getattr(response, "usage", {})
+        prompt_token_details = getattr(response, "prompt_tokens_details", {})
+
+        total_input_tokens = getattr(prompt_token_details, "prompt_tokens", 0)  # Cache read tokens + new input tokens
+        output_tokens = getattr(usage, "completion_tokens", 0)
+        cache_read_tokens = getattr(prompt_token_details, "cached_tokens", 0)
+
+        non_cached_input_tokens = total_input_tokens - cache_read_tokens
+        cache_read_cost = self.input_cost * OPENAI_CACHE_PRICING_FACTOR["cache_read_tokens"]
+
+        effective_cost = (
+            self.input_cost * non_cached_input_tokens
+            + cache_read_tokens * cache_read_cost
+            + self.output_cost * output_tokens
+        )
+        return effective_cost
 
 
 @dataclass
