@@ -12,6 +12,7 @@ from .generic_agent import GenericAgentArgs
 from .generic_agent_prompt import GenericPromptFlags
 from .tmlr_config import BASE_FLAGS
 
+
 FLAGS_CUSTOM = GenericPromptFlags(
     obs=dp.ObsFlags(
         use_html=False,
@@ -221,7 +222,8 @@ FLAGS_GPT_4o = GenericPromptFlags(
         use_history=True,
         use_past_error_logs=False,
         use_action_history=True,
-        use_think_history=False,
+        # use_think_history=False,
+        use_think_history=True,
         use_diff=False,
         html_type="pruned_html",
         use_screenshot=False,
@@ -249,7 +251,8 @@ FLAGS_GPT_4o = GenericPromptFlags(
     enable_chat=False,
     max_prompt_tokens=40_000,
     be_cautious=True,
-    extra_instructions=None,
+    # extra_instructions=None,
+    extra_instructions=EXTRA_INSTRUCTIONS,
 )
 
 AGENT_4o = GenericAgentArgs(
@@ -263,6 +266,18 @@ AGENT_4o_MINI = GenericAgentArgs(
 )
 AGENT_AZURE_4o_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_4o = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41 = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini"],
     flags=FLAGS_GPT_4o,
 )
 AGENT_CLAUDE_SONNET_35 = GenericAgentArgs(
@@ -294,6 +309,26 @@ AGENT_4o_VISION = GenericAgentArgs(
 
 AGENT_4o_MINI_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_4o_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_4o_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_41_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_41_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini"],
     flags=FLAGS_GPT_4o_VISION,
 )
 

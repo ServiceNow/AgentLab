@@ -1,0 +1,182 @@
+## How To Navigate the Menu in ServiceNow
+
+* **Location:** Top left corner of the screen.
+* **Function:** Lists all modules and applications available to you based on your permissions.
+* **How to use:**
+  * **Menu Button (≡ or grid):** Opens the full app navigator.
+  * **Search Bar:** Search for applications, records, or even data directly.
+  * **Favorites:** Pin your favorite modules for one-click access.
+  * **All:** Click “All” or the waffle/grid icon to see all available applications and modules.
+
+### Example: Navigating to the Incident List
+
+1. Go to the **Application Navigator** (sidebar or menu).
+2. Type **Incident** in the search/filter box.
+3. Click **Incident > All** to see all incidents.
+
+---
+
+## How to Create a Record in ServiceNow
+
+### General Steps (Works for Any Table)
+
+1. **Navigate to the Right Module:**
+
+   * Use the **Filter Navigator** (left sidebar or search bar at top).
+   * Type the name of the application or table (e.g., `Incident`, `Change`, `User`, `Task`, etc.).
+   * Click on the module that says **Create New** or **New** under that application.
+
+     * For example: `Incident > Create New` or `User > New`
+
+2. **Fill Out the Form:**
+
+   * A new form opens for the selected record type.
+   * Fill in the required fields (marked with a red asterisk \*), and any other fields you need.
+
+3. **Submit or Save:**
+
+   * Click **Submit** (usually creates the record and returns you to the list view), or
+   * Click **Save** (creates the record but keeps you on the form so you can keep editing), or
+   * In some interfaces, you may see **Update** (when editing an existing record).
+
+
+### Example: Creating a New Incident
+
+1. In the **Filter Navigator**, type `incident`.
+2. Click on **Incident > Create New**.
+3. The **New Incident** form appears.
+4. Enter details, such as:
+
+   * **Caller**
+   * **Short Description**
+   * **Description**
+   * Any other required or relevant fields.
+5. Click **Submit** (bottom or top of the form).
+
+---
+
+## How to Filter Records in a Table in ServiceNow
+
+### General Step
+
+* **Navigate** to your table: e.g., `Incident > All`
+* You’ll see a **filter row** above the table (sometimes with “Add Filter” or a funnel icon).
+* **Build your filter:**
+
+  1. **Field:** Select the field to filter on (e.g., State, Priority, Assigned To).
+  2. **Operator:** Choose the operator (e.g., is, is not, contains, starts with, etc.).
+  3. **Value:** Enter or select a value (e.g., “Open” for State).
+  4. Click the **AND/OR** button to add more conditions if needed.
+* **Run the filter:** Click the **Run** button (funnel icon or “Run”) to apply the filter.
+
+
+### Example: Filtering Incidents
+
+1. Go to **Incident > All**.
+2. Click **Filter** or the funnel icon.
+3. Set **State** to **is** **In Progress**.
+4. Add **AND Priority is High**.
+5. Click **Run**.
+6. Only high-priority, in-progress incidents will be displayed.
+
+---
+
+## How to Impersonate a User in ServiceNow
+
+1. **Click Your User Avatar or Name:**
+
+   * Look for your user name or avatar/photo at the top right corner of the screen.
+2. **Select "Impersonate User":**
+
+   * In the dropdown menu, click **Impersonate User**.
+3. **Choose the User:**
+
+   * A dialog or search field will appear.
+   * Start typing the name or user ID of the person you want to impersonate.
+   * Click on their name in the results.
+4. **You are now impersonating that user:**
+
+   * You’ll see a banner at the top of the screen saying you are impersonating \[user name].
+   * The interface changes to reflect the impersonated user’s permissions.
+5. **To Stop Impersonating:**
+
+   * Click your user name/avatar again.
+   * Click **End Impersonation** (or similar option).
+
+---
+
+## How to Search for a Knowledge Base Article
+
+1. **Locate the Global Search Bar:**
+
+   * The global search bar is usually at the top right of your ServiceNow window.
+
+2. **Enter Your Search Term:**
+
+   * Click in the search bar and type keywords related to your knowledge article (e.g., “VPN setup,” “password reset,” “onboarding”).
+   * Hit **Enter** or click the magnifying glass.
+
+3. **Review the Search Results:**
+
+   * The results will display records from **multiple tables** (Incidents, Requests, Knowledge, etc.).
+   * Look for a section labeled **Knowledge** or **Knowledge Articles** in the results.
+
+     * In some versions, there’s a “Type” or “Table” filter on the side or top—select **Knowledge** if you want only knowledge articles.
+
+4. **Open the Desired Article:**
+
+   * Click the title of the knowledge article you want to view. It opens in a new tab or pane, depending on your UI.
+
+---
+
+## How to Order a Service Catalog Item in ServiceNow
+
+1. **Go to the Service Catalog**
+
+  * In the left sidebar (Application Navigator), search for and click on **Self-Service > Service Catalog** or simply **Service Catalog**.
+
+2. **Find the Item You Want to Order**
+
+  * **Browse:** Look through categories (e.g., Hardware, Software, Access, etc.).
+  * **Search:** Use the search bar to enter keywords for the item you need (e.g., “laptop”, “VPN”, “Adobe”).
+  * **Click** on the item’s name or image to open its details page.
+
+3. **Fill Out the Order Form**
+
+  * Complete any required fields (marked with a red asterisk \*)—these might include:
+
+    * Item details (e.g., type, justification, quantity)
+    * Delivery information
+    * Additional options or comments
+    * When selecting a radio or checkbox button, **ALWAYS** click on the associated label instead of the button.
+
+4. **Submit Your Order**
+
+  * Before submitting, **ALWAYS** double-check that you have the correct item selected with all the required fields completed.
+  * Click the **Order Now**, **Submit**, or **Request** button at the bottom of the form.
+  * You’ll receive a confirmation with a request number (e.g., `REQ0001234`).
+  * You can track the status of your request from **Self-Service > My Requests** or the “Requests”/“My Items” area in the portal.
+
+
+---
+
+## **How to Sort Records in ServiceNow**
+
+1. **Navigate to Your Table/List**
+
+   * For example, go to **Incident > All** or any other table you want to view.
+
+2. **Sort by One or Multiple Columns**
+
+   * Click on the filter button (funnel icon) at the top left of the page to open the filter row.
+   * For each column you need to sort by:
+     * Click on the Add Sort button to add a new sort filter.
+     * Select the column you want to sort by.
+     * Select the appropriate ordering between ascending (a-z) or descending (z-a).
+   * Once all sort filters have been added, click the Run button to apply the sort.
+   * **NEVER** try to add columns via the Personalize List menu. **ONLY** follow the instructions presented above.
+
+3. **Resetting or Clearing Sorting**
+
+   * To reset sorting, click another column, or click again to toggle.
+   * In the filter bar, you may see a “Sorted by…” indicator—clear or change it as needed.
