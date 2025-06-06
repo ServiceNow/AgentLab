@@ -100,7 +100,7 @@
 
    * You'll see a banner at the top of the screen saying you are impersonating \[user name].
    * The interface changes to reflect the impersonated user's permissions.
-   
+
 5. **To Stop Impersonating:**
 
    * Click your user name/avatar again.
