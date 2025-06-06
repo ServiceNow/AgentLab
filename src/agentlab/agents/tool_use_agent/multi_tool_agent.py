@@ -362,8 +362,8 @@ class ToolUseAgent(bgym.Agent):
 
         self.config.obs.apply(self.llm, self.messages, obs, last_llm_output=self.last_response)
         self.config.summarizer.apply(self.llm, self.messages)
-
-        response: LLMOutput = self.llm(messages=self.messages)
+        response: LLMOutput = self.llm(messages=self.messages,
+                                       cache_tool_definition=True) 
 
         action = response.action
         think = response.think

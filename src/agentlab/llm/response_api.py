@@ -513,7 +513,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
 
         self.client = Anthropic(api_key=api_key)
 
-    def _call_api(self, messages: list[dict | MessageBuilder]) -> dict:
+    def _call_api(self, messages: list[dict | MessageBuilder], **kwargs) -> dict:
         input = []
 
         sys_msg, other_msgs = self.filter_system_messages(messages)
@@ -531,6 +531,9 @@ class ClaudeResponseModel(BaseModelWithPricing):
         }
         if self.tools is not None:
             api_params["tools"] = self.tools
+        if kwargs.pop("cache_tool_definition", False):
+            # Indicating cache control for the last tool enables caching of all previous tool definitions.
+            api_params["tools"][-1]["cache_control"] = {"type": "ephemeral"}
         if self.extra_kwargs.get("reasoning", None) is not None:
             api_params["reasoning"] = self.extra_kwargs["reasoning"]
 
