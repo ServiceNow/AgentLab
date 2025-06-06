@@ -1,18 +1,17 @@
 ## How To Navigate the Menu in ServiceNow
 
-* **Location:** Top left corner of the screen.
-* **Function:** Lists all modules and applications available to you based on your permissions.
-* **How to use:**
-  * **Menu Button (≡ or grid):** Opens the full app navigator.
+* At the top left corner of the screen, find the "Menu" or "All" button.
+* Clicking on it will list all modules and applications available to you based on your permissions.
+* How to use:
+  * **All:** Click "All" or the waffle/grid icon to see all available applications and modules.
   * **Search Bar:** Search for applications, records, or even data directly.
   * **Favorites:** Pin your favorite modules for one-click access.
-  * **All:** Click “All” or the waffle/grid icon to see all available applications and modules.
 
 ### Example: Navigating to the Incident List
 
-1. Go to the **Application Navigator** (sidebar or menu).
-2. Type **Incident** in the search/filter box.
-3. Click **Incident > All** to see all incidents.
+1. Go to the Application Navigator (sidebar or menu).
+2. Type `Incident` in the search/filter box.
+3. Click `Incident > All` to see all incidents.
 
 ---
 
@@ -60,14 +59,14 @@
 ### General Step
 
 * **Navigate** to your table: e.g., `Incident > All`
-* You’ll see a **filter row** above the table (sometimes with “Add Filter” or a funnel icon).
+* You'll see a **filter row** above the table (sometimes with "Add Filter" or a funnel icon).
 * **Build your filter:**
 
   1. **Field:** Select the field to filter on (e.g., State, Priority, Assigned To).
   2. **Operator:** Choose the operator (e.g., is, is not, contains, starts with, etc.).
-  3. **Value:** Enter or select a value (e.g., “Open” for State).
+  3. **Value:** Enter or select a value (e.g., "Open" for State).
   4. Click the **AND/OR** button to add more conditions if needed.
-* **Run the filter:** Click the **Run** button (funnel icon or “Run”) to apply the filter.
+* **Run the filter:** Click the **Run** button (funnel icon or "Run") to apply the filter.
 
 
 ### Example: Filtering Incidents
@@ -86,18 +85,22 @@
 1. **Click Your User Avatar or Name:**
 
    * Look for your user name or avatar/photo at the top right corner of the screen.
+
 2. **Select "Impersonate User":**
 
    * In the dropdown menu, click **Impersonate User**.
+
 3. **Choose the User:**
 
    * A dialog or search field will appear.
    * Start typing the name or user ID of the person you want to impersonate.
    * Click on their name in the results.
+
 4. **You are now impersonating that user:**
 
-   * You’ll see a banner at the top of the screen saying you are impersonating \[user name].
-   * The interface changes to reflect the impersonated user’s permissions.
+   * You'll see a banner at the top of the screen saying you are impersonating \[user name].
+   * The interface changes to reflect the impersonated user's permissions.
+   
 5. **To Stop Impersonating:**
 
    * Click your user name/avatar again.
@@ -113,7 +116,7 @@
 
 2. **Enter Your Search Term:**
 
-   * Click in the search bar and type keywords related to your knowledge article (e.g., “VPN setup,” “password reset,” “onboarding”).
+   * Click in the search bar and type keywords related to your knowledge article (e.g., "VPN setup," "password reset," "onboarding").
    * Hit **Enter** or click the magnifying glass.
 
 3. **Review the Search Results:**
@@ -121,7 +124,7 @@
    * The results will display records from **multiple tables** (Incidents, Requests, Knowledge, etc.).
    * Look for a section labeled **Knowledge** or **Knowledge Articles** in the results.
 
-     * In some versions, there’s a “Type” or “Table” filter on the side or top—select **Knowledge** if you want only knowledge articles.
+     * In some versions, there's a "Type" or "Table" filter on the side or top—select **Knowledge** if you want only knowledge articles.
 
 4. **Open the Desired Article:**
 
@@ -138,8 +141,8 @@
 2. **Find the Item You Want to Order**
 
   * **Browse:** Look through categories (e.g., Hardware, Software, Access, etc.).
-  * **Search:** Use the search bar to enter keywords for the item you need (e.g., “laptop”, “VPN”, “Adobe”).
-  * **Click** on the item’s name or image to open its details page.
+  * **Search:** Use the search bar to enter keywords for the item you need (e.g., "laptop", "VPN", "Adobe").
+  * **Click** on the item's name or image to open its details page.
 
 3. **Fill Out the Order Form**
 
@@ -154,8 +157,8 @@
 
   * Before submitting, **ALWAYS** double-check that you have the correct item selected with all the required fields completed.
   * Click the **Order Now**, **Submit**, or **Request** button at the bottom of the form.
-  * You’ll receive a confirmation with a request number (e.g., `REQ0001234`).
-  * You can track the status of your request from **Self-Service > My Requests** or the “Requests”/“My Items” area in the portal.
+  * You'll receive a confirmation with a request number (e.g., `REQ0001234`).
+  * You can track the status of your request from **Self-Service > My Requests** or the "Requests"/"My Items" area in the portal.
 
 
 ---
@@ -179,4 +182,4 @@
 3. **Resetting or Clearing Sorting**
 
    * To reset sorting, click another column, or click again to toggle.
-   * In the filter bar, you may see a “Sorted by…” indicator—clear or change it as needed.
+   * In the filter bar, you may see a "Sorted by..." indicator—clear or change it as needed.

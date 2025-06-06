@@ -222,8 +222,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
         use_history=True,
         use_past_error_logs=False,
         use_action_history=True,
-        # use_think_history=False,
-        use_think_history=True,
+        use_think_history=False,
         use_diff=False,
         html_type="pruned_html",
         use_screenshot=False,
@@ -251,8 +250,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
     enable_chat=False,
     max_prompt_tokens=40_000,
     be_cautious=True,
-    # extra_instructions=None,
-    extra_instructions=EXTRA_INSTRUCTIONS,
+    extra_instructions=None,
 )
 
 AGENT_4o = GenericAgentArgs(
