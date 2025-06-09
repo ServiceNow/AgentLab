@@ -1,4 +1,5 @@
 import fnmatch
+import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from dataclasses import asdict, dataclass
@@ -64,7 +65,6 @@ class Block(ABC):
 
 SYS_MSG = """You are a web agent. Based on the observation, you will decide which action to take to accomplish your goal. 
 You strive for excellence and need to be as meticulous as possible. Make sure to explore when not sure.
-Your chain of thought should have 3 sections: 1) Analyze the effect of the action, 2) Summarize the current state of the environment, 3) Reflect on the next action to take.
 """
 
 
@@ -190,21 +190,44 @@ class Summarizer(Block):
     """Block to summarize the last action and the current state of the environment."""
 
     do_summary: bool = False
+    high_details: bool = True
 
     def apply(self, llm, messages: list[MessageBuilder]) -> dict:
         if not self.do_summary:
             return
 
-        msg = llm.msg.user().add_text(
-            "Summarize the effect of the last action and the current state of the environment."
-        )
+        msg = llm.msg.user().add_text("""Summarize\n""")
 
         messages.append(msg)
         # TODO need to make sure we don't force tool use here
-        summary_response = llm(messages=messages)
+        summary_response = llm(messages=messages, tool_choice="none")
 
         summary_msg = llm.msg.assistant().add_text(summary_response.think)
         messages.append(summary_msg)
+
+    def apply_init(self, llm, messages: list[MessageBuilder]) -> dict:
+        """Initialize the summarizer block."""
+        if not self.do_summary:
+            return
+
+        system_msg = llm.msg.system()
+        if self.high_details:
+            # Add a system message to the LLM to indicate that it should summarize
+            system_msg.add_text(
+                """# Summarizer instructions:\nWhen asked to summarize, do the following:
+    1) Summarize the effect of the last action, with attention to details.
+    2) Give a semantic description of the current state of the environment, with attention to details. If there was a repeating mistake, mention the cause of it.
+    3) Reason about the overall task at a high level.
+    4) What hint can be relevant for the next action? Only chose from the hints provided in the task description. Or select none.
+    5) What is the currently activated item if any.
+    6) Reason about the next action to take, based on the current state and the goal.
+    """
+            )
+        else:
+            system_msg.add_text(
+                """When asked to summarize, give a semantic description of the current state of the environment."""
+            )
+        messages.append(system_msg)
 
 
 @dataclass
@@ -234,7 +257,9 @@ class TaskHint(Block):
             if hint:
                 hints.append(f"- {hint}")
 
-        hints_str = "Here are some hints for the task you are working on:\n" + "\n".join(hints)
+        hints_str = "# Hints:\nHere are some hints for the task you are working on:\n" + "\n".join(
+            hints
+        )
         msg = llm.msg.user().add_text(hints_str)
 
         messages.append(msg)
@@ -357,13 +382,19 @@ class ToolUseAgent(bgym.Agent):
         self.llm.reset_stats()
         if len(self.messages) == 0:
             self.config.goal.apply(self.llm, self.messages, obs)
+            self.config.summarizer.apply_init(self.llm, self.messages)
             self.config.general_hints.apply(self.llm, self.messages)
             self.task_hint.apply(self.llm, self.messages, self.task_name)
 
+        logging.info("Appending observation to messages")
         self.config.obs.apply(self.llm, self.messages, obs, last_llm_output=self.last_response)
+        logging.info("Calling summarizer")
         self.config.summarizer.apply(self.llm, self.messages)
-        response: LLMOutput = self.llm(messages=self.messages,
-                                       cache_tool_definition=True) 
+        logging.info("Main tool calling")
+        response: LLMOutput = self.llm(
+            messages=self.messages, tool_choice="any", cache_tool_definition=True
+        )
+        logging.info(f"Obtained response {response}")
 
         action = response.action
         think = response.think
@@ -421,7 +452,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
         use_som=False,
         use_tabs=False,
     ),
-    summarizer=Summarizer(),
+    summarizer=Summarizer(do_summary=True),
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
 )
