@@ -36,7 +36,7 @@ class LLMOutput:
 
     raw_response: Any = field(default_factory=dict)
     think: str = field(default="")
-    action: str = field(default="noop()")  # Default action if no tool call is made
+    action: str = field(default=None)  # Default action if no tool call is made
     tool_calls: Any = field(default=None)  # This will hold the tool call response if any
 
 
@@ -190,8 +190,8 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
         if self.role == "assistant":
             # Strip whitespace from assistant text responses. See anthropic error code 400.
             for c in output["content"]:
-                if 'text' in c:
-                    c["text"] = c["text"].strip()  
+                if "text" in c:
+                    c["text"] = c["text"].strip()
 
         return [output]
 
@@ -351,7 +351,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         result = LLMOutput(
             raw_response=response,
             think="",
-            action="noop()",
+            action=None,
             tool_calls=None,
         )
         interesting_keys = ["output_text"]
@@ -429,7 +429,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         output = LLMOutput(
             raw_response=response,
             think="",
-            action="noop()",  # Default if no tool call
+            action=None,  # Default if no tool call
             tool_calls=None,
         )
         message = response.choices[0].message.to_dict()
@@ -513,11 +513,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
 
         self.client = Anthropic(api_key=api_key)
 
-    def _call_api(self, messages: list[dict | MessageBuilder], **kwargs) -> dict:
+    def _call_api(
+        self, messages: list[dict | MessageBuilder], tool_choice="auto", **kwargs
+    ) -> dict:
         input = []
 
         sys_msg, other_msgs = self.filter_system_messages(messages)
-        sys_msg_text = "\n".join(c['text'] for m in sys_msg for c in m.content) 
+        sys_msg_text = "\n".join(c["text"] for m in sys_msg for c in m.content)
         for msg in other_msgs:
             input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
 
@@ -527,6 +529,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "system": sys_msg_text,  # Anthropic API expects system message as a string
+            "tool_choice": {"type": tool_choice},  # Tool choice for Claude API
             **self.extra_kwargs,  # Pass tools, tool_choice, etc. here
         }
         if self.tools is not None:
@@ -562,7 +565,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
         result = LLMOutput(
             raw_response=response,
             think="",
-            action="noop()",
+            action=None,
             tool_calls={
                 "role": "assistant",
                 "content": response.content,
