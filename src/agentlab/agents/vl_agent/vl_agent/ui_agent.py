@@ -59,7 +59,7 @@ class UIAgent(VLAgent):
             thoughts=self.thoughts,
             actions=self.actions,
             action_set=self.action_set,
-            preliminary_answer=preliminary_answer,
+            extra_info=preliminary_answer,
         )
         try:
             messages = auxiliary_ui_prompt.get_messages()
@@ -79,7 +79,7 @@ class UIAgent(VLAgent):
             thoughts=self.thoughts,
             actions=self.actions,
             action_set=self.action_set,
-            preliminary_answer=preliminary_answer,
+            extra_info=preliminary_answer,
         )
         try:
             messages = final_main_ui_prompt.get_messages()

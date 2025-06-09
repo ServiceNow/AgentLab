@@ -186,7 +186,7 @@ class FinalAnswerPromptPart(VLPromptPart):
     def __init__(
         self,
         action_set_description: str,
-        preliminary_answer: dict,
+        extra_info: dict,
         use_abstract_example: bool,
         use_concrete_example: bool,
     ):
@@ -199,11 +199,11 @@ Here are all the actions you can take to interact with the browser.
 
 # The thought about the action
 
-{preliminary_answer['thought']}
+{extra_info['thought']}
 
 # The coordinates where the action is to be taken
 
-{preliminary_answer['coordinates']}
+{extra_info['coordinates']}
 
 # The answer requirements
 
@@ -331,8 +331,8 @@ class UIPromptArgs(VLPromptArgs):
         thoughts: list[str],
         actions: list[str],
         action_set: HighLevelActionSet,
-        preliminary_answer: Optional[dict] = None,
-    ) -> VLPrompt:
+        extra_info: Optional[dict] = None,
+    ) -> Union[MainUIPrompt, AuxiliaryUIPrompt]:
         introduction_prompt_part = IntroductionPromptPart()
         goal_prompt_part = GoalPromptPart(obs["goal_object"])
         screenshot_prompt_part = ScreenshotPromptPart(obs["screenshot"])
@@ -352,7 +352,7 @@ class UIPromptArgs(VLPromptArgs):
             error_prompt_part = ErrorPromptPart(obs["last_action_error"])
         else:
             error_prompt_part = None
-        if preliminary_answer is None:
+        if extra_info is None:
             preliminary_answer_prompt_part = PreliminaryAnswerPromptPart(
                 action_set_description=action_set.describe(
                     with_long_description=True, with_examples=False
@@ -372,12 +372,12 @@ class UIPromptArgs(VLPromptArgs):
             )
             return self.preliminary_main_ui_prompt
         else:
-            if "coordinates" in preliminary_answer:
+            if "coordinates" in extra_info:
                 final_answer_prompt_part = FinalAnswerPromptPart(
                     action_set_description=action_set.describe(
                         with_long_description=True, with_examples=False
                     ),
-                    preliminary_answer=preliminary_answer,
+                    extra_info=extra_info,
                     use_abstract_example=self.use_abstract_example,
                     use_concrete_example=self.use_concrete_example,
                 )
@@ -394,6 +394,6 @@ class UIPromptArgs(VLPromptArgs):
                 return self.final_main_ui_prompt
             else:
                 self.auxiliary_ui_prompt = AuxiliaryUIPrompt(
-                    screenshot=obs["screenshot"], location=preliminary_answer["location"]
+                    screenshot=obs["screenshot"], location=extra_info["location"]
                 )
                 return self.auxiliary_ui_prompt

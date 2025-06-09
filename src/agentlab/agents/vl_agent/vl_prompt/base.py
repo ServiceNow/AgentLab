@@ -16,7 +16,7 @@ class VLPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def parse_answer(self, answer_text: str) -> dict:
+    def parse_answer(self, answer_content: list[dict]) -> dict:
         raise NotImplementedError
 
 
@@ -28,6 +28,6 @@ class VLPromptArgs(ABC):
         thoughts: list[str],
         actions: list[str],
         action_set: HighLevelActionSet,
-        preliminary_answer: Optional[dict] = None,
+        extra_info: Optional[dict] = None,
     ) -> VLPrompt:
         raise NotImplementedError
