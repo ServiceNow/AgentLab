@@ -1001,9 +1001,16 @@ def get_agent_report(result_df: pd.DataFrame):
 
 
 def update_global_stats():
-    stats = inspect_results.global_report(info.result_df, reduce_fn=inspect_results.summarize_stats)
-    stats.reset_index(inplace=True)
-    return stats
+    try:
+        stats = inspect_results.global_report(
+            info.result_df, reduce_fn=inspect_results.summarize_stats
+        )
+        stats.reset_index(inplace=True)
+        return stats
+
+    except Exception as e:
+        warning(f"Error while updating global stats: {e}")
+        return None
 
 
 def update_error_report():
