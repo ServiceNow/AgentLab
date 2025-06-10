@@ -1,10 +1,7 @@
 from logging import warning
-from playwright.sync_api import Page 
 
 from PIL import Image, ImageDraw
-from logging import warning
-from playwright.sync_api import Page 
-
+from playwright.sync_api import Page
 
 """
 This module contains utility functions for handling observations and actions in the context of agent interactions.
@@ -86,6 +83,57 @@ def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
     draw.polygon(pointer_shape, fill=(0, 0, 0, 128))  # 50% transparent black
 
     return Image.alpha_composite(image.convert("RGBA"), overlay)
+
+
+def draw_click_indicator(image: Image.Image, x: int, y: int) -> Image.Image:
+    """
+    Draws a click indicator (+ shape with disconnected lines) at (x, y) on the image.
+    Returns a new image with the click indicator drawn.
+    """
+    line_length = 10  # Length of each line segment
+    gap = 4  # Gap from center point
+    line_width = 2  # Thickness of lines
+
+    overlay = image.convert("RGBA").copy()
+    draw = ImageDraw.Draw(overlay)
+
+    # Draw 4 lines forming a + shape with gaps in the center
+    # Each line has a white outline and black center for visibility on any background
+
+    # Top line
+    draw.line(
+        [(x, y - gap - line_length), (x, y - gap)], fill=(255, 255, 255, 200), width=line_width + 2
+    )  # White outline
+    draw.line(
+        [(x, y - gap - line_length), (x, y - gap)], fill=(0, 0, 0, 255), width=line_width
+    )  # Black center
+
+    # Bottom line
+    draw.line(
+        [(x, y + gap), (x, y + gap + line_length)], fill=(255, 255, 255, 200), width=line_width + 2
+    )  # White outline
+    draw.line(
+        [(x, y + gap), (x, y + gap + line_length)], fill=(0, 0, 0, 255), width=line_width
+    )  # Black center
+
+    # Left line
+    draw.line(
+        [(x - gap - line_length, y), (x - gap, y)], fill=(255, 255, 255, 200), width=line_width + 2
+    )  # White outline
+    draw.line(
+        [(x - gap - line_length, y), (x - gap, y)], fill=(0, 0, 0, 255), width=line_width
+    )  # Black center
+
+    # Right line
+    draw.line(
+        [(x + gap, y), (x + gap + line_length, y)], fill=(255, 255, 255, 200), width=line_width + 2
+    )  # White outline
+    draw.line(
+        [(x + gap, y), (x + gap + line_length, y)], fill=(0, 0, 0, 255), width=line_width
+    )  # Black center
+
+    return Image.alpha_composite(image.convert("RGBA"), overlay)
+
 
 def zoom_webpage(page: Page, zoom_factor: float = 1.5):
     """
