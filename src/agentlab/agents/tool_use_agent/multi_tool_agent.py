@@ -392,7 +392,10 @@ class ToolUseAgent(bgym.Agent):
         self.obs_msg_set
         self.config.summarizer.apply(self.llm, self.messages)
         response: LLMOutput = self.llm(
-            messages=self.messages, tool_choice="any", cache_tool_definition=True
+            messages=self.messages,
+            tool_choice="any",
+            cache_tool_definition=True,
+            cache_complete_prompt=True,
         )
 
         action = response.action

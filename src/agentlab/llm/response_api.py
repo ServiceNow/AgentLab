@@ -537,6 +537,9 @@ class ClaudeResponseModel(BaseModelWithPricing):
         if kwargs.pop("cache_tool_definition", False):
             # Indicating cache control for the last tool enables caching of all previous tool definitions.
             api_params["tools"][-1]["cache_control"] = {"type": "ephemeral"}
+        if kwargs.pop("cache_complete_prompt", False):
+            # Indicating cache control for the last message enables caching of the complete prompt.
+            api_params["messages"][-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
         if self.extra_kwargs.get("reasoning", None) is not None:
             api_params["reasoning"] = self.extra_kwargs["reasoning"]
 
