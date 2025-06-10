@@ -58,3 +58,4 @@ exclude = '''
 [project.scripts]
 agentlab-assistant = "agentlab.ui_assistant:main"
 agentlab-xray = "agentlab.analyze.agent_xray:main"
+agentlab-controller = "agentlab.analyze.run_agentlab_controller:main"
