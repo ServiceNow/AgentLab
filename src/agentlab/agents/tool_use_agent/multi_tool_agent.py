@@ -108,7 +108,7 @@ class Obs(Block):
     use_dom: bool = False
     use_som: bool = False
     use_tabs: bool = False
-    add_mouse_pointer: bool = True
+    add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
 
     def apply(
@@ -215,13 +215,12 @@ class Summarizer(Block):
             # Add a system message to the LLM to indicate that it should summarize
             system_msg.add_text(
                 """# Summarizer instructions:\nWhen asked to summarize, do the following:
-    1) Summarize the effect of the last action, with attention to details.
-    2) Give a semantic description of the current state of the environment, with attention to details. If there was a repeating mistake, mention the cause of it.
-    3) Reason about the overall task at a high level.
-    4) What hint can be relevant for the next action? Only chose from the hints provided in the task description. Or select none.
-    5) What is the currently activated item if any.
-    6) Reason about the next action to take, based on the current state and the goal.
-    """
+1) Summarize the effect of the last action, with attention to details.
+2) Give a semantic description of the current state of the environment, with attention to details. If there was a repeating mistake, mention the cause of it.
+3) Reason about the overall task at a high level.
+4) What hint can be relevant for the next action? Only chose from the hints provided in the task description. Or select none.
+5) Reason about the next action to take, based on the current state and the goal.
+"""
             )
         else:
             system_msg.add_text(
@@ -343,6 +342,7 @@ class ToolUseAgent(bgym.Agent):
         self.messages: list[MessageBuilder] = []
         self.last_response: LLMOutput = LLMOutput()
         self._responses: list[LLMOutput] = []
+        self.obs_msg_set = list()
 
     def obs_preprocessor(self, obs):
         obs = copy(obs)
@@ -386,15 +386,14 @@ class ToolUseAgent(bgym.Agent):
             self.config.general_hints.apply(self.llm, self.messages)
             self.task_hint.apply(self.llm, self.messages, self.task_name)
 
-        logging.info("Appending observation to messages")
-        self.config.obs.apply(self.llm, self.messages, obs, last_llm_output=self.last_response)
-        logging.info("Calling summarizer")
+        obs_msg = self.config.obs.apply(
+            self.llm, self.messages, obs, last_llm_output=self.last_response
+        )
+        self.obs_msg_set
         self.config.summarizer.apply(self.llm, self.messages)
-        logging.info("Main tool calling")
         response: LLMOutput = self.llm(
             messages=self.messages, tool_choice="any", cache_tool_definition=True
         )
-        logging.info(f"Obtained response {response}")
 
         action = response.action
         think = response.think
