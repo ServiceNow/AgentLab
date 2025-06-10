@@ -1,4 +1,6 @@
-## How To Navigate the Menu in ServiceNow
+Here is some important information that will help you do your task properly. Pay close attention to it. 
+
+### How To Navigate the Menu in ServiceNow
 
 * At the top left corner of the screen, find the "Menu" or "All" button.
 * Clicking on it will list all modules and applications available to you based on your permissions.
@@ -7,7 +9,7 @@
   * **Search Bar:** Search for applications, records, or even data directly.
   * **Favorites:** Pin your favorite modules for one-click access.
 
-### Example: Navigating to the Incident List
+#### Example: Navigating to the Incident List
 
 1. Go to the Application Navigator (sidebar or menu).
 2. Type `Incident` in the search/filter box.
@@ -15,9 +17,9 @@
 
 ---
 
-## How to Create a Record in ServiceNow
+### How to Create a Record in ServiceNow
 
-### General Steps (Works for Any Table)
+#### General Steps (Works for Any Table)
 
 1. **Navigate to the Right Module:**
 
@@ -39,7 +41,7 @@
    * In some interfaces, you may see **Update** (when editing an existing record).
 
 
-### Example: Creating a New Incident
+#### Example: Creating a New Incident
 
 1. In the **Filter Navigator**, type `incident`.
 2. Click on **Incident > Create New**.
@@ -54,11 +56,14 @@
 
 ---
 
-## How to Filter Records in a Table in ServiceNow
+### How to Filter Records in a Table in ServiceNow
 
-### General Step
+1. **Navigate to Your Table/List**
 
-* **Navigate** to your table: e.g., `Incident > All`
+   * For example, go to **Incident > All** or any other table you want to view.
+
+2. **Filter by One or Multiple Conditions**
+
 * You'll see a **filter row** above the table (sometimes with "Add Filter" or a funnel icon).
 * **Build your filter:**
 
@@ -69,7 +74,7 @@
 * **Run the filter:** Click the **Run** button (funnel icon or "Run") to apply the filter.
 
 
-### Example: Filtering Incidents
+#### Example: Filtering Incidents
 
 1. Go to **Incident > All**.
 2. Click **Filter** or the funnel icon.
@@ -80,7 +85,7 @@
 
 ---
 
-## How to Impersonate a User in ServiceNow
+### How to Impersonate a User in ServiceNow
 
 1. **Click Your User Avatar or Name:**
 
@@ -108,7 +113,7 @@
 
 ---
 
-## How to Search for a Knowledge Base Article
+### How to Search for a Knowledge Base Article
 
 1. **Locate the Global Search Bar:**
 
@@ -132,7 +137,7 @@
 
 ---
 
-## How to Order a Service Catalog Item in ServiceNow
+### How to Order a Service Catalog Item in ServiceNow
 
 1. **Go to the Service Catalog**
 
@@ -140,30 +145,31 @@
 
 2. **Find the Item You Want to Order**
 
-  * **Browse:** Look through categories (e.g., Hardware, Software, Access, etc.).
-  * **Search:** Use the search bar to enter keywords for the item you need (e.g., "laptop", "VPN", "Adobe").
-  * **Click** on the item's name or image to open its details page.
+  * Browse: Look through categories (e.g., Hardware, Software, Access, etc.).
+  * Search: Scroll the page or use the search bar to enter keywords (e.g., "laptop", "VPN", "Adobe") to find the item you need.
+  * Click on the item's name or image to open its details page.
 
 3. **Fill Out the Order Form**
 
-  * Complete any required fields (marked with a red asterisk \*)—these might include:
+  * Complete any required fields. This can include:
 
     * Item details (e.g., type, justification, quantity)
     * Delivery information
     * Additional options or comments
-    * When selecting a radio or checkbox button, **ALWAYS** click on the associated label instead of the button.
+
+   * REMINDER: You can ONLY interact with visible elements. If an element is not both "visible" and "clickable", you cannot interact with it.
+      * When selecting a radio or checkbox button, ALWAYS click on the associated label instead of the button.
 
 4. **Submit Your Order**
 
-  * Before submitting, **ALWAYS** double-check that you have the correct item selected with all the required fields completed.
-  * Click the **Order Now**, **Submit**, or **Request** button at the bottom of the form.
+  * Before submitting, ALWAYS double-check that you have the correct item selected with all the required fields completed.
+  * Click the **Order Now**, **Submit**, or **Request** button.
   * You'll receive a confirmation with a request number (e.g., `REQ0001234`).
   * You can track the status of your request from **Self-Service > My Requests** or the "Requests"/"My Items" area in the portal.
 
-
 ---
 
-## **How to Sort Records in ServiceNow**
+### **How to Sort Records in ServiceNow**
 
 1. **Navigate to Your Table/List**
 
@@ -171,13 +177,17 @@
 
 2. **Sort by One or Multiple Columns**
 
-   * Click on the filter button (funnel icon) at the top left of the page to open the filter row.
-   * For each column you need to sort by:
-     * Click on the Add Sort button to add a new sort filter.
-     * Select the column you want to sort by.
-     * Select the appropriate ordering between ascending (a-z) or descending (z-a).
-   * Once all sort filters have been added, click the Run button to apply the sort.
-   * **NEVER** try to add columns via the Personalize List menu. **ONLY** follow the instructions presented above.
+   * `click` on the "show / hide filter" button (funnel icon) at the top left of the page to open the filter row.
+   * Repeat the following steps for each column you want to sort by:
+     * `click` on the "Add Sort" button to add a new sort filter. This will create a new ordering filter row with two comboboxes under the heading "Order results by the following fields".
+     * `fill` the first combobox with the appropriate field name you want to sort by. MAKE SURE to use the exact field name provided.
+     * `press` Enter after typing the field name. It is VERY IMPORTANT that you do this before doing anything else. DO NOT click on the run filter button before having confirmed your choice by explicitly pressing ENTER.
+     * `select_option` for the appropriate ordering between ascending (a to z) or descending (z to a) in the second combobox.
+   * Once all sort filters have been added, `click` the "Run filter" button to apply the sort.
+
+Notes:
+   * NEVER directly sort the columns using the table header.
+   * NEVER add columns via the Personalize List menu.
 
 3. **Resetting or Clearing Sorting**
 
