@@ -2,6 +2,7 @@ from browsergym.experiments.benchmark import HighLevelActionSetArgs
 from .vl_agent.ui_agent import UIAgentArgs
 from .vl_model.llama_model import LlamaModelArgs
 from .vl_model.openrouter_api_model import OpenRouterAPIModelArgs
+from .vl_model.qwen_model import QwenModelArgs
 from .vl_prompt.ui_prompt import UIPromptArgs
 
 
@@ -15,6 +16,17 @@ VL_MODEL_ARGS_DICT = {
     "llama_32_11b": LlamaModelArgs(
         model_path="meta-llama/Llama-3.2-11B-Vision-Instruct",
         torch_dtype="bfloat16",
+        accelerator_config={"mixed_precision": "bf16", "cpu": False},
+        reproducibility_config={"temperature": 0.1},
+        max_length=32768,
+        max_new_tokens=8192,
+        checkpoint_file=None,
+        device=None,
+    ),
+    "qwen_25_vl_7b": QwenModelArgs(
+        model_path="Qwen/Qwen2.5-VL-7B-Instruct",
+        torch_dtype="bfloat16",
+        attn_implementation="flash_attention_2",
         accelerator_config={"mixed_precision": "bf16", "cpu": False},
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
