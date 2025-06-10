@@ -392,7 +392,10 @@ class ToolUseAgent(bgym.Agent):
         self.config.summarizer.apply(self.llm, self.messages)
         logging.info("Main tool calling")
         response: LLMOutput = self.llm(
-            messages=self.messages, tool_choice="any", cache_tool_definition=True
+            messages=self.messages,
+            tool_choice="any",
+            cache_tool_definition=True,
+            cache_complete_prompt=True,
         )
         logging.info(f"Obtained response {response}")
 
