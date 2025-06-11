@@ -45,6 +45,8 @@ class QwenModel(VLModel):
                     elif item["type"] == "image_url":
                         input_message["content"].append({"type": "image"})
                         input_images.append(image_url_to_image(item["image_url"]["url"]))
+                    else:
+                        raise ValueError(f"Unsupported type: {item['type']}")
             input_messages.append(input_message)
         input_text = self.processor.apply_chat_template(
             input_messages, add_generation_prompt=True, tokenize=False
