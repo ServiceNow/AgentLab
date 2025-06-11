@@ -4,8 +4,6 @@ import logging
 import os
 
 
-logging.getLogger().setLevel(logging.INFO)
-
 vl_agent_args_list = [VL_AGENT_ARGS_DICT["ui_agent"]]
 benchmark = "miniwob"
 os.environ["MINIWOB_URL"] = "file:///mnt/home/miniwob-plusplus/miniwob/html/miniwob/"

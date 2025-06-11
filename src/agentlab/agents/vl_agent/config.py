@@ -38,7 +38,7 @@ VL_MODEL_ARGS_DICT = {
 
 VL_PROMPT_ARGS_DICT = {
     "ui_prompt": UIPromptArgs(
-        use_tabs=True,
+        use_tabs=False,
         use_history=True,
         use_error=True,
         use_abstract_example=True,

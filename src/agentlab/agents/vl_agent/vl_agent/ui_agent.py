@@ -4,11 +4,9 @@ from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
-from browsergym.utils.obs import overlay_som
 from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
 from functools import cache
-from typing import Optional
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
 from ..vl_prompt.ui_prompt import UIPromptArgs
@@ -108,7 +106,7 @@ class UIAgent(VLAgent):
 @dataclass
 class UIAgentArgs(VLAgentArgs):
     main_vl_model_args: VLModelArgs
-    auxiliary_vl_model_args: Optional[VLModelArgs]
+    auxiliary_vl_model_args: VLModelArgs
     ui_prompt_args: UIPromptArgs
     action_set_args: HighLevelActionSetArgs
     max_num_retries: int
@@ -116,10 +114,7 @@ class UIAgentArgs(VLAgentArgs):
     @property
     @cache
     def agent_name(self) -> str:
-        if self.auxiliary_vl_model_args is None:
-            return f"UIAgent-{self.main_vl_model_args.model_name}"
-        else:
-            return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
+        return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
         self.ui_agent = UIAgent(
@@ -133,18 +128,15 @@ class UIAgentArgs(VLAgentArgs):
 
     def prepare(self):
         self.main_vl_model_args.prepare()
-        if self.auxiliary_vl_model_args is not None:
-            self.auxiliary_vl_model_args.prepare()
+        self.auxiliary_vl_model_args.prepare()
 
     def close(self):
         self.main_vl_model_args.close()
-        if self.auxiliary_vl_model_args is not None:
-            self.auxiliary_vl_model_args.close()
+        self.auxiliary_vl_model_args.close()
 
     def set_reproducibility_mode(self):
         self.main_vl_model_args.set_reproducibility_mode()
-        if self.auxiliary_vl_model_args is not None:
-            self.auxiliary_vl_model_args.set_reproducibility_mode()
+        self.auxiliary_vl_model_args.set_reproducibility_mode()
 
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
         self.ui_prompt_args.use_tabs = benchmark.is_multi_tab

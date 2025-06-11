@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.benchmark import Benchmark
-from dataclasses import dataclass
 
 
 class VLAgent(ABC):
@@ -19,7 +18,6 @@ class VLAgent(ABC):
         raise NotImplementedError
 
 
-@dataclass
 class VLAgentArgs(ABC):
     @property
     @abstractmethod
