@@ -65,7 +65,7 @@ class TabsPromptPart(VLPromptPart):
 """
         for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
             text += f"""
-## Tab {index}{' (active tab)' if index == active_page_index else ''}
+## Tab {index}{' (the current web page)' if index == active_page_index else ''}
 
 ### Title
 
@@ -90,7 +90,7 @@ class HistoryPromptPart(VLPromptPart):
             text += f"""
 ## Step {index}
 
-### Though
+### Thought
 
 {thought}
 
