@@ -2,7 +2,7 @@ import fnmatch
 import logging
 from abc import ABC, abstractmethod
 from copy import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +54,55 @@ class Block(ABC):
         pass
 
 
+@dataclass
+class MsgGroup:
+    name: str = None
+    messages: list[MessageBuilder] = field(default_factory=list)
+    summary: MessageBuilder = None
+
+
+class StructuredDiscussion:
+
+    def __init__(self, keep_last_n_obs=None):
+        self.groups: list[MsgGroup] = []
+        self.keep_last_n_obs = keep_last_n_obs
+
+    def append(self, message: MessageBuilder):
+        """Append a message to the last group."""
+        self.groups[-1].messages.append(message)
+
+    def new_group(self, name: str = None):
+        """Start a new group of messages."""
+        if name is None:
+            name = f"group_{len(self.groups)}"
+        self.groups.append(MsgGroup(name))
+
+    def flatten(self) -> list[MessageBuilder]:
+        """Flatten the groups into a single list of messages."""
+
+        keep_last_n_obs = self.keep_last_n_obs or len(self.groups)
+        messages = []
+        for i, group in enumerate(self.groups):
+            is_tail = i >= len(self.groups) - keep_last_n_obs
+            print(
+                f"Processing group {i} ({group.name}), is_tail={is_tail}, len(greoup)={len(group.messages)}"
+            )
+            if not is_tail and group.summary is not None:
+                messages.append(group.summary)
+            else:
+                messages.extend(group.messages)
+
+        return messages
+
+    def set_last_summary(self, summary: MessageBuilder):
+        # append None to summaries until we reach the current group index
+        self.groups[-1].summary = summary
+
+    def is_goal_set(self) -> bool:
+        """Check if the goal is set in the first group."""
+        return len(self.groups) > 0
+
+
 # @dataclass
 # class BlockArgs(ABC):
 
@@ -74,9 +123,9 @@ class Goal(Block):
 
     goal_as_system_msg: bool = True
 
-    def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
+    def apply(self, llm, discussion: StructuredDiscussion, obs: dict) -> dict:
         system_message = llm.msg.system().add_text(SYS_MSG)
-        messages.append(system_message)
+        discussion.append(system_message)
 
         if self.goal_as_system_msg:
             goal_message = llm.msg.system()
@@ -89,7 +138,7 @@ class Goal(Block):
                 goal_message.add_text(content["text"])
             elif content["type"] == "image_url":
                 goal_message.add_image(content["image_url"])
-        messages.append(goal_message)
+        discussion.append(goal_message)
 
 
 AXTREE_NOTE = """
@@ -112,7 +161,7 @@ class Obs(Block):
     use_zoomed_webpage: bool = False
 
     def apply(
-        self, llm, messages: list[MessageBuilder], obs: dict, last_llm_output: LLMOutput
+        self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
 
         if last_llm_output.tool_calls is None:
@@ -147,7 +196,7 @@ class Obs(Block):
         if self.use_tabs:
             obs_msg.add_text(_format_tabs(obs))
 
-        messages.append(obs_msg)
+        discussion.append(obs_msg)
         return obs_msg
 
 
@@ -172,7 +221,7 @@ class GeneralHints(Block):
 
     use_hints: bool = True
 
-    def apply(self, llm, messages: list[MessageBuilder]) -> dict:
+    def apply(self, llm, discussion: StructuredDiscussion) -> dict:
         if not self.use_hints:
             return
 
@@ -182,7 +231,7 @@ class GeneralHints(Block):
             """Use ControlOrMeta instead of Control and Meta for keyboard shortcuts, to be cross-platform compatible. E.g. use ControlOrMeta for mutliple selection in lists.\n"""
         )
 
-        messages.append(llm.msg.user().add_text("\n".join(hints)))
+        discussion.append(llm.msg.user().add_text("\n".join(hints)))
 
 
 @dataclass
@@ -192,20 +241,22 @@ class Summarizer(Block):
     do_summary: bool = False
     high_details: bool = True
 
-    def apply(self, llm, messages: list[MessageBuilder]) -> dict:
+    def apply(self, llm, discussion: StructuredDiscussion) -> dict:
         if not self.do_summary:
             return
 
         msg = llm.msg.user().add_text("""Summarize\n""")
 
-        messages.append(msg)
+        discussion.append(msg)
         # TODO need to make sure we don't force tool use here
-        summary_response = llm(messages=messages, tool_choice="none")
+        summary_response = llm(messages=discussion.flatten(), tool_choice="none")
 
         summary_msg = llm.msg.assistant().add_text(summary_response.think)
-        messages.append(summary_msg)
+        discussion.append(summary_msg)
+        discussion.set_last_summary(summary_msg)
+        return summary_msg
 
-    def apply_init(self, llm, messages: list[MessageBuilder]) -> dict:
+    def apply_init(self, llm, discussion: StructuredDiscussion) -> dict:
         """Initialize the summarizer block."""
         if not self.do_summary:
             return
@@ -226,7 +277,7 @@ class Summarizer(Block):
             system_msg.add_text(
                 """When asked to summarize, give a semantic description of the current state of the environment."""
             )
-        messages.append(system_msg)
+        discussion.append(system_msg)
 
 
 @dataclass
@@ -242,7 +293,7 @@ class TaskHint(Block):
         # index the task_name for fast lookup
         # self.hint_db.set_index("task_name", inplace=True, drop=False)
 
-    def apply(self, llm, messages: list[MessageBuilder], task_name: str) -> dict:
+    def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
         if not self.use_task_hint:
             return
 
@@ -256,12 +307,14 @@ class TaskHint(Block):
             if hint:
                 hints.append(f"- {hint}")
 
-        hints_str = "# Hints:\nHere are some hints for the task you are working on:\n" + "\n".join(
-            hints
-        )
-        msg = llm.msg.user().add_text(hints_str)
+        if len(hints) > 0:
+            hints_str = (
+                "# Hints:\nHere are some hints for the task you are working on:\n"
+                + "\n".join(hints)
+            )
+            msg = llm.msg.user().add_text(hints_str)
 
-        messages.append(msg)
+            discussion.append(msg)
 
 
 class ToolCall(Block):
@@ -291,6 +344,7 @@ class PromptConfig:
     summarizer: Summarizer = None
     general_hints: GeneralHints = None
     task_hint: TaskHint = None
+    keep_last_n_obs: int = 2
 
 
 @dataclass
@@ -338,11 +392,11 @@ class ToolUseAgent(bgym.Agent):
         self.llm.msg = self.msg_builder
 
         self.task_hint = self.config.task_hint.make()
+        self.obs_block = self.config.obs.make()
 
-        self.messages: list[MessageBuilder] = []
+        self.discussion = StructuredDiscussion(self.config.keep_last_n_obs)
         self.last_response: LLMOutput = LLMOutput()
         self._responses: list[LLMOutput] = []
-        self.obs_msg_set = list()
 
     def obs_preprocessor(self, obs):
         obs = copy(obs)
@@ -380,19 +434,23 @@ class ToolUseAgent(bgym.Agent):
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> float:
         self.llm.reset_stats()
-        if len(self.messages) == 0:
-            self.config.goal.apply(self.llm, self.messages, obs)
-            self.config.summarizer.apply_init(self.llm, self.messages)
-            self.config.general_hints.apply(self.llm, self.messages)
-            self.task_hint.apply(self.llm, self.messages, self.task_name)
+        if not self.discussion.is_goal_set():
+            self.discussion.new_group("goal")
+            self.config.goal.apply(self.llm, self.discussion, obs)
+            self.config.summarizer.apply_init(self.llm, self.discussion)
+            self.config.general_hints.apply(self.llm, self.discussion)
+            self.task_hint.apply(self.llm, self.discussion, self.task_name)
 
-        obs_msg = self.config.obs.apply(
-            self.llm, self.messages, obs, last_llm_output=self.last_response
-        )
-        self.obs_msg_set
-        self.config.summarizer.apply(self.llm, self.messages)
+            self.discussion.new_group()
+
+        self.obs_block.apply(self.llm, self.discussion, obs, last_llm_output=self.last_response)
+        print("flatten for summary")
+
+        self.config.summarizer.apply(self.llm, self.discussion)
+
+        messages = self.discussion.flatten()
         response: LLMOutput = self.llm(
-            messages=self.messages,
+            messages=messages,
             tool_choice="any",
             cache_tool_definition=True,
             cache_complete_prompt=True,
@@ -401,7 +459,8 @@ class ToolUseAgent(bgym.Agent):
         action = response.action
         think = response.think
 
-        self.messages.append(response.tool_calls)
+        self.discussion.new_group()
+        self.discussion.append(response.tool_calls)
 
         self.last_response = response
         self._responses.append(response)  # may be useful for debugging
@@ -409,7 +468,7 @@ class ToolUseAgent(bgym.Agent):
 
         agent_info = bgym.AgentInfo(
             think=think,
-            chat_messages=self.messages,
+            chat_messages=messages,
             stats=self.llm.stats.stats_dict,
         )
         return action, agent_info
