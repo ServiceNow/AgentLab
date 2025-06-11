@@ -104,11 +104,11 @@ class LlamaModelArgs(VLModelArgs):
             load_checkpoint_in_model(llama_model.model, checkpoint=self.checkpoint_file)
         if self.device is None:
             layer_classes = set()
-            for layer in llama_model.model.language_model.model.layers:
+            for layer in llama_model.model.model.language_model.layers:
                 layer_classes.add(layer.__class__)
-            for layer in llama_model.model.vision_model.transformer.layers:
+            for layer in llama_model.model.model.vision_model.transformer.layers:
                 layer_classes.add(layer.__class__)
-            for layer in llama_model.model.vision_model.global_transformer.layers:
+            for layer in llama_model.model.model.vision_model.global_transformer.layers:
                 layer_classes.add(layer.__class__)
             llama_model.model = auto_dispatch_model(
                 llama_model.model,
