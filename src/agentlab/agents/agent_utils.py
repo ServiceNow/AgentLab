@@ -1,5 +1,7 @@
 from logging import warning
+from typing import Optional, Tuple
 
+import numpy as np
 from PIL import Image, ImageDraw
 from playwright.sync_api import Page
 
@@ -42,10 +44,37 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
             )
         except (ValueError, IndexError) as e:
             warning(f"Failed to parse action '{action}': {e}")
+
+    elif action.startswith("mouse_drag_and_drop"):
+        try:
+            func_name, parsed_args = parse_func_call_string(action)
+            if func_name == "mouse_drag_and_drop" and parsed_args is not None:
+                args, kwargs = parsed_args
+                x1, y1, x2, y2 = None, None, None, None
+
+                if args and len(args) >= 4:
+                    # Positional arguments: mouse_drag_and_drop(x1, y1, x2, y2)
+                    x1, y1, x2, y2 = map(float, args[:4])
+                elif kwargs:
+                    # Keyword arguments: mouse_drag_and_drop(from_x=x1, from_y=y1, to_x=x2, to_y=y2)
+                    x1 = float(kwargs.get("from_x", 0))
+                    y1 = float(kwargs.get("from_y", 0))
+                    x2 = float(kwargs.get("to_x", 0))
+                    y2 = float(kwargs.get("to_y", 0))
+
+                if all(coord is not None for coord in [x1, y1, x2, y2]):
+                    draw = ImageDraw.Draw(screenshot)
+                    # Draw the main line
+                    draw.line((x1, y1, x2, y2), fill="red", width=2)
+                    # Draw arrowhead at the end point using the helper function
+                    draw_arrowhead(draw, (x1, y1), (x2, y2))
+        except (ValueError, IndexError) as e:
+            warning(f"Failed to parse action '{action}': {e}")
     return screenshot
 
 
 def add_mouse_pointer_from_action(screenshot: Image, action: str) -> Image.Image:
+
     if action.startswith("mouse_click"):
         try:
             coords = action[action.index("(") + 1 : action.index(")")].split(",")
@@ -83,6 +112,23 @@ def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
     draw.polygon(pointer_shape, fill=(0, 0, 0, 128))  # 50% transparent black
 
     return Image.alpha_composite(image.convert("RGBA"), overlay)
+
+
+def draw_arrowhead(draw, start, end, arrow_length=15, arrow_angle=30):
+    from math import atan2, cos, radians, sin
+
+    angle = atan2(end[1] - start[1], end[0] - start[0])
+    left = (
+        end[0] - arrow_length * cos(angle - radians(arrow_angle)),
+        end[1] - arrow_length * sin(angle - radians(arrow_angle)),
+    )
+    right = (
+        end[0] - arrow_length * cos(angle + radians(arrow_angle)),
+        end[1] - arrow_length * sin(angle + radians(arrow_angle)),
+    )
+    draw.line([end, left], fill="red", width=4)
+    draw.line([end, right], fill="red", width=4)
+
 
 
 def draw_click_indicator(image: Image.Image, x: int, y: int) -> Image.Image:
