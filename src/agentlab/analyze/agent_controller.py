@@ -41,6 +41,17 @@ def get_import_path(obj):
     return f"{obj.__module__}.{obj.__qualname__}"
 
 
+def deserialize_response(response_json):
+    if "obs" in response_json:
+        if "screenshot" in response_json["obs"]:
+            screenshot_data = response_json["obs"]["screenshot"]
+            # convert base64 to numpy array
+            screenshot = np.frombuffer(base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"]))
+            screenshot = screenshot.reshape(screenshot_data["shape"])
+            response_json["obs"]["screenshot"] = screenshot
+    return response_json
+
+
 def setup_sidebar():
     with st.sidebar:
         st.markdown(
@@ -234,17 +245,11 @@ def reset_environment():
     logger.info(f"Done request in {end - start}")
     start = datetime.now()
     if resp.status_code != 200 or resp.json().get("status") != "success":
-        print(resp.status_code)
-        print(resp.json()["status"])
-        print(resp.json()["message"])
+        logger.error(resp.status_code)
+        logger.error(resp.json()["status"])
+        logger.error(resp.json()["message"])
     response_json = resp.json()
-    if "obs" in response_json:
-        if "screenshot" in response_json["obs"]:
-            screenshot_data = response_json["obs"]["screenshot"]
-            # convert base64 to numpy array
-            screenshot = np.frombuffer(base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"]))
-            screenshot = screenshot.reshape(screenshot_data["shape"])
-            response_json["obs"]["screenshot"] = screenshot
+    response_json = deserialize_response(response_json)
     if st.session_state.agent.obs_preprocessor:
         response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
     st.session_state.last_obs = response_json["obs"]
@@ -257,17 +262,11 @@ def reload_task():
     start = datetime.now()
     resp = requests.post(f"{SERVER_URL}/reload_task")
     if resp.status_code != 200 or resp.json().get("status") != "success":
-        print(resp.status_code)
-        print(resp.json()["status"])
-        print(resp.json()["message"])
+        logger.error(resp.status_code)
+        logger.error(resp.json()["status"])
+        logger.error(resp.json()["message"])
     response_json = resp.json()
-    if "obs" in response_json:
-        if "screenshot" in response_json["obs"]:
-            screenshot_data = response_json["obs"]["screenshot"]
-            # convert base64 to numpy array
-            screenshot = np.frombuffer(base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"]))
-            screenshot = screenshot.reshape(screenshot_data["shape"])
-            response_json["obs"]["screenshot"] = screenshot
+    response_json = deserialize_response(response_json)
     if st.session_state.agent.obs_preprocessor:
         response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
     st.session_state.last_obs = response_json["obs"]
@@ -281,17 +280,12 @@ def step_environment(action):
     payload = {"action": action}
     resp = requests.post(f"{SERVER_URL}/step", json=payload)
     if resp.status_code != 200 or resp.json().get("status") != "success":
-        print(resp.status_code)
-        print(resp.json()["status"])
-        print(resp.json()["message"])
+        logger.error(resp.status_code)
+        logger.error(resp.json()["status"])
+        logger.error(resp.json()["message"])
     response_json = resp.json()
-    if "obs" in response_json:
-        if "screenshot" in response_json["obs"]:
-            screenshot_data = response_json["obs"]["screenshot"]
-            # convert base64 to numpy array
-            screenshot = np.frombuffer(base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"]))
-            screenshot = screenshot.reshape(screenshot_data["shape"])
-            response_json["obs"]["screenshot"] = screenshot
+    response_json = deserialize_response(response_json)
+
     if st.session_state.agent.obs_preprocessor:
         response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
     st.session_state.last_obs = response_json["obs"]
@@ -345,7 +339,6 @@ def set_agent_state_box():
         with col1:
             with st.container(border=True, height=250):
                 st.markdown("**Goal**")
-                # st.text_area("", st.session_state.agent.obs_history[-1]["goal"], height=175, disabled=True, label_visibility="collapsed")
                 st.code(st.session_state.agent.obs_history[-1]["goal"], wrap_lines=True, language=None, height=175)
         with col2:
             with st.container(border=True, height=250):
@@ -357,12 +350,10 @@ def set_agent_state_box():
             with st.container(border=True, height=250):
                 st.markdown("**Action**")
                 st.session_state.action = st.text_area("Action", st.session_state.action, height=172, label_visibility="collapsed")
-                # st.code(st.session_state.action, wrap_lines=True, language="python", height=175)
 
 
 def set_prompt_modifier():
     with st.expander("**Prompt Modifier**", expanded=False):
-        # st.write(st.session_state.agent.flags)
         st.markdown("**Observation Flags**")
         col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
         with col1:
