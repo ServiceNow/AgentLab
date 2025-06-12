@@ -224,7 +224,6 @@ CHAT_MODEL_ARGS_DICT = {
     ### Azure
     "azure/gpt-4o-mini": AzureModelArgs(
         model_name="gpt-4o-mini",
-        # deployment_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=16_384,
@@ -232,7 +231,6 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "azure/gpt-4o": AzureModelArgs(
         model_name="gpt-4o",
-        # deployment_name="gpt-4o-mini-2024-07-18",
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=16_384,
@@ -240,7 +238,6 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "azure/gpt-4.1": AzureModelArgs(
         model_name="gpt-4.1",
-        # deployment_name="gpt-4.1",
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=16_384,
@@ -248,7 +245,6 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "azure/gpt-4.1-mini": AzureModelArgs(
         model_name="gpt-4.1-mini",
-        # deployment_name="gpt-4.1-mini",
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=16_384,
