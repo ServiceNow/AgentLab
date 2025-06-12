@@ -1,6 +1,5 @@
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
-from functools import cache
 from openai import OpenAI, RateLimitError
 from .base import VLModel, VLModelArgs
 import backoff
@@ -51,12 +50,13 @@ class OpenRouterAPIModelArgs(VLModelArgs):
         return self.model_id.split("/")[-1].replace("-", "_").replace(".", "")
 
     def make_model(self) -> OpenRouterAPIModel:
-        self.openrouter_api_model = OpenRouterAPIModel(
-            base_url=self.base_url,
-            model_id=self.model_id,
-            max_tokens=self.max_tokens,
-            reproducibility_config=self.reproducibility_config,
-        )
+        if not hasattr(self, "openrouter_api_model"):
+            self.openrouter_api_model = OpenRouterAPIModel(
+                base_url=self.base_url,
+                model_id=self.model_id,
+                max_tokens=self.max_tokens,
+                reproducibility_config=self.reproducibility_config,
+            )
         return self.openrouter_api_model
 
     def prepare(self):

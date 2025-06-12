@@ -360,7 +360,7 @@ class UIPromptArgs(VLPromptArgs):
                 use_abstract_example=self.use_abstract_example,
                 use_concrete_example=self.use_concrete_example,
             )
-            self.preliminary_main_ui_prompt = MainUIPrompt(
+            return MainUIPrompt(
                 introduction_prompt_part=introduction_prompt_part,
                 goal_prompt_part=goal_prompt_part,
                 screenshot_prompt_part=screenshot_prompt_part,
@@ -370,7 +370,6 @@ class UIPromptArgs(VLPromptArgs):
                 answer_prompt_part=preliminary_answer_prompt_part,
                 action_validator=action_set.to_python_code,
             )
-            return self.preliminary_main_ui_prompt
         else:
             if "coordinates" in extra_info:
                 final_answer_prompt_part = FinalAnswerPromptPart(
@@ -381,7 +380,7 @@ class UIPromptArgs(VLPromptArgs):
                     use_abstract_example=self.use_abstract_example,
                     use_concrete_example=self.use_concrete_example,
                 )
-                self.final_main_ui_prompt = MainUIPrompt(
+                return MainUIPrompt(
                     introduction_prompt_part=introduction_prompt_part,
                     goal_prompt_part=goal_prompt_part,
                     screenshot_prompt_part=screenshot_prompt_part,
@@ -391,9 +390,7 @@ class UIPromptArgs(VLPromptArgs):
                     answer_prompt_part=final_answer_prompt_part,
                     action_validator=action_set.to_python_code,
                 )
-                return self.final_main_ui_prompt
             else:
-                self.auxiliary_ui_prompt = AuxiliaryUIPrompt(
+                return AuxiliaryUIPrompt(
                     screenshot=obs["screenshot"], location=extra_info["location"]
                 )
-                return self.auxiliary_ui_prompt

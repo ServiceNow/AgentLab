@@ -2,7 +2,6 @@ from accelerate import Accelerator
 from accelerate.utils.modeling import load_checkpoint_in_model
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
-from functools import cache
 from transformers import AutoProcessor, MllamaForConditionalGeneration
 from typing import Optional
 from .base import VLModel, VLModelArgs
@@ -91,39 +90,40 @@ class LlamaModelArgs(VLModelArgs):
         return self.model_path.split("/")[-1].replace("-", "_").replace(".", "")
 
     def make_model(self) -> LlamaModel:
-        llama_model = LlamaModel(
-            model_path=self.model_path,
-            torch_dtype=self.torch_dtype,
-            accelerator_config=self.accelerator_config,
-            reproducibility_config=self.reproducibility_config,
-            max_length=self.max_length,
-            max_new_tokens=self.max_new_tokens,
-        )
-        if self.checkpoint_file is not None:
-            load_checkpoint_in_model(llama_model.model, checkpoint=self.checkpoint_file)
-        if self.device is None:
-            layer_classes = set()
-            for layer in llama_model.model.model.language_model.layers:
-                layer_classes.add(layer.__class__)
-            for layer in llama_model.model.model.vision_model.transformer.layers:
-                layer_classes.add(layer.__class__)
-            for layer in llama_model.model.model.vision_model.global_transformer.layers:
-                layer_classes.add(layer.__class__)
-            llama_model.model = auto_dispatch_model(
-                llama_model.model,
-                no_split_module_classes=[layer_class.__name__ for layer_class in layer_classes],
+        if not hasattr(self, "llama_model"):
+            llama_model = LlamaModel(
+                model_path=self.model_path,
+                torch_dtype=self.torch_dtype,
+                accelerator_config=self.accelerator_config,
+                reproducibility_config=self.reproducibility_config,
+                max_length=self.max_length,
+                max_new_tokens=self.max_new_tokens,
             )
-        else:
-            llama_model.model = llama_model.model.to(self.device)
-        llama_model.model.eval()
-        self.llama_model = llama_model
+            if self.checkpoint_file is not None:
+                load_checkpoint_in_model(llama_model.model, checkpoint=self.checkpoint_file)
+            if self.device is None:
+                layer_classes = set()
+                for layer in llama_model.model.model.language_model.layers:
+                    layer_classes.add(layer.__class__)
+                for layer in llama_model.model.model.vision_model.transformer.layers:
+                    layer_classes.add(layer.__class__)
+                for layer in llama_model.model.model.vision_model.global_transformer.layers:
+                    layer_classes.add(layer.__class__)
+                llama_model.model = auto_dispatch_model(
+                    llama_model.model,
+                    no_split_module_classes=[layer_class.__name__ for layer_class in layer_classes],
+                )
+            else:
+                llama_model.model = llama_model.model.to(self.device)
+            llama_model.model.eval()
+            self.llama_model = llama_model
         return self.llama_model
 
     def prepare(self):
         pass
 
     def close(self):
-        del self.llama_model.model
+        pass
 
     def set_reproducibility_mode(self):
         self.reproducibility_config = {"do_sample": False}

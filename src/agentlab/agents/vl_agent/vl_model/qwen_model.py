@@ -2,7 +2,6 @@ from accelerate import Accelerator
 from accelerate.utils.modeling import load_checkpoint_in_model
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
-from functools import cache
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from typing import Optional
 from .base import VLModel, VLModelArgs
@@ -95,38 +94,39 @@ class QwenModelArgs(VLModelArgs):
         return self.model_path.split("/")[-1].replace("-", "_").replace(".", "")
 
     def make_model(self) -> QwenModel:
-        qwen_model = QwenModel(
-            model_path=self.model_path,
-            torch_dtype=self.torch_dtype,
-            attn_implementation=self.attn_implementation,
-            accelerator_config=self.accelerator_config,
-            reproducibility_config=self.reproducibility_config,
-            max_length=self.max_length,
-            max_new_tokens=self.max_new_tokens,
-        )
-        if self.checkpoint_file is not None:
-            load_checkpoint_in_model(qwen_model.model, checkpoint=self.checkpoint_file)
-        if self.device is None:
-            layer_classes = set()
-            for layer in qwen_model.model.model.language_model.layers:
-                layer_classes.add(layer.__class__)
-            for layer in qwen_model.model.model.visual.blocks:
-                layer_classes.add(layer.__class__)
-            qwen_model.model = auto_dispatch_model(
-                qwen_model.model,
-                no_split_module_classes=[layer_class.__name__ for layer_class in layer_classes],
+        if not hasattr(self, "qwen_model"):
+            qwen_model = QwenModel(
+                model_path=self.model_path,
+                torch_dtype=self.torch_dtype,
+                attn_implementation=self.attn_implementation,
+                accelerator_config=self.accelerator_config,
+                reproducibility_config=self.reproducibility_config,
+                max_length=self.max_length,
+                max_new_tokens=self.max_new_tokens,
             )
-        else:
-            qwen_model.model = qwen_model.model.to(self.device)
-        qwen_model.model.eval()
-        self.qwen_model = qwen_model
+            if self.checkpoint_file is not None:
+                load_checkpoint_in_model(qwen_model.model, checkpoint=self.checkpoint_file)
+            if self.device is None:
+                layer_classes = set()
+                for layer in qwen_model.model.model.language_model.layers:
+                    layer_classes.add(layer.__class__)
+                for layer in qwen_model.model.model.visual.blocks:
+                    layer_classes.add(layer.__class__)
+                qwen_model.model = auto_dispatch_model(
+                    qwen_model.model,
+                    no_split_module_classes=[layer_class.__name__ for layer_class in layer_classes],
+                )
+            else:
+                qwen_model.model = qwen_model.model.to(self.device)
+            qwen_model.model.eval()
+            self.qwen_model = qwen_model
         return self.qwen_model
 
     def prepare(self):
         pass
 
     def close(self):
-        del self.qwen_model.model
+        pass
 
     def set_reproducibility_mode(self):
         self.reproducibility_config = {"do_sample": False}

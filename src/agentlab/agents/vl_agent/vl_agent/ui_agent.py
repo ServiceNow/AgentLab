@@ -23,14 +23,14 @@ class UIAgent(VLAgent):
         self.main_vl_model = main_vl_model_args.make_model()
         self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.ui_prompt_args = ui_prompt_args
-        self.action_set_args = action_set_args
+        self._action_set = action_set_args.make_action_set()
         self.max_num_retries = max_num_retries
         self.thoughts = []
         self.actions = []
 
     @property
     def action_set(self) -> HighLevelActionSet:
-        return self.action_set_args.make_action_set()
+        return self._action_set
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
@@ -114,14 +114,13 @@ class UIAgentArgs(VLAgentArgs):
         return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
-        self.ui_agent = UIAgent(
+        return UIAgent(
             main_vl_model_args=self.main_vl_model_args,
             auxiliary_vl_model_args=self.auxiliary_vl_model_args,
             ui_prompt_args=self.ui_prompt_args,
             action_set_args=self.action_set_args,
             max_num_retries=self.max_num_retries,
         )
-        return self.ui_agent
 
     def prepare(self):
         self.main_vl_model_args.prepare()
