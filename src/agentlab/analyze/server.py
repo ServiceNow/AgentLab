@@ -72,7 +72,11 @@ def make_json_safe(obj: Any) -> Any:
     """
     if isinstance(obj, np.ndarray):
         # convert to base64
-        return {"data": base64.b64encode(obj.tobytes()).decode("utf-8"), "shape": obj.shape, "dtype": str(obj.dtype)}
+        return {
+            "data": base64.b64encode(obj.tobytes()).decode("utf-8"),
+            "shape": obj.shape,
+            "dtype": str(obj.dtype),
+        }
     elif isinstance(obj, dict):
         return {k: make_json_safe(v) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple)):
@@ -258,7 +262,9 @@ class EnvWrapper:
         # prepare backends
         benchmark = DEFAULT_BENCHMARKS[self.benchmark_name]()
         benchmark.env_args_list = [
-            elem for elem in benchmark.env_args_list if elem.task_name == self.task_name and str(elem.task_seed) == str(self.seed)
+            elem
+            for elem in benchmark.env_args_list
+            if elem.task_name == self.task_name and str(elem.task_seed) == str(self.seed)
         ]
         benchmark.prepare_backends()
 
@@ -300,7 +306,9 @@ class EnvWrapper:
         # NOTE: this is not guaranteed to result in the exact same state, but we find that it works most of the time, is much
         # faster than resetting the whole environment, and ensures the seed of the environment remains the same
         self.env.unwrapped.page.goto(self.start_url, wait_until="load")
-        self.env.unwrapped.page.evaluate("window.localStorage.clear(); window.sessionStorage.clear();")
+        self.env.unwrapped.page.evaluate(
+            "window.localStorage.clear(); window.sessionStorage.clear();"
+        )
         obs = self.env.unwrapped._get_obs()
 
         self.last_obs = copy.deepcopy(obs)
