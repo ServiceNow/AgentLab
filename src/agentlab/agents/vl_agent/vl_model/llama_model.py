@@ -87,7 +87,6 @@ class LlamaModelArgs(VLModelArgs):
     device: Optional[str]
 
     @property
-    @cache
     def model_name(self) -> str:
         return self.model_path.split("/")[-1].replace("-", "_").replace(".", "")
 

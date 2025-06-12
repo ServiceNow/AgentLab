@@ -30,7 +30,6 @@ class UIAgent(VLAgent):
         self.actions = []
 
     @property
-    @cache
     def action_set(self) -> HighLevelActionSet:
         return self.action_set_args.make_action_set()
 
@@ -112,7 +111,6 @@ class UIAgentArgs(VLAgentArgs):
     max_num_retries: int
 
     @property
-    @cache
     def agent_name(self) -> str:
         return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 

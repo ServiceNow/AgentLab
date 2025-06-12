@@ -47,7 +47,6 @@ class OpenRouterAPIModelArgs(VLModelArgs):
     reproducibility_config: dict
 
     @property
-    @cache
     def model_name(self) -> str:
         return self.model_id.split("/")[-1].replace("-", "_").replace(".", "")
 
