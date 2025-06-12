@@ -228,6 +228,8 @@ image to select a step and observe the action taken by the agent.
 
 ### AgentLab Server and AgentLab Controller
 
+https://github.com/user-attachments/assets/9a498c99-453a-4d7c-89fc-13e18db8dad6
+
 The AgentLab Server and Controller are two components that work together to control and debug an agent deployed in an environment.
 
 #### Prerequisites
