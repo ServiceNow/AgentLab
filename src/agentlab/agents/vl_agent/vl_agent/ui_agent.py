@@ -6,7 +6,6 @@ from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
 from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
-from functools import cache
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
 from ..vl_prompt.ui_prompt import UIPromptArgs
@@ -47,7 +46,7 @@ class UIAgent(VLAgent):
                 n_retry=self.max_num_retries,
                 parser=preliminary_main_ui_prompt.parse_answer,
             )
-            stats["preliminary_main_num_retries"] = (len(messages) - 3) // 2
+            stats["preliminary_main_num_retries"] = (len(messages) - 2) // 2
         except ParseError:
             preliminary_answer = {"thought": None, "location": None}
             stats["preliminary_main_num_retries"] = self.max_num_retries
@@ -66,7 +65,7 @@ class UIAgent(VLAgent):
                 n_retry=self.max_num_retries,
                 parser=auxiliary_ui_prompt.parse_answer,
             )
-            stats["auxiliary_num_retries"] = (len(messages) - 3) // 2
+            stats["auxiliary_num_retries"] = (len(messages) - 2) // 2
         except ParseError:
             auxiliary_answer = {"coordinates": None}
             stats["auxiliary_num_retries"] = self.max_num_retries
@@ -86,7 +85,7 @@ class UIAgent(VLAgent):
                 n_retry=self.max_num_retries,
                 parser=final_main_ui_prompt.parse_answer,
             )
-            stats["final_main_num_retries"] = (len(messages) - 3) // 2
+            stats["final_main_num_retries"] = (len(messages) - 2) // 2
         except ParseError:
             final_answer = {"action": None}
             stats["final_main_num_retries"] = self.max_num_retries

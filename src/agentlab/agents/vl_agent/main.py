@@ -3,6 +3,7 @@ from agentlab.experiments.study import Study
 import logging
 import os
 
+logging.getLogger().setLevel(logging.INFO)
 
 vl_agent_args_list = [VL_AGENT_ARGS_DICT["ui_agent"]]
 benchmark = "miniwob"
