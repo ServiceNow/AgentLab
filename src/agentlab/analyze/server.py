@@ -2,6 +2,7 @@
 import base64
 import copy
 import importlib
+from typing import Any
 
 import dotenv
 import numpy as np
@@ -17,11 +18,17 @@ dotenv.load_dotenv()
 app = FastAPI()
 
 
-def import_from_path(path):
+def import_from_path(path: str) -> callable:
     """
     Util function to import and instantiate a class, then return a specific method.
     For example, given `browsergym.core.action.highlevel.HighLevelActionSet.to_python_code`,
     this will instantiate `HighLevelActionSet` and return its `to_python_code` method.
+
+    :param path: Path to the method
+    :type path: str
+    :raises ModuleNotFoundError: If the module cannot be imported
+    :return: The method
+    :rtype: callable
     """
 
     parts = path.split(".")
@@ -51,10 +58,15 @@ def import_from_path(path):
     return obj
 
 
-def make_json_safe(obj):
+def make_json_safe(obj: Any) -> Any:
     """
     Util function to convert numpy arrays and other non-JSON-serializable objects to JSON-serializable objects.
     Specifically, we convert numpy arrays to base64 encoded strings so that payloads are of reasonable size.
+
+    :param obj: Object to convert
+    :type obj: Any
+    :return: JSON-serializable object
+    :rtype: Any
     """
     if isinstance(obj, np.ndarray):
         # convert to base64
@@ -418,6 +430,14 @@ env = EnvWrapper()
 # --- FastAPI endpoints ---
 @app.post("/set_info")
 def set_info(req: SetInfoRequest):
+    """
+    Set the environment info.
+
+    :param req: Request containing environment info
+    :type req: SetInfoRequest
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.set_info(
         benchmark_name=req.benchmark_name,
         task_name=req.task_name,
@@ -428,47 +448,103 @@ def set_info(req: SetInfoRequest):
 
 
 @app.get("/get_info")
-def get_info():
+def get_info() -> dict:
+    """
+    Get the environment info.
+
+    :return: Dictionary with info
+    :rtype: dict
+    """
     return env.get_info()
 
 
 @app.post("/unset_info")
-def unset_info():
+def unset_info() -> dict:
+    """
+    Unset the environment info.
+
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.unset_info()
 
 
 @app.get("/status")
-def status():
+def status() -> dict:
+    """
+    Get the status of the environment.
+
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.status()
 
 
 @app.post("/prepare_benchmark")
-def prepare_benchmark():
+def prepare_benchmark() -> dict:
+    """
+    Prepare the benchmark.
+
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.prepare_benchmark()
 
 
 @app.post("/reload_task")
-def reload_task():
+def reload_task() -> dict:
+    """
+    Reload the task.
+
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.reload_task()
 
 
 @app.post("/reset")
-def reset():
+def reset() -> dict:
+    """
+    Reset the environment.
+
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.reset()
 
 
 @app.post("/step")
-def step(req: StepRequest):
+def step(req: StepRequest) -> dict:
+    """
+    Step the environment.
+
+    :param req: Request containing action
+    :type req: StepRequest
+    :return: Dictionary with obs, reward, terminated, truncated and info
+    :rtype: dict
+    """
     return env.step(action=req.action)
 
 
 @app.get("/get_obs")
-def get_obs():
+def get_obs() -> dict:
+    """
+    Get the last observation.
+
+    :return: Dictionary with obs and info
+    :rtype: dict
+    """
     return env.get_obs()
 
 
 @app.post("/close")
-def close():
+def close() -> dict:
+    """
+    Close the environment.
+
+    :return: Dictionary with status
+    :rtype: dict
+    """
     return env.close()
 
 
