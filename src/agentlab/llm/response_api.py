@@ -107,6 +107,11 @@ class MessageBuilder:
         self.content.append({"image": image_to_png_base64_url(image_url)})
         return self
 
+    def mark_all_previous_msg_for_caching(self):
+        """Insert a cache breakpoint in the message content."""
+        # This is a placeholder for future implementation.
+        raise NotImplementedError
+
 
 # TODO: Support parallel tool calls.
 
@@ -215,6 +220,10 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             }
         else:
             raise ValueError(f"Unsupported content type: {content}")
+
+    def mark_all_previous_msg_for_caching(self) -> List[Message]:
+        """Insert a cache breakpoint in the message content to mark all previous messages for caching."""
+        self._cache_breakpoint = True
 
 
 class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
@@ -521,7 +530,10 @@ class ClaudeResponseModel(BaseModelWithPricing):
         sys_msg, other_msgs = self.filter_system_messages(messages)
         sys_msg_text = "\n".join(c["text"] for m in sys_msg for c in m.content)
         for msg in other_msgs:
-            input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
+            temp = msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg]
+            if kwargs.pop("use_cache_breakpoints", False):
+                temp = self.apply_cache_breakpoints(msg, temp)
+            input.extend(temp)
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
@@ -580,6 +592,16 @@ class ClaudeResponseModel(BaseModelWithPricing):
             elif output.type == "text":
                 result.think += output.text
         return result
+
+    # def ensure_cache_conditions(self, msgs: List[Message]) -> bool:
+    #     """Ensure API specific cache conditions are met."""
+    #     assert sum(getattr(msg, "_cache_breakpoint", 0) for msg in msgs) <= 4, "Too many cache breakpoints in the message."
+
+    def apply_cache_breakpoints(self, msg: Message, prepared_msg: dict) -> List[Message]:
+        """Apply cache breakpoints to the messages."""
+        if getattr(msg, "_cache_breakpoint", False):
+                prepared_msg[-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
+        return prepared_msg
 
 
 def cua_response_to_text(action):

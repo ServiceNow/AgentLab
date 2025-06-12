@@ -72,7 +72,7 @@ class StructuredDiscussion:
 
     def __init__(self, keep_last_n_obs=None):
         self.groups: list[MsgGroup] = []
-        self.keep_last_n_obs = keep_last_n_obs
+        self.keep_last_n_obs: int | None = keep_last_n_obs
 
     def append(self, message: MessageBuilder):
         """Append a message to the last group."""
@@ -96,7 +96,9 @@ class StructuredDiscussion:
                 messages.append(group.summary)
             else:
                 messages.extend(group.messages)
-
+            # Mark all summarized messages for caching
+            if i == len(self.groups) - keep_last_n_obs:
+                messages[i].mark_all_previous_msg_for_caching()
         return messages
 
     def set_last_summary(self, summary: MessageBuilder):
@@ -452,7 +454,8 @@ class ToolUseAgent(bgym.Agent):
             messages=messages,
             tool_choice="any",
             cache_tool_definition=True,
-            cache_complete_prompt=True,
+            cache_complete_prompt=False,
+            use_cache_breakpoints=True,
         )
 
         action = response.action
