@@ -21,14 +21,15 @@ app = FastAPI()
 def import_from_path(path: str) -> callable:
     """
     Util function to import and instantiate a class, then return a specific method.
-    For example, given `browsergym.core.action.highlevel.HighLevelActionSet.to_python_code`,
-    this will instantiate `HighLevelActionSet` and return its `to_python_code` method.
 
-    :param path: Path to the method
-    :type path: str
-    :raises ModuleNotFoundError: If the module cannot be imported
-    :return: The method
-    :rtype: callable
+    Args:
+        path (str): Path to the method, e.g., 'browsergym.core.action.highlevel.HighLevelActionSet.to_python_code'.
+
+    Raises:
+        ModuleNotFoundError: If the module cannot be imported.
+
+    Returns:
+        callable: The method.
     """
 
     parts = path.split(".")
@@ -63,10 +64,11 @@ def make_json_safe(obj: Any) -> Any:
     Util function to convert numpy arrays and other non-JSON-serializable objects to JSON-serializable objects.
     Specifically, we convert numpy arrays to base64 encoded strings so that payloads are of reasonable size.
 
-    :param obj: Object to convert
-    :type obj: Any
-    :return: JSON-serializable object
-    :rtype: Any
+    Args:
+        obj (Any): Object to convert
+
+    Returns:
+        Any: JSON-serializable object
     """
     if isinstance(obj, np.ndarray):
         # convert to base64
@@ -122,21 +124,19 @@ class EnvWrapper:
         seed: int,
         action_mapping_fn: str,
         exp_dir: str,
-    ):
-        """Set the environment info.
+    ) -> dict:
+        """
+        Set the environment info.
 
-        :param benchmark_name: Name of the benchmark
-        :type benchmark_name: str
-        :param task_name: Name of the task
-        :type task_name: str
-        :param seed: Seed of the task.
-        :type seed: int
-        :param action_mapping_fn: Action mapping function
-        :type action_mapping_fn: str
-        :param exp_dir: Directory for experiment
-        :type exp_dir: str
-        :return: Dictionary with status
-        :rtype: dict
+        Args:
+            benchmark_name (str): Name of the benchmark
+            task_name (str): Name of the task
+            seed (int): Seed of the task
+            action_mapping_fn (str): Action mapping function
+            exp_dir (str): Directory for experiment
+
+        Returns:
+            dict: Dictionary with status
         """
         if self.info_set:
             return make_json_safe(
@@ -167,10 +167,11 @@ class EnvWrapper:
         )
 
     def get_info(self) -> dict:
-        """Get the environment info
+        """
+        Get the environment info.
 
-        :return: Dictionary with info
-        :rtype: dict
+        Returns:
+            dict: Dictionary with info
         """
         if not self.info_set:
             return make_json_safe(
@@ -192,10 +193,11 @@ class EnvWrapper:
         )
 
     def unset_info(self) -> dict:
-        """Unset the environment info
+        """
+        Unset the environment info.
 
-        :return: Dictionary with status
-        :rtype: dict
+        Returns:
+            dict: Dictionary with status
         """
         if not self.info_set:
             return make_json_safe(
@@ -218,10 +220,11 @@ class EnvWrapper:
         )
 
     def status(self) -> dict:
-        """Get the environment status
+        """
+        Get the environment status.
 
-        :return: Dictionary with status
-        :rtype: dict
+        Returns:
+            dict: Dictionary with status
         """
         return make_json_safe(
             {
@@ -236,8 +239,8 @@ class EnvWrapper:
         """
         Prepare the benchmark environment.
 
-        :return: Dictionary with status
-        :rtype: dict
+        Returns:
+            dict: Dictionary with status
         """
         if not self.info_set:
             return make_json_safe(
@@ -272,10 +275,11 @@ class EnvWrapper:
         )
 
     def reload_task(self) -> dict:
-        """Reload the task
+        """
+        Reload the task.
 
-        :return: Dictionary with status
-        :rtype: dict
+        Returns:
+            dict: Dictionary with status
         """
         if not self.info_set:
             return make_json_safe(
@@ -311,10 +315,11 @@ class EnvWrapper:
         )
 
     def reset(self) -> dict:
-        """Reset the environment
+        """
+        Reset the environment.
 
-        :return: Dictionary with obs and info
-        :rtype: dict
+        Returns:
+            dict: Dictionary with obs and info
         """
         if not self.info_set:
             return make_json_safe(
@@ -348,12 +353,14 @@ class EnvWrapper:
         )
 
     def step(self, action: str) -> dict:
-        """Step the environment
+        """
+        Step the environment.
 
-        :param action: Action to take
-        :type action: str
-        :return: Dictionary with obs, reward, terminated, truncated and info
-        :rtype: dict
+        Args:
+            action (str): Action to take
+
+        Returns:
+            dict: Dictionary with obs, reward, terminated, truncated and info
         """
         if self.env is None:
             return make_json_safe(
@@ -380,10 +387,11 @@ class EnvWrapper:
         )
 
     def get_obs(self) -> dict:
-        """Get the last observation
+        """
+        Get the last observation.
 
-        :return: Dictionary with obs and info
-        :rtype: dict
+        Returns:
+            dict: Dictionary with obs and info
         """
         if self.env is None:
             return make_json_safe(
@@ -402,10 +410,11 @@ class EnvWrapper:
         )
 
     def close(self) -> dict:
-        """Close the environment
+        """
+        Close the environment.
 
-        :return: Dictionary with status
-        :rtype: dict
+        Returns:
+            dict: Dictionary with status
         """
         if self.env is None:
             return make_json_safe(
@@ -429,14 +438,15 @@ env = EnvWrapper()
 
 # --- FastAPI endpoints ---
 @app.post("/set_info")
-def set_info(req: SetInfoRequest):
+def set_info(req: SetInfoRequest) -> dict:
     """
     Set the environment info.
 
-    :param req: Request containing environment info
-    :type req: SetInfoRequest
-    :return: Dictionary with status
-    :rtype: dict
+    Args:
+        req (SetInfoRequest): Request containing environment info
+
+    Returns:
+        dict: Dictionary with status
     """
     return env.set_info(
         benchmark_name=req.benchmark_name,
@@ -452,8 +462,8 @@ def get_info() -> dict:
     """
     Get the environment info.
 
-    :return: Dictionary with info
-    :rtype: dict
+    Returns:
+        dict: Dictionary with info
     """
     return env.get_info()
 
@@ -463,8 +473,8 @@ def unset_info() -> dict:
     """
     Unset the environment info.
 
-    :return: Dictionary with status
-    :rtype: dict
+    Returns:
+        dict: Dictionary with status
     """
     return env.unset_info()
 
@@ -474,8 +484,8 @@ def status() -> dict:
     """
     Get the status of the environment.
 
-    :return: Dictionary with status
-    :rtype: dict
+    Returns:
+        dict: Dictionary with status
     """
     return env.status()
 
@@ -485,8 +495,8 @@ def prepare_benchmark() -> dict:
     """
     Prepare the benchmark.
 
-    :return: Dictionary with status
-    :rtype: dict
+    Returns:
+        dict: Dictionary with status
     """
     return env.prepare_benchmark()
 
@@ -496,8 +506,8 @@ def reload_task() -> dict:
     """
     Reload the task.
 
-    :return: Dictionary with status
-    :rtype: dict
+    Returns:
+        dict: Dictionary with status
     """
     return env.reload_task()
 
@@ -507,8 +517,8 @@ def reset() -> dict:
     """
     Reset the environment.
 
-    :return: Dictionary with status
-    :rtype: dict
+    Returns:
+        dict: Dictionary with status
     """
     return env.reset()
 
@@ -518,10 +528,11 @@ def step(req: StepRequest) -> dict:
     """
     Step the environment.
 
-    :param req: Request containing action
-    :type req: StepRequest
-    :return: Dictionary with obs, reward, terminated, truncated and info
-    :rtype: dict
+    Args:
+        req (StepRequest): Request containing action
+
+    Returns:
+        dict: Dictionary with obs, reward, terminated, truncated and info
     """
     return env.step(action=req.action)
 
@@ -531,8 +542,8 @@ def get_obs() -> dict:
     """
     Get the last observation.
 
-    :return: Dictionary with obs and info
-    :rtype: dict
+    Returns:
+        dict: Dictionary with obs and info
     """
     return env.get_obs()
 
@@ -542,8 +553,8 @@ def close() -> dict:
     """
     Close the environment.
 
-    :return: Dictionary with status
-    :rtype: dict
+    Returns:
+        dict: Dictionary with status
     """
     return env.close()
 
