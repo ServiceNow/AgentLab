@@ -334,8 +334,6 @@ def set_agent_state_box():
             font-style: normal;
             line-height: 1.6 !important;
             padding-top: 18px !important;
-            background-color: #F8F9FB !important;
-
         }
         </style>
         """,
