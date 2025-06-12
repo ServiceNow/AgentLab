@@ -174,6 +174,7 @@ def set_task_selector():
 
                 prepare_agent()
                 set_environment_info()
+                prepare_benchmark()
                 reset_environment()
 
 
@@ -216,6 +217,16 @@ def set_environment_info():
     logger.info(f"Done in {end - start}")
 
 
+def prepare_benchmark():
+    logger.info("Preparing benchmark...")
+    start = datetime.now()
+    resp = requests.post(f"{SERVER_URL}/prepare_benchmark")
+    if resp.status_code != 200 or resp.json().get("status") != "success":
+        st.error(resp.json())
+    end = datetime.now()
+    logger.info(f"Done in {end - start}")
+
+
 def reset_environment():
     logger.info("Restarting environment...")
     start = datetime.now()
@@ -240,6 +251,29 @@ def reset_environment():
     st.session_state.last_obs = response_json["obs"]
     end = datetime.now()
     logger.info(f"Done postproc in {end - start}")
+
+
+def reload_task():
+    logger.info("Reloading task...")
+    start = datetime.now()
+    resp = requests.post(f"{SERVER_URL}/reload_task")
+    if resp.status_code != 200 or resp.json().get("status") != "success":
+        print(resp.status_code)
+        print(resp.json()["status"])
+        print(resp.json()["message"])
+    response_json = resp.json()
+    if "obs" in response_json:
+        if "screenshot" in response_json["obs"]:
+            screenshot_data = response_json["obs"]["screenshot"]
+            # convert base64 to numpy array
+            screenshot = np.frombuffer(base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"]))
+            screenshot = screenshot.reshape(screenshot_data["shape"])
+            response_json["obs"]["screenshot"] = screenshot
+    if st.session_state.agent.obs_preprocessor:
+        response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
+    st.session_state.last_obs = response_json["obs"]
+    end = datetime.now()
+    logger.info(f"Done in {end - start}")
 
 
 def step_environment(action):
@@ -269,7 +303,7 @@ def step_environment(action):
 
 
 def restore_environment():
-    reset_environment()
+    reload_task()
     for action in st.session_state.actions_history:
         step_environment(action)
 
@@ -285,21 +319,46 @@ def get_action():
 
 
 def set_agent_state_box():
+
+    # Custom CSS to set textarea style same as code block
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Handlee&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Sedgwick+Ave&display=swap');
+        textarea, .stTextArea textarea {
+            font-family: "IBM Plex Mono", monospace !important;
+            font-size: 14px !important;
+            font-weight: 400;
+            font-style: normal;
+            line-height: 1.6 !important;
+            padding-top: 18px !important;
+            background-color: #F8F9FB !important;
+
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # set agent state and goal box
     with st.container():
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             with st.container(border=True, height=250):
                 st.markdown("**Goal**")
+                # st.text_area("", st.session_state.agent.obs_history[-1]["goal"], height=175, disabled=True, label_visibility="collapsed")
                 st.code(st.session_state.agent.obs_history[-1]["goal"], wrap_lines=True, language=None, height=175)
         with col2:
             with st.container(border=True, height=250):
                 st.markdown("**Think**")
-                st.code(st.session_state.action_info.think, wrap_lines=True, language=None, height=175)
+                st.session_state.action_info.think = st.text_area(
+                    "Think", st.session_state.action_info.think, height=172, label_visibility="collapsed"
+                )
         with col3:
             with st.container(border=True, height=250):
                 st.markdown("**Action**")
-                st.code(st.session_state.action, wrap_lines=True, language="python", height=175)
+                st.session_state.action = st.text_area("Action", st.session_state.action, height=172, label_visibility="collapsed")
+                # st.code(st.session_state.action, wrap_lines=True, language="python", height=175)
 
 
 def set_prompt_modifier():

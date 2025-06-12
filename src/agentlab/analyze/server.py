@@ -106,6 +106,10 @@ class EnvWrapper:
         self.last_obs = None
         self.last_info = None
 
+        # used to reload task
+        self.start_info = None
+        self.start_url = None
+
     def set_info(
         self,
         benchmark_name: str,
@@ -223,6 +227,93 @@ class EnvWrapper:
             }
         )
 
+    def prepare_benchmark(self) -> dict:
+        start = time.time()
+        if not self.info_set:
+            return make_json_safe(
+                {
+                    "status": "error",
+                    "message": "Environment info not set. Please set the environment info first.",
+                }
+            )
+
+        if self.env is not None:
+            # close the current environment first
+            self.env.close()
+            self.env = None
+        # then create the new environment
+        benchmark = DEFAULT_BENCHMARKS[self.benchmark_name]()
+        benchmark.env_args_list = [
+            elem for elem in benchmark.env_args_list if elem.task_name == self.task_name and str(elem.task_seed) == str(self.seed)
+        ]
+        start = time.time()
+        benchmark.prepare_backends()
+        end = time.time()
+        logger.info(f"prepare_backends done in {end - start}")
+
+        env_args = benchmark.env_args_list[0]
+        self.action_mapping = import_from_path(self.action_mapping_fn)
+
+        # create environment
+        start = time.time()
+        self.env = env_args.make_env(self.action_mapping, self.exp_dir)
+        print(self.env)
+        end = time.time()
+        logger.info(f"make_env done in {end - start}")
+        return make_json_safe(
+            {
+                "status": "success",
+                "message": "Environment prepared successfully.",
+            }
+        )
+
+    def reload_task(self) -> dict:
+        """Reload the task
+
+        :return: Dictionary with status
+        :rtype: dict
+        """
+        start = time.time()
+        if not self.info_set:
+            return make_json_safe(
+                {
+                    "status": "error",
+                    "message": "Environment info not set. Please set the environment info first.",
+                }
+            )
+        elif not self.env:
+            return make_json_safe(
+                {
+                    "status": "error",
+                    "message": "Environment not created. Please create an environment first.",
+                }
+            )
+
+        tmp_start = time.time()
+        self.env.unwrapped.page.goto(self.start_url, wait_until="load")
+        tmp_end = time.time()
+        logger.info(f"goto done in {tmp_end - tmp_start}")
+        tmp_start = time.time()
+        self.env.unwrapped.page.evaluate("window.localStorage.clear(); window.sessionStorage.clear();")
+
+        obs = self.env.unwrapped._get_obs()
+        tmp_end = time.time()
+        logger.info(f"clear storage done in {tmp_end - tmp_start}")
+
+        end = time.time()
+        logger.info(f"reload_task done in {end - start}")
+
+        self.last_obs = copy.deepcopy(obs)
+        self.last_info = copy.deepcopy(self.start_info)
+        return make_json_safe(
+            {
+                "status": "success",
+                "message": "Task reloaded successfully.",
+                "obs": self.last_obs,
+                "info": self.last_info,
+            }
+        )
+
     def reset(self) -> dict:
         """Reset the environment
 
@@ -237,38 +328,25 @@ class EnvWrapper:
                     "message": "Environment info not set. Please set the environment info first.",
                 }
             )
-        if self.env is not None:
-            # close the current environment first
-            self.env.close()
-            self.env = None
+        elif not self.env:
+            return make_json_safe(
+                {
+                    "status": "error",
+                    "message": "Environment not created. Please create an environment first.",
+                }
+            )
 
-        # then create the new environment
-        benchmark = DEFAULT_BENCHMARKS[self.benchmark_name]()
-        benchmark.env_args_list = [
-            elem for elem in benchmark.env_args_list if elem.task_name == self.task_name and str(elem.task_seed) == str(self.seed)
-        ]
-        benchmark.prepare_backends()
-
-        env_args = benchmark.env_args_list[0]
-        # env_args.headless = False
-
-        self.action_mapping = import_from_path(self.action_mapping_fn)
-        end = time.time()
-        logger.info(f"init reset done in {end - start}")
-        start = time.time()
-        self.env = env_args.make_env(self.action_mapping, self.exp_dir)
-        end = time.time()
-        logger.info(f"make_env done in {end - start}")
-        start = time.time()
         # finally, reset the environment
+        start = time.time()
         obs, info = self.env.reset(seed=self.seed)
-        self.last_obs = copy.deepcopy(obs)
-        self.last_info = copy.deepcopy(info)
         end = time.time()
         logger.info(f"env reset done in {end - start}")
-        start = time.time()
-        # out = make_json_safe(
-        out = make_json_safe(
+
+        self.last_obs = copy.deepcopy(obs)
+        self.last_info = copy.deepcopy(info)
+        self.start_info = copy.deepcopy(info)
+        self.start_url = copy.deepcopy(self.env.unwrapped.page.url)
+        return make_json_safe(
             {
                 "status": "success",
                 "message": "Environment reset successfully",
@@ -276,15 +354,6 @@ class EnvWrapper:
                 "info": self.last_info,
             }
         )
-        end = time.time()
-        logger.info(f"payload cleaned in {end - start}")
-        # log payload size
-        from pympler import asizeof
-
-        logger.info(f"Payload size: {asizeof.asizeof(out)} bytes")
-        # print(out)
-        # return {"status": "success", "message": "Environment reset successfully"}
-        return out
 
     def step(self, action: str) -> dict:
         """Step the environment
@@ -396,6 +465,16 @@ def unset_info():
 @app.get("/status")
 def status():
     return env.status()
+
+
+@app.post("/prepare_benchmark")
+def prepare_benchmark():
+    return env.prepare_benchmark()
+
+
+@app.post("/reload_task")
+def reload_task():
+    return env.reload_task()
 
 
 @app.post("/reset")
