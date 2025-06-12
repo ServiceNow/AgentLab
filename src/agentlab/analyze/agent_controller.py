@@ -2,18 +2,19 @@ import base64
 import copy
 import importlib
 import logging
+from datetime import datetime
 from io import BytesIO
-import requests
+
 import numpy as np
 import PIL.Image
+import requests
 import streamlit as st
 from agentlab.agents.generic_agent import __all__ as ALL_AGENTS
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.llm.llm_utils import Discussion
 from bgym import DEFAULT_BENCHMARKS
 from dotenv import load_dotenv
-from agentlab.llm.llm_utils import Discussion
 from transformers import AutoTokenizer
-from datetime import datetime
 
 # used to display prompt. simple chat template from apache 2.0 model
 tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
@@ -46,7 +47,9 @@ def deserialize_response(response_json):
         if "screenshot" in response_json["obs"]:
             screenshot_data = response_json["obs"]["screenshot"]
             # convert base64 to numpy array
-            screenshot = np.frombuffer(base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"]))
+            screenshot = np.frombuffer(
+                base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"])
+            )
             screenshot = screenshot.reshape(screenshot_data["shape"])
             response_json["obs"]["screenshot"] = screenshot
     return response_json
@@ -132,7 +135,9 @@ def select_agent():
 def select_benchmark() -> str:
     """Dropdown to select a benchmark."""
     all_benchmarks = list(DEFAULT_BENCHMARKS.keys())
-    benchmark_str = st.selectbox("Select Benchmark", all_benchmarks, index=all_benchmarks.index(DEFAULT_BENCHMARK))
+    benchmark_str = st.selectbox(
+        "Select Benchmark", all_benchmarks, index=all_benchmarks.index(DEFAULT_BENCHMARK)
+    )
     return benchmark_str
 
 
@@ -145,7 +150,9 @@ def select_task(benchmark):
 
 def select_subtask(benchmark, task_str) -> str:
     """Dropdown to select a subtask based on the task name."""
-    all_subtasks = sorted([str(elem.task_seed) for elem in benchmark.env_args_list if elem.task_name == task_str])
+    all_subtasks = sorted(
+        [str(elem.task_seed) for elem in benchmark.env_args_list if elem.task_name == task_str]
+    )
     subtask_str = st.selectbox("Select Subtask", all_subtasks)
     return subtask_str
 
@@ -153,7 +160,9 @@ def select_subtask(benchmark, task_str) -> str:
 def set_task_selector():
     """Create task selector form. Allows the user to select the agent, benchmark, task, and subtask to run."""
     with st.form("Task Selector"):
-        col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 4, 2, 1, 1], vertical_alignment="bottom")
+        col1, col2, col3, col4, col5, col6 = st.columns(
+            [2, 2, 4, 2, 1, 1], vertical_alignment="bottom"
+        )
         with col1:
             selected_agent_args = select_agent()
         with col2:
@@ -339,17 +348,27 @@ def set_agent_state_box():
         with col1:
             with st.container(border=True, height=250):
                 st.markdown("**Goal**")
-                st.code(st.session_state.agent.obs_history[-1]["goal"], wrap_lines=True, language=None, height=175)
+                st.code(
+                    st.session_state.agent.obs_history[-1]["goal"],
+                    wrap_lines=True,
+                    language=None,
+                    height=175,
+                )
         with col2:
             with st.container(border=True, height=250):
                 st.markdown("**Think**")
                 st.session_state.action_info.think = st.text_area(
-                    "Think", st.session_state.action_info.think, height=172, label_visibility="collapsed"
+                    "Think",
+                    st.session_state.action_info.think,
+                    height=172,
+                    label_visibility="collapsed",
                 )
         with col3:
             with st.container(border=True, height=250):
                 st.markdown("**Action**")
-                st.session_state.action = st.text_area("Action", st.session_state.action, height=172, label_visibility="collapsed")
+                st.session_state.action = st.text_area(
+                    "Action", st.session_state.action, height=172, label_visibility="collapsed"
+                )
 
 
 def set_prompt_modifier():
@@ -357,12 +376,16 @@ def set_prompt_modifier():
         st.markdown("**Observation Flags**")
         col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
         with col1:
-            st.session_state.agent.flags.obs.use_html = st.checkbox("use_html", value=st.session_state.agent.flags.obs.use_html)
+            st.session_state.agent.flags.obs.use_html = st.checkbox(
+                "use_html", value=st.session_state.agent.flags.obs.use_html
+            )
             st.session_state.agent.flags.obs.use_action_history = st.checkbox(
                 "use_action_history", value=st.session_state.agent.flags.obs.use_action_history
             )
         with col2:
-            st.session_state.agent.flags.obs.use_ax_tree = st.checkbox("use_ax_tree", value=st.session_state.agent.flags.obs.use_ax_tree)
+            st.session_state.agent.flags.obs.use_ax_tree = st.checkbox(
+                "use_ax_tree", value=st.session_state.agent.flags.obs.use_ax_tree
+            )
             st.session_state.agent.flags.obs.use_think_history = st.checkbox(
                 "use_think_history", value=st.session_state.agent.flags.obs.use_think_history
             )
@@ -370,7 +393,9 @@ def set_prompt_modifier():
             st.session_state.agent.flags.obs.use_focused_element = st.checkbox(
                 "use_focused_element", value=st.session_state.agent.flags.obs.use_focused_element
             )
-            st.session_state.agent.flags.obs.use_diff = st.checkbox("use_diff", value=st.session_state.agent.flags.obs.use_diff)
+            st.session_state.agent.flags.obs.use_diff = st.checkbox(
+                "use_diff", value=st.session_state.agent.flags.obs.use_diff
+            )
         with col4:
             st.session_state.agent.flags.obs.use_error_logs = st.checkbox(
                 "use_error_logs", value=st.session_state.agent.flags.obs.use_error_logs
@@ -379,26 +404,46 @@ def set_prompt_modifier():
                 "use_screenshot", value=st.session_state.agent.flags.obs.use_screenshot
             )
         with col5:
-            st.session_state.agent.flags.obs.use_history = st.checkbox("use_history", value=st.session_state.agent.flags.obs.use_history)
-            st.session_state.agent.flags.obs.use_som = st.checkbox("use_som", value=st.session_state.agent.flags.obs.use_som)
+            st.session_state.agent.flags.obs.use_history = st.checkbox(
+                "use_history", value=st.session_state.agent.flags.obs.use_history
+            )
+            st.session_state.agent.flags.obs.use_som = st.checkbox(
+                "use_som", value=st.session_state.agent.flags.obs.use_som
+            )
         with col6:
             st.session_state.agent.flags.obs.use_past_error_logs = st.checkbox(
                 "use_past_error_logs", value=st.session_state.agent.flags.obs.use_past_error_logs
             )
-            st.session_state.agent.flags.obs.use_tabs = st.checkbox("use_tabs", value=st.session_state.agent.flags.obs.use_tabs)
+            st.session_state.agent.flags.obs.use_tabs = st.checkbox(
+                "use_tabs", value=st.session_state.agent.flags.obs.use_tabs
+            )
         st.markdown("**Other Flags**")
         col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
         with col1:
-            st.session_state.agent.flags.use_plan = st.checkbox("use_plan", value=st.session_state.agent.flags.use_plan)
-            st.session_state.agent.flags.use_hints = st.checkbox("use_hints", value=st.session_state.agent.flags.use_hints)
+            st.session_state.agent.flags.use_plan = st.checkbox(
+                "use_plan", value=st.session_state.agent.flags.use_plan
+            )
+            st.session_state.agent.flags.use_hints = st.checkbox(
+                "use_hints", value=st.session_state.agent.flags.use_hints
+            )
         with col2:
-            st.session_state.agent.flags.use_criticise = st.checkbox("use_criticise", value=st.session_state.agent.flags.use_criticise)
-            st.session_state.agent.flags.be_cautious = st.checkbox("be_cautious", value=st.session_state.agent.flags.be_cautious)
+            st.session_state.agent.flags.use_criticise = st.checkbox(
+                "use_criticise", value=st.session_state.agent.flags.use_criticise
+            )
+            st.session_state.agent.flags.be_cautious = st.checkbox(
+                "be_cautious", value=st.session_state.agent.flags.be_cautious
+            )
         with col3:
-            st.session_state.agent.flags.use_thinking = st.checkbox("use_thinking", value=st.session_state.agent.flags.use_thinking)
-            st.session_state.agent.flags.enable_chat = st.checkbox("enable_chat", value=st.session_state.agent.flags.enable_chat)
+            st.session_state.agent.flags.use_thinking = st.checkbox(
+                "use_thinking", value=st.session_state.agent.flags.use_thinking
+            )
+            st.session_state.agent.flags.enable_chat = st.checkbox(
+                "enable_chat", value=st.session_state.agent.flags.enable_chat
+            )
         with col4:
-            st.session_state.agent.flags.use_memory = st.checkbox("use_memory", value=st.session_state.agent.flags.use_memory)
+            st.session_state.agent.flags.use_memory = st.checkbox(
+                "use_memory", value=st.session_state.agent.flags.use_memory
+            )
         with col5:
             st.session_state.agent.flags.use_abstract_example = st.checkbox(
                 "use_abstract_example", value=st.session_state.agent.flags.use_abstract_example
@@ -407,7 +452,9 @@ def set_prompt_modifier():
             st.session_state.agent.flags.use_concrete_example = st.checkbox(
                 "use_concrete_example", value=st.session_state.agent.flags.use_concrete_example
             )
-        extra_instructions = st.text_area("extra_instructions", value=st.session_state.agent.flags.extra_instructions)
+        extra_instructions = st.text_area(
+            "extra_instructions", value=st.session_state.agent.flags.extra_instructions
+        )
         if extra_instructions == "":
             extra_instructions = None
         st.session_state.agent.flags.extra_instructions = extra_instructions
@@ -429,7 +476,11 @@ def set_controller():
         if st.button("⬅️ Previous Step", disabled=prev_disabled, use_container_width=True):
             if not prev_disabled:
                 st.session_state.actions_history.pop()
-                st.session_state.action = None if len(st.session_state.actions_history) == 0 else st.session_state.actions_history[-1]
+                st.session_state.action = (
+                    None
+                    if len(st.session_state.actions_history) == 0
+                    else st.session_state.actions_history[-1]
+                )
                 undo_last_agent_step()
                 undo_last_agent_step()
                 restore_environment()
@@ -471,18 +522,31 @@ def set_axtree_tab():
 
 
 def set_prompt_tab():
-    if st.session_state.action_info is not None and isinstance(st.session_state.action_info.chat_messages, Discussion):
+    if st.session_state.action_info is not None and isinstance(
+        st.session_state.action_info.chat_messages, Discussion
+    ):
         chat_messages = st.session_state.action_info.chat_messages.messages
         new_chat_messages = []
         for message in chat_messages:
             if isinstance(message["content"], list):
                 # concatenate all text elements
                 new_chat_messages.append(
-                    {"role": message["role"], "content": "\n\n".join([elem["text"] for elem in message["content"] if elem["type"] == "text"])}
+                    {
+                        "role": message["role"],
+                        "content": "\n\n".join(
+                            [elem["text"] for elem in message["content"] if elem["type"] == "text"]
+                        ),
+                    }
                 )
             else:
                 new_chat_messages.append(message)
-        st.code(tokenizer.apply_chat_template(new_chat_messages, add_special_tokens=True, tokenize=False), wrap_lines=True, language="markdown")
+        st.code(
+            tokenizer.apply_chat_template(
+                new_chat_messages, add_special_tokens=True, tokenize=False
+            ),
+            wrap_lines=True,
+            language="markdown",
+        )
 
 
 def set_info_tabs():
@@ -500,8 +564,15 @@ def set_info_tabs():
 def run_streamlit():
 
     # config page
-    st.set_page_config(page_title="AgentLab Controller", page_icon="🎮", layout="wide", initial_sidebar_state="collapsed")
-    st.markdown('<h1 style="text-align: center;">🎮 AgentLab Controller 🎮</h1>', unsafe_allow_html=True)
+    st.set_page_config(
+        page_title="AgentLab Controller",
+        page_icon="🎮",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+    st.markdown(
+        '<h1 style="text-align: center;">🎮 AgentLab Controller 🎮</h1>', unsafe_allow_html=True
+    )
 
     setup_sidebar()
 
