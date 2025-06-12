@@ -3,7 +3,6 @@ import copy
 import importlib
 import logging
 from io import BytesIO
-from pathlib import Path
 import requests
 import numpy as np
 import PIL.Image
