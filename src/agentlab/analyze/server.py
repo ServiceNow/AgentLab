@@ -2,9 +2,6 @@
 import base64
 import copy
 import importlib
-import logging
-import time
-from typing import Any, Dict, Optional
 
 import dotenv
 import numpy as np
@@ -12,27 +9,20 @@ import uvicorn
 
 # Import your BrowserEnv and any task setup you need
 from bgym import DEFAULT_BENCHMARKS
-from browsergym.core.env import BrowserEnv
-from browsergym.core.task import AbstractBrowserTask
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 
 dotenv.load_dotenv()
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 app = FastAPI()
 
 
-# Utils to import the action mapping fn
 def import_from_path(path):
     """
-    Import and instantiate a class, then return its 'to_python_code' method.
-    For example, given 'browsergym.core.action.highlevel.HighLevelActionSet.to_python_code',
-    this will instantiate HighLevelActionSet and return its to_python_code method.
+    Util function to import and instantiate a class, then return a specific method.
+    For example, given `browsergym.core.action.highlevel.HighLevelActionSet.to_python_code`,
+    this will instantiate `HighLevelActionSet` and return its `to_python_code` method.
     """
-    import importlib
 
     parts = path.split(".")
     # Find the module (the longest prefix that can be imported)
@@ -61,8 +51,11 @@ def import_from_path(path):
     return obj
 
 
-## Utils to convert to safe JSON response
 def make_json_safe(obj):
+    """
+    Util function to convert numpy arrays and other non-JSON-serializable objects to JSON-serializable objects.
+    Specifically, we convert numpy arrays to base64 encoded strings so that payloads are of reasonable size.
+    """
     if isinstance(obj, np.ndarray):
         # convert to base64
         return {"data": base64.b64encode(obj.tobytes()).decode("utf-8"), "shape": obj.shape, "dtype": str(obj.dtype)}
@@ -228,7 +221,12 @@ class EnvWrapper:
         )
 
     def prepare_benchmark(self) -> dict:
-        start = time.time()
+        """
+        Prepare the benchmark environment.
+
+        :return: Dictionary with status
+        :rtype: dict
+        """
         if not self.info_set:
             return make_json_safe(
                 {
@@ -241,25 +239,19 @@ class EnvWrapper:
             # close the current environment first
             self.env.close()
             self.env = None
-        # then create the new environment
+
+        # prepare backends
         benchmark = DEFAULT_BENCHMARKS[self.benchmark_name]()
         benchmark.env_args_list = [
             elem for elem in benchmark.env_args_list if elem.task_name == self.task_name and str(elem.task_seed) == str(self.seed)
         ]
-        start = time.time()
         benchmark.prepare_backends()
-        end = time.time()
-        logger.info(f"prepare_backends done in {end - start}")
 
         env_args = benchmark.env_args_list[0]
         self.action_mapping = import_from_path(self.action_mapping_fn)
 
         # create environment
-        start = time.time()
         self.env = env_args.make_env(self.action_mapping, self.exp_dir)
-        print(self.env)
-        end = time.time()
-        logger.info(f"make_env done in {end - start}")
         return make_json_safe(
             {
                 "status": "success",
@@ -273,7 +265,6 @@ class EnvWrapper:
         :return: Dictionary with status
         :rtype: dict
         """
-        start = time.time()
         if not self.info_set:
             return make_json_safe(
                 {
@@ -289,19 +280,12 @@ class EnvWrapper:
                 }
             )
 
-        tmp_start = time.time()
+        # instead of resetting the whole environment, we go back to the original webpage and clear localStorage and sessionStorage
+        # NOTE: this is not guaranteed to result in the exact same state, but we find that it works most of the time, is much
+        # faster than resetting the whole environment, and ensures the seed of the environment remains the same
         self.env.unwrapped.page.goto(self.start_url, wait_until="load")
-        tmp_end = time.time()
-        logger.info(f"goto done in {tmp_end - tmp_start}")
-        tmp_start = time.time()
         self.env.unwrapped.page.evaluate("window.localStorage.clear(); window.sessionStorage.clear();")
-
         obs = self.env.unwrapped._get_obs()
-        tmp_end = time.time()
-        logger.info(f"clear storage done in {tmp_end - tmp_start}")
-
-        end = time.time()
-        logger.info(f"reload_task done in {end - start}")
 
         self.last_obs = copy.deepcopy(obs)
         self.last_info = copy.deepcopy(self.start_info)
@@ -320,7 +304,6 @@ class EnvWrapper:
         :return: Dictionary with obs and info
         :rtype: dict
         """
-        start = time.time()
         if not self.info_set:
             return make_json_safe(
                 {
@@ -336,11 +319,8 @@ class EnvWrapper:
                 }
             )
 
-        # finally, reset the environment
-        start = time.time()
+        # reset the environment
         obs, info = self.env.reset(seed=self.seed)
-        end = time.time()
-        logger.info(f"env reset done in {end - start}")
 
         self.last_obs = copy.deepcopy(obs)
         self.last_info = copy.deepcopy(info)
@@ -370,14 +350,12 @@ class EnvWrapper:
                     "message": "Environment not created. Please create an environment first.",
                 }
             )
-        start = time.time()
+        # step the environment
         obs, reward, terminated, truncated, info = self.env.step(action)
-        end = time.time()
-        logger.info(f"env step done in {end - start}")
-        start = time.time()
+
         self.last_obs = copy.deepcopy(obs)
         self.last_info = copy.deepcopy(info)
-        out = make_json_safe(
+        return make_json_safe(
             {
                 "status": "success",
                 "message": "Environment stepped successfully.",
@@ -388,9 +366,6 @@ class EnvWrapper:
                 "info": info,
             }
         )
-        end = time.time()
-        logger.info(f"obs copied in {end - start}")
-        return out
 
     def get_obs(self) -> dict:
         """Get the last observation
