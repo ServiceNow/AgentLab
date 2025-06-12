@@ -1,4 +1,5 @@
 import fnmatch
+import json
 import logging
 from abc import ABC, abstractmethod
 from copy import copy
@@ -62,10 +63,16 @@ class MsgGroup:
 
 
 class StructuredDiscussion:
+    """
+    A structured discussion that groups messages into named groups with a potential summary for each group.
+
+    When the discussion is flattened, only the last `keep_last_n_obs` groups are kept in the final list,
+    the other groups are replaced by their summaries if they have one.
+    """
 
     def __init__(self, keep_last_n_obs=None):
         self.groups: list[MsgGroup] = []
-        self.keep_last_n_obs: int| None = keep_last_n_obs
+        self.keep_last_n_obs: int | None = keep_last_n_obs
 
     def append(self, message: MessageBuilder):
         """Append a message to the last group."""
@@ -84,15 +91,12 @@ class StructuredDiscussion:
         messages = []
         for i, group in enumerate(self.groups):
             is_tail = i >= len(self.groups) - keep_last_n_obs
-            print(
-                f"Processing group {i} ({group.name}), is_tail={is_tail}, len(greoup)={len(group.messages)}"
-            )
-            # Include only summary if group not in last n groups.
+
             if not is_tail and group.summary is not None:
                 messages.append(group.summary)
             else:
                 messages.extend(group.messages)
-            # Mark all summarized messages for caching   
+            # Mark all summarized messages for caching
             if i == len(self.groups) - keep_last_n_obs:
                 messages[i].mark_all_previous_msg_for_caching()
         return messages
@@ -104,15 +108,6 @@ class StructuredDiscussion:
     def is_goal_set(self) -> bool:
         """Check if the goal is set in the first group."""
         return len(self.groups) > 0
-
-
-# @dataclass
-# class BlockArgs(ABC):
-
-#     @abstractmethod
-#     def make(self) -> Block:
-#         """Make a block from the arguments."""
-#         return self.__class__(**asdict(self))
 
 
 SYS_MSG = """You are a web agent. Based on the observation, you will decide which action to take to accomplish your goal. 
@@ -347,7 +342,9 @@ class PromptConfig:
     summarizer: Summarizer = None
     general_hints: GeneralHints = None
     task_hint: TaskHint = None
-    keep_last_n_obs: int = 2
+    keep_last_n_obs: int = 1
+    multiaction: bool = False
+    action_subsets: tuple[str] = field(default_factory=lambda: ("coord",))
 
 
 @dataclass
@@ -385,7 +382,9 @@ class ToolUseAgent(bgym.Agent):
     ):
         self.model_args = model_args
         self.config = config
-        self.action_set = bgym.HighLevelActionSet(["coord"], multiaction=False)
+        self.action_set = bgym.HighLevelActionSet(
+            self.config.action_subsets, multiaction=self.config.multiaction
+        )
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
         self.call_ids = []
@@ -447,7 +446,6 @@ class ToolUseAgent(bgym.Agent):
             self.discussion.new_group()
 
         self.obs_block.apply(self.llm, self.discussion, obs, last_llm_output=self.last_response)
-        print("flatten for summary")
 
         self.config.summarizer.apply(self.llm, self.discussion)
 
@@ -469,6 +467,13 @@ class ToolUseAgent(bgym.Agent):
         self.last_response = response
         self._responses.append(response)  # may be useful for debugging
         # self.messages.append(response.assistant_message)  # this is tool call
+
+        tools_str = json.dumps(self.tools, indent=2)
+        tools_msg = MessageBuilder("tool_description").add_text(tools_str)
+
+        # Adding these extra messages to visualize in gradio
+        messages.insert(0, tools_msg)  # insert at the beginning of the messages
+        messages.append(response.tool_calls)
 
         agent_info = bgym.AgentInfo(
             think=think,
@@ -513,13 +518,16 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
         use_last_error=True,
         use_screenshot=True,
         use_axtree=False,
-        use_dom=False,
+        use_dom=True,
         use_som=False,
         use_tabs=False,
     ),
     summarizer=Summarizer(do_summary=True),
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
+    keep_last_n_obs=1,  # keep only the last observation in the discussion
+    multiaction=False,  # whether to use multi-action or not
+    action_subsets=("bid",),
 )
 
 AGENT_CONFIG = ToolUseAgentArgs(
