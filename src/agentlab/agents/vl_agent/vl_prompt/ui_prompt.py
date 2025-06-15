@@ -16,56 +16,124 @@ import numpy as np
 
 class IntroductionPromptPart(VLPromptPart):
     def __init__(self):
-        self.text = """\
-You are an agent working to address a web-based task through step-by-step interactions with the browser. \
+        self.message_content = [
+            {
+                "type": "text",
+                "text": """\
+You are an agent working to address a web-based task through step-by-step interaction with the browser. \
 To achieve the goal of the task, at each step, you need to submit an action based on the current state of the browser. \
 This action will be executed to update the state of the browser, and you will proceed to the next step.
-"""
+""",
+            }
+        ]
 
     def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
+        return self.message_content
 
 
 class GoalPromptPart(VLPromptPart):
     def __init__(self, goal_object: list[dict]):
-        text = """
+        self.message_content = [
+            {
+                "type": "text",
+                "text": """
 # The goal of the task
-"""
-        for item in goal_object:
-            if item["type"] == "text":
-                text += f"""
-{item['text']}
-"""
-        self.text = text
-
-    def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
-
-
-class ScreenshotPromptPart(VLPromptPart):
-    def __init__(self, screenshot: Union[Image.Image, np.ndarray]):
-        self.text = """
-# The screenshot of the current web page
-"""
-        self.image_url = image_to_image_url(screenshot)
-
-    def get_message_content(self) -> list[dict]:
-        return [
-            {"type": "text", "text": self.text},
-            {"type": "image_url", "image_url": {"url": self.image_url}},
+""",
+            }
         ]
+        self.message_content.extend(goal_object)
+
+    def get_message_content(self) -> list[dict]:
+        return self.message_content
+
+
+class InteractionPromptPart(VLPromptPart):
+    def __init__(
+        self,
+        screenshots: list[Union[Image.Image, np.ndarray]],
+        thoughts: list[str],
+        actions: list[str],
+        use_previous_screenshots: bool,
+    ):
+        self.message_content = [
+            {
+                "type": "text",
+                "text": """
+# The screenshots, thoughts, and actions of the previous steps
+""",
+            }
+        ]
+        for index, (screenshot, thought, action) in enumerate(
+            zip(screenshots[:-1], thoughts, actions)
+        ):
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""
+## Step {index}
+""",
+                }
+            )
+            if use_previous_screenshots:
+                self.message_content.append(
+                    {
+                        "type": "text",
+                        "text": """
+### Screenshot
+""",
+                    }
+                )
+                self.message_content.append(
+                    {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
+                )
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""
+### Thought
+
+{thought}
+
+### Action
+
+{action}
+""",
+                }
+            )
+        self.message_content.append(
+            {
+                "type": "text",
+                "text": """
+# The screenshot of the current step
+""",
+            }
+        )
+        self.message_content.append(
+            {"type": "image_url", "image_url": {"url": image_to_image_url(screenshots[-1])}}
+        )
+
+    def get_message_content(self) -> list[dict]:
+        return self.message_content
 
 
 class TabsPromptPart(VLPromptPart):
     def __init__(
         self, open_pages_titles: list[str], open_pages_urls: list[str], active_page_index: int
     ):
-        text = """
+        self.message_content = [
+            {
+                "type": "text",
+                "text": """
 # The titles and URLs of the open tabs
-"""
+""",
+            }
+        ]
         for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
-            text += f"""
-## Tab {index}{' (the current web page)' if index == active_page_index else ''}
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""
+## Tab {index}{' (active)' if index == active_page_index else ''}
 
 ### Title
 
@@ -74,34 +142,12 @@ class TabsPromptPart(VLPromptPart):
 ### URL
 
 {url}
-"""
-        self.text = text
+""",
+                }
+            )
 
     def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
-
-
-class HistoryPromptPart(VLPromptPart):
-    def __init__(self, thoughts: list[str], actions: list[str]):
-        text = """
-# The thoughts and actions of the previous steps
-"""
-        for index, (thought, action) in enumerate(zip(thoughts, actions)):
-            text += f"""
-## Step {index}
-
-### Thought
-
-{thought}
-
-### Action
-
-{action}
-"""
-        self.text = text
-
-    def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
+        return self.message_content
 
 
 class ErrorPromptPart(VLPromptPart):
@@ -111,29 +157,48 @@ class ErrorPromptPart(VLPromptPart):
         logs_separator: str = "Call log:",
         logs_limit: int = 5,
     ):
-        text = """
+        self.message_content = [
+            {
+                "type": "text",
+                "text": """
 # The error caused by the last action
-"""
+""",
+            }
+        ]
         if logs_separator in last_action_error:
             error, logs = last_action_error.split(logs_separator)
             logs = logs.split("\n")[:logs_limit]
-            text += f"""
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""
 {error}
 
 {logs_separator}
-"""
+""",
+                }
+            )
             for log in logs:
-                text += f"""
+                self.message_content.append(
+                    {
+                        "type": "text",
+                        "text": f"""
 {log}
-"""
+""",
+                    }
+                )
         else:
-            text += f"""
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""
 {last_action_error}
-"""
-        self.text = text
+""",
+                }
+            )
 
     def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
+        return self.message_content
 
 
 class PreliminaryAnswerPromptPart(VLPromptPart):
