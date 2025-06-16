@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
-from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.llm_utils import HumanMessage
 from browsergym.core.action.highlevel import HighLevelActionSet
-from typing import Optional
+from PIL import Image
+from typing import Optional, Union
+import numpy as np
 
 
 class VLPromptPart(ABC):
@@ -12,7 +14,7 @@ class VLPromptPart(ABC):
 
 class VLPrompt(ABC):
     @abstractmethod
-    def get_messages(self) -> Discussion:
+    def get_message(self) -> HumanMessage:
         raise NotImplementedError
 
     @abstractmethod
@@ -25,8 +27,9 @@ class VLPromptArgs(ABC):
     def make_prompt(
         self,
         obs: dict,
-        thoughts: list[str],
-        actions: list[str],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
+        thought_history: list[str],
+        action_history: list[str],
         action_set: HighLevelActionSet,
         extra_info: Optional[dict] = None,
     ) -> VLPrompt:

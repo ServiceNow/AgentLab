@@ -1,4 +1,4 @@
-from agentlab.llm.llm_utils import ParseError, retry
+from agentlab.llm.llm_utils import Discussion, ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.agent import AgentInfo
@@ -25,8 +25,9 @@ class UIAgent(VLAgent):
         self.ui_prompt_args = ui_prompt_args
         self._action_set = action_set_args.make_action_set()
         self.max_num_retries = max_num_retries
-        self.thoughts = []
-        self.actions = []
+        self.screenshot_history = []
+        self.thought_history = []
+        self.action_history = []
 
     @property
     def action_set(self) -> HighLevelActionSet:
@@ -36,12 +37,16 @@ class UIAgent(VLAgent):
     def get_action(self, obs: dict) -> tuple[str, dict]:
         stats = {}
         preliminary_main_ui_prompt = self.ui_prompt_args.make_prompt(
-            obs=obs, thoughts=self.thoughts, actions=self.actions, action_set=self.action_set
+            obs,
+            screenshot_history=self.screenshot_history,
+            thought_history=self.thought_history,
+            action_history=self.action_history,
+            action_set=self.action_set,
         )
         try:
-            messages = preliminary_main_ui_prompt.get_messages()
+            messages = Discussion([preliminary_main_ui_prompt.get_message()])
             preliminary_answer = retry(
-                chat=self.main_vl_model,
+                self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_num_retries,
                 parser=preliminary_main_ui_prompt.parse_answer,
@@ -51,16 +56,17 @@ class UIAgent(VLAgent):
             preliminary_answer = {"thought": None, "location": None}
             stats["preliminary_main_num_retries"] = self.max_num_retries
         auxiliary_ui_prompt = self.ui_prompt_args.make_prompt(
-            obs=obs,
-            thoughts=self.thoughts,
-            actions=self.actions,
+            obs,
+            screenshot_history=self.screenshot_history,
+            thought_history=self.thought_history,
+            action_history=self.action_history,
             action_set=self.action_set,
             extra_info=preliminary_answer,
         )
         try:
-            messages = auxiliary_ui_prompt.get_messages()
+            messages = Discussion([auxiliary_ui_prompt.get_message()])
             auxiliary_answer = retry(
-                chat=self.auxiliary_vl_model,
+                self.auxiliary_vl_model,
                 messages=messages,
                 n_retry=self.max_num_retries,
                 parser=auxiliary_ui_prompt.parse_answer,
@@ -71,16 +77,17 @@ class UIAgent(VLAgent):
             stats["auxiliary_num_retries"] = self.max_num_retries
         preliminary_answer.update(auxiliary_answer)
         final_main_ui_prompt = self.ui_prompt_args.make_prompt(
-            obs=obs,
-            thoughts=self.thoughts,
-            actions=self.actions,
+            obs,
+            screenshot_history=self.screenshot_history,
+            thought_history=self.thought_history,
+            action_history=self.action_history,
             action_set=self.action_set,
             extra_info=preliminary_answer,
         )
         try:
-            messages = final_main_ui_prompt.get_messages()
+            messages = Discussion([final_main_ui_prompt.get_message()])
             final_answer = retry(
-                chat=self.main_vl_model,
+                self.main_vl_model,
                 messages=messages,
                 n_retry=self.max_num_retries,
                 parser=final_main_ui_prompt.parse_answer,
@@ -91,8 +98,9 @@ class UIAgent(VLAgent):
             stats["final_main_num_retries"] = self.max_num_retries
         stats.update(self.main_vl_model.get_stats())
         stats.update(self.auxiliary_vl_model.get_stats())
-        self.thoughts.append(str(preliminary_answer["thought"]))
-        self.actions.append(str(final_answer["action"]))
+        self.screenshot_history.append(obs["screenshot"])
+        self.thought_history.append(str(preliminary_answer["thought"]))
+        self.action_history.append(str(final_answer["action"]))
         agent_info = AgentInfo(stats=stats, extra_info=preliminary_answer)
         return final_answer["action"], asdict(agent_info)
 

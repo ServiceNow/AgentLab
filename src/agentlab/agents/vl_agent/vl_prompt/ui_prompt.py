@@ -49,10 +49,11 @@ class GoalPromptPart(VLPromptPart):
 class InteractionPromptPart(VLPromptPart):
     def __init__(
         self,
-        screenshots: list[Union[Image.Image, np.ndarray]],
-        thoughts: list[str],
-        actions: list[str],
-        use_previous_screenshots: bool,
+        current_screenshot: Union[Image.Image, np.ndarray],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
+        thought_history: list[str],
+        action_history: list[str],
+        use_screenshot_history: bool,
     ):
         self.message_content = [
             {
@@ -63,7 +64,7 @@ class InteractionPromptPart(VLPromptPart):
             }
         ]
         for index, (screenshot, thought, action) in enumerate(
-            zip(screenshots[:-1], thoughts, actions)
+            zip(screenshot_history, thought_history, action_history)
         ):
             self.message_content.append(
                 {
@@ -73,7 +74,7 @@ class InteractionPromptPart(VLPromptPart):
 """,
                 }
             )
-            if use_previous_screenshots:
+            if use_screenshot_history:
                 self.message_content.append(
                     {
                         "type": "text",
@@ -108,7 +109,7 @@ class InteractionPromptPart(VLPromptPart):
             }
         )
         self.message_content.append(
-            {"type": "image_url", "image_url": {"url": image_to_image_url(screenshots[-1])}}
+            {"type": "image_url", "image_url": {"url": image_to_image_url(current_screenshot)}}
         )
 
     def get_message_content(self) -> list[dict]:
@@ -408,28 +409,31 @@ Description: {self.location}
 
 @dataclass
 class UIPromptArgs(VLPromptArgs):
+    use_screenshot_history: bool
     use_tabs: bool
-    use_history: bool
     use_error: bool
-    use_previous_screenshots: bool
     use_abstract_example: bool
     use_concrete_example: bool
 
     def make_prompt(
         self,
         obs: dict,
-        screenshots: list[Union[Image.Image, np.ndarray]],
-        thoughts: list[str],
-        actions: list[str],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
+        thought_history: list[str],
+        action_history: list[str],
         action_set: HighLevelActionSet,
         extra_info: Optional[dict] = None,
     ) -> Union[MainUIPrompt, AuxiliaryUIPrompt]:
         introduction_prompt_part = IntroductionPromptPart()
         goal_prompt_part = GoalPromptPart(obs["goal_object"])
         interaction_prompt_part = InteractionPromptPart(
-            screenshots, thoughts, actions, self.use_previous_screenshots
+            obs["screenshot"],
+            screenshot_history,
+            thought_history,
+            action_history,
+            self.use_screenshot_history,
         )
-        if self.use_tabs:
+        if self.use_tabs and len(obs["open_pages_titles"]) == len(obs["open_pages_urls"]) > 1:
             tabs_prompt_part = TabsPromptPart(
                 open_pages_titles=obs["open_pages_titles"],
                 open_pages_urls=obs["open_pages_urls"],

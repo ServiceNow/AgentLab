@@ -38,8 +38,8 @@ VL_MODEL_ARGS_DICT = {
 
 VL_PROMPT_ARGS_DICT = {
     "ui_prompt": UIPromptArgs(
-        use_tabs=False,
-        use_history=True,
+        use_screenshot_history=True,
+        use_tabs=True,
         use_error=True,
         use_abstract_example=True,
         use_concrete_example=True,
