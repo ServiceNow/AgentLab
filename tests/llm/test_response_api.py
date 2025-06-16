@@ -260,7 +260,7 @@ def test_openai_chat_completion_model_parse_and_cost():
 
     mock_create.assert_called_once()
     assert parsed_output.raw_response.choices[0].message.content == "This is a test thought."
-    assert parsed_output.action == "get_weather(location=Paris)"
+    assert parsed_output.action == 'get_weather(location="Paris")'
     assert parsed_output.raw_response.choices[0].message.tool_calls[0].id == "call_123"
     # Check cost tracking (token counts)
     assert global_tracker.stats["input_tokens"] == 50
@@ -291,7 +291,9 @@ def test_claude_response_model_parse_and_cost():
             parsed_output = model(messages)
 
     mock_create.assert_called_once()
-    fn_calls = [content for content in parsed_output.raw_response.content if content.type == "tool_use"]
+    fn_calls = [
+        content for content in parsed_output.raw_response.content if content.type == "tool_use"
+    ]
     assert "Thinking about the request." in parsed_output.think
     assert parsed_output.action == 'search_web(query="latest news")'
     assert fn_calls[0].id == "tool_abc"
@@ -334,8 +336,10 @@ def test_openai_response_model_parse_and_cost():
             parsed_output = model(messages)
 
     mock_create_method.assert_called_once()
-    fn_calls = [content for content in parsed_output.raw_response.output if content.type == "function_call"]
-    assert parsed_output.action == "get_current_weather(location=Boston, MA, unit=celsius)"
+    fn_calls = [
+        content for content in parsed_output.raw_response.output if content.type == "function_call"
+    ]
+    assert parsed_output.action == 'get_current_weather(location="Boston, MA", unit="celsius")'
     assert fn_calls[0].call_id == "call_abc123"
     assert parsed_output.raw_response == mock_api_resp
     assert global_tracker.stats["input_tokens"] == 70
