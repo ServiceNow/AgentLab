@@ -11,7 +11,6 @@ from typing import Optional
 import requests
 from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
 
-
 TRACKER = threading.local()
 
 ANTHROPHIC_CACHE_PRICING_FACTOR = {
@@ -207,9 +206,7 @@ class TrackAPIPricingMixin:
         input_tokens, output_tokens = self.get_tokens_counts_from_response(raw_response)
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if hasattr(TRACKER, "instance") and isinstance(
-            TRACKER.instance, LLMTracker
-        ):
+        if hasattr(TRACKER, "instance") and isinstance(TRACKER.instance, LLMTracker):
             TRACKER.instance(input_tokens, output_tokens, cost)
 
     def get_tokens_counts_from_response(self, response) -> tuple:
@@ -286,7 +283,9 @@ class TrackAPIPricingMixin:
         usage = getattr(response, "usage", {})
         prompt_token_details = getattr(response, "prompt_tokens_details", {})
 
-        total_input_tokens = getattr(prompt_token_details, "prompt_tokens", 0)  # Cache read tokens + new input tokens
+        total_input_tokens = getattr(
+            prompt_token_details, "prompt_tokens", 0
+        )  # Cache read tokens + new input tokens
         output_tokens = getattr(usage, "completion_tokens", 0)
         cache_read_tokens = getattr(prompt_token_details, "cached_tokens", 0)
 
