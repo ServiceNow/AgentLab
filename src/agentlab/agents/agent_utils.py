@@ -195,3 +195,51 @@ def zoom_webpage(page: Page, zoom_factor: float = 1.5):
 
     page.evaluate(f"document.documentElement.style.zoom='{zoom_factor*100}%'")
     return page
+
+
+def parse_func_call_string(call_str: str) -> Tuple[Optional[str], Optional[Tuple[list, dict]]]:
+    """
+    Parse a function call string and extract the function name and arguments.
+
+    Args:
+        call_str (str): A string like "mouse_click(100, 200)" or "mouse_drag_and_drop(x=10, y=20)"
+
+    Returns:
+        Tuple (func_name, (args, kwargs)), or (None, None) if parsing fails
+    """
+    import ast
+
+    try:
+        tree = ast.parse(call_str.strip(), mode="eval")
+        if not isinstance(tree.body, ast.Call):
+            return None, None
+
+        call_node = tree.body
+
+        # Function name
+        if isinstance(call_node.func, ast.Name):
+            func_name = call_node.func.id
+        else:
+            return None, None
+
+        # Positional arguments
+        args = []
+        for arg in call_node.args:
+            try:
+                args.append(ast.literal_eval(arg))
+            except (ValueError, TypeError):
+                return None, None
+
+        # Keyword arguments
+        kwargs = {}
+        for kw in call_node.keywords:
+            try:
+                kwargs[kw.arg] = ast.literal_eval(kw.value)
+            except (ValueError, TypeError):
+                return None, None
+
+        return func_name, (args, kwargs)
+
+    except (SyntaxError, ValueError, TypeError):
+        return None, None
+
