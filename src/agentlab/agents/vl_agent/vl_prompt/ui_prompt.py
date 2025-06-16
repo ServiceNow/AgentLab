@@ -251,7 +251,7 @@ The smallest number visible on the screen is '1'. \
 I will use the 'mouse_click' action to directly click on the number '1'.
 </thought>
 <location>
-The number '1' in the top-left quadrant of the white area.
+The object in the top-left quadrant of the white area.
 </location>
 """,
                 }
