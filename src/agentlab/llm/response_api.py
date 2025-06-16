@@ -73,10 +73,6 @@ class MessageBuilder:
         self.last_raw_response = last_raw_response
         return self
 
-    # def add_tool_id(self, id: str) -> "MessageBuilder":
-    #     self.tool_call_id = id
-    #     return self
-
     def add_text(self, text: str) -> "MessageBuilder":
         self.content.append({"text": text})
         return self
@@ -95,10 +91,6 @@ class MessageBuilder:
 
         markdown = f"### {self.role.capitalize()}\n"
         markdown += "\n".join(parts)
-
-        # if self.role == "tool":
-        #     assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
-        #     markdown += f"\n\n---\n\n**Tool Call ID:** `{self.tool_call_id}`"
 
         return markdown
 
@@ -176,7 +168,7 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             output["role"] = "user"
 
         if self.role == "tool":
-            # assert self.tool_call_id is not None, "Tool call ID is required for tool messages"
+
             api_response = self.last_raw_response
             fn_calls = [content for content in api_response.content if content.type == "tool_use"]
             assert len(fn_calls) > 0, "No tool calls found in the last response"
@@ -197,7 +189,6 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             for c in output["content"]:
                 if "text" in c:
                     c["text"] = c["text"].strip()
-
         return [output]
 
     def transform_content(self, content: ContentItem) -> ContentItem:
@@ -377,7 +368,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
                 if len(output.summary) > 0:
                     result.think += output.summary[0].text + "\n"
 
-            elif output.type == "message" and output.content:  # Why did i add a 'message' here?
+            elif output.type == "message" and output.content:
                 result.think += output.content[0].text + "\n"
         for key in interesting_keys:
             if key_content := getattr(output, "output_text", None) is not None:
@@ -486,16 +477,11 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
 
         if reasoning_content:
             # Wrap reasoning in <think> tags with newlines for clarity
-            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"  # why I do need to enclose reasoning in <think> tags?
+            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"
             logging.debug("Extracting content from response.choices[i].message.reasoning")
         else:
             reasoning_content = ""
         return f"{reasoning_content}{msg_content}{message.get('content', '')}"
-
-
-# To Do: Double check the expected action format by browsergym.
-# openai action output do not have parenthesis but the antropic action parsing does.
-# Confirm with allac if this is the expected format.
 
 
 class ClaudeResponseModel(BaseModelWithPricing):
@@ -600,7 +586,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
     def apply_cache_breakpoints(self, msg: Message, prepared_msg: dict) -> List[Message]:
         """Apply cache breakpoints to the messages."""
         if getattr(msg, "_cache_breakpoint", False):
-                prepared_msg[-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
+            prepared_msg[-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
         return prepared_msg
 
 
