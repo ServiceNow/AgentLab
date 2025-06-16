@@ -499,6 +499,8 @@ clicking the refresh button.
         # keep track of active tab
         tabs.select(tab_select)
 
+        demo.load(fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice)
+
     demo.queue()
 
     do_share = os.getenv("AGENTXRAY_SHARE_GRADIO", "false").lower() == "true"
