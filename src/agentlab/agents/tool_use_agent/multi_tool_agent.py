@@ -105,6 +105,12 @@ class StructuredDiscussion:
         # append None to summaries until we reach the current group index
         self.groups[-1].summary = summary
 
+    def get_last_summary(self) -> MessageBuilder | None:
+        """Get the last summary message."""
+        if len(self.groups) == 0:
+            return None
+        return self.groups[-1].summary
+
     def is_goal_set(self) -> bool:
         """Check if the goal is set in the first group."""
         return len(self.groups) > 0
@@ -460,6 +466,9 @@ class ToolUseAgent(bgym.Agent):
 
         action = response.action
         think = response.think
+        last_summary = self.discussion.get_last_summary()
+        if last_summary is not None:
+            think = last_summary.content[0]["text"] + "\n" + think
 
         self.discussion.new_group()
         self.discussion.append(response.tool_calls)
@@ -517,17 +526,19 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     obs=Obs(
         use_last_error=True,
         use_screenshot=True,
-        use_axtree=False,
-        use_dom=True,
+        use_axtree=True,
+        use_dom=False,
         use_som=False,
         use_tabs=False,
     ),
     summarizer=Summarizer(do_summary=True),
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
-    keep_last_n_obs=1,  # keep only the last observation in the discussion
+    keep_last_n_obs=None,  # keep only the last observation in the discussion
     multiaction=False,  # whether to use multi-action or not
-    action_subsets=("bid",),
+    # action_subsets=("bid",),
+    action_subsets=("coord"),
+    # action_subsets=("coord", "bid"),
 )
 
 AGENT_CONFIG = ToolUseAgentArgs(
