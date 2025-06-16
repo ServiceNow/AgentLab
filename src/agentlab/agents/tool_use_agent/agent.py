@@ -55,7 +55,6 @@ class ToolUseAgentArgs(AgentArgs):
         return self.model_args.close_server()
 
 
-
 class ToolUseAgent(bgym.Agent):
     def __init__(
         self,
@@ -88,12 +87,11 @@ class ToolUseAgent(bgym.Agent):
 
         return obs
 
-    ## noop() actions are treated as tool calls. but they should not be.
-    #  As noop tool was never called and but noop is the default action in the action set. When no tools are called.
-    ## What if we do not include the tool calls in the messages and just execute them and prodice the observations.
+
 
     @cost_tracker_decorator
     def get_action(self, obs: Any) -> float:
+
         if len(self.messages) == 0:
             self.messages += self.get_initalize_messages(obs)
             self.messages += [
@@ -249,7 +247,3 @@ def get_tool_use_agent(
     return agent
 
 
-## We have three providers that we want to support.
-# Anthropic
-# OpenAI
-# vllm (uses OpenAI API)
