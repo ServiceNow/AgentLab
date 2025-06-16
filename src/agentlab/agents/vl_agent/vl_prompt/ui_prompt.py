@@ -1,5 +1,4 @@
 from agentlab.llm.llm_utils import (
-    Discussion,
     extract_code_blocks,
     HumanMessage,
     ParseError,
@@ -59,7 +58,7 @@ class InteractionPromptPart(VLPromptPart):
             {
                 "type": "text",
                 "text": """
-# The screenshots, thoughts, and actions of the previous steps
+# The previous steps to achieve the goal
 """,
             }
         ]
@@ -124,7 +123,7 @@ class TabsPromptPart(VLPromptPart):
             {
                 "type": "text",
                 "text": """
-# The titles and URLs of the open tabs
+# The open tabs of the browser
 """,
             }
         ]
@@ -205,7 +204,10 @@ class PreliminaryAnswerPromptPart(VLPromptPart):
     def __init__(
         self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool
     ):
-        text = f"""
+        self.message_content = [
+            {
+                "type": "text",
+                "text": f"""
 # The action space
 
 Here are all the actions you can take to interact with the browser.
@@ -216,9 +218,14 @@ Here are all the actions you can take to interact with the browser.
 
 Think about the action, and describe the location where the action is to be taken. \
 Your answer should contain one thought and one location.
-"""
+""",
+            }
+        ]
         if use_abstract_example:
-            text += """
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": """
 # An abstract example of the answer
 
 <thought>
@@ -227,9 +234,14 @@ The thought about the action.
 <location>
 The description of the location where the action is to be taken.
 </location>
-"""
+""",
+                }
+            )
         if use_concrete_example:
-            text += """
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": """
 # A concrete example of the answer
 
 <thought>
@@ -240,11 +252,12 @@ I will use the 'mouse_click' action to directly click on the number '1'.
 <location>
 The number '1' in the top-left quadrant of the white area.
 </location>
-"""
-        self.text = text
+""",
+                }
+            )
 
     def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
+        return self.message_content
 
 
 class FinalAnswerPromptPart(VLPromptPart):
@@ -255,7 +268,10 @@ class FinalAnswerPromptPart(VLPromptPart):
         use_abstract_example: bool,
         use_concrete_example: bool,
     ):
-        text = f"""
+        self.message_content = [
+            {
+                "type": "text",
+                "text": f"""
 # The action space
 
 Here are all the actions you can take to interact with the browser.
@@ -274,54 +290,62 @@ Here are all the actions you can take to interact with the browser.
 
 Formulate the action to be taken. \
 Your answer should contain only one action.
-"""
+""",
+            }
+        ]
         if use_abstract_example:
-            text += """
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": """
 # An abstract example of the answer
 
 <action>
 The action to be taken.
 </action>
-"""
+""",
+                }
+            )
         if use_concrete_example:
-            text += """
+            self.message_content.append(
+                {
+                    "type": "text",
+                    "text": """
 # A concrete example of the answer
 
 <action>
 mouse_click(50, 50)
 </action>
-"""
-        self.text = text
+""",
+                }
+            )
 
     def get_message_content(self) -> list[dict]:
-        return [{"type": "text", "text": self.text}]
+        return self.message_content
 
 
 @dataclass
 class MainUIPrompt(VLPrompt):
     introduction_prompt_part: IntroductionPromptPart
     goal_prompt_part: GoalPromptPart
-    screenshot_prompt_part: ScreenshotPromptPart
+    interaction_prompt_part: InteractionPromptPart
     tabs_prompt_part: Optional[TabsPromptPart]
-    history_prompt_part: Optional[HistoryPromptPart]
     error_prompt_part: Optional[ErrorPromptPart]
     answer_prompt_part: Union[PreliminaryAnswerPromptPart, FinalAnswerPromptPart]
     action_validator: Callable
 
-    def get_messages(self) -> Discussion:
+    def get_message(self) -> HumanMessage:
         message_content = self.introduction_prompt_part.get_message_content()
         message_content.extend(self.goal_prompt_part.get_message_content())
-        message_content.extend(self.screenshot_prompt_part.get_message_content())
+        message_content.extend(self.interaction_prompt_part.get_message_content())
         if self.tabs_prompt_part is not None:
             message_content.extend(self.tabs_prompt_part.get_message_content())
-        if self.history_prompt_part is not None:
-            message_content.extend(self.history_prompt_part.get_message_content())
         if self.error_prompt_part is not None:
             message_content.extend(self.error_prompt_part.get_message_content())
         message_content.extend(self.answer_prompt_part.get_message_content())
-        messages = Discussion([HumanMessage(message_content)])
-        messages.merge()
-        return messages
+        message = HumanMessage(message_content)
+        message.merge()
+        return message
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
@@ -359,22 +383,22 @@ class AuxiliaryUIPrompt(VLPrompt):
     screenshot: Union[Image.Image, np.ndarray]
     location: str
 
-    def get_messages(self) -> Discussion:
-        image_url = image_to_image_url(self.screenshot)
-        text = f"""\
+    def get_message(self) -> HumanMessage:
+        message_content = [
+            {"type": "image_url", "image_url": {"url": image_to_image_url(self.screenshot)}},
+            {
+                "type": "text",
+                "text": f"""\
 Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on this screen based on a description. \
 Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible. \
 If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
 Your answer should be a single string (x, y) corresponding to the point of interest.
 
 Description: {self.location}
-"""
-        message_content = [
-            {"type": "image_url", "image_url": {"url": image_url}},
-            {"type": "text", "text": text},
+""",
+            },
         ]
-        messages = Discussion([HumanMessage(message_content)])
-        return messages
+        return HumanMessage(message_content)
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
@@ -387,12 +411,14 @@ class UIPromptArgs(VLPromptArgs):
     use_tabs: bool
     use_history: bool
     use_error: bool
+    use_previous_screenshots: bool
     use_abstract_example: bool
     use_concrete_example: bool
 
     def make_prompt(
         self,
         obs: dict,
+        screenshots: list[Union[Image.Image, np.ndarray]],
         thoughts: list[str],
         actions: list[str],
         action_set: HighLevelActionSet,
@@ -400,7 +426,9 @@ class UIPromptArgs(VLPromptArgs):
     ) -> Union[MainUIPrompt, AuxiliaryUIPrompt]:
         introduction_prompt_part = IntroductionPromptPart()
         goal_prompt_part = GoalPromptPart(obs["goal_object"])
-        screenshot_prompt_part = ScreenshotPromptPart(obs["screenshot"])
+        interaction_prompt_part = InteractionPromptPart(
+            screenshots, thoughts, actions, self.use_previous_screenshots
+        )
         if self.use_tabs:
             tabs_prompt_part = TabsPromptPart(
                 open_pages_titles=obs["open_pages_titles"],
@@ -409,10 +437,6 @@ class UIPromptArgs(VLPromptArgs):
             )
         else:
             tabs_prompt_part = None
-        if self.use_history and len(thoughts) == len(actions) > 0:
-            history_prompt_part = HistoryPromptPart(thoughts=thoughts, actions=actions)
-        else:
-            history_prompt_part = None
         if self.use_error and obs["last_action_error"]:
             error_prompt_part = ErrorPromptPart(obs["last_action_error"])
         else:
@@ -428,9 +452,8 @@ class UIPromptArgs(VLPromptArgs):
             return MainUIPrompt(
                 introduction_prompt_part=introduction_prompt_part,
                 goal_prompt_part=goal_prompt_part,
-                screenshot_prompt_part=screenshot_prompt_part,
+                interaction_prompt_part=interaction_prompt_part,
                 tabs_prompt_part=tabs_prompt_part,
-                history_prompt_part=history_prompt_part,
                 error_prompt_part=error_prompt_part,
                 answer_prompt_part=preliminary_answer_prompt_part,
                 action_validator=action_set.to_python_code,
@@ -448,9 +471,8 @@ class UIPromptArgs(VLPromptArgs):
                 return MainUIPrompt(
                     introduction_prompt_part=introduction_prompt_part,
                     goal_prompt_part=goal_prompt_part,
-                    screenshot_prompt_part=screenshot_prompt_part,
+                    interaction_prompt_part=interaction_prompt_part,
                     tabs_prompt_part=tabs_prompt_part,
-                    history_prompt_part=history_prompt_part,
                     error_prompt_part=error_prompt_part,
                     answer_prompt_part=final_answer_prompt_part,
                     action_validator=action_set.to_python_code,
