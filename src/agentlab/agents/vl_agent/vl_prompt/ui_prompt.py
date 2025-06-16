@@ -265,7 +265,8 @@ class FinalAnswerPromptPart(VLPromptPart):
     def __init__(
         self,
         action_set_description: str,
-        extra_info: dict,
+        thought: str,
+        coordinates: str,
         use_abstract_example: bool,
         use_concrete_example: bool,
     ):
@@ -281,11 +282,11 @@ Here are all the actions you can take to interact with the browser.
 
 # The thought about the action
 
-{extra_info['thought']}
+{thought}
 
 # The coordinates where the action is to be taken
 
-{extra_info['coordinates']}
+{coordinates}
 
 # The answer requirements
 
@@ -425,13 +426,13 @@ class UIPromptArgs(VLPromptArgs):
         extra_info: Optional[dict] = None,
     ) -> Union[MainUIPrompt, AuxiliaryUIPrompt]:
         introduction_prompt_part = IntroductionPromptPart()
-        goal_prompt_part = GoalPromptPart(obs["goal_object"])
+        goal_prompt_part = GoalPromptPart(goal_object=obs["goal_object"])
         interaction_prompt_part = InteractionPromptPart(
-            obs["screenshot"],
-            screenshot_history,
-            thought_history,
-            action_history,
-            self.use_screenshot_history,
+            current_screenshot=obs["screenshot"],
+            screenshot_history=screenshot_history,
+            thought_history=thought_history,
+            action_history=action_history,
+            use_screenshot_history=self.use_screenshot_history,
         )
         if self.use_tabs and len(obs["open_pages_titles"]) == len(obs["open_pages_urls"]) > 1:
             tabs_prompt_part = TabsPromptPart(
@@ -442,7 +443,7 @@ class UIPromptArgs(VLPromptArgs):
         else:
             tabs_prompt_part = None
         if self.use_error and obs["last_action_error"]:
-            error_prompt_part = ErrorPromptPart(obs["last_action_error"])
+            error_prompt_part = ErrorPromptPart(last_action_error=obs["last_action_error"])
         else:
             error_prompt_part = None
         if extra_info is None:
@@ -468,7 +469,8 @@ class UIPromptArgs(VLPromptArgs):
                     action_set_description=action_set.describe(
                         with_long_description=True, with_examples=False
                     ),
-                    extra_info=extra_info,
+                    thought=extra_info["thought"],
+                    coordinates=extra_info["coordinates"],
                     use_abstract_example=self.use_abstract_example,
                     use_concrete_example=self.use_concrete_example,
                 )
