@@ -73,7 +73,8 @@ class QwenModel(VLModel):
         )[0]
         return AIMessage([{"type": "text", "text": output_text}])
 
-    def get_stats(self) -> dict:
+    @property
+    def stats(self) -> dict:
         return {}
 
 

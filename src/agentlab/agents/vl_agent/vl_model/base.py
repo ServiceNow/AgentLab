@@ -7,8 +7,9 @@ class VLModel(ABC):
     def __call__(self, messages: Discussion) -> AIMessage:
         raise NotImplementedError
 
+    @property
     @abstractmethod
-    def get_stats(self) -> dict:
+    def stats(self) -> dict:
         raise NotImplementedError
 
 

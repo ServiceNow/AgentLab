@@ -34,7 +34,8 @@ class OpenRouterAPIModel(VLModel):
         response = get_response(messages, self.max_tokens, **self.reproducibility_config)
         return AIMessage([{"type": "text", "text": response}])
 
-    def get_stats(self) -> dict:
+    @property
+    def stats(self) -> dict:
         return {}
 
 

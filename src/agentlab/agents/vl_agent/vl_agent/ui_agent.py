@@ -96,8 +96,8 @@ class UIAgent(VLAgent):
         except ParseError:
             final_answer = {"action": None}
             stats["final_main_num_retries"] = self.max_num_retries
-        stats.update(self.main_vl_model.get_stats())
-        stats.update(self.auxiliary_vl_model.get_stats())
+        stats.update(self.main_vl_model.stats)
+        stats.update(self.auxiliary_vl_model.stats)
         self.screenshot_history.append(obs["screenshot"])
         self.thought_history.append(str(preliminary_answer["thought"]))
         self.action_history.append(str(final_answer["action"]))
