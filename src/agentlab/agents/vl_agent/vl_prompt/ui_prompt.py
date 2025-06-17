@@ -57,41 +57,43 @@ class InteractionPromptPart(VLPromptPart):
         action_history: list[str],
         use_screenshot_history: bool,
     ):
-        self._message_content = [
-            {
-                "type": "text",
-                "text": """
-# The previous steps to achieve the goal
-""",
-            }
-        ]
-        for index, (screenshot, thought, action) in enumerate(
-            zip(screenshot_history, thought_history, action_history)
-        ):
+        self._message_content = []
+        if len(screenshot_history) == len(thought_history) == len(action_history) != 0:
             self._message_content.append(
                 {
                     "type": "text",
-                    "text": f"""
-## Step {index}
+                    "text": """
+# The previous steps to achieve the goal
 """,
                 }
             )
-            if use_screenshot_history:
+            for index, (screenshot, thought, action) in enumerate(
+                zip(screenshot_history, thought_history, action_history)
+            ):
                 self._message_content.append(
                     {
                         "type": "text",
-                        "text": """
-### Screenshot
+                        "text": f"""
+## Step {index}
 """,
                     }
                 )
+                if use_screenshot_history:
+                    self._message_content.append(
+                        {
+                            "type": "text",
+                            "text": """
+### Screenshot
+""",
+                        }
+                    )
+                    self._message_content.append(
+                        {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
+                    )
                 self._message_content.append(
-                    {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
-                )
-            self._message_content.append(
-                {
-                    "type": "text",
-                    "text": f"""
+                    {
+                        "type": "text",
+                        "text": f"""
 ### Thought
 
 {thought}
@@ -100,8 +102,8 @@ class InteractionPromptPart(VLPromptPart):
 
 {action}
 """,
-                }
-            )
+                    }
+                )
         self._message_content.append(
             {
                 "type": "text",
@@ -397,10 +399,10 @@ class AuxiliaryUIPrompt(VLPrompt):
 
     @property
     def message(self) -> HumanMessage:
+        screenshots = []
         if self.use_screenshot_history:
-            screenshots = self.screenshot_history + [self.current_screenshot]
-        else:
-            screenshots = [self.current_screenshot]
+            screenshots.extend(self.screenshot_history)
+        screenshots.append(self.current_screenshot)
         message_content = [
             {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
             for screenshot in screenshots
@@ -452,7 +454,7 @@ class UIPromptArgs(VLPromptArgs):
             action_history=action_history,
             use_screenshot_history=self.use_screenshot_history,
         )
-        if self.use_tabs and len(obs["open_pages_titles"]) == len(obs["open_pages_urls"]) > 1:
+        if self.use_tabs:
             tabs_prompt_part = TabsPromptPart(
                 open_pages_titles=obs["open_pages_titles"],
                 open_pages_urls=obs["open_pages_urls"],
