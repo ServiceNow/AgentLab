@@ -1,6 +1,5 @@
 import fnmatch
 import json
-import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from dataclasses import asdict, dataclass, field
@@ -23,14 +22,11 @@ from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
-    BaseModelArgs,
     ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
-    OpenRouterModelArgs,
-    VLLMModelArgs,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -294,9 +290,6 @@ class TaskHint(Block):
         hint_db_path = Path(__file__).parent / self.hint_db_rel_path
         self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
 
-        # index the task_name for fast lookup
-        # self.hint_db.set_index("task_name", inplace=True, drop=False)
-
     def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
         if not self.use_task_hint:
             return
@@ -544,23 +537,4 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
 AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
     config=DEFAULT_PROMPT_CONFIG,
-)
-
-# MT_TOOL_USE_AGENT = ToolUseAgentArgs(
-#     model_args=OPENROUTER_MODEL,
-# )
-CHATAPI_AGENT_CONFIG = ToolUseAgentArgs(
-    model_args=OpenAIChatModelArgs(
-        model_name="gpt-4o-2024-11-20",
-        max_total_tokens=200_000,
-        max_input_tokens=200_000,
-        max_new_tokens=2_000,
-        temperature=0.7,
-        vision_support=True,
-    ),
-)
-
-
-OAI_CHAT_TOOl_AGENT = ToolUseAgentArgs(
-    model_args=OpenAIChatModelArgs(model_name="gpt-4o-2024-08-06")
 )
