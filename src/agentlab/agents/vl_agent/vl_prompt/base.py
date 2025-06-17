@@ -7,14 +7,16 @@ import numpy as np
 
 
 class VLPromptPart(ABC):
+    @property
     @abstractmethod
-    def get_message_content(self) -> list[dict]:
+    def message_content(self) -> list[dict]:
         raise NotImplementedError
 
 
 class VLPrompt(ABC):
+    @property
     @abstractmethod
-    def get_message(self) -> HumanMessage:
+    def message(self) -> HumanMessage:
         raise NotImplementedError
 
     @abstractmethod

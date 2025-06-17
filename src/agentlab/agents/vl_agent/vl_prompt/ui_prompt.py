@@ -15,7 +15,7 @@ import numpy as np
 
 class IntroductionPromptPart(VLPromptPart):
     def __init__(self):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": """\
@@ -26,13 +26,14 @@ This action will be executed to update the state of the browser, and you will pr
             }
         ]
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 class GoalPromptPart(VLPromptPart):
     def __init__(self, goal_object: list[dict]):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": """
@@ -40,10 +41,11 @@ class GoalPromptPart(VLPromptPart):
 """,
             }
         ]
-        self.message_content.extend(goal_object)
+        self._message_content.extend(goal_object)
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 class InteractionPromptPart(VLPromptPart):
@@ -55,7 +57,7 @@ class InteractionPromptPart(VLPromptPart):
         action_history: list[str],
         use_screenshot_history: bool,
     ):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": """
@@ -66,7 +68,7 @@ class InteractionPromptPart(VLPromptPart):
         for index, (screenshot, thought, action) in enumerate(
             zip(screenshot_history, thought_history, action_history)
         ):
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": f"""
@@ -75,7 +77,7 @@ class InteractionPromptPart(VLPromptPart):
                 }
             )
             if use_screenshot_history:
-                self.message_content.append(
+                self._message_content.append(
                     {
                         "type": "text",
                         "text": """
@@ -83,10 +85,10 @@ class InteractionPromptPart(VLPromptPart):
 """,
                     }
                 )
-                self.message_content.append(
+                self._message_content.append(
                     {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
                 )
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": f"""
@@ -100,7 +102,7 @@ class InteractionPromptPart(VLPromptPart):
 """,
                 }
             )
-        self.message_content.append(
+        self._message_content.append(
             {
                 "type": "text",
                 "text": """
@@ -108,19 +110,20 @@ class InteractionPromptPart(VLPromptPart):
 """,
             }
         )
-        self.message_content.append(
+        self._message_content.append(
             {"type": "image_url", "image_url": {"url": image_to_image_url(current_screenshot)}}
         )
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 class TabsPromptPart(VLPromptPart):
     def __init__(
         self, open_pages_titles: list[str], open_pages_urls: list[str], active_page_index: int
     ):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": """
@@ -129,7 +132,7 @@ class TabsPromptPart(VLPromptPart):
             }
         ]
         for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": f"""
@@ -146,8 +149,9 @@ class TabsPromptPart(VLPromptPart):
                 }
             )
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 class ErrorPromptPart(VLPromptPart):
@@ -157,7 +161,7 @@ class ErrorPromptPart(VLPromptPart):
         logs_separator: str = "Call log:",
         logs_limit: int = 5,
     ):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": """
@@ -168,7 +172,7 @@ class ErrorPromptPart(VLPromptPart):
         if logs_separator in last_action_error:
             error, logs = last_action_error.split(logs_separator)
             logs = logs.split("\n")[:logs_limit]
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": f"""
@@ -179,7 +183,7 @@ class ErrorPromptPart(VLPromptPart):
                 }
             )
             for log in logs:
-                self.message_content.append(
+                self._message_content.append(
                     {
                         "type": "text",
                         "text": f"""
@@ -188,7 +192,7 @@ class ErrorPromptPart(VLPromptPart):
                     }
                 )
         else:
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": f"""
@@ -197,15 +201,16 @@ class ErrorPromptPart(VLPromptPart):
                 }
             )
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 class PreliminaryAnswerPromptPart(VLPromptPart):
     def __init__(
         self, action_set_description: str, use_abstract_example: bool, use_concrete_example: bool
     ):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": f"""
@@ -223,7 +228,7 @@ Your answer should contain one thought and one location.
             }
         ]
         if use_abstract_example:
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": """
@@ -239,7 +244,7 @@ The description of the location where the action is to be taken.
                 }
             )
         if use_concrete_example:
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": """
@@ -257,8 +262,9 @@ The object in the top-left quadrant of the white area.
                 }
             )
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 class FinalAnswerPromptPart(VLPromptPart):
@@ -270,7 +276,7 @@ class FinalAnswerPromptPart(VLPromptPart):
         use_abstract_example: bool,
         use_concrete_example: bool,
     ):
-        self.message_content = [
+        self._message_content = [
             {
                 "type": "text",
                 "text": f"""
@@ -296,7 +302,7 @@ Your answer should contain only one action.
             }
         ]
         if use_abstract_example:
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": """
@@ -309,7 +315,7 @@ The action to be taken.
                 }
             )
         if use_concrete_example:
-            self.message_content.append(
+            self._message_content.append(
                 {
                     "type": "text",
                     "text": """
@@ -322,8 +328,9 @@ mouse_click(50, 50)
                 }
             )
 
-    def get_message_content(self) -> list[dict]:
-        return self.message_content
+    @property
+    def message_content(self) -> list[dict]:
+        return self._message_content
 
 
 @dataclass
@@ -336,15 +343,16 @@ class MainUIPrompt(VLPrompt):
     answer_prompt_part: Union[PreliminaryAnswerPromptPart, FinalAnswerPromptPart]
     action_validator: Callable
 
-    def get_message(self) -> HumanMessage:
-        message_content = self.introduction_prompt_part.get_message_content()
-        message_content.extend(self.goal_prompt_part.get_message_content())
-        message_content.extend(self.interaction_prompt_part.get_message_content())
+    @property
+    def message(self) -> HumanMessage:
+        message_content = self.introduction_prompt_part.message_content
+        message_content.extend(self.goal_prompt_part.message_content)
+        message_content.extend(self.interaction_prompt_part.message_content)
         if self.tabs_prompt_part is not None:
-            message_content.extend(self.tabs_prompt_part.get_message_content())
+            message_content.extend(self.tabs_prompt_part.message_content)
         if self.error_prompt_part is not None:
-            message_content.extend(self.error_prompt_part.get_message_content())
-        message_content.extend(self.answer_prompt_part.get_message_content())
+            message_content.extend(self.error_prompt_part.message_content)
+        message_content.extend(self.answer_prompt_part.message_content)
         message = HumanMessage(message_content)
         message.merge()
         return message
@@ -382,12 +390,22 @@ class MainUIPrompt(VLPrompt):
 
 @dataclass
 class AuxiliaryUIPrompt(VLPrompt):
-    screenshot: Union[Image.Image, np.ndarray]
+    current_screenshot: Union[Image.Image, np.ndarray]
+    screenshot_history: list[Union[Image.Image, np.ndarray]]
     location: str
+    use_screenshot_history: bool
 
-    def get_message(self) -> HumanMessage:
+    @property
+    def message(self) -> HumanMessage:
+        if self.use_screenshot_history:
+            screenshots = self.screenshot_history + [self.current_screenshot]
+        else:
+            screenshots = [self.current_screenshot]
         message_content = [
-            {"type": "image_url", "image_url": {"url": image_to_image_url(self.screenshot)}},
+            {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
+            for screenshot in screenshots
+        ]
+        message_content.append(
             {
                 "type": "text",
                 "text": f"""\
@@ -398,8 +416,8 @@ Your answer should be a single string (x, y) corresponding to the point of inter
 
 Description: {self.location}
 """,
-            },
-        ]
+            }
+        )
         return HumanMessage(message_content)
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
@@ -485,5 +503,8 @@ class UIPromptArgs(VLPromptArgs):
                 )
             else:
                 return AuxiliaryUIPrompt(
-                    screenshot=obs["screenshot"], location=extra_info["location"]
+                    current_screenshot=obs["screenshot"],
+                    screenshot_history=screenshot_history,
+                    location=extra_info["location"],
+                    use_screenshot_history=self.use_screenshot_history,
                 )

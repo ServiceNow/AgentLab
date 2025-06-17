@@ -44,7 +44,7 @@ class UIAgent(VLAgent):
             action_set=self.action_set,
         )
         try:
-            messages = Discussion([preliminary_main_ui_prompt.get_message()])
+            messages = Discussion([preliminary_main_ui_prompt.message])
             preliminary_answer = retry(
                 self.main_vl_model,
                 messages=messages,
@@ -64,7 +64,7 @@ class UIAgent(VLAgent):
             extra_info=preliminary_answer,
         )
         try:
-            messages = Discussion([auxiliary_ui_prompt.get_message()])
+            messages = Discussion([auxiliary_ui_prompt.message])
             auxiliary_answer = retry(
                 self.auxiliary_vl_model,
                 messages=messages,
@@ -85,7 +85,7 @@ class UIAgent(VLAgent):
             extra_info=preliminary_answer,
         )
         try:
-            messages = Discussion([final_main_ui_prompt.get_message()])
+            messages = Discussion([final_main_ui_prompt.message])
             final_answer = retry(
                 self.main_vl_model,
                 messages=messages,
