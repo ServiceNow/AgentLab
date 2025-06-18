@@ -310,3 +310,33 @@ class Stats:
             self.stats_dict[k] += v
 
 
+# @dataclass
+# class SimpleTracker:
+#     """A simple tracker to hold the usage stats."""
+
+#     stats_dict: dict = field(default_factory=lambda: defaultdict(float))
+
+#     def __init__(self, *args, **kwargs):
+#         self.stats_dict = defaultdict(float)
+#         super().__init__(*args, **kwargs)
+
+#     def __call__(self, *args, **kwargs):
+#         """Call the API and update the pricing tracker."""
+#         response = self._call_api(*args, **kwargs)
+#         usage = dict(getattr(response, "usage", {}))
+#         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
+#         usage |= {"n_api_calls": 1}
+#         self.stats.increment_stats_dict(usage)
+#         return self._parse_response(response)
+
+#     def increment_stats_dict(self, stats_dict: dict):
+#         """Increment the stats with the given values."""
+#         self.stats.increment_stats_dict(stats_dict)
+
+#     def reset_stats(self):
+#         """Reset the stats."""
+#         self.stats_dict = defaultdict(float)
+
+#     @property
+#     def __repr__(self):
+#         return f"SimpleTracker(stats={self.stats})"
