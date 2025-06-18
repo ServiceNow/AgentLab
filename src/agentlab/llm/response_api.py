@@ -85,7 +85,7 @@ class MessageBuilder:
         parts = []
         for item in self.content:
             if "text" in item:
-                parts.append(f"\n```\n{item["text"]}\n```\n")
+                parts.append(f"\n```\n{item['text']}\n```\n")
             elif "image" in item:
                 parts.append(f"![Image]({item['image']})")
 
