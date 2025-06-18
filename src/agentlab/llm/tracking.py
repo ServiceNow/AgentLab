@@ -326,5 +326,3 @@ class Stats:
         """increment the stats_dict with the given values."""
         for k, v in stats_dict.items():
             self.stats_dict[k] += v
-
-
