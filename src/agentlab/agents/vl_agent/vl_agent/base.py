@@ -1,45 +1,10 @@
-from abc import ABC, abstractmethod
-from browsergym.core.action.highlevel import HighLevelActionSet
-from browsergym.experiments.benchmark import Benchmark
+from agentlab.agents.agent_args import AgentArgs
+from browsergym.experiments.agent import Agent
 
 
-class VLAgent(ABC):
-    @property
-    @abstractmethod
-    def action_set(self) -> HighLevelActionSet:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_action(self, obs: dict) -> tuple[str, dict]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def obs_preprocessor(self, obs: dict) -> dict:
-        raise NotImplementedError
+class VLAgent(Agent):
+    pass
 
 
-class VLAgentArgs(ABC):
-    @property
-    @abstractmethod
-    def agent_name(self) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
-    def make_agent(self) -> VLAgent:
-        raise NotImplementedError
-
-    @abstractmethod
-    def prepare(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def close(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_reproducibility_mode(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        raise NotImplementedError
+class VLAgentArgs(AgentArgs):
+    pass

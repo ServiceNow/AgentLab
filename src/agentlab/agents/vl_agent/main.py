@@ -4,13 +4,15 @@ import logging
 import os
 
 logging.getLogger().setLevel(logging.INFO)
-
-vl_agent_args_list = [VL_AGENT_ARGS_DICT["ui_agent"]]
-benchmark = "miniwob_tiny_test"
 os.environ["MINIWOB_URL"] = "file:///mnt/home/miniwob-plusplus/miniwob/html/miniwob/"
+
 reproducibility_mode = False
 relaunch = False
+vl_agent_args_list = [VL_AGENT_ARGS_DICT["ui_agent"]]
+benchmark = "miniwob_tiny_test"
+parallel_backend = "sequential"
 n_jobs = 1
+n_relaunch = 1
 
 
 if __name__ == "__main__":
@@ -23,10 +25,10 @@ if __name__ == "__main__":
     else:
         study = Study(vl_agent_args_list, benchmark=benchmark, logging_level_stdout=logging.WARNING)
     study.run(
-        n_jobs=n_jobs,
-        parallel_backend="sequential",
+        parallel_backend=parallel_backend,
         strict_reproducibility=reproducibility_mode,
-        n_relaunch=3,
+        n_jobs=n_jobs,
+        n_relaunch=n_relaunch,
     )
     if reproducibility_mode:
         study.append_to_journal(strict_reproducibility=True)

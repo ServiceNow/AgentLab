@@ -1,6 +1,5 @@
 from agentlab.llm.llm_utils import Discussion, ParseError, retry
 from agentlab.llm.tracking import cost_tracker_decorator
-from browsergym.core.action.highlevel import HighLevelActionSet
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
@@ -23,15 +22,11 @@ class UIAgent(VLAgent):
         self.main_vl_model = main_vl_model_args.make_model()
         self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
         self.ui_prompt_args = ui_prompt_args
-        self._action_set = action_set_args.make_action_set()
+        self.action_set = action_set_args.make_action_set()
         self.max_num_retries = max_num_retries
         self.screenshot_history = []
         self.thought_history = []
         self.action_history = []
-
-    @property
-    def action_set(self) -> HighLevelActionSet:
-        return self._action_set
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
@@ -111,15 +106,14 @@ class UIAgent(VLAgent):
 
 @dataclass
 class UIAgentArgs(VLAgentArgs):
-    main_vl_model_args: VLModelArgs
-    auxiliary_vl_model_args: VLModelArgs
-    ui_prompt_args: UIPromptArgs
-    action_set_args: HighLevelActionSetArgs
-    max_num_retries: int
+    main_vl_model_args: VLModelArgs = None
+    auxiliary_vl_model_args: VLModelArgs = None
+    ui_prompt_args: UIPromptArgs = None
+    action_set_args: HighLevelActionSetArgs = None
+    max_num_retries: int = None
 
-    @property
-    def agent_name(self) -> str:
-        return f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
+    def __post_init__(self):
+        self.agent_name = f"UIAgent-{self.main_vl_model_args.model_name}-{self.auxiliary_vl_model_args.model_name}"
 
     def make_agent(self) -> UIAgent:
         return UIAgent(
