@@ -6,7 +6,7 @@ import os
 logging.getLogger().setLevel(logging.INFO)
 
 vl_agent_args_list = [VL_AGENT_ARGS_DICT["ui_agent"]]
-benchmark = "miniwob"
+benchmark = "miniwob_tiny_test"
 os.environ["MINIWOB_URL"] = "file:///mnt/home/miniwob-plusplus/miniwob/html/miniwob/"
 reproducibility_mode = False
 relaunch = False
