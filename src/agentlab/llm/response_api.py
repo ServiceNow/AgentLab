@@ -26,8 +26,8 @@ It includes:
 """
 
 
-type ContentItem = Dict[str, Any]
-type Message = Dict[str, Union[str, List[ContentItem]]]
+ContentItem = Dict[str, Any]
+Message = Dict[str, Union[str, List[ContentItem]]]
 
 
 @dataclass

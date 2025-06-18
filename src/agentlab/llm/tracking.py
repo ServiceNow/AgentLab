@@ -173,7 +173,9 @@ class TrackAPIPricingMixin:
     def fetch_pricing_information_from_provider(self) -> Optional[dict]:
         """
         Fetch the pricing information dictionary for the given provider.
-        Returns a dict mapping model names to pricing info, or None if not found.
+
+        Returns:
+            Optional[dict]: A dict mapping model names to pricing info, or None if not found.
         """
         pricing_fn_map = {
             "openai": get_pricing_openai,
@@ -248,11 +250,19 @@ class TrackAPIPricingMixin:
             )
             return 0.0
 
-    def get_effective_cost_from_antrophic_api(self, response):
-        """Get the effective cost from the Anthropic API response.
-        ## Anthropic usage 'input_tokens' are new input tokens (tokens that are not cached).
-        ## Anthorphic has different pricing for cache write and cache read tokens.
-        ## See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#tracking-cache-performance
+    def get_effective_cost_from_antrophic_api(self, response) -> float:
+        """
+        Get the effective cost from the Anthropic API response.
+
+        Anthropic usage 'input_tokens' are new input tokens (tokens that are not cached).
+        Anthropic has different pricing for cache write and cache read tokens.
+        See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#tracking-cache-performance
+
+        Args:
+            response: The response object from the Anthropic API.
+
+        Returns:
+            float: The effective cost calculated from the response.
         """
         usage = getattr(response, "usage", {})
         new_input_tokens = getattr(usage, "input_tokens", 0)  # new input tokens
@@ -272,13 +282,21 @@ class TrackAPIPricingMixin:
         )
         return effective_cost
 
-    def get_effective_cost_from_openai_api(self, response):
-        """Get the effective cost from the OpenAI API response.
-        ## OpenAI usage 'prompt_tokens' are the total input tokens (cache read tokens + new input tokens).
-        ## See https://openai.com/index/api-prompt-caching/
-        ## OpenAI has only one price for cache tokens i.e. cache read price. (Generally 50% cheaper)
-        ## OpenAI had no extra charge for cache write tokens.
-        ## See Pricing Here: https://platform.openai.com/docs/pricing
+    def get_effective_cost_from_openai_api(self, response) -> float:
+        """
+        Get the effective cost from the OpenAI API response.
+
+        OpenAI usage 'prompt_tokens' are the total input tokens (cache read tokens + new input tokens).
+        See https://openai.com/index/api-prompt-caching/
+        OpenAI has only one price for cache tokens, i.e., cache read price (generally 50% cheaper).
+        OpenAI has no extra charge for cache write tokens.
+        See Pricing Here: https://platform.openai.com/docs/pricing
+
+        Args:
+            response: The response object from the OpenAI API.
+
+        Returns:
+            float: The effective cost calculated from the response.
         """
         usage = getattr(response, "usage", {})
         prompt_token_details = getattr(response, "prompt_tokens_details", {})
