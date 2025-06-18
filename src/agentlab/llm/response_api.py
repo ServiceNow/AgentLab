@@ -261,6 +261,67 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
         return output
 
 
+# Dataclasses to manage the configuration of API
+@dataclass
+class GenerationConfig:
+    """Configuration for generation parameters."""
+
+    temperature: float = 0.5
+    max_tokens: int = 100
+    # top_p: Optional[float] = None
+    # frequency_penalty: Optional[float] = None
+    # presence_penalty: Optional[float] = None
+
+@dataclass
+class CacheConfig:
+    """Configuration for caching behavior."""
+
+    cache_tool_definition: bool = False
+    cache_complete_prompt: bool = False
+    cahce_using_checkpoint: bool = False
+    # cache_system_prompt: bool = False
+@dataclass
+class ToolConfig:
+    """Configuration for tool usage."""
+
+    tool_choice: Optional[str] = "auto"
+    parallel_tool_calls: bool = False
+    max_tool_calls: int = 1
+
+@dataclass
+class APIPayload:
+    """Explicit parameters for API calls."""
+
+    generation_config: GenerationConfig = field(default_factory=GenerationConfig)
+    cache_config: CacheConfig = field(default_factory=CacheConfig)
+    tool_config: ToolConfig = field(default_factory=ToolConfig)
+    messages: List[MessageBuilder] = field(default_factory=list)
+
+
+class NewBaseResponseModel(ABC):
+    def __init__(
+        self,
+        model_name: str,
+    ):
+        self.model_name = model_name
+        super().__init__()
+
+    def __call__(self, payload: APIPayload) -> dict:
+        """Make a call to the model and return the parsed response."""
+        response = self._call_api(payload)
+        return self._parse_response(response)
+
+    @abstractmethod
+    def _call_api(self, payload: APIPayload) -> Any:
+        """Make a call to the model API and return the raw response."""
+        pass
+
+    @abstractmethod
+    def _parse_response(self, response: Any) -> LLMOutput:
+        """Parse the raw response from the model API and return a structured response."""
+        pass
+
+
 # # Base class for all API Endpoints
 class BaseResponseModel(ABC):
     def __init__(
@@ -359,7 +420,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
                 result.action = (
-                    # f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
                     f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
                 )
                 result.tool_calls = output
@@ -494,8 +554,8 @@ class ClaudeResponseModel(BaseModelWithPricing):
         extra_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
-        self.tools = kwargs.pop("tools", None)
-        self.tool_choice = kwargs.pop("tool_choice", None)
+        # self.tools = kwargs.pop("tools", None)
+        # self.tool_choice = kwargs.pop("tool_choice", None)
 
         super().__init__(
             model_name=model_name,
