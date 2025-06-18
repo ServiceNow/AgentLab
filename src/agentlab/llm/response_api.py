@@ -358,10 +358,8 @@ class OpenAIResponseModel(BaseModelWithPricing):
         for output in response.output:
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
-                result.action = (
-                    # f"{output.name}({", ".join([f"{k}={v}" for k, v in arguments.items()])})"
-                    f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
-                )
+                func_args_str = ', '.join([f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])
+                result.action = f"{output.name}({func_args_str})"
                 result.tool_calls = output
                 break
             elif output.type == "reasoning":
@@ -439,7 +437,8 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             for tool_call in tool_calls:
                 function = tool_call["function"]
                 arguments = json.loads(function["arguments"])
-                output.action = f"{function['name']}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
+                func_args_str = ', '.join([f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])
+                output.action = f"{function['name']}({func_args_str})"
                 output.tool_calls = {
                     "role": "assistant",
                     "tool_calls": [message["tool_calls"][0]],  # Use only the first tool call
@@ -574,7 +573,8 @@ class ClaudeResponseModel(BaseModelWithPricing):
         )
         for output in response.content:
             if output.type == "tool_use":
-                result.action = f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
+                func_args_str = ', '.join([f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])
+                result.action = f"{output.name}({func_args_str})"
             elif output.type == "text":
                 result.think += output.text
         return result
