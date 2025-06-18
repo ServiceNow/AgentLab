@@ -11,9 +11,9 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
+import anthropic
 import numpy as np
 import openai
-import anthropic
 import tiktoken
 import yaml
 from langchain.schema import BaseMessage
@@ -99,9 +99,9 @@ def generic_call_api_with_retries(
     rate_limit_exceptions,
     api_error_exceptions,
     get_status_code_fn=None,
-    max_retries=5,
-    initial_retry_delay_seconds=1,
-    max_retry_delay_seconds=60,
+    max_retries=10,
+    initial_retry_delay_seconds=20,
+    max_retry_delay_seconds=60 * 5,
 ):
     """
     Makes an API call with retries for transient failures, rate limiting,
@@ -226,7 +226,7 @@ def generic_call_api_with_retries(
     raise RuntimeError(f"API call failed after {max_retries} retries.")
 
 
-def call_openai_api_with_retries(client_function, api_params, max_retries=5):
+def call_openai_api_with_retries(client_function, api_params, max_retries=10):
     """
     Makes an OpenAI API call with retries for transient failures,
     rate limiting, and invalid or error-containing responses.
@@ -261,7 +261,7 @@ def call_openai_api_with_retries(client_function, api_params, max_retries=5):
     )
 
 
-def call_anthropic_api_with_retries(client_function, api_params, max_retries=5):
+def call_anthropic_api_with_retries(client_function, api_params, max_retries=10):
     """
     Makes an Anthropic API call with retries for transient failures,
     rate limiting, and invalid responses.

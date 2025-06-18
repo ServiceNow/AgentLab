@@ -354,7 +354,7 @@ class ToolUseAgentArgs(AgentArgs):
 
     def __post_init__(self):
         try:
-            self.agent_name = f"MultiToolUse-{self.model_args.model_name}".replace("/", "_")
+            self.agent_name = f"ToolUse-{self.model_args.model_name}".replace("/", "_")
         except AttributeError:
             pass
 
