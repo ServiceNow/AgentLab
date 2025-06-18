@@ -130,7 +130,6 @@ def draw_arrowhead(draw, start, end, arrow_length=15, arrow_angle=30):
     draw.line([end, right], fill="red", width=4)
 
 
-
 def draw_click_indicator(image: Image.Image, x: int, y: int) -> Image.Image:
     """
     Draws a click indicator (+ shape with disconnected lines) at (x, y) on the image.
@@ -184,6 +183,8 @@ def draw_click_indicator(image: Image.Image, x: int, y: int) -> Image.Image:
 def zoom_webpage(page: Page, zoom_factor: float = 1.5):
     """
     Zooms the webpage to the specified zoom factor.
+
+    NOTE: Click actions with bid doesn't work properly when zoomed in.
 
     Args:
         page: The Playwright Page object.
@@ -242,4 +243,3 @@ def parse_func_call_string(call_str: str) -> Tuple[Optional[str], Optional[Tuple
 
     except (SyntaxError, ValueError, TypeError):
         return None, None
-
