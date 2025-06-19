@@ -127,6 +127,19 @@ def revert_agent_state():
     st.session_state.agent.memories.pop()
 
 
+def restore_env_history(step: int):
+    st.session_state.obs_history = st.session_state.obs_history[:step]
+    st.session_state.screenshot_history = st.session_state.screenshot_history[:step]
+    st.session_state.axtree_history = st.session_state.axtree_history[:step]
+
+
+def restore_agent_history(step: int):
+    st.session_state.action_history = st.session_state.action_history[:step]
+    st.session_state.action_info_history = st.session_state.action_info_history[:step]
+    st.session_state.thought_history = st.session_state.thought_history[:step]
+    st.session_state.prompt_history = st.session_state.prompt_history[:step]
+
+
 def get_prompt(info):
     if info is not None and isinstance(info.chat_messages, Discussion):
         chat_messages = info.chat_messages.messages
@@ -612,6 +625,12 @@ def set_prompt_tab():
 def set_previous_steps_tab():
     for i in range(len(st.session_state.action_history) - 1):
         with st.expander(f"### Step {i + 1}", expanded=False):
+            if st.button(f"Go back to step {i + 1}"):
+                reset_agent_state()
+                restore_agent_history(step=i + 1)
+                restore_env_history(step=i + 1)
+                restore_environment()
+                st.rerun()
             screenshot_tab, axtree_tab, prompt_tab = st.tabs(["Screenshot", "AxTree", "Prompt"])
             with screenshot_tab:
                 display_image(st.session_state.screenshot_history[i])
@@ -626,12 +645,6 @@ def set_previous_steps_tab():
 
 
 def set_info_tabs():
-    print(len(st.session_state.action_history))
-    print(len(st.session_state.screenshot_history))
-    print(len(st.session_state.axtree_history))
-    print(len(st.session_state.prompt_history))
-    print(len(st.session_state.thought_history))
-    print("---")
     # Display only if everything is now ready
     if len(st.session_state.action_history) > 1:
         screenshot_tab, axtree_tab, prompt_tab, previous_steps_tab = st.tabs(
