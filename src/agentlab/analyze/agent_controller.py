@@ -1,7 +1,9 @@
 import base64
 import copy
 import importlib
+import json
 import logging
+import os
 from datetime import datetime
 from io import BytesIO
 
@@ -46,6 +48,14 @@ class IgnoreMessageFilter(logging.Filter):
 
 streamlit_logger = st.watcher.local_sources_watcher._LOGGER
 streamlit_logger.setLevel(logging.ERROR)
+
+
+def is_json_serializable(value):
+    try:
+        json.dumps(value)
+        return True
+    except (TypeError, OverflowError):
+        return False
 
 
 def get_import_path(obj):
@@ -596,7 +606,7 @@ def set_controller():
             st.rerun()
 
 
-def display_image(img_arr):
+def get_base64_serialized_image(img_arr):
     if isinstance(img_arr, list):
         img_arr = np.array(img_arr)
     if isinstance(img_arr, np.ndarray):
@@ -604,6 +614,13 @@ def display_image(img_arr):
         buffered = BytesIO()
         im.save(buffered, format="PNG")
         img_b64 = base64.b64encode(buffered.getvalue()).decode()
+        return img_b64
+    return None
+
+
+def display_image(img_arr):
+    img_b64 = get_base64_serialized_image(img_arr)
+    if img_b64:
         st.markdown(
             f'<div style="display: flex; justify-content: center;"><img src="data:image/png;base64,{img_b64}" style="max-width: 80vw; height: auto;" /></div>',
             unsafe_allow_html=True,
@@ -644,11 +661,56 @@ def set_previous_steps_tab():
             st.code(st.session_state.action_history[i], language=None, wrap_lines=True)
 
 
+def set_save_tab():
+    # dump full session_state to json
+    save_dir = st.text_input("Save Directory", value="~/Downloads")
+    save_dir = os.path.expanduser(save_dir)
+    if st.button("Save Session State for Current Run"):
+        now_str = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+        filename = f"agentlab_controller_state_{now_str}.json"
+
+        # prepare payload for saving
+        payload = {}
+        payload["timestamp"] = now_str
+        payload["benchmark"] = st.session_state.benchmark
+        payload["task"] = st.session_state.task
+        payload["subtask"] = st.session_state.subtask
+        payload["agent_args"] = {
+            k: v for k, v in vars(st.session_state.agent_args).items() if is_json_serializable(v)
+        }
+        payload["agent_flags"] = {
+            k: v for k, v in vars(st.session_state.agent.flags).items() if is_json_serializable(v)
+        }
+        payload["agent_flags"]["obs"] = {
+            k: v
+            for k, v in vars(st.session_state.agent.flags.obs).items()
+            if is_json_serializable(v)
+        }
+        payload["agent_flags"]["action"] = {
+            k: v
+            for k, v in vars(st.session_state.agent.flags.action).items()
+            if is_json_serializable(v)
+        }
+        payload["goal"] = st.session_state.last_obs["goal"]
+        payload["steps"] = []
+        for i in range(len(st.session_state.action_history)):
+            step = {}
+            step["action"] = st.session_state.action_history[i]
+            step["thought"] = st.session_state.thought_history[i]
+            step["prompt"] = st.session_state.prompt_history[i]
+            step["screenshot"] = get_base64_serialized_image(st.session_state.screenshot_history[i])
+            step["axtree"] = st.session_state.axtree_history[i]
+            payload["steps"].append(step)
+
+        with open(os.path.join(save_dir, filename), "w") as f:
+            json.dump(payload, f)
+
+
 def set_info_tabs():
     # Display only if everything is now ready
     if len(st.session_state.action_history) > 1:
-        screenshot_tab, axtree_tab, prompt_tab, previous_steps_tab = st.tabs(
-            ["Screenshot", "AxTree", "Prompt", "Previous Steps"]
+        screenshot_tab, axtree_tab, prompt_tab, previous_steps_tab, save_tab = st.tabs(
+            ["Screenshot", "AxTree", "Prompt", "Previous Steps", "Save"]
         )
     else:
         screenshot_tab, axtree_tab, prompt_tab = st.tabs(["Screenshot", "AxTree", "Prompt"])
@@ -662,6 +724,8 @@ def set_info_tabs():
     if len(st.session_state.action_history) > 1:
         with previous_steps_tab:
             set_previous_steps_tab()
+        with save_tab:
+            set_save_tab()
 
 
 def run_streamlit():
