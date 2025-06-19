@@ -29,6 +29,16 @@ DEFAULT_BENCHMARK = "workarena_l1"
 SERVER_URL = "http://127.0.0.1:8000"
 
 
+class Constants:
+    STATUS = "status"
+    STATUS_SUCCESS = "success"
+    STATUS_ERROR = "error"
+
+    OBS = "obs"
+    SCREENSHOT = "screenshot"
+    AXTREE_TXT = "axtree_txt"
+
+
 class IgnoreMessageFilter(logging.Filter):
     def filter(self, record):
         return "but it does not exist!" not in record.getMessage()
@@ -43,16 +53,101 @@ def get_import_path(obj):
 
 
 def deserialize_response(response_json):
-    if "obs" in response_json:
-        if "screenshot" in response_json["obs"]:
-            screenshot_data = response_json["obs"]["screenshot"]
+    if Constants.OBS in response_json:
+        if Constants.SCREENSHOT in response_json[Constants.OBS]:
+            screenshot_data = response_json[Constants.OBS][Constants.SCREENSHOT]
             # convert base64 to numpy array
             screenshot = np.frombuffer(
                 base64.b64decode(screenshot_data["data"]), dtype=np.dtype(screenshot_data["dtype"])
             )
             screenshot = screenshot.reshape(screenshot_data["shape"])
-            response_json["obs"]["screenshot"] = screenshot
+            response_json[Constants.OBS][Constants.SCREENSHOT] = screenshot
     return response_json
+
+
+def reset_env_history():
+    st.session_state.last_obs = None
+    st.session_state.obs_history = []
+    st.session_state.screenshot_history = []
+    st.session_state.axtree_history = []
+
+
+def reset_agent_history():
+    st.session_state.action = None
+    st.session_state.action_info = None
+    st.session_state.action_history = []
+    st.session_state.action_info_history = []
+    st.session_state.thought_history = []
+    st.session_state.prompt_history = []
+
+
+def reset_agent_state():
+    st.session_state.agent.reset()
+
+
+def step_env_history(obs):
+    st.session_state.last_obs = copy.deepcopy(obs)
+    st.session_state.obs_history.append(obs)
+    st.session_state.screenshot_history.append(obs[Constants.SCREENSHOT])
+    st.session_state.axtree_history.append(obs[Constants.AXTREE_TXT])
+
+
+def step_agent_history(action, action_info):
+    st.session_state.action = copy.deepcopy(action)
+    st.session_state.action_info = copy.deepcopy(action_info)
+    st.session_state.action_history.append(action)
+    st.session_state.action_info_history.append(action_info)
+    st.session_state.thought_history.append(action_info.think)
+    st.session_state.prompt_history.append(get_prompt(action_info))
+
+
+def set_agent_state():
+    st.session_state.agent.obs_history = st.session_state.obs_history
+    st.session_state.agent.actions = st.session_state.action_history
+    st.session_state.agent.thoughts = st.session_state.thought_history
+
+
+def revert_env_history():
+    st.session_state.obs_history.pop()
+    st.session_state.screenshot_history.pop()
+    st.session_state.axtree_history.pop()
+
+
+def revert_agent_history():
+    st.session_state.action_history.pop()
+    st.session_state.action_info_history.pop()
+    st.session_state.thought_history.pop()
+    st.session_state.prompt_history.pop()
+
+
+def revert_agent_state():
+    st.session_state.agent.obs_history.pop()
+    st.session_state.agent.actions.pop()
+    st.session_state.agent.thoughts.pop()
+    st.session_state.agent.memories.pop()
+
+
+def get_prompt(info):
+    if info is not None and isinstance(info.chat_messages, Discussion):
+        chat_messages = info.chat_messages.messages
+        new_chat_messages = []
+        for message in chat_messages:
+            if isinstance(message["content"], list):
+                # concatenate all text elements
+                new_chat_messages.append(
+                    {
+                        "role": message["role"],
+                        "content": "\n\n".join(
+                            [elem["text"] for elem in message["content"] if elem["type"] == "text"]
+                        ),
+                    }
+                )
+            else:
+                new_chat_messages.append(message)
+        prompt = tokenizer.apply_chat_template(
+            new_chat_messages, add_special_tokens=True, tokenize=False
+        )
+        return prompt
 
 
 def setup_sidebar():
@@ -105,16 +200,31 @@ def set_session_state():
     if "subtask" not in st.session_state:
         st.session_state.subtask = None
 
+    # current state
     if "agent" not in st.session_state:
         st.session_state.agent = None
-    if "environment" not in st.session_state:
-        st.session_state.environment = None
     if "action" not in st.session_state:
         st.session_state.action = None
     if "action_info" not in st.session_state:
         st.session_state.action_info = None
-    if "actions_history" not in st.session_state:
-        st.session_state.actions_history = None
+    if "last_obs" not in st.session_state:
+        st.session_state.last_obs = None
+
+    # track history
+    if "prompt_history" not in st.session_state:
+        st.session_state.prompt_history = None
+    if "screenshot_history" not in st.session_state:
+        st.session_state.screenshot_history = None
+    if "axtree_history" not in st.session_state:
+        st.session_state.axtree_history = None
+    if "thought_history" not in st.session_state:
+        st.session_state.thought_history = None
+    if "memory_history" not in st.session_state:
+        st.session_state.memory_history = None
+    if "action_history" not in st.session_state:
+        st.session_state.action_history = None
+    if "action_info_history" not in st.session_state:
+        st.session_state.action_info_history = None
     if "obs_history" not in st.session_state:
         st.session_state.obs_history = None
 
@@ -185,11 +295,8 @@ def set_task_selector():
                 st.session_state.task = selected_task_str
                 st.session_state.subtask = selected_subtask_str
 
-                # Set empty state tracker
-                st.session_state.current_action = None
-                st.session_state.last_obs = None
-                st.session_state.actions_history = []
-                st.session_state.obs_history = []
+                reset_env_history()
+                reset_agent_history()
 
                 prepare_agent()
                 set_environment_info()
@@ -210,17 +317,11 @@ def clean_session():
 
 
 def prepare_agent():
-    logger.info("Preparing agent...")
-    start = datetime.now()
     st.session_state.agent_args.prepare()
     st.session_state.agent = st.session_state.agent_args.make_agent()
-    end = datetime.now()
-    logger.info(f"Done in {end - start}")
 
 
 def set_environment_info():
-    logger.info("Setting environment info...")
-    start = datetime.now()
     action_mapping_fn = get_import_path(st.session_state.agent.action_set.to_python_code)
     payload = {
         "benchmark_name": st.session_state.benchmark,
@@ -230,17 +331,15 @@ def set_environment_info():
         "exp_dir": str(RESULTS_DIR),
     }
     resp = requests.post(f"{SERVER_URL}/set_info", json=payload)
-    if resp.status_code != 200 or resp.json().get("status") != "success":
+    if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         st.error(resp.json())
-    end = datetime.now()
-    logger.info(f"Done in {end - start}")
 
 
 def prepare_benchmark():
     logger.info("Preparing benchmark...")
     start = datetime.now()
     resp = requests.post(f"{SERVER_URL}/prepare_benchmark")
-    if resp.status_code != 200 or resp.json().get("status") != "success":
+    if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         st.error(resp.json())
     end = datetime.now()
     logger.info(f"Done in {end - start}")
@@ -252,33 +351,26 @@ def reset_environment():
     resp = requests.post(f"{SERVER_URL}/reset")
     end = datetime.now()
     logger.info(f"Done request in {end - start}")
-    start = datetime.now()
-    if resp.status_code != 200 or resp.json().get("status") != "success":
+    if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         logger.error(resp.status_code)
-        logger.error(resp.json()["status"])
+        logger.error(resp.json()[Constants.STATUS])
         logger.error(resp.json()["message"])
     response_json = resp.json()
     response_json = deserialize_response(response_json)
+    obs = response_json[Constants.OBS]
     if st.session_state.agent.obs_preprocessor:
-        response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
-    st.session_state.last_obs = response_json["obs"]
-    end = datetime.now()
-    logger.info(f"Done postproc in {end - start}")
+        obs = st.session_state.agent.obs_preprocessor(obs)
+    step_env_history(obs)
 
 
 def reload_task():
     logger.info("Reloading task...")
     start = datetime.now()
     resp = requests.post(f"{SERVER_URL}/reload_task")
-    if resp.status_code != 200 or resp.json().get("status") != "success":
+    if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         logger.error(resp.status_code)
-        logger.error(resp.json()["status"])
+        logger.error(resp.json()[Constants.STATUS])
         logger.error(resp.json()["message"])
-    response_json = resp.json()
-    response_json = deserialize_response(response_json)
-    if st.session_state.agent.obs_preprocessor:
-        response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
-    st.session_state.last_obs = response_json["obs"]
     end = datetime.now()
     logger.info(f"Done in {end - start}")
 
@@ -288,16 +380,17 @@ def step_environment(action):
     start = datetime.now()
     payload = {"action": action}
     resp = requests.post(f"{SERVER_URL}/step", json=payload)
-    if resp.status_code != 200 or resp.json().get("status") != "success":
+    if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         logger.error(resp.status_code)
-        logger.error(resp.json()["status"])
+        logger.error(resp.json()[Constants.STATUS])
         logger.error(resp.json()["message"])
     response_json = resp.json()
     response_json = deserialize_response(response_json)
-
     if st.session_state.agent.obs_preprocessor:
-        response_json["obs"] = st.session_state.agent.obs_preprocessor(response_json["obs"])
-    st.session_state.last_obs = response_json["obs"]
+        response_json[Constants.OBS] = st.session_state.agent.obs_preprocessor(
+            response_json[Constants.OBS]
+        )
+    step_env_history(response_json[Constants.OBS])
     st.session_state.action = None
     st.session_state.action_info = None
     end = datetime.now()
@@ -306,16 +399,18 @@ def step_environment(action):
 
 def restore_environment():
     reload_task()
-    for action in st.session_state.actions_history:
+    for action in st.session_state.agent.actions:
         step_environment(action)
+    st.session_state.action = st.session_state.action_history[-1]
+    st.session_state.action_info = st.session_state.action_info_history[-1]
+    set_agent_state()
 
 
 def get_action():
     logger.info("Getting action...")
     start = datetime.now()
     action, info = st.session_state.agent.get_action(copy.deepcopy(st.session_state.last_obs))
-    st.session_state.action = copy.deepcopy(action)
-    st.session_state.action_info = copy.deepcopy(info)
+    step_agent_history(action, info)
     end = datetime.now()
     logger.info(f"Done in {end - start}")
 
@@ -347,7 +442,7 @@ def set_agent_state_box():
             with st.container(border=True, height=250):
                 st.markdown("**Goal**")
                 st.code(
-                    st.session_state.agent.obs_history[-1]["goal"],
+                    st.session_state.last_obs["goal"],
                     wrap_lines=True,
                     language=None,
                     height=175,
@@ -458,105 +553,102 @@ def set_prompt_modifier():
         st.session_state.agent.flags.extra_instructions = extra_instructions
 
 
-def undo_last_agent_step():
-    st.session_state.agent.obs_history.pop()  # remove last observation
-    st.session_state.agent.actions.pop()  # remove last action
-    st.session_state.agent.thoughts.pop()  # remove last thought
-    st.session_state.agent.memories.pop()  # remove last memory
-
-
 def set_controller():
     set_agent_state_box()
     set_prompt_modifier()
     col_prev, col_redo, col_next = st.columns([1, 1, 1])
     with col_prev:
-        prev_disabled = len(st.session_state.actions_history) == 0
+        prev_disabled = len(st.session_state.action_history) <= 1
         if st.button("⬅️ Previous Step", disabled=prev_disabled, use_container_width=True):
             if not prev_disabled:
-                st.session_state.actions_history.pop()
                 st.session_state.action = (
                     None
-                    if len(st.session_state.actions_history) == 0
-                    else st.session_state.actions_history[-1]
+                    if len(st.session_state.action_history) == 0
+                    else st.session_state.action_history[-1]
                 )
-                undo_last_agent_step()
-                undo_last_agent_step()
+                reset_agent_state()
+                revert_agent_history()
+                revert_env_history()
                 restore_environment()
                 st.rerun()
     with col_redo:
         if st.button("🔄 Regenerate Action", use_container_width=True):
-            undo_last_agent_step()
+            revert_agent_history()
+            revert_agent_state()
             get_action()
             st.rerun()
     with col_next:
         if st.button("➡️ Next Step", use_container_width=True):
-            st.session_state.actions_history.append(st.session_state.action)
             step_environment(st.session_state.action)
-            st.session_state.action = None
             st.rerun()
 
 
-def set_screenshot_tab():
-    if isinstance(st.session_state.last_obs, dict):
-        if st.session_state.last_obs.get("screenshot", None) is not None:
-            img_arr = st.session_state.last_obs["screenshot"]
-            if isinstance(img_arr, list):
-                img_arr = np.array(img_arr)
-            if isinstance(img_arr, np.ndarray):
-                im = PIL.Image.fromarray(img_arr)
-                buffered = BytesIO()
-                im.save(buffered, format="PNG")
-                img_b64 = base64.b64encode(buffered.getvalue()).decode()
-                st.markdown(
-                    f'<div style="display: flex; justify-content: center;"><img src="data:image/png;base64,{img_b64}" style="max-width: 80vw; height: auto;" /></div>',
-                    unsafe_allow_html=True,
-                )
-
-
-def set_axtree_tab():
-    if isinstance(st.session_state.last_obs, dict):
-        if st.session_state.last_obs.get("axtree_txt", None) is not None:
-            st.code(st.session_state.last_obs["axtree_txt"], language=None)
-
-
-def set_prompt_tab():
-    if st.session_state.action_info is not None and isinstance(
-        st.session_state.action_info.chat_messages, Discussion
-    ):
-        chat_messages = st.session_state.action_info.chat_messages.messages
-        new_chat_messages = []
-        for message in chat_messages:
-            if isinstance(message["content"], list):
-                # concatenate all text elements
-                new_chat_messages.append(
-                    {
-                        "role": message["role"],
-                        "content": "\n\n".join(
-                            [elem["text"] for elem in message["content"] if elem["type"] == "text"]
-                        ),
-                    }
-                )
-            else:
-                new_chat_messages.append(message)
-        st.code(
-            tokenizer.apply_chat_template(
-                new_chat_messages, add_special_tokens=True, tokenize=False
-            ),
-            wrap_lines=True,
-            language="markdown",
+def display_image(img_arr):
+    if isinstance(img_arr, list):
+        img_arr = np.array(img_arr)
+    if isinstance(img_arr, np.ndarray):
+        im = PIL.Image.fromarray(img_arr)
+        buffered = BytesIO()
+        im.save(buffered, format="PNG")
+        img_b64 = base64.b64encode(buffered.getvalue()).decode()
+        st.markdown(
+            f'<div style="display: flex; justify-content: center;"><img src="data:image/png;base64,{img_b64}" style="max-width: 80vw; height: auto;" /></div>',
+            unsafe_allow_html=True,
         )
 
 
-def set_info_tabs():
-    # Display only if everything is now ready
-    tab1, tab2, tab3 = st.tabs(["Screenshot", "AxTree", "Prompt"])
+def set_screenshot_tab():
+    display_image(st.session_state.screenshot_history[-1])
 
-    with tab1:
+
+def set_axtree_tab():
+    st.code(st.session_state.axtree_history[-1], language=None, wrap_lines=True)
+
+
+def set_prompt_tab():
+    st.code(st.session_state.prompt_history[-1], language=None, wrap_lines=True)
+
+
+def set_previous_steps_tab():
+    for i in range(len(st.session_state.action_history) - 1):
+        with st.expander(f"### Step {i + 1}", expanded=False):
+            screenshot_tab, axtree_tab, prompt_tab = st.tabs(["Screenshot", "AxTree", "Prompt"])
+            with screenshot_tab:
+                display_image(st.session_state.screenshot_history[i])
+            with axtree_tab:
+                st.code(st.session_state.axtree_history[i], language=None, wrap_lines=True)
+            with prompt_tab:
+                st.code(st.session_state.prompt_history[i], language=None, wrap_lines=True)
+            st.markdown("**Thought**")
+            st.code(st.session_state.thought_history[i], language=None, wrap_lines=True)
+            st.markdown("**Action**")
+            st.code(st.session_state.action_history[i], language=None, wrap_lines=True)
+
+
+def set_info_tabs():
+    print(len(st.session_state.action_history))
+    print(len(st.session_state.screenshot_history))
+    print(len(st.session_state.axtree_history))
+    print(len(st.session_state.prompt_history))
+    print(len(st.session_state.thought_history))
+    print("---")
+    # Display only if everything is now ready
+    if len(st.session_state.action_history) > 1:
+        screenshot_tab, axtree_tab, prompt_tab, previous_steps_tab = st.tabs(
+            ["Screenshot", "AxTree", "Prompt", "Previous Steps"]
+        )
+    else:
+        screenshot_tab, axtree_tab, prompt_tab = st.tabs(["Screenshot", "AxTree", "Prompt"])
+
+    with screenshot_tab:
         set_screenshot_tab()
-    with tab2:
+    with axtree_tab:
         set_axtree_tab()
-    with tab3:
+    with prompt_tab:
         set_prompt_tab()
+    if len(st.session_state.action_history) > 1:
+        with previous_steps_tab:
+            set_previous_steps_tab()
 
 
 def run_streamlit():
