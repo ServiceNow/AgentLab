@@ -41,7 +41,11 @@ class Block(ABC):
     def make(self) -> "Block":
         """Returns a copy so the init can start adding some stuff to `self` without changing the
         original datatclass that should only contain a config.
-        The aim is avoid having 2 calss definition for each block, e.g. Block and BlockArgs."""
+        The aim is avoid having 2 calss definition for each block, e.g. Block and BlockArgs.
+
+        Returns:
+            Block: A copy of the current block instance with initialization applied.
+        """
         block = self.__class__(**asdict(self))
         block._init()
         return block

@@ -107,6 +107,24 @@ def generic_call_api_with_retries(
     Makes an API call with retries for transient failures, rate limiting,
     and responses deemed invalid by a custom validation function.
     (Refactored for improved readability with helper functions)
+
+    Args:
+        client_function: The API client function to call.
+        api_params: Parameters to pass to the client function.
+        is_response_valid_fn: Function to validate if the response is valid.
+        rate_limit_exceptions: Tuple of exception types for rate limiting.
+        api_error_exceptions: Tuple of exception types for API errors.
+        get_status_code_fn: Optional function to extract status code from exceptions.
+        max_retries: Maximum number of retry attempts.
+        initial_retry_delay_seconds: Initial delay between retries in seconds.
+        max_retry_delay_seconds: Maximum delay between retries in seconds.
+
+    Returns:
+        The API response if successful.
+
+    Raises:
+        Exception: For unexpected errors that are immediately re-raised.
+        RuntimeError: If API call fails after maximum retries.
     """
 
     def _calculate_delay(
@@ -231,6 +249,14 @@ def call_openai_api_with_retries(client_function, api_params, max_retries=10):
     Makes an OpenAI API call with retries for transient failures,
     rate limiting, and invalid or error-containing responses.
     (This is now a wrapper around generic_call_api_with_retries for OpenAI)
+
+    Args:
+        client_function: The OpenAI API client function to call.
+        api_params: Parameters to pass to the client function.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        The OpenAI API response if successful.
     """
 
     def is_openai_response_valid(response):
@@ -266,6 +292,14 @@ def call_anthropic_api_with_retries(client_function, api_params, max_retries=10)
     Makes an Anthropic API call with retries for transient failures,
     rate limiting, and invalid responses.
     (This is a wrapper around generic_call_api_with_retries for Anthropic)
+
+    Args:
+        client_function: The Anthropic API client function to call.
+        api_params: Parameters to pass to the client function.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        The Anthropic API response if successful.
     """
 
     def is_anthropic_response_valid(response):

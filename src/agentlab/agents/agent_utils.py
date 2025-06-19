@@ -96,6 +96,14 @@ def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
     """
     Draws a semi-transparent mouse pointer at (x, y) on the image.
     Returns a new image with the pointer drawn.
+
+    Args:
+        image: The image to draw the mouse pointer on.
+        x: The x coordinate for the mouse pointer.
+        y: The y coordinate for the mouse pointer.
+
+    Returns:
+        A new image with the mouse pointer drawn.
     """
     pointer_size = 20  # Length of the pointer
     overlay = image.convert("RGBA").copy()
@@ -134,6 +142,14 @@ def draw_click_indicator(image: Image.Image, x: int, y: int) -> Image.Image:
     """
     Draws a click indicator (+ shape with disconnected lines) at (x, y) on the image.
     Returns a new image with the click indicator drawn.
+
+    Args:
+        image: The image to draw the click indicator on.
+        x: The x coordinate for the click indicator.
+        y: The y coordinate for the click indicator.
+
+    Returns:
+        A new image with the click indicator drawn.
     """
     line_length = 10  # Length of each line segment
     gap = 4  # Gap from center point
@@ -188,7 +204,13 @@ def zoom_webpage(page: Page, zoom_factor: float = 1.5):
 
     Args:
         page: The Playwright Page object.
-        zoom_factor: The zoom factor to apply (default is 1.0, which means no zoom).
+        zoom_factor: The zoom factor to apply (default is 1.5).
+
+    Returns:
+        Page: The modified Playwright Page object.
+
+    Raises:
+        ValueError: If zoom_factor is less than or equal to 0.
     """
 
     if zoom_factor <= 0:
