@@ -4,6 +4,7 @@ import importlib
 import json
 import logging
 import os
+from collections import Counter
 from datetime import datetime
 from io import BytesIO
 
@@ -576,6 +577,91 @@ def set_prompt_modifier():
         st.session_state.agent.flags.extra_instructions = extra_instructions
 
 
+def set_advanced_controller():
+    with st.expander("**Advanced**", expanded=False):
+        col_go_back_to, col_reprompt_k, col_act_k = st.columns([1, 1, 1])
+        with col_go_back_to:
+            with st.container(border=True):
+                st.markdown("**Go Back to Step K**")
+                col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
+                is_go_back_to_step_k_disabled = len(st.session_state.action_history) <= 1
+                with col1:
+                    step = st.number_input(
+                        "Step",
+                        value=1,
+                        min_value=1,
+                        max_value=len(st.session_state.action_history),
+                        disabled=is_go_back_to_step_k_disabled,
+                    )
+                with col2:
+                    if st.button(
+                        "Go Back",
+                        help="Go back to step K",
+                        use_container_width=True,
+                        disabled=is_go_back_to_step_k_disabled,
+                    ):
+                        reset_agent_state()
+                        restore_agent_history(step=step)
+                        restore_env_history(step=step)
+                        restore_environment()
+                        st.rerun()
+        with col_reprompt_k:
+            with st.container(border=True):
+                st.markdown("**Reprompt K Times**")
+                col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
+                with col1:
+                    k = st.number_input(
+                        "Number of Generations",
+                        value=5,
+                        min_value=1,
+                        max_value=25,
+                    )
+                with col2:
+                    has_clicked_reprompt = st.button(
+                        "Reprompt",
+                        help="Reprompt the agent K times to get a distribution of actions to take",
+                        use_container_width=True,
+                    )
+                if has_clicked_reprompt:
+                    reprompt_actions = []
+                    with st.spinner(f"Reprompting {k} times"):
+                        for i in range(k):
+                            revert_agent_history()
+                            revert_agent_state()
+                            get_action()
+                            reprompt_actions.append(st.session_state.action)
+                    # show all unique actions found in reprompt actions along with their probability
+                    unique_actions_counter = Counter(reprompt_actions)
+                    unique_actions = sorted(
+                        unique_actions_counter.items(), key=lambda x: x[1], reverse=True
+                    )
+                    st.markdown("**Unique Actions**")
+                    for action, count in unique_actions:
+                        selected_action = st.button(f"`{action}` ({count / k * 100:.2f}%)")
+                        if selected_action:
+                            step_environment(action)
+                            st.rerun()
+
+        with col_act_k:
+            with st.container(border=True):
+                st.markdown("**Act K Times**")
+                col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
+                with col1:
+                    k = st.number_input("Number of Steps", value=5, min_value=1, max_value=10)
+                with col2:
+                    has_clicked_act = st.button(
+                        "Act",
+                        help="Let the agent autonomously perform actions for K steps",
+                        use_container_width=True,
+                    )
+                if has_clicked_act:
+                    with st.spinner(f"Acting {k} times"):
+                        for _ in range(k):
+                            get_action()
+                            step_environment(st.session_state.action)
+                    st.rerun()
+
+
 def set_controller():
     set_agent_state_box()
     set_prompt_modifier()
@@ -604,6 +690,7 @@ def set_controller():
         if st.button("➡️ Next Step", use_container_width=True):
             step_environment(st.session_state.action)
             st.rerun()
+    set_advanced_controller()
 
 
 def get_base64_serialized_image(img_arr):
