@@ -345,9 +345,9 @@ class MainUIPrompt(VLPrompt):
     answer_prompt_part: Union[PreliminaryAnswerPromptPart, FinalAnswerPromptPart]
     action_validator: Callable
 
-    @property
-    def message(self) -> HumanMessage:
-        message_content = self.introduction_prompt_part.message_content
+    def __post_init__(self):
+        message_content = []
+        message_content.extend(self.introduction_prompt_part.message_content)
         message_content.extend(self.goal_prompt_part.message_content)
         message_content.extend(self.interaction_prompt_part.message_content)
         if self.tabs_prompt_part is not None:
@@ -355,9 +355,12 @@ class MainUIPrompt(VLPrompt):
         if self.error_prompt_part is not None:
             message_content.extend(self.error_prompt_part.message_content)
         message_content.extend(self.answer_prompt_part.message_content)
-        message = HumanMessage(message_content)
-        message.merge()
-        return message
+        self._message = HumanMessage(message_content)
+        self._message.merge()
+
+    @property
+    def message(self) -> HumanMessage:
+        return self._message
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
@@ -397,16 +400,16 @@ class AuxiliaryUIPrompt(VLPrompt):
     location: str
     use_screenshot_history: bool
 
-    @property
-    def message(self) -> HumanMessage:
+    def __post_init__(self):
+        message_content = []
         screenshots = []
         if self.use_screenshot_history:
             screenshots.extend(self.screenshot_history)
         screenshots.append(self.current_screenshot)
-        message_content = [
-            {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
-            for screenshot in screenshots
-        ]
+        for screenshot in screenshots:
+            message_content.append(
+                {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
+            )
         message_content.append(
             {
                 "type": "text",
@@ -420,7 +423,11 @@ Description: {self.location}
 """,
             }
         )
-        return HumanMessage(message_content)
+        self._message = HumanMessage(message_content)
+
+    @property
+    def message(self) -> HumanMessage:
+        return self._message
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
@@ -445,47 +452,45 @@ class UIPromptArgs(VLPromptArgs):
         action_set: HighLevelActionSet,
         extra_info: Optional[dict] = None,
     ) -> Union[MainUIPrompt, AuxiliaryUIPrompt]:
-        introduction_prompt_part = IntroductionPromptPart()
-        goal_prompt_part = GoalPromptPart(goal_object=obs["goal_object"])
-        interaction_prompt_part = InteractionPromptPart(
-            current_screenshot=obs["screenshot"],
-            screenshot_history=screenshot_history,
-            thought_history=thought_history,
-            action_history=action_history,
-            use_screenshot_history=self.use_screenshot_history,
-        )
-        if self.use_tabs:
-            tabs_prompt_part = TabsPromptPart(
-                open_pages_titles=obs["open_pages_titles"],
-                open_pages_urls=obs["open_pages_urls"],
-                active_page_index=obs["active_page_index"],
+        if extra_info is not None and "coordinates" not in extra_info:
+            ui_prompt = AuxiliaryUIPrompt(
+                current_screenshot=obs["screenshot"],
+                screenshot_history=screenshot_history,
+                location=extra_info["location"],
+                use_screenshot_history=self.use_screenshot_history,
             )
         else:
-            tabs_prompt_part = None
-        if self.use_error and obs["last_action_error"]:
-            error_prompt_part = ErrorPromptPart(last_action_error=obs["last_action_error"])
-        else:
-            error_prompt_part = None
-        if extra_info is None:
-            preliminary_answer_prompt_part = PreliminaryAnswerPromptPart(
-                action_set_description=action_set.describe(
-                    with_long_description=True, with_examples=False
-                ),
-                use_abstract_example=self.use_abstract_example,
-                use_concrete_example=self.use_concrete_example,
+            introduction_prompt_part = IntroductionPromptPart()
+            goal_prompt_part = GoalPromptPart(goal_object=obs["goal_object"])
+            interaction_prompt_part = InteractionPromptPart(
+                current_screenshot=obs["screenshot"],
+                screenshot_history=screenshot_history,
+                thought_history=thought_history,
+                action_history=action_history,
+                use_screenshot_history=self.use_screenshot_history,
             )
-            return MainUIPrompt(
-                introduction_prompt_part=introduction_prompt_part,
-                goal_prompt_part=goal_prompt_part,
-                interaction_prompt_part=interaction_prompt_part,
-                tabs_prompt_part=tabs_prompt_part,
-                error_prompt_part=error_prompt_part,
-                answer_prompt_part=preliminary_answer_prompt_part,
-                action_validator=action_set.to_python_code,
-            )
-        else:
-            if "coordinates" in extra_info:
-                final_answer_prompt_part = FinalAnswerPromptPart(
+            if self.use_tabs:
+                tabs_prompt_part = TabsPromptPart(
+                    open_pages_titles=obs["open_pages_titles"],
+                    open_pages_urls=obs["open_pages_urls"],
+                    active_page_index=obs["active_page_index"],
+                )
+            else:
+                tabs_prompt_part = None
+            if self.use_error and obs["last_action_error"]:
+                error_prompt_part = ErrorPromptPart(last_action_error=obs["last_action_error"])
+            else:
+                error_prompt_part = None
+            if extra_info is None:
+                answer_prompt_part = PreliminaryAnswerPromptPart(
+                    action_set_description=action_set.describe(
+                        with_long_description=True, with_examples=False
+                    ),
+                    use_abstract_example=self.use_abstract_example,
+                    use_concrete_example=self.use_concrete_example,
+                )
+            else:
+                answer_prompt_part = FinalAnswerPromptPart(
                     action_set_description=action_set.describe(
                         with_long_description=True, with_examples=False
                     ),
@@ -494,19 +499,13 @@ class UIPromptArgs(VLPromptArgs):
                     use_abstract_example=self.use_abstract_example,
                     use_concrete_example=self.use_concrete_example,
                 )
-                return MainUIPrompt(
-                    introduction_prompt_part=introduction_prompt_part,
-                    goal_prompt_part=goal_prompt_part,
-                    interaction_prompt_part=interaction_prompt_part,
-                    tabs_prompt_part=tabs_prompt_part,
-                    error_prompt_part=error_prompt_part,
-                    answer_prompt_part=final_answer_prompt_part,
-                    action_validator=action_set.to_python_code,
-                )
-            else:
-                return AuxiliaryUIPrompt(
-                    current_screenshot=obs["screenshot"],
-                    screenshot_history=screenshot_history,
-                    location=extra_info["location"],
-                    use_screenshot_history=self.use_screenshot_history,
-                )
+            ui_prompt = MainUIPrompt(
+                introduction_prompt_part=introduction_prompt_part,
+                goal_prompt_part=goal_prompt_part,
+                interaction_prompt_part=interaction_prompt_part,
+                tabs_prompt_part=tabs_prompt_part,
+                error_prompt_part=error_prompt_part,
+                answer_prompt_part=answer_prompt_part,
+                action_validator=action_set.to_python_code,
+            )
+        return ui_prompt
