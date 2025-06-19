@@ -231,7 +231,11 @@ def test_openai_chat_completion_api_message_builder_image():
 
 def test_openai_chat_completion_model_parse_and_cost():
     args = OpenAIChatModelArgs(model_name="gpt-3.5-turbo")  # A cheap model for testing
-    model = args.make_model()
+    # Mock the OpenAI client to avoid needing OPENAI_API_KEY
+    with patch("agentlab.llm.response_api.OpenAI") as mock_openai_class:
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        model = args.make_model()
 
     # Mock the API call
     mock_response = create_mock_openai_chat_completion(
@@ -308,8 +312,7 @@ def test_openai_response_model_parse_and_cost():
     function_call and reasoning outputs.
     """
     args = OpenAIResponseModelArgs(model_name="gpt-4.1")
-    model = args.make_model()
-
+    
     # Mock outputs
     mock_function_call_output = {
         "type": "function_call",
@@ -323,6 +326,12 @@ def test_openai_response_model_parse_and_cost():
         input_tokens=70,
         output_tokens=40,
     )
+    
+    # Mock the OpenAI client to avoid needing OPENAI_API_KEY
+    with patch('agentlab.llm.response_api.OpenAI') as mock_openai_class:
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        model = args.make_model()
 
     with patch.object(
         model.client.responses, "create", return_value=mock_api_resp
