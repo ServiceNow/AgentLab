@@ -36,6 +36,7 @@ class Constants:
     STATUS = "status"
     STATUS_SUCCESS = "success"
     STATUS_ERROR = "error"
+    MESSAGE = "message"
 
     OBS = "obs"
     SCREENSHOT = "screenshot"
@@ -378,7 +379,7 @@ def reset_environment():
     if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         logger.error(resp.status_code)
         logger.error(resp.json()[Constants.STATUS])
-        logger.error(resp.json()["message"])
+        logger.error(resp.json()[Constants.MESSAGE])
     response_json = resp.json()
     response_json = deserialize_response(response_json)
     obs = response_json[Constants.OBS]
@@ -394,7 +395,7 @@ def reload_task():
     if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         logger.error(resp.status_code)
         logger.error(resp.json()[Constants.STATUS])
-        logger.error(resp.json()["message"])
+        logger.error(resp.json()[Constants.MESSAGE])
     end = datetime.now()
     logger.info(f"Done in {end - start}")
 
@@ -407,7 +408,7 @@ def step_environment(action):
     if resp.status_code != 200 or resp.json().get(Constants.STATUS) != Constants.STATUS_SUCCESS:
         logger.error(resp.status_code)
         logger.error(resp.json()[Constants.STATUS])
-        logger.error(resp.json()["message"])
+        logger.error(resp.json()[Constants.MESSAGE])
     response_json = resp.json()
     response_json = deserialize_response(response_json)
     if st.session_state.agent.obs_preprocessor:
@@ -577,89 +578,130 @@ def set_prompt_modifier():
         st.session_state.agent.flags.extra_instructions = extra_instructions
 
 
+def set_go_back_to_step_k_section():
+    with st.container(border=True):
+        st.markdown("**Go Back to Step K**")
+        col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
+        is_go_back_to_step_k_disabled = len(st.session_state.action_history) <= 1
+        with col1:
+            step = st.number_input(
+                "Step",
+                value=1,
+                min_value=1,
+                max_value=len(st.session_state.action_history),
+                disabled=is_go_back_to_step_k_disabled,
+            )
+        with col2:
+            if st.button(
+                "Go Back",
+                help="Go back to step K",
+                use_container_width=True,
+                disabled=is_go_back_to_step_k_disabled,
+            ):
+                reset_agent_state()
+                restore_agent_history(step=step)
+                restore_env_history(step=step)
+                restore_environment()
+                st.rerun()
+
+
+def set_reprompt_k_times_section():
+    with st.container(border=True):
+        st.markdown("**Reprompt K Times**")
+        col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
+        with col1:
+            k = st.number_input(
+                "Number of Generations",
+                value=5,
+                min_value=1,
+                max_value=25,
+            )
+        with col2:
+            has_clicked_reprompt = st.button(
+                "Reprompt",
+                help="Reprompt the agent K times to get a distribution of actions to take",
+                use_container_width=True,
+            )
+        if has_clicked_reprompt:
+            reprompt_actions = []
+            with st.spinner(f"Reprompting {k} times"):
+                for i in range(k):
+                    revert_agent_history()
+                    revert_agent_state()
+                    get_action()
+                    reprompt_actions.append(st.session_state.action)
+            # show all unique actions found in reprompt actions along with their probability
+            unique_actions_counter = Counter(reprompt_actions)
+            unique_actions = sorted(
+                unique_actions_counter.items(), key=lambda x: x[1], reverse=True
+            )
+            st.markdown("**Unique Actions**")
+            for action, count in unique_actions:
+                selected_action = st.button(f"`{action}` ({count / k * 100:.2f}%)")
+                if selected_action:
+                    step_environment(action)
+                    st.rerun()
+
+
+def set_act_k_times_section():
+    with st.container(border=True):
+        st.markdown("**Act K Times**")
+        col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
+        with col1:
+            k = st.number_input("Number of Steps", value=5, min_value=1, max_value=10)
+        with col2:
+            has_clicked_act = st.button(
+                "Act",
+                help="Let the agent autonomously perform actions for K steps",
+                use_container_width=True,
+            )
+        if has_clicked_act:
+            with st.spinner(f"Acting {k} times"):
+                for _ in range(k):
+                    get_action()
+                    step_environment(st.session_state.action)
+            st.rerun()
+
+
 def set_advanced_controller():
     with st.expander("**Advanced**", expanded=False):
         col_go_back_to, col_reprompt_k, col_act_k = st.columns([1, 1, 1])
         with col_go_back_to:
-            with st.container(border=True):
-                st.markdown("**Go Back to Step K**")
-                col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
-                is_go_back_to_step_k_disabled = len(st.session_state.action_history) <= 1
-                with col1:
-                    step = st.number_input(
-                        "Step",
-                        value=1,
-                        min_value=1,
-                        max_value=len(st.session_state.action_history),
-                        disabled=is_go_back_to_step_k_disabled,
-                    )
-                with col2:
-                    if st.button(
-                        "Go Back",
-                        help="Go back to step K",
-                        use_container_width=True,
-                        disabled=is_go_back_to_step_k_disabled,
-                    ):
-                        reset_agent_state()
-                        restore_agent_history(step=step)
-                        restore_env_history(step=step)
-                        restore_environment()
-                        st.rerun()
+            set_go_back_to_step_k_section()
         with col_reprompt_k:
-            with st.container(border=True):
-                st.markdown("**Reprompt K Times**")
-                col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
-                with col1:
-                    k = st.number_input(
-                        "Number of Generations",
-                        value=5,
-                        min_value=1,
-                        max_value=25,
-                    )
-                with col2:
-                    has_clicked_reprompt = st.button(
-                        "Reprompt",
-                        help="Reprompt the agent K times to get a distribution of actions to take",
-                        use_container_width=True,
-                    )
-                if has_clicked_reprompt:
-                    reprompt_actions = []
-                    with st.spinner(f"Reprompting {k} times"):
-                        for i in range(k):
-                            revert_agent_history()
-                            revert_agent_state()
-                            get_action()
-                            reprompt_actions.append(st.session_state.action)
-                    # show all unique actions found in reprompt actions along with their probability
-                    unique_actions_counter = Counter(reprompt_actions)
-                    unique_actions = sorted(
-                        unique_actions_counter.items(), key=lambda x: x[1], reverse=True
-                    )
-                    st.markdown("**Unique Actions**")
-                    for action, count in unique_actions:
-                        selected_action = st.button(f"`{action}` ({count / k * 100:.2f}%)")
-                        if selected_action:
-                            step_environment(action)
-                            st.rerun()
-
+            set_reprompt_k_times_section()
         with col_act_k:
-            with st.container(border=True):
-                st.markdown("**Act K Times**")
-                col1, col2 = st.columns([1, 1], vertical_alignment="bottom")
-                with col1:
-                    k = st.number_input("Number of Steps", value=5, min_value=1, max_value=10)
-                with col2:
-                    has_clicked_act = st.button(
-                        "Act",
-                        help="Let the agent autonomously perform actions for K steps",
-                        use_container_width=True,
-                    )
-                if has_clicked_act:
-                    with st.spinner(f"Acting {k} times"):
-                        for _ in range(k):
-                            get_action()
-                            step_environment(st.session_state.action)
-                    st.rerun()
+            set_act_k_times_section()
+
+
+def set_previous_step_section():
+    prev_disabled = len(st.session_state.action_history) <= 1
+    if st.button("⬅️ Previous Step", disabled=prev_disabled, use_container_width=True):
+        if not prev_disabled:
+            st.session_state.action = (
+                None
+                if len(st.session_state.action_history) == 0
+                else st.session_state.action_history[-1]
+            )
+            reset_agent_state()
+            revert_agent_history()
+            revert_env_history()
+            restore_environment()
+            st.rerun()
+
+
+def set_regenerate_action_section():
+    if st.button("🔄 Regenerate Action", use_container_width=True):
+        revert_agent_history()
+        revert_agent_state()
+        get_action()
+        st.rerun()
+
+
+def set_next_step_section():
+    if st.button("➡️ Next Step", use_container_width=True):
+        step_environment(st.session_state.action)
+        st.rerun()
 
 
 def set_controller():
@@ -667,29 +709,11 @@ def set_controller():
     set_prompt_modifier()
     col_prev, col_redo, col_next = st.columns([1, 1, 1])
     with col_prev:
-        prev_disabled = len(st.session_state.action_history) <= 1
-        if st.button("⬅️ Previous Step", disabled=prev_disabled, use_container_width=True):
-            if not prev_disabled:
-                st.session_state.action = (
-                    None
-                    if len(st.session_state.action_history) == 0
-                    else st.session_state.action_history[-1]
-                )
-                reset_agent_state()
-                revert_agent_history()
-                revert_env_history()
-                restore_environment()
-                st.rerun()
+        set_previous_step_section()
     with col_redo:
-        if st.button("🔄 Regenerate Action", use_container_width=True):
-            revert_agent_history()
-            revert_agent_state()
-            get_action()
-            st.rerun()
+        set_regenerate_action_section()
     with col_next:
-        if st.button("➡️ Next Step", use_container_width=True):
-            step_environment(st.session_state.action)
-            st.rerun()
+        set_next_step_section()
     set_advanced_controller()
 
 
