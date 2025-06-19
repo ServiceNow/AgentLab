@@ -5,6 +5,7 @@ from pathlib import Path
 
 import bgym
 import pytest
+from bgym import DEFAULT_BENCHMARKS
 
 from agentlab.agents.generic_agent import AGENT_4o_MINI
 from agentlab.analyze import inspect_results
@@ -17,7 +18,7 @@ from agentlab.experiments import reproducibility_util
 )
 def test_get_reproducibility_info(benchmark_name):
 
-    benchmark = bgym.DEFAULT_BENCHMARKS[benchmark_name]()
+    benchmark = DEFAULT_BENCHMARKS[benchmark_name]()
 
     info = reproducibility_util.get_reproducibility_info(
         "test_agent", benchmark, "test_id", ignore_changes=True

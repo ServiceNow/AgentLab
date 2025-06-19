@@ -45,7 +45,9 @@ class EnvArgs(DataClassJsonMixin):
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
 
-    def make_env(self, action_mapping, exp_dir, exp_task_kwargs: dict = {}):
+    def make_env(
+        self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True
+    ):
         """
         Instantiates the BrowserGym environment corresponding to the arguments (with some tweaks).
 
@@ -53,6 +55,7 @@ class EnvArgs(DataClassJsonMixin):
             action_mapping: overrides the action mapping of the environment.
             exp_dir: will set some environment parameters (e.g., record_video_dir) with respect to the directory where the experiment is running.
             exp_task_kwargs: use with caution! Will override task parameters to experiment-specific values. Useful to set different server configs for different experiments, or output file paths within the experiment's folder (e.g., assistantbench).
+            use_raw_page_output: if True, the environment will also return raw page output in the observation.
 
         Returns:
             env: the gym environment.
@@ -85,6 +88,7 @@ class EnvArgs(DataClassJsonMixin):
             headless=self.headless,
             wait_for_user_message=self.wait_for_user_message,
             action_mapping=action_mapping,  # action mapping is provided by the agent
+            use_raw_page_output=use_raw_page_output,
             **extra_kwargs,
         )
 
@@ -232,10 +236,6 @@ class StepInfo:
         else:
             stats = {}
         stats.update(self.agent_info.pop("stats", {}))
-
-        messages = self.agent_info.get("chat_messages", None)
-        if messages is not None:
-            stats["n_token_agent_messages"] = count_messages_token(messages)
 
         t = self.profiling
         stats["step_elapsed"] = t.env_stop - t.env_start
@@ -396,11 +396,15 @@ class ExpArgs:
         try:
             logger.info(f"Running experiment {self.exp_name} in:\n  {self.exp_dir}")
             agent = self.agent_args.make_agent()
+            if hasattr(agent, "set_task_name"):
+                agent.set_task_name(self.env_args.task_name)
+
             logger.debug("Agent created.")
 
             env = self.env_args.make_env(
                 action_mapping=agent.action_set.to_python_code,
                 exp_dir=self.exp_dir,
+                use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
             )
 
             logger.debug("Environment created.")
@@ -875,7 +879,7 @@ def _move_old_exp(exp_dir):
 def _get_env_name(task_name: str):
     """Register tasks if needed (lazy import) and return environment name."""
 
-    # lazy benchmark import
+    # lazy import
     if task_name.startswith("miniwob"):
         import browsergym.miniwob
     elif task_name.startswith("workarena"):
