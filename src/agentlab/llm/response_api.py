@@ -358,7 +358,12 @@ class OpenAIResponseModel(BaseModelWithPricing):
         for output in response.output:
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
-                func_args_str = ', '.join([f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])
+                func_args_str = ", ".join(
+                    [
+                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+                        for k, v in arguments.items()
+                    ]
+                )
                 result.action = f"{output.name}({func_args_str})"
                 result.tool_calls = output
                 break
@@ -437,7 +442,12 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             for tool_call in tool_calls:
                 function = tool_call["function"]
                 arguments = json.loads(function["arguments"])
-                func_args_str = ', '.join([f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])
+                func_args_str = ", ".join(
+                    [
+                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+                        for k, v in arguments.items()
+                    ]
+                )
                 output.action = f"{function['name']}({func_args_str})"
                 output.tool_calls = {
                     "role": "assistant",
@@ -449,9 +459,16 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
     @staticmethod
     def format_tools_for_chat_completion(tools):
         """Formats response tools format for OpenAI Chat Completion API.
+
         Why we need this?
         Ans: actionset.to_tool_description() in bgym only returns description
         format valid for OpenAI Response API.
+
+        Args:
+            tools: List of tool descriptions to format for Chat Completion API.
+
+        Returns:
+            Formatted tools list compatible with OpenAI Chat Completion API, or None if tools is None.
         """
         formatted_tools = None
         if tools is not None:
@@ -467,7 +484,17 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
     @staticmethod
     def extract_content_with_reasoning(message, wrap_tag="think"):
         """Extracts the content from the message, including reasoning if available.
-        It wraps the reasoning around <think>...</think> for backward compatibility."""
+        It wraps the reasoning around <think>...</think> for easy identification of reasoning content,
+        When LLM produces 'text' and 'reasoning' in the same message.
+        Note: The wrapping of 'thinking' content may not be nedeed and may be reconsidered.
+
+        Args:
+            message: The message object or dict containing content and reasoning.
+            wrap_tag: The tag name to wrap reasoning content (default: "think").
+
+        Returns:
+            str: The extracted content with reasoning wrapped in specified tags.
+        """
         if not isinstance(message, dict):
             message = message.to_dict()
 
@@ -573,7 +600,12 @@ class ClaudeResponseModel(BaseModelWithPricing):
         )
         for output in response.content:
             if output.type == "tool_use":
-                func_args_str = ', '.join([f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])
+                func_args_str = ", ".join(
+                    [
+                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+                        for k, v in output.input.items()
+                    ]
+                )
                 result.action = f"{output.name}({func_args_str})"
             elif output.type == "text":
                 result.think += output.text
