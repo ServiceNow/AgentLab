@@ -162,6 +162,19 @@ class MessageBuilder:
             elif "image" in item:
                 parts.append(f"![Image]({item['image']})")
 
+        # Tool call markdown repr
+        if self.responsed_tool_calls:
+            for i, tool_call in enumerate(self.responsed_tool_calls.tool_calls, 1):
+                args = ", ".join(f"{k}={v}" for k, v in tool_call.arguments.items())
+                parts.append(f"\n**Tool Call {i}**: {tool_call.name}({args})")
+                
+                if tool_call.tool_response:
+                    parts.append(f"\n**Tool Response {i}:**")
+                    for response_item in tool_call.tool_response:
+                        content = (f"```\n{response_item['text']}\n```" if "text" in response_item 
+                                 else f"![Tool Response Image]({response_item['image']})")
+                        parts.append(content)
+
         markdown = f"### {self.role.capitalize()}\n"
         markdown += "\n".join(parts)
 
