@@ -127,8 +127,10 @@ class Goal(Block):
 
     goal_as_system_msg: bool = True
 
-    def apply(self, llm, discussion: StructuredDiscussion, obs: dict) -> dict:
-        system_message = llm.msg.system().add_text(SYS_MSG)
+    def apply(
+        self, llm, discussion: StructuredDiscussion, obs: dict, sys_msg: str = SYS_MSG
+    ) -> dict:
+        system_message = llm.msg.system().add_text(sys_msg)
         discussion.append(system_message)
 
         if self.goal_as_system_msg:
@@ -441,7 +443,12 @@ class ToolUseAgent(bgym.Agent):
         self.llm.reset_stats()
         if not self.discussion.is_goal_set():
             self.discussion.new_group("goal")
-            self.config.goal.apply(self.llm, self.discussion, obs)
+
+            if self.config.multiaction:
+                sys_msg = SYS_MSG + "\nYou can take multiple actions in a single step, if needed."
+            else:
+                sys_msg = SYS_MSG + "\nYou can only take one action at a time."
+            self.config.goal.apply(self.llm, self.discussion, obs, sys_msg)
             self.config.summarizer.apply_init(self.llm, self.discussion)
             self.config.general_hints.apply(self.llm, self.discussion)
             self.task_hint.apply(self.llm, self.discussion, self.task_name)
@@ -460,7 +467,6 @@ class ToolUseAgent(bgym.Agent):
             cache_complete_prompt=False,
             use_cache_breakpoints=True,
         )
-
         action = response.action
         think = response.think
         last_summary = self.discussion.get_last_summary()
@@ -532,7 +538,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
     keep_last_n_obs=None,  # keep only the last observation in the discussion
-    multiaction=False,  # whether to use multi-action or not
+    multiaction=True,  # whether to use multi-action or not
     # action_subsets=("bid",),
     action_subsets=("coord"),
     # action_subsets=("coord", "bid"),
