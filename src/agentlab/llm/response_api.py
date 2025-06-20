@@ -29,24 +29,97 @@ It includes:
 ContentItem = Dict[str, Any]
 Message = Dict[str, Union[str, List[ContentItem]]]
 
+BGYM_RESERVED_ACTION_FUNCTION_NAMES = [
+            "noop",
+            "scroll_at",
+            "mouse_move",
+            "mouse_up",
+            "mouse_down",
+            "mouse_click",
+            "mouse_dblclick",
+            "mouse_drag_and_drop",
+            "mouse_upload_file",
+            "keyboard_down",
+            "keyboard_up",
+            "keyboard_press",
+            "keyboard_type",
+            "keyboard_insert_text",
+        ]
+
+
+@dataclass
+class ToolCall:
+    name: str = field(default=None)
+    arguments: Dict[str, Any] = field(default_factory=dict)
+    raw_call: Any =  field(default=None)
+    tool_response: List[ContentItem] = field(default_factory=list)
+
+    @property
+    def is_bgym_action(self) -> bool:
+        """Check if the tool call is a reserved BGYM action."""
+        return self.name in BGYM_RESERVED_ACTION_FUNCTION_NAMES
+
+    @property
+    def is_response_set(self) -> bool:
+        """Check if the tool response is set."""
+        return self.tool_response is not None
+
+    def add_text(self, text: str) -> "MessageBuilder":
+        self.tool_response.append({"text": text})
+        return self
+
+    def add_image(self, text: str) -> "MessageBuilder":
+        self.tool_response.append({"image": text})
+        return self
+
+@dataclass
+class ToolCalls:
+    tool_calls: List[ToolCall] = field(default_factory=list)
+    raw_calls: List[Any] = field(default_factory=list)
+
+    def add_tool_call(self, tool_call: ToolCall) -> "ToolCalls":
+        self.tool_calls.append(tool_call)
+        return self
+
+    def get_bgym_action_calls(self) -> List[ToolCall]:
+        """Get all tool calls that are reserved BGYM actions."""
+        return [call for call in self.tool_calls if call.is_bgym_action]
+    
+    def get_non_bgym_action_calls(self) -> List[ToolCall]:
+        """Get all tool calls that are not reserved BGYM actions."""
+        return [call for call in self.tool_calls if not call.is_bgym_action]
+    
+    @property
+    def all_responses_set(self) -> bool:
+        """Check if all tool calls have responses set."""
+        return all(call.is_response_set for call in self.tool_calls)
+
+    def __len__(self) -> int:
+        """Return the number of tool calls."""
+        return len(self.tool_calls)
+
+    def __iter__(self):
+        """Make ToolCalls iterable."""
+        return iter(self.tool_calls)
+
 
 @dataclass
 class LLMOutput:
     """Serializable object for the output of a response LLM."""
 
-    raw_response: Any = field(default_factory=dict)
+    raw_response: Any = field(default=None)
     think: str = field(default="")
     action: str = field(default=None)  # Default action if no tool call is made
-    tool_calls: Any = field(default=None)  # This will hold the tool call response if any
+    tool_calls: ToolCalls = field(default=None) # This will hold the tool call response if any
 
 
 class MessageBuilder:
     def __init__(self, role: str):
 
         self.role = role
-        self.last_raw_response: LLMOutput = None
+        self.last_raw_response: LLMOutput = None # NOTE: last_raw_response will be deprecated in future version.
         self.content: List[ContentItem] = []
-        self.tool_call_id: Optional[str] = None
+        self.responsed_tool_calls: ToolCalls = None 
 
     @classmethod
     def system(cls) -> "MessageBuilder":
@@ -103,6 +176,15 @@ class MessageBuilder:
         """Insert a cache breakpoint in the message content."""
         # This is a placeholder for future implementation.
         raise NotImplementedError
+
+    @classmethod
+    def add_responded_tool_calls(cls, responsed_tool_calls: ToolCalls) -> "MessageBuilder":
+        """Add tool calls to the message content."""
+
+        assert responsed_tool_calls.all_responses_set, "All tool calls must have a response."
+        msg = cls.tool(last_raw_response=None)
+        msg.responsed_tool_calls = responsed_tool_calls
+        return msg
 
 
 # TODO: Support parallel tool calls.
@@ -168,22 +250,15 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             output["role"] = "user"
 
         if self.role == "tool":
-
-            api_response = self.last_raw_response
-            fn_calls = [content for content in api_response.content if content.type == "tool_use"]
-            assert len(fn_calls) > 0, "No tool calls found in the last response"
-            if len(fn_calls) > 1:
-                logging.warning("Using only the first tool call from many.")
-            tool_call_id = fn_calls[0].id  # Using the first tool call ID
-
+            assert self.responsed_tool_calls is not None, "No tool_calls added to tool call response"
             output["role"] = "user"
-            output["content"] = [
-                {
+            output["content"] = [{
                     "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": output["content"],
-                }
-            ]
+                    "tool_use_id": call.raw_call.id,
+                    "content": [self.transform_content(item) for item in call.tool_response]
+                } for call in self.responsed_tool_calls
+                ]
+
         if self.role == "assistant":
             # Strip whitespace from assistant text responses. See anthropic error code 400.
             for c in output["content"]:
@@ -347,7 +422,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
         return response
 
-    def _parse_response(self, response: dict) -> dict:
+    def _parse_response(self, response: dict) -> LLMOutput:
         result = LLMOutput(
             raw_response=response,
             think="",
@@ -542,7 +617,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
         sys_msg, other_msgs = self.filter_system_messages(messages)
         sys_msg_text = "\n".join(c["text"] for m in sys_msg for c in m.content)
         for msg in other_msgs:
-            temp = msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg]
+            if isinstance(msg, MessageBuilder):
+                temp = msg.prepare_message() 
+            elif isinstance(msg, ToolCalls):
+                temp = [{
+                    "role": "assistant",
+                    "content": msg.raw_calls.content
+                }]
             if kwargs.pop("use_cache_breakpoints", False):
                 temp = self.apply_cache_breakpoints(msg, temp)
             input.extend(temp)
@@ -588,16 +669,16 @@ class ClaudeResponseModel(BaseModelWithPricing):
                 other_msgs.append(msg)
         return sys_msgs, other_msgs
 
-    def _parse_response(self, response: dict) -> dict:
+    def _parse_response(self, response: dict) -> LLMOutput:
         result = LLMOutput(
             raw_response=response,
             think="",
             action=None,
-            tool_calls={
-                "role": "assistant",
-                "content": response.content,
-            },
-        )
+            tool_calls=None
+            )
+        tool_calls = ToolCalls(raw_calls=response)  # Initialize ToolCalls to hold tool call responses
+        action_list = []
+        # print(f"Response from Claude: {response}")
         for output in response.content:
             if output.type == "tool_use":
                 func_args_str = ", ".join(
@@ -606,9 +687,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
                         for k, v in output.input.items()
                     ]
                 )
-                result.action = f"{output.name}({func_args_str})"
+                action_list.append(f"{output.name}({func_args_str})")
+                tool_calls.add_tool_call(ToolCall(name=output.name, arguments=output.input, raw_call=output))
             elif output.type == "text":
                 result.think += output.text
+        
+        result.tool_calls = tool_calls if tool_calls else None
+        result.action = action_list
         return result
 
     # def ensure_cache_conditions(self, msgs: List[Message]) -> bool:

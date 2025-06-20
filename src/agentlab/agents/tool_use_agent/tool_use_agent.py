@@ -169,11 +169,19 @@ class Obs(Block):
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
+        # bgym_calls = [call for call in last_llm_output.tool_calls if call.is_bgym_action]
+        # fn_calls = [call for call in last_llm_output.tool_calls if not call.is_bgym_action]
 
-        if last_llm_output.tool_calls is None:
-            obs_msg = llm.msg.user()  # type: MessageBuilder
-        else:
-            obs_msg = llm.msg.tool(last_llm_output.raw_response)  # type: MessageBuilder
+        obs_msg = llm.msg.user()
+        if tool_calls := last_llm_output.tool_calls:
+            for action_call in tool_calls.get_bgym_action_calls():
+                action_call.add_text("See the observation")
+            for fn_call in tool_calls.get_non_bgym_action_calls():
+                call_results = execute_fn_calls(fn_call.name, fn_call.arguments)
+                fn_call.add_text(call_results)
+            
+            tool_response = llm.msg.add_responded_tool_calls(tool_calls)
+            discussion.append(tool_response)
 
         if self.use_last_error:
             if obs["last_action_error"] != "":
@@ -205,6 +213,9 @@ class Obs(Block):
         discussion.append(obs_msg)
         return obs_msg
 
+
+def execute_fn_calls(func_name: str, arguments: dict) -> str:
+    return ""
 
 def _format_tabs(obs):
     """Format the open tabs in a llm-readable way."""
@@ -320,23 +331,23 @@ class TaskHint(Block):
             discussion.append(msg)
 
 
-class ToolCall(Block):
+# class ToolCall(Block):
 
-    def __init__(self, tool_server):
-        self.tool_server = tool_server
+#     def __init__(self, tool_server):
+#         self.tool_server = tool_server
 
-    def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
-        # build the message by adding components to obs
-        response: LLMOutput = llm(messages=self.messages)
+#     def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
+#         # build the message by adding components to obs
+#         response: LLMOutput = llm(messages=self.messages)
 
-        messages.append(response.assistant_message)  # this is tool call
+#         messages.append(response.assistant_message)  # this is tool call
 
-        tool_answer = self.tool_server.call_tool(response)
-        tool_msg = llm.msg.tool()  # type: MessageBuilder
-        tool_msg.add_tool_id(response.last_computer_call_id)
-        tool_msg.update_last_raw_response(response)
-        tool_msg.add_text(str(tool_answer))
-        messages.append(tool_msg)
+#         tool_answer = self.tool_server.call_tool(response)
+#         tool_msg = llm.msg.tool()  # type: MessageBuilder
+#         tool_msg.add_tool_id(response.last_computer_call_id)
+#         tool_msg.update_last_raw_response(response)
+#         tool_msg.add_text(str(tool_answer))
+#         messages.append(tool_msg)
 
 
 @dataclass
