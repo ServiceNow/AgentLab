@@ -10,7 +10,7 @@ This module contains utility functions for handling observations and actions in 
 """
 
 
-def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
+def tag_screenshot_with_action(screenshot: Image, action: str | list[str]) -> Image:
     """
     If action is a coordinate action, try to render it on the screenshot.
 
@@ -26,50 +26,56 @@ def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
     Raises:
         ValueError: If the action parsing fails.
     """
-    if action.startswith("mouse_click"):
-        try:
-            coords = action[action.index("(") + 1 : action.index(")")].split(",")
-            coords = [c.strip() for c in coords]
-            if len(coords) not in [2, 3]:
-                raise ValueError(f"Invalid coordinate format: {coords}")
-            if coords[0].startswith("x="):
-                coords[0] = coords[0][2:]
-            if coords[1].startswith("y="):
-                coords[1] = coords[1][2:]
-            x, y = float(coords[0].strip()), float(coords[1].strip())
-            draw = ImageDraw.Draw(screenshot)
-            radius = 5
-            draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius), fill="blue", outline="blue"
-            )
-        except (ValueError, IndexError) as e:
-            warning(f"Failed to parse action '{action}': {e}")
+    import copy
+    actions = copy.deepcopy(action)  # Avoid modifying the original action
+    if action is str:
+        actions = [actions]
+    
+    for action in actions:
+        if action.startswith("mouse_click"):
+            try:
+                coords = action[action.index("(") + 1 : action.index(")")].split(",")
+                coords = [c.strip() for c in coords]
+                if len(coords) not in [2, 3]:
+                    raise ValueError(f"Invalid coordinate format: {coords}")
+                if coords[0].startswith("x="):
+                    coords[0] = coords[0][2:]
+                if coords[1].startswith("y="):
+                    coords[1] = coords[1][2:]
+                x, y = float(coords[0].strip()), float(coords[1].strip())
+                draw = ImageDraw.Draw(screenshot)
+                radius = 5
+                draw.ellipse(
+                    (x - radius, y - radius, x + radius, y + radius), fill="blue", outline="blue"
+                )
+            except (ValueError, IndexError) as e:
+                warning(f"Failed to parse action '{action}': {e}")
 
-    elif action.startswith("mouse_drag_and_drop"):
-        try:
-            func_name, parsed_args = parse_func_call_string(action)
-            if func_name == "mouse_drag_and_drop" and parsed_args is not None:
-                args, kwargs = parsed_args
-                x1, y1, x2, y2 = None, None, None, None
+        elif action.startswith("mouse_drag_and_drop"):
+            try:
+                func_name, parsed_args = parse_func_call_string(action)
+                if func_name == "mouse_drag_and_drop" and parsed_args is not None:
+                    args, kwargs = parsed_args
+                    x1, y1, x2, y2 = None, None, None, None
 
-                if args and len(args) >= 4:
-                    # Positional arguments: mouse_drag_and_drop(x1, y1, x2, y2)
-                    x1, y1, x2, y2 = map(float, args[:4])
-                elif kwargs:
-                    # Keyword arguments: mouse_drag_and_drop(from_x=x1, from_y=y1, to_x=x2, to_y=y2)
-                    x1 = float(kwargs.get("from_x", 0))
-                    y1 = float(kwargs.get("from_y", 0))
-                    x2 = float(kwargs.get("to_x", 0))
-                    y2 = float(kwargs.get("to_y", 0))
+                    if args and len(args) >= 4:
+                        # Positional arguments: mouse_drag_and_drop(x1, y1, x2, y2)
+                        x1, y1, x2, y2 = map(float, args[:4])
+                    elif kwargs:
+                        # Keyword arguments: mouse_drag_and_drop(from_x=x1, from_y=y1, to_x=x2, to_y=y2)
+                        x1 = float(kwargs.get("from_x", 0))
+                        y1 = float(kwargs.get("from_y", 0))
+                        x2 = float(kwargs.get("to_x", 0))
+                        y2 = float(kwargs.get("to_y", 0))
 
-                if all(coord is not None for coord in [x1, y1, x2, y2]):
-                    draw = ImageDraw.Draw(screenshot)
-                    # Draw the main line
-                    draw.line((x1, y1, x2, y2), fill="red", width=2)
-                    # Draw arrowhead at the end point using the helper function
-                    draw_arrowhead(draw, (x1, y1), (x2, y2))
-        except (ValueError, IndexError) as e:
-            warning(f"Failed to parse action '{action}': {e}")
+                    if all(coord is not None for coord in [x1, y1, x2, y2]):
+                        draw = ImageDraw.Draw(screenshot)
+                        # Draw the main line
+                        draw.line((x1, y1, x2, y2), fill="red", width=2)
+                        # Draw arrowhead at the end point using the helper function
+                        draw_arrowhead(draw, (x1, y1), (x2, y2))
+            except (ValueError, IndexError) as e:
+                warning(f"Failed to parse action '{action}': {e}")
     return screenshot
 
 
