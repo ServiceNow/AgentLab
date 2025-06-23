@@ -1,5 +1,6 @@
 from agentlab.agents.vl_agent.config import VL_AGENT_ARGS_DICT
 from agentlab.experiments.study import Study
+from agentlab.experiments.launch_exp import find_incomplete, noop
 import logging
 import os
 
@@ -20,14 +21,16 @@ if __name__ == "__main__":
         for vl_agent_args in vl_agent_args_list:
             vl_agent_args.set_reproducibility_mode()
     if relaunch:
-        study = Study.load_most_recent(contains=None)
-        study.find_incomplete(include_errors=True)
+        study = Study.load_most_recent()
+        complete_exp_ids = [
+            exp_args.exp_id for exp_args in find_incomplete(study.dir) if exp_args.is_dummy
+        ]
         for exp_args in study.exp_args_list:
-            for vl_agent_args in vl_agent_args_list:
-                if vl_agent_args.agent_name == exp_args.agent_args.agent_name:
-                    exp_args.agent_args = vl_agent_args
+            if exp_args.exp_id in complete_exp_ids:
+                exp_args.prepare = noop
+                exp_args.run = noop
     else:
-        study = Study(vl_agent_args_list, benchmark=benchmark, logging_level_stdout=logging.WARNING)
+        study = Study(vl_agent_args_list, benchmark=benchmark)
     study.run(
         parallel_backend=parallel_backend,
         strict_reproducibility=reproducibility_mode,
