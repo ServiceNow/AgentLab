@@ -22,6 +22,10 @@ if __name__ == "__main__":
     if relaunch:
         study = Study.load_most_recent(contains=None)
         study.find_incomplete(include_errors=True)
+        for exp_args in study.exp_args_list:
+            for vl_agent_args in vl_agent_args_list:
+                if vl_agent_args.agent_name == exp_args.agent_args.agent_name:
+                    exp_args.agent_args = vl_agent_args
     else:
         study = Study(vl_agent_args_list, benchmark=benchmark, logging_level_stdout=logging.WARNING)
     study.run(
