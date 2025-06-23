@@ -729,6 +729,15 @@ def _convert_env_args(env_args_list):
     """Return a list where every element is the *new* EnvArgs.
 
     For backward compatibility, we need to convert the old EnvArgs to the new one.
+
+    Args:
+        env_args_list (list): list of EnvArgs objects to convert
+
+    Returns:
+        list: list of converted EnvArgs objects
+
+    Raises:
+        TypeError: If an element in env_args_list is not of expected type.
     """
     from bgym import EnvArgs as BGymEnvArgs
 

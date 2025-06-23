@@ -1,6 +1,5 @@
 import fnmatch
 import json
-import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from dataclasses import asdict, dataclass, field
@@ -23,14 +22,11 @@ from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
-    BaseModelArgs,
     ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
-    OpenRouterModelArgs,
-    VLLMModelArgs,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -45,7 +41,11 @@ class Block(ABC):
     def make(self) -> "Block":
         """Returns a copy so the init can start adding some stuff to `self` without changing the
         original datatclass that should only contain a config.
-        The aim is avoid having 2 calss definition for each block, e.g. Block and BlockArgs."""
+        The aim is avoid having 2 calss definition for each block, e.g. Block and BlockArgs.
+
+        Returns:
+            Block: A copy of the current block instance with initialization applied.
+        """
         block = self.__class__(**asdict(self))
         block._init()
         return block
@@ -127,8 +127,10 @@ class Goal(Block):
 
     goal_as_system_msg: bool = True
 
-    def apply(self, llm, discussion: StructuredDiscussion, obs: dict) -> dict:
-        system_message = llm.msg.system().add_text(SYS_MSG)
+    def apply(
+        self, llm, discussion: StructuredDiscussion, obs: dict, sys_msg: str = SYS_MSG
+    ) -> dict:
+        system_message = llm.msg.system().add_text(sys_msg)
         discussion.append(system_message)
 
         if self.goal_as_system_msg:
@@ -167,11 +169,19 @@ class Obs(Block):
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
+        # bgym_calls = [call for call in last_llm_output.tool_calls if call.is_bgym_action]
+        # fn_calls = [call for call in last_llm_output.tool_calls if not call.is_bgym_action]
 
-        if last_llm_output.tool_calls is None:
-            obs_msg = llm.msg.user()  # type: MessageBuilder
-        else:
-            obs_msg = llm.msg.tool(last_llm_output.raw_response)  # type: MessageBuilder
+        obs_msg = llm.msg.user()
+        if tool_calls := last_llm_output.tool_calls:
+            for action_call in tool_calls.get_bgym_action_calls():
+                action_call.add_text("See the observation")
+            for fn_call in tool_calls.get_non_bgym_action_calls():
+                call_results = execute_fn_calls(fn_call.name, fn_call.arguments)
+                fn_call.add_text(call_results)
+            
+            tool_response = llm.msg.add_responded_tool_calls(tool_calls)
+            discussion.append(tool_response)
 
         if self.use_last_error:
             if obs["last_action_error"] != "":
@@ -203,6 +213,9 @@ class Obs(Block):
         discussion.append(obs_msg)
         return obs_msg
 
+
+def execute_fn_calls(func_name: str, arguments: dict) -> str:
+    return ""
 
 def _format_tabs(obs):
     """Format the open tabs in a llm-readable way."""
@@ -294,9 +307,6 @@ class TaskHint(Block):
         hint_db_path = Path(__file__).parent / self.hint_db_rel_path
         self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
 
-        # index the task_name for fast lookup
-        # self.hint_db.set_index("task_name", inplace=True, drop=False)
-
     def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
         if not self.use_task_hint:
             return
@@ -321,23 +331,23 @@ class TaskHint(Block):
             discussion.append(msg)
 
 
-class ToolCall(Block):
+# class ToolCall(Block):
 
-    def __init__(self, tool_server):
-        self.tool_server = tool_server
+#     def __init__(self, tool_server):
+#         self.tool_server = tool_server
 
-    def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
-        # build the message by adding components to obs
-        response: LLMOutput = llm(messages=self.messages)
+#     def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
+#         # build the message by adding components to obs
+#         response: LLMOutput = llm(messages=self.messages)
 
-        messages.append(response.assistant_message)  # this is tool call
+#         messages.append(response.assistant_message)  # this is tool call
 
-        tool_answer = self.tool_server.call_tool(response)
-        tool_msg = llm.msg.tool()  # type: MessageBuilder
-        tool_msg.add_tool_id(response.last_computer_call_id)
-        tool_msg.update_last_raw_response(response)
-        tool_msg.add_text(str(tool_answer))
-        messages.append(tool_msg)
+#         tool_answer = self.tool_server.call_tool(response)
+#         tool_msg = llm.msg.tool()  # type: MessageBuilder
+#         tool_msg.add_tool_id(response.last_computer_call_id)
+#         tool_msg.update_last_raw_response(response)
+#         tool_msg.add_text(str(tool_answer))
+#         messages.append(tool_msg)
 
 
 @dataclass
@@ -361,7 +371,7 @@ class ToolUseAgentArgs(AgentArgs):
 
     def __post_init__(self):
         try:
-            self.agent_name = f"MultiToolUse-{self.model_args.model_name}".replace("/", "_")
+            self.agent_name = f"ToolUse-{self.model_args.model_name}".replace("/", "_")
         except AttributeError:
             pass
 
@@ -444,7 +454,12 @@ class ToolUseAgent(bgym.Agent):
         self.llm.reset_stats()
         if not self.discussion.is_goal_set():
             self.discussion.new_group("goal")
-            self.config.goal.apply(self.llm, self.discussion, obs)
+
+            if self.config.multiaction:
+                sys_msg = SYS_MSG + "\nYou can take multiple actions in a single step, if needed."
+            else:
+                sys_msg = SYS_MSG + "\nYou can only take one action at a time."
+            self.config.goal.apply(self.llm, self.discussion, obs, sys_msg)
             self.config.summarizer.apply_init(self.llm, self.discussion)
             self.config.general_hints.apply(self.llm, self.discussion)
             self.task_hint.apply(self.llm, self.discussion, self.task_name)
@@ -463,7 +478,6 @@ class ToolUseAgent(bgym.Agent):
             cache_complete_prompt=False,
             use_cache_breakpoints=True,
         )
-
         action = response.action
         think = response.think
         last_summary = self.discussion.get_last_summary()
@@ -535,7 +549,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
     keep_last_n_obs=None,  # keep only the last observation in the discussion
-    multiaction=False,  # whether to use multi-action or not
+    multiaction=True,  # whether to use multi-action or not
     # action_subsets=("bid",),
     action_subsets=("coord"),
     # action_subsets=("coord", "bid"),
@@ -544,23 +558,4 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
 AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
     config=DEFAULT_PROMPT_CONFIG,
-)
-
-# MT_TOOL_USE_AGENT = ToolUseAgentArgs(
-#     model_args=OPENROUTER_MODEL,
-# )
-CHATAPI_AGENT_CONFIG = ToolUseAgentArgs(
-    model_args=OpenAIChatModelArgs(
-        model_name="gpt-4o-2024-11-20",
-        max_total_tokens=200_000,
-        max_input_tokens=200_000,
-        max_new_tokens=2_000,
-        temperature=0.7,
-        vision_support=True,
-    ),
-)
-
-
-OAI_CHAT_TOOl_AGENT = ToolUseAgentArgs(
-    model_args=OpenAIChatModelArgs(model_name="gpt-4o-2024-08-06")
 )

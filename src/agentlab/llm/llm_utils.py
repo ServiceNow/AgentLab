@@ -11,9 +11,9 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
+import anthropic
 import numpy as np
 import openai
-import anthropic
 import tiktoken
 import yaml
 from langchain.schema import BaseMessage
@@ -99,14 +99,32 @@ def generic_call_api_with_retries(
     rate_limit_exceptions,
     api_error_exceptions,
     get_status_code_fn=None,
-    max_retries=5,
-    initial_retry_delay_seconds=1,
-    max_retry_delay_seconds=60,
+    max_retries=10,
+    initial_retry_delay_seconds=20,
+    max_retry_delay_seconds=60 * 5,
 ):
     """
     Makes an API call with retries for transient failures, rate limiting,
     and responses deemed invalid by a custom validation function.
     (Refactored for improved readability with helper functions)
+
+    Args:
+        client_function: The API client function to call.
+        api_params: Parameters to pass to the client function.
+        is_response_valid_fn: Function to validate if the response is valid.
+        rate_limit_exceptions: Tuple of exception types for rate limiting.
+        api_error_exceptions: Tuple of exception types for API errors.
+        get_status_code_fn: Optional function to extract status code from exceptions.
+        max_retries: Maximum number of retry attempts.
+        initial_retry_delay_seconds: Initial delay between retries in seconds.
+        max_retry_delay_seconds: Maximum delay between retries in seconds.
+
+    Returns:
+        The API response if successful.
+
+    Raises:
+        Exception: For unexpected errors that are immediately re-raised.
+        RuntimeError: If API call fails after maximum retries.
     """
 
     def _calculate_delay(
@@ -226,21 +244,29 @@ def generic_call_api_with_retries(
     raise RuntimeError(f"API call failed after {max_retries} retries.")
 
 
-def call_openai_api_with_retries(client_function, api_params, max_retries=5):
+def call_openai_api_with_retries(client_function, api_params, max_retries=10):
     """
     Makes an OpenAI API call with retries for transient failures,
     rate limiting, and invalid or error-containing responses.
     (This is now a wrapper around generic_call_api_with_retries for OpenAI)
+
+    Args:
+        client_function: The OpenAI API client function to call.
+        api_params: Parameters to pass to the client function.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        The OpenAI API response if successful.
     """
-    
+
     def is_openai_response_valid(response):
         # Check for explicit error field in response object first
         if getattr(response, "error", None):
             logging.warning(f"OpenAI API response contains an error attribute: {response.error}")
             return False  # Treat as invalid for retry purposes
-        if hasattr(response, "choices") and response.choices: # Chat Completion API
+        if hasattr(response, "choices") and response.choices:  # Chat Completion API
             return True
-        if hasattr(response, "output") and response.output: # Response API
+        if hasattr(response, "output") and response.output:  # Response API
             return True
         logging.warning("OpenAI API response is missing 'choices' or 'output' is empty.")
         return False
@@ -260,13 +286,22 @@ def call_openai_api_with_retries(client_function, api_params, max_retries=5):
         # if you want to customize them from their defaults in the generic function.
     )
 
-def call_anthropic_api_with_retries(client_function, api_params, max_retries=5):
+
+def call_anthropic_api_with_retries(client_function, api_params, max_retries=10):
     """
     Makes an Anthropic API call with retries for transient failures,
     rate limiting, and invalid responses.
     (This is a wrapper around generic_call_api_with_retries for Anthropic)
+
+    Args:
+        client_function: The Anthropic API client function to call.
+        api_params: Parameters to pass to the client function.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        The Anthropic API response if successful.
     """
-    
+
     def is_anthropic_response_valid(response):
         """Checks if the Anthropic response is valid."""
         # A successful Anthropic message response typically has:
@@ -283,11 +318,9 @@ def call_anthropic_api_with_retries(client_function, api_params, max_retries=5):
         # For anthropic.types.Message, an error would typically be an exception.
         # However, if the client_function could return a dict with an 'error' key:
         if isinstance(response, dict) and response.get("type") == "error":
-            logging.warning(
-                f"Anthropic API response indicates an error: {response.get('error')}"
-            )
+            logging.warning(f"Anthropic API response indicates an error: {response.get('error')}")
             return False
-        
+
         # For anthropic.types.Message objects from client.messages.create
         if hasattr(response, "type") and response.type == "message":
             if hasattr(response, "content") and isinstance(response.content, list):
@@ -299,7 +332,7 @@ def call_anthropic_api_with_retries(client_function, api_params, max_retries=5):
                     "Anthropic API response is of type 'message' but missing valid 'content'."
                 )
                 return False
-        
+
         logging.warning(
             f"Anthropic API response does not appear to be a valid message object. Type: {getattr(response, 'type', 'N/A')}"
         )
@@ -316,17 +349,16 @@ def call_anthropic_api_with_retries(client_function, api_params, max_retries=5):
     # anthropic.APIStatusError provides status_code.
     # anthropic.APIConnectionError for network issues.
     # Order can matter if there's inheritance; specific ones first.
-    
+
     # Ensure these are the correct exception types from your installed anthropic library version.
     anthropic_rate_limit_exception = anthropic.RateLimitError
     # Broader API errors, APIStatusError is more specific for HTTP status related issues.
     # APIConnectionError for network problems. APIError as a general catch-all.
     anthropic_api_error_exceptions = (
-        anthropic.APIStatusError, # Catches errors with a status_code
-        anthropic.APIConnectionError, # Catches network-related issues
-        anthropic.APIError, # General base class for other Anthropic API errors
+        anthropic.APIStatusError,  # Catches errors with a status_code
+        anthropic.APIConnectionError,  # Catches network-related issues
+        anthropic.APIError,  # General base class for other Anthropic API errors
     )
-
 
     return generic_call_api_with_retries(
         client_function=client_function,

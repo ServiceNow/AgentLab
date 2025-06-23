@@ -26,27 +26,100 @@ It includes:
 """
 
 
-type ContentItem = Dict[str, Any]
-type Message = Dict[str, Union[str, List[ContentItem]]]
+ContentItem = Dict[str, Any]
+Message = Dict[str, Union[str, List[ContentItem]]]
+
+BGYM_RESERVED_ACTION_FUNCTION_NAMES = [
+            "noop",
+            "scroll_at",
+            "mouse_move",
+            "mouse_up",
+            "mouse_down",
+            "mouse_click",
+            "mouse_dblclick",
+            "mouse_drag_and_drop",
+            "mouse_upload_file",
+            "keyboard_down",
+            "keyboard_up",
+            "keyboard_press",
+            "keyboard_type",
+            "keyboard_insert_text",
+        ]
+
+
+@dataclass
+class ToolCall:
+    name: str = field(default=None)
+    arguments: Dict[str, Any] = field(default_factory=dict)
+    raw_call: Any =  field(default=None)
+    tool_response: List[ContentItem] = field(default_factory=list)
+
+    @property
+    def is_bgym_action(self) -> bool:
+        """Check if the tool call is a reserved BGYM action."""
+        return self.name in BGYM_RESERVED_ACTION_FUNCTION_NAMES
+
+    @property
+    def is_response_set(self) -> bool:
+        """Check if the tool response is set."""
+        return self.tool_response is not None
+
+    def add_text(self, text: str) -> "MessageBuilder":
+        self.tool_response.append({"text": text})
+        return self
+
+    def add_image(self, text: str) -> "MessageBuilder":
+        self.tool_response.append({"image": text})
+        return self
+
+@dataclass
+class ToolCalls:
+    tool_calls: List[ToolCall] = field(default_factory=list)
+    raw_calls: List[Any] = field(default_factory=list)
+
+    def add_tool_call(self, tool_call: ToolCall) -> "ToolCalls":
+        self.tool_calls.append(tool_call)
+        return self
+
+    def get_bgym_action_calls(self) -> List[ToolCall]:
+        """Get all tool calls that are reserved BGYM actions."""
+        return [call for call in self.tool_calls if call.is_bgym_action]
+    
+    def get_non_bgym_action_calls(self) -> List[ToolCall]:
+        """Get all tool calls that are not reserved BGYM actions."""
+        return [call for call in self.tool_calls if not call.is_bgym_action]
+    
+    @property
+    def all_responses_set(self) -> bool:
+        """Check if all tool calls have responses set."""
+        return all(call.is_response_set for call in self.tool_calls)
+
+    def __len__(self) -> int:
+        """Return the number of tool calls."""
+        return len(self.tool_calls)
+
+    def __iter__(self):
+        """Make ToolCalls iterable."""
+        return iter(self.tool_calls)
 
 
 @dataclass
 class LLMOutput:
     """Serializable object for the output of a response LLM."""
 
-    raw_response: Any = field(default_factory=dict)
+    raw_response: Any = field(default=None)
     think: str = field(default="")
     action: str = field(default=None)  # Default action if no tool call is made
-    tool_calls: Any = field(default=None)  # This will hold the tool call response if any
+    tool_calls: ToolCalls = field(default=None) # This will hold the tool call response if any
 
 
 class MessageBuilder:
     def __init__(self, role: str):
 
         self.role = role
-        self.last_raw_response: LLMOutput = None
+        self.last_raw_response: LLMOutput = None # NOTE: last_raw_response will be deprecated in future version.
         self.content: List[ContentItem] = []
-        self.tool_call_id: Optional[str] = None
+        self.responsed_tool_calls: ToolCalls = None 
 
     @classmethod
     def system(cls) -> "MessageBuilder":
@@ -85,9 +158,22 @@ class MessageBuilder:
         parts = []
         for item in self.content:
             if "text" in item:
-                parts.append(f"\n```\n{item["text"]}\n```\n")
+                parts.append(f"\n```\n{item['text']}\n```\n")
             elif "image" in item:
                 parts.append(f"![Image]({item['image']})")
+
+        # Tool call markdown repr
+        if self.responsed_tool_calls:
+            for i, tool_call in enumerate(self.responsed_tool_calls.tool_calls, 1):
+                args = ", ".join(f"{k}={v}" for k, v in tool_call.arguments.items())
+                parts.append(f"\n**Tool Call {i}**: {tool_call.name}({args})")
+                
+                if tool_call.tool_response:
+                    parts.append(f"\n**Tool Response {i}:**")
+                    for response_item in tool_call.tool_response:
+                        content = (f"```\n{response_item['text']}\n```" if "text" in response_item 
+                                 else f"![Tool Response Image]({response_item['image']})")
+                        parts.append(content)
 
         markdown = f"### {self.role.capitalize()}\n"
         markdown += "\n".join(parts)
@@ -103,6 +189,15 @@ class MessageBuilder:
         """Insert a cache breakpoint in the message content."""
         # This is a placeholder for future implementation.
         raise NotImplementedError
+
+    @classmethod
+    def add_responded_tool_calls(cls, responsed_tool_calls: ToolCalls) -> "MessageBuilder":
+        """Add tool calls to the message content."""
+
+        assert responsed_tool_calls.all_responses_set, "All tool calls must have a response."
+        msg = cls.tool(last_raw_response=None)
+        msg.responsed_tool_calls = responsed_tool_calls
+        return msg
 
 
 # TODO: Support parallel tool calls.
@@ -168,22 +263,15 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             output["role"] = "user"
 
         if self.role == "tool":
-
-            api_response = self.last_raw_response
-            fn_calls = [content for content in api_response.content if content.type == "tool_use"]
-            assert len(fn_calls) > 0, "No tool calls found in the last response"
-            if len(fn_calls) > 1:
-                logging.warning("Using only the first tool call from many.")
-            tool_call_id = fn_calls[0].id  # Using the first tool call ID
-
+            assert self.responsed_tool_calls is not None, "No tool_calls added to tool call response"
             output["role"] = "user"
-            output["content"] = [
-                {
+            output["content"] = [{
                     "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": output["content"],
-                }
-            ]
+                    "tool_use_id": call.raw_call.id,
+                    "content": [self.transform_content(item) for item in call.tool_response]
+                } for call in self.responsed_tool_calls
+                ]
+
         if self.role == "assistant":
             # Strip whitespace from assistant text responses. See anthropic error code 400.
             for c in output["content"]:
@@ -408,7 +496,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
         return response
 
-    def _parse_response(self, response: dict) -> dict:
+    def _parse_response(self, response: dict) -> LLMOutput:
         result = LLMOutput(
             raw_response=response,
             think="",
@@ -419,9 +507,13 @@ class OpenAIResponseModel(BaseModelWithPricing):
         for output in response.output:
             if output.type == "function_call":
                 arguments = json.loads(output.arguments)
-                result.action = (
-                    f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
+                func_args_str = ", ".join(
+                    [
+                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+                        for k, v in arguments.items()
+                    ]
                 )
+                result.action = f"{output.name}({func_args_str})"
                 result.tool_calls = output
                 break
             elif output.type == "reasoning":
@@ -499,7 +591,13 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             for tool_call in tool_calls:
                 function = tool_call["function"]
                 arguments = json.loads(function["arguments"])
-                output.action = f"{function['name']}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in arguments.items()])})"
+                func_args_str = ", ".join(
+                    [
+                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+                        for k, v in arguments.items()
+                    ]
+                )
+                output.action = f"{function['name']}({func_args_str})"
                 output.tool_calls = {
                     "role": "assistant",
                     "tool_calls": [message["tool_calls"][0]],  # Use only the first tool call
@@ -510,9 +608,16 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
     @staticmethod
     def format_tools_for_chat_completion(tools):
         """Formats response tools format for OpenAI Chat Completion API.
+
         Why we need this?
         Ans: actionset.to_tool_description() in bgym only returns description
         format valid for OpenAI Response API.
+
+        Args:
+            tools: List of tool descriptions to format for Chat Completion API.
+
+        Returns:
+            Formatted tools list compatible with OpenAI Chat Completion API, or None if tools is None.
         """
         formatted_tools = None
         if tools is not None:
@@ -528,7 +633,17 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
     @staticmethod
     def extract_content_with_reasoning(message, wrap_tag="think"):
         """Extracts the content from the message, including reasoning if available.
-        It wraps the reasoning around <think>...</think> for backward compatibility."""
+        It wraps the reasoning around <think>...</think> for easy identification of reasoning content,
+        When LLM produces 'text' and 'reasoning' in the same message.
+        Note: The wrapping of 'thinking' content may not be nedeed and may be reconsidered.
+
+        Args:
+            message: The message object or dict containing content and reasoning.
+            wrap_tag: The tag name to wrap reasoning content (default: "think").
+
+        Returns:
+            str: The extracted content with reasoning wrapped in specified tags.
+        """
         if not isinstance(message, dict):
             message = message.to_dict()
 
@@ -576,7 +691,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
         sys_msg, other_msgs = self.filter_system_messages(messages)
         sys_msg_text = "\n".join(c["text"] for m in sys_msg for c in m.content)
         for msg in other_msgs:
-            temp = msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg]
+            if isinstance(msg, MessageBuilder):
+                temp = msg.prepare_message() 
+            elif isinstance(msg, ToolCalls):
+                temp = [{
+                    "role": "assistant",
+                    "content": msg.raw_calls.content
+                }]
             if kwargs.pop("use_cache_breakpoints", False):
                 temp = self.apply_cache_breakpoints(msg, temp)
             input.extend(temp)
@@ -622,21 +743,31 @@ class ClaudeResponseModel(BaseModelWithPricing):
                 other_msgs.append(msg)
         return sys_msgs, other_msgs
 
-    def _parse_response(self, response: dict) -> dict:
+    def _parse_response(self, response: dict) -> LLMOutput:
         result = LLMOutput(
             raw_response=response,
             think="",
             action=None,
-            tool_calls={
-                "role": "assistant",
-                "content": response.content,
-            },
-        )
+            tool_calls=None
+            )
+        tool_calls = ToolCalls(raw_calls=response)  # Initialize ToolCalls to hold tool call responses
+        action_list = []
+        # print(f"Response from Claude: {response}")
         for output in response.content:
             if output.type == "tool_use":
-                result.action = f"{output.name}({', '.join([f'{k}=\"{v}\"' if isinstance(v, str) else f'{k}={v}' for k, v in output.input.items()])})"
+                func_args_str = ", ".join(
+                    [
+                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+                        for k, v in output.input.items()
+                    ]
+                )
+                action_list.append(f"{output.name}({func_args_str})")
+                tool_calls.add_tool_call(ToolCall(name=output.name, arguments=output.input, raw_call=output))
             elif output.type == "text":
                 result.think += output.text
+        
+        result.tool_calls = tool_calls if tool_calls else None
+        result.action = action_list
         return result
 
     # def ensure_cache_conditions(self, msgs: List[Message]) -> bool:
@@ -648,73 +779,6 @@ class ClaudeResponseModel(BaseModelWithPricing):
         if getattr(msg, "_cache_breakpoint", False):
             prepared_msg[-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
         return prepared_msg
-
-
-def cua_response_to_text(action):
-    """
-    Given a computer action (e.g., click, double_click, scroll, etc.),
-    convert it to a text description.
-    """
-    action_type = action.type
-
-    try:
-        match action_type:
-
-            case "click":
-                x, y = action.x, action.y
-                button = action.button
-                print(f"Action: click at ({x}, {y}) with button '{button}'")
-                # Not handling things like middle click, etc.
-                if button != "left" and button != "right":
-                    button = "left"
-                return f"mouse_click({x}, {y}, button='{button}')"
-
-            case "scroll":
-                x, y = action.x, action.y
-                scroll_x, scroll_y = action.scroll_x, action.scroll_y
-                print(
-                    f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})"
-                )
-                return f"mouse_move({x}, {y})\nscroll({scroll_x}, {scroll_y})"
-
-            case "keypress":
-                keys = action.keys
-                for k in keys:
-                    print(f"Action: keypress '{k}'")
-                    # A simple mapping for common keys; expand as needed.
-                    if k.lower() == "enter":
-                        return "keyboard_press('Enter')"
-                    elif k.lower() == "space":
-                        return "keyboard_press(' ')"
-                    else:
-                        return f"keyboard_press('{k}')"
-
-            case "type":
-                text = action.text
-                print(f"Action: type text: {text}")
-                return f"keyboard_type('{text}')"
-
-            case "wait":
-                print(f"Action: wait")
-                return "noop()"
-
-            case "screenshot":
-                # Nothing to do as screenshot is taken at each turn
-                print(f"Action: screenshot")
-
-            # Handle other actions here
-
-            case "drag":
-                x1, y1 = action.path[0].x, action.path[0].y
-                x2, y2 = action.path[1].x, action.path[1].y
-                print(f"Action: drag from ({x1}, {y1}) to ({x2}, {y2})")
-                return f"mouse_drag_and_drop({x1}, {y1}, {x2}, {y2})"
-
-            case _:
-                print(f"Unrecognized action: {action}")
-
-    except Exception as e:
-        print(f"Error handling action {action}: {e}")
 
 
 # Factory classes to create the appropriate model based on the API endpoint.
