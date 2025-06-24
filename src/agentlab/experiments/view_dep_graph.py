@@ -2,11 +2,12 @@
 etc. You may have to detust it to make it work for you."""
 
 import math
+
 import bgym
 import matplotlib.pyplot as plt
-
 import networkx as nx
 import numpy as np
+from bgym import DEFAULT_BENCHMARKS
 
 
 def clean_dict(dependency_dict: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -308,8 +309,8 @@ def compress_chains(G):
     return G_compressed
 
 
-# benchmark = bgym.DEFAULT_BENCHMARKS["webarena"]()
-benchmark = bgym.DEFAULT_BENCHMARKS["visualwebarena"]()
+# benchmark = DEFAULT_BENCHMARKS["webarena"]()
+benchmark = DEFAULT_BENCHMARKS["visualwebarena"]()
 
 dep_graph = benchmark.dependency_graph_over_tasks()
 dep_graph = clean_dict(dep_graph)

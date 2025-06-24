@@ -251,7 +251,11 @@ def summarize(sub_df):
         )
     else:
         err = sub_df["err_msg"].notnull()
-        n_completed = (err | sub_df["truncated"] | sub_df["terminated"]).sum()
+        n_completed = err.copy()
+        for col in ["truncated", "terminated"]:
+            if col in sub_df:
+                n_completed = n_completed | sub_df[col]
+        n_completed = n_completed.sum()
 
         if n_completed == 0:
             return None
@@ -271,6 +275,11 @@ def summarize(sub_df):
         )
         if "stats.cum_cost" in sub_df:
             record["cum_cost"] = sub_df["stats.cum_cost"].sum(skipna=True).round(4)
+        if "stats.cum_effective_cost" in sub_df:
+            record["cum_effective_cost"] = (
+                sub_df["stats.cum_effective_cost"].sum(skipna=True).round(4)
+            )
+            record.pop("cum_cost", None)
 
     return pd.Series(record)
 
@@ -280,7 +289,12 @@ def summarize_stats(sub_df):
 
     # make sure there are completed runs
     err = sub_df["err_msg"].notnull()
-    n_completed = (err | sub_df["truncated"] | sub_df["terminated"]).sum()
+    n_completed = err.copy()
+    for col in ["truncated", "terminated"]:
+        if col in sub_df:
+            n_completed = n_completed | sub_df[col]
+    n_completed = n_completed.sum()
+
     if n_completed == 0:
         return None
 
