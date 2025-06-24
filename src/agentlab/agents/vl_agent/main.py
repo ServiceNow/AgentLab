@@ -1,6 +1,5 @@
 from agentlab.agents.vl_agent.config import VL_AGENT_ARGS_DICT
 from agentlab.experiments.study import Study
-from agentlab.experiments.launch_exp import find_incomplete, noop
 import logging
 import os
 
@@ -13,7 +12,7 @@ vl_agent_args_list = [VL_AGENT_ARGS_DICT["ui_agent"]]
 benchmark = "miniwob"
 parallel_backend = "sequential"
 n_jobs = 1
-n_relaunch = 1
+n_relaunch = 3
 
 
 if __name__ == "__main__":
@@ -22,13 +21,11 @@ if __name__ == "__main__":
             vl_agent_args.set_reproducibility_mode()
     if relaunch:
         study = Study.load_most_recent()
-        complete_exp_ids = [
-            exp_args.exp_id for exp_args in find_incomplete(study.dir) if exp_args.is_dummy
-        ]
+        study.find_incomplete()
         for exp_args in study.exp_args_list:
-            if exp_args.exp_id in complete_exp_ids:
-                exp_args.prepare = noop
-                exp_args.run = noop
+            for vl_agent_args in vl_agent_args_list:
+                if vl_agent_args.agent_name == exp_args.agent_args.agent_name:
+                    exp_args.agent_args = vl_agent_args
     else:
         study = Study(vl_agent_args_list, benchmark=benchmark)
     study.run(
