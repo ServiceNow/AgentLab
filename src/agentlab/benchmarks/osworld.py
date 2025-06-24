@@ -14,18 +14,18 @@ class OsworldGym(AbstractEnv):
     def __init__(
         self,
         task: dict,
-        provider_name: str = "vmware",
-        region: str | None = None,
-        path_to_vm: str | None = None,
-        snapshot_name: str = "init_state",
-        action_space: str = "computer_13",
-        cache_dir: str = "cache",
-        screen_size: tuple[int, int] = (1920, 1080),
-        headless: bool = False,
-        require_a11y_tree: bool = True,
-        require_terminal: bool = False,
-        os_type: str = "Ubuntu",
-        enable_proxy: bool = False,
+        provider_name: str,
+        region: str | None,
+        path_to_vm: str | None,
+        snapshot_name: str,
+        action_space: str,
+        cache_dir: str,
+        screen_size: tuple[int, int],
+        headless: bool,
+        require_a11y_tree: bool,
+        require_terminal: bool,
+        os_type: str,
+        enable_proxy: bool,
     ):
         self.task = task
         self.env_info = {
@@ -72,21 +72,21 @@ class OsworldGym(AbstractEnv):
 @dataclass
 class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
-    provider_name: str
-    region: str | None
-    path_to_vm: str | None
-    snapshot_name: str
-    action_space: str
-    cache_dir: str
-    screen_size: tuple[int, int]
-    headless: bool
-    require_a11y_tree: bool
-    require_terminal: bool
-    os_type: str
-    enable_proxy: bool
+    path_to_vm: str | None = None
+    provider_name: str = "vmware"  # path to .vmx file
+    region: str = "us-east-1"  # AWS specific, does not apply to all providers
+    snapshot_name: str = "init_state"  # snapshot name to revert to
+    action_space: str = "computer_13"  # "computer_13" | "pyautogui"
+    cache_dir: str = "cache"
+    screen_size: tuple[int, int] = (1920, 1080)
+    headless: bool = False
+    require_a11y_tree: bool = True
+    require_terminal: bool = False
+    os_type: str = "Ubuntu"
+    enable_proxy: bool = False
 
     def make_env(self) -> OsworldGym:
-        logger.info(f"Creating OsworldGym with task: {self.task}")
+        logger.info(f"Creating OSWorld Gym with task: {self.task}")
         gym = OsworldGym(
             task=self.task,
             provider_name=self.provider_name,
