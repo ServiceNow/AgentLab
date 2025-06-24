@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass
-from math import log
 from typing import Any
 
 from desktop_env.desktop_env import DesktopEnv
