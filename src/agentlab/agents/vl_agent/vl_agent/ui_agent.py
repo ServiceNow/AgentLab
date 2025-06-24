@@ -3,7 +3,7 @@ from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
-from copy import copy, deepcopy
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
@@ -100,7 +100,6 @@ class UIAgent(VLAgent):
         return final_answer["action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:
-        obs = copy(obs)
         return obs
 
 
