@@ -355,8 +355,17 @@ class MainUIPrompt(VLPrompt):
         if self.error_prompt_part is not None:
             message_content.extend(self.error_prompt_part.message_content)
         message_content.extend(self.answer_prompt_part.message_content)
-        self._message = HumanMessage(message_content)
-        self._message.merge()
+        merged_message_content = []
+        for item in message_content:
+            if (
+                item["type"] == "text"
+                and len(merged_message_content) != 0
+                and merged_message_content[-1]["type"] == "text"
+            ):
+                merged_message_content[-1]["text"] += item["text"]
+            else:
+                merged_message_content.append(item)
+        self._message = HumanMessage(merged_message_content)
 
     @property
     def message(self) -> HumanMessage:
