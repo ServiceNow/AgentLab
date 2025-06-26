@@ -83,7 +83,7 @@ class LlamaModelArgs(VLModelArgs):
     reproducibility_config: dict
     max_length: int
     max_new_tokens: int
-    checkpoint_file: Optional[str]
+    checkpoint: Optional[str]
     device: Optional[str]
 
     @property
@@ -100,8 +100,8 @@ class LlamaModelArgs(VLModelArgs):
                 max_length=self.max_length,
                 max_new_tokens=self.max_new_tokens,
             )
-            if self.checkpoint_file is not None:
-                load_checkpoint_in_model(llama_model.model, checkpoint=self.checkpoint_file)
+            if self.checkpoint is not None:
+                load_checkpoint_in_model(llama_model.model, checkpoint=self.checkpoint)
             if self.device is None:
                 layer_classes = set()
                 for layer in llama_model.model.model.language_model.layers:

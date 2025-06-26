@@ -32,7 +32,7 @@ VL_MODEL_ARGS_DICT = {
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
         max_new_tokens=8192,
-        checkpoint_file=None,
+        checkpoint=None,
         device=None,
     ),
     "llama_32_90b": LlamaModelArgs(
@@ -42,7 +42,7 @@ VL_MODEL_ARGS_DICT = {
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
         max_new_tokens=8192,
-        checkpoint_file=None,
+        checkpoint=None,
         device=None,
     ),
     "qwen_25_vl_3b": QwenModelArgs(
@@ -53,7 +53,7 @@ VL_MODEL_ARGS_DICT = {
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
         max_new_tokens=8192,
-        checkpoint_file=None,
+        checkpoint=None,
         device=None,
     ),
     "qwen_25_vl_7b": QwenModelArgs(
@@ -64,7 +64,7 @@ VL_MODEL_ARGS_DICT = {
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
         max_new_tokens=8192,
-        checkpoint_file=None,
+        checkpoint=None,
         device=None,
     ),
     "qwen_25_vl_32b": QwenModelArgs(
@@ -75,7 +75,7 @@ VL_MODEL_ARGS_DICT = {
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
         max_new_tokens=8192,
-        checkpoint_file=None,
+        checkpoint=None,
         device=None,
     ),
     "qwen_25_vl_72b": QwenModelArgs(
@@ -86,7 +86,7 @@ VL_MODEL_ARGS_DICT = {
         reproducibility_config={"temperature": 0.1},
         max_length=32768,
         max_new_tokens=8192,
-        checkpoint_file=None,
+        checkpoint=None,
         device=None,
     ),
 }
