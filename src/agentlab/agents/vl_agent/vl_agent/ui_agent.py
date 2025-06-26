@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
-from ..vl_prompt.ui_prompt import UIPromptArgs
+from ..vl_prompt.ui_prompt import AuxiliaryUIPromptArgs, MainUIPromptArgs
 
 
 class UIAgent(VLAgent):
@@ -15,13 +15,15 @@ class UIAgent(VLAgent):
         self,
         main_vl_model_args: VLModelArgs,
         auxiliary_vl_model_args: VLModelArgs,
-        ui_prompt_args: UIPromptArgs,
+        main_ui_prompt_args: MainUIPromptArgs,
+        auxiliary_ui_prompt_args: AuxiliaryUIPromptArgs,
         action_set_args: HighLevelActionSetArgs,
         max_num_retries: int,
     ):
         self.main_vl_model = main_vl_model_args.make_model()
         self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
-        self.ui_prompt_args = ui_prompt_args
+        self.main_ui_prompt_args = main_ui_prompt_args
+        self.auxiliary_ui_prompt_args = auxiliary_ui_prompt_args
         self.action_set = action_set_args.make_action_set()
         self.max_num_retries = max_num_retries
         self.screenshot_history = []
@@ -31,7 +33,7 @@ class UIAgent(VLAgent):
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
         stats = {}
-        preliminary_main_ui_prompt = self.ui_prompt_args.make_prompt(
+        preliminary_main_ui_prompt = self.main_ui_prompt_args.make_prompt(
             obs,
             screenshot_history=self.screenshot_history,
             thought_history=self.thought_history,
@@ -50,12 +52,9 @@ class UIAgent(VLAgent):
         except ParseError:
             preliminary_answer = {"thought": None, "location": None}
             stats["preliminary_main_num_retries"] = self.max_num_retries
-        auxiliary_ui_prompt = self.ui_prompt_args.make_prompt(
+        auxiliary_ui_prompt = self.auxiliary_ui_prompt_args.make_prompt(
             obs,
             screenshot_history=self.screenshot_history,
-            thought_history=self.thought_history,
-            action_history=self.action_history,
-            action_set=self.action_set,
             extra_info=preliminary_answer,
         )
         try:
@@ -71,7 +70,7 @@ class UIAgent(VLAgent):
             auxiliary_answer = {"coordinates": None}
             stats["auxiliary_num_retries"] = self.max_num_retries
         preliminary_answer.update(auxiliary_answer)
-        final_main_ui_prompt = self.ui_prompt_args.make_prompt(
+        final_main_ui_prompt = self.main_ui_prompt_args.make_prompt(
             obs,
             screenshot_history=self.screenshot_history,
             thought_history=self.thought_history,
@@ -107,7 +106,8 @@ class UIAgent(VLAgent):
 class UIAgentArgs(VLAgentArgs):
     main_vl_model_args: VLModelArgs = None
     auxiliary_vl_model_args: VLModelArgs = None
-    ui_prompt_args: UIPromptArgs = None
+    main_ui_prompt_args: MainUIPromptArgs = None
+    auxiliary_ui_prompt_args: AuxiliaryUIPromptArgs = None
     action_set_args: HighLevelActionSetArgs = None
     max_num_retries: int = None
 
@@ -118,7 +118,8 @@ class UIAgentArgs(VLAgentArgs):
         return UIAgent(
             main_vl_model_args=self.main_vl_model_args,
             auxiliary_vl_model_args=self.auxiliary_vl_model_args,
-            ui_prompt_args=self.ui_prompt_args,
+            main_ui_prompt_args=self.main_ui_prompt_args,
+            auxiliary_ui_prompt_args=self.auxiliary_ui_prompt_args,
             action_set_args=self.action_set_args,
             max_num_retries=self.max_num_retries,
         )
@@ -136,7 +137,7 @@ class UIAgentArgs(VLAgentArgs):
         self.auxiliary_vl_model_args.set_reproducibility_mode()
 
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        self.ui_prompt_args.use_tabs = benchmark.is_multi_tab
+        self.main_ui_prompt_args.use_tabs = benchmark.is_multi_tab
         self.action_set_args = deepcopy(benchmark.high_level_action_set_args)
         if demo_mode:
             self.action_set_args.demo_mode = "all_blue"

@@ -29,10 +29,10 @@ class VLPromptArgs(ABC):
     def make_prompt(
         self,
         obs: dict,
-        screenshot_history: list[Union[Image.Image, np.ndarray]],
-        thought_history: list[str],
-        action_history: list[str],
-        action_set: HighLevelActionSet,
+        screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
+        thought_history: Optional[list[str]] = None,
+        action_history: Optional[list[str]] = None,
+        action_set: Optional[HighLevelActionSet] = None,
         extra_info: Optional[dict] = None,
     ) -> VLPrompt:
         raise NotImplementedError

@@ -63,7 +63,7 @@ class InteractionPromptPart(VLPromptPart):
                 {
                     "type": "text",
                     "text": """
-# The previous steps to achieve the goal
+# The previous steps
 """,
                 }
             )
@@ -108,7 +108,7 @@ class InteractionPromptPart(VLPromptPart):
             {
                 "type": "text",
                 "text": """
-# The screenshot of the current step
+# The current screenshot
 """,
             }
         )
@@ -125,19 +125,21 @@ class TabsPromptPart(VLPromptPart):
     def __init__(
         self, open_pages_titles: list[str], open_pages_urls: list[str], active_page_index: int
     ):
-        self._message_content = [
-            {
-                "type": "text",
-                "text": """
-# The open tabs of the browser
-""",
-            }
-        ]
-        for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
+        self._message_content = []
+        if len(open_pages_titles) == len(open_pages_urls) != 0:
             self._message_content.append(
                 {
                     "type": "text",
-                    "text": f"""
+                    "text": """
+# The open tabs of the browser
+""",
+                }
+            )
+            for index, (title, url) in enumerate(zip(open_pages_titles, open_pages_urls)):
+                self._message_content.append(
+                    {
+                        "type": "text",
+                        "text": f"""
 ## Tab {index}{' (active)' if index == active_page_index else ''}
 
 ### Title
@@ -148,8 +150,8 @@ class TabsPromptPart(VLPromptPart):
 
 {url}
 """,
-                }
-            )
+                    }
+                )
 
     @property
     def message_content(self) -> list[dict]:
@@ -163,45 +165,47 @@ class ErrorPromptPart(VLPromptPart):
         logs_separator: str = "Call log:",
         logs_limit: int = 5,
     ):
-        self._message_content = [
-            {
-                "type": "text",
-                "text": """
-# The error caused by the last action
-""",
-            }
-        ]
-        if logs_separator in last_action_error:
-            error, logs = last_action_error.split(logs_separator)
-            logs = logs.split("\n")[:logs_limit]
+        self._message_content = []
+        if len(last_action_error) != 0:
             self._message_content.append(
                 {
                     "type": "text",
-                    "text": f"""
-{error}
-
-{logs_separator}
+                    "text": """
+# The error caused by the last action
 """,
                 }
             )
-            for log in logs:
+            if logs_separator in last_action_error:
+                error, logs = last_action_error.split(logs_separator)
+                logs = logs.split("\n")[:logs_limit]
                 self._message_content.append(
                     {
                         "type": "text",
                         "text": f"""
-{log}
+{error}
+
+{logs_separator}
 """,
                     }
                 )
-        else:
-            self._message_content.append(
-                {
-                    "type": "text",
-                    "text": f"""
+                for log in logs:
+                    self._message_content.append(
+                        {
+                            "type": "text",
+                            "text": f"""
+{log}
+""",
+                        }
+                    )
+            else:
+                self._message_content.append(
+                    {
+                        "type": "text",
+                        "text": f"""
 {last_action_error}
 """,
-                }
-            )
+                    }
+                )
 
     @property
     def message_content(self) -> list[dict]:
@@ -379,7 +383,7 @@ class MainUIPrompt(VLPrompt):
                 answer_dict.update(parse_html_tags_raise(answer_text, keys=["thought", "location"]))
             except ParseError as error:
                 raise error
-        elif isinstance(self.answer_prompt_part, FinalAnswerPromptPart):
+        else:
             try:
                 answer_dict.update(parse_html_tags_raise(answer_text, keys=["action"]))
             except ParseError as error:
@@ -395,10 +399,6 @@ class MainUIPrompt(VLPrompt):
                     self.action_validator(answer_dict["action"])
                 except:
                     raise ParseError(f"Invalid action: {answer_dict['action']}")
-        else:
-            raise ValueError(
-                f"Unsupported answer prompt part type: {type(self.answer_prompt_part)}"
-            )
         return answer_dict
 
 
@@ -408,6 +408,7 @@ class AuxiliaryUIPrompt(VLPrompt):
     screenshot_history: list[Union[Image.Image, np.ndarray]]
     location: str
     use_screenshot_history: bool
+    use_reasoning: bool
 
     def __post_init__(self):
         message_content = []
@@ -419,10 +420,36 @@ class AuxiliaryUIPrompt(VLPrompt):
             message_content.append(
                 {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
             )
-        message_content.append(
-            {
-                "type": "text",
-                "text": f"""\
+        if self.use_reasoning:
+            message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""\
+Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on this screen based on a description. \
+Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible. \
+If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
+The user asks a question, and the Assistant solves it. \
+You first think about the reasoning process in the mind and then provides the user with the answer. \
+The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e.:
+
+<think>
+reasoning process here
+</think>
+<answer>
+answer here
+</answer>
+
+Instruction: {self.location}
+
+Your answer should be a single tuple (x, y) cooridnates corresponding to the point of interest within <answer> </answer> tags.
+""",
+                }
+            )
+        else:
+            message_content.append(
+                {
+                    "type": "text",
+                    "text": f"""\
 Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on this screen based on a description. \
 Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible. \
 If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
@@ -430,8 +457,8 @@ Your answer should be a single string (x, y) corresponding to the point of inter
 
 Description: {self.location}
 """,
-            }
-        )
+                }
+            )
         self._message = HumanMessage(message_content)
 
     @property
@@ -440,12 +467,18 @@ Description: {self.location}
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
-        answer_dict = {"coordinates": answer_text}
-        return answer_dict
+        if self.use_reasoning:
+            try:
+                coordinates = parse_html_tags_raise(answer_text, keys=["answer"])["answer"]
+            except ParseError as error:
+                raise error
+        else:
+            coordinates = answer_text
+        return {"coordinates": coordinates}
 
 
 @dataclass
-class UIPromptArgs(VLPromptArgs):
+class MainUIPromptArgs(VLPromptArgs):
     use_screenshot_history: bool
     use_tabs: bool
     use_error: bool
@@ -455,66 +488,76 @@ class UIPromptArgs(VLPromptArgs):
     def make_prompt(
         self,
         obs: dict,
-        screenshot_history: list[Union[Image.Image, np.ndarray]],
-        thought_history: list[str],
-        action_history: list[str],
-        action_set: HighLevelActionSet,
+        screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
+        thought_history: Optional[list[str]] = None,
+        action_history: Optional[list[str]] = None,
+        action_set: Optional[HighLevelActionSet] = None,
         extra_info: Optional[dict] = None,
-    ) -> Union[MainUIPrompt, AuxiliaryUIPrompt]:
-        if extra_info is not None and "coordinates" not in extra_info:
-            ui_prompt = AuxiliaryUIPrompt(
-                current_screenshot=obs["screenshot"],
-                screenshot_history=screenshot_history,
-                location=extra_info["location"],
-                use_screenshot_history=self.use_screenshot_history,
+    ) -> MainUIPrompt:
+        introduction_prompt_part = IntroductionPromptPart()
+        goal_prompt_part = GoalPromptPart(obs["goal_object"])
+        interaction_prompt_part = InteractionPromptPart(
+            obs["screenshot"],
+            screenshot_history=screenshot_history,
+            thought_history=thought_history,
+            action_history=action_history,
+            use_screenshot_history=self.use_screenshot_history,
+        )
+        if self.use_tabs:
+            tabs_prompt_part = TabsPromptPart(
+                obs["open_pages_titles"],
+                open_pages_urls=obs["open_pages_urls"],
+                active_page_index=obs["active_page_index"],
             )
         else:
-            introduction_prompt_part = IntroductionPromptPart()
-            goal_prompt_part = GoalPromptPart(goal_object=obs["goal_object"])
-            interaction_prompt_part = InteractionPromptPart(
-                current_screenshot=obs["screenshot"],
-                screenshot_history=screenshot_history,
-                thought_history=thought_history,
-                action_history=action_history,
-                use_screenshot_history=self.use_screenshot_history,
+            tabs_prompt_part = None
+        if self.use_error:
+            error_prompt_part = ErrorPromptPart(obs["last_action_error"])
+        else:
+            error_prompt_part = None
+        if extra_info is None:
+            answer_prompt_part = PreliminaryAnswerPromptPart(
+                action_set.describe(with_long_description=True, with_examples=False),
+                use_abstract_example=self.use_abstract_example,
+                use_concrete_example=self.use_concrete_example,
             )
-            if self.use_tabs:
-                tabs_prompt_part = TabsPromptPart(
-                    open_pages_titles=obs["open_pages_titles"],
-                    open_pages_urls=obs["open_pages_urls"],
-                    active_page_index=obs["active_page_index"],
-                )
-            else:
-                tabs_prompt_part = None
-            if self.use_error and obs["last_action_error"]:
-                error_prompt_part = ErrorPromptPart(last_action_error=obs["last_action_error"])
-            else:
-                error_prompt_part = None
-            if extra_info is None:
-                answer_prompt_part = PreliminaryAnswerPromptPart(
-                    action_set_description=action_set.describe(
-                        with_long_description=True, with_examples=False
-                    ),
-                    use_abstract_example=self.use_abstract_example,
-                    use_concrete_example=self.use_concrete_example,
-                )
-            else:
-                answer_prompt_part = FinalAnswerPromptPart(
-                    action_set_description=action_set.describe(
-                        with_long_description=True, with_examples=False
-                    ),
-                    thought=extra_info["thought"],
-                    coordinates=extra_info["coordinates"],
-                    use_abstract_example=self.use_abstract_example,
-                    use_concrete_example=self.use_concrete_example,
-                )
-            ui_prompt = MainUIPrompt(
-                introduction_prompt_part=introduction_prompt_part,
-                goal_prompt_part=goal_prompt_part,
-                interaction_prompt_part=interaction_prompt_part,
-                tabs_prompt_part=tabs_prompt_part,
-                error_prompt_part=error_prompt_part,
-                answer_prompt_part=answer_prompt_part,
-                action_validator=action_set.to_python_code,
+        else:
+            answer_prompt_part = FinalAnswerPromptPart(
+                action_set.describe(with_long_description=True, with_examples=False),
+                thought=extra_info["thought"],
+                coordinates=extra_info["coordinates"],
+                use_abstract_example=self.use_abstract_example,
+                use_concrete_example=self.use_concrete_example,
             )
-        return ui_prompt
+        return MainUIPrompt(
+            introduction_prompt_part=introduction_prompt_part,
+            goal_prompt_part=goal_prompt_part,
+            interaction_prompt_part=interaction_prompt_part,
+            tabs_prompt_part=tabs_prompt_part,
+            error_prompt_part=error_prompt_part,
+            answer_prompt_part=answer_prompt_part,
+            action_validator=action_set.to_python_code,
+        )
+
+
+@dataclass
+class AuxiliaryUIPromptArgs(VLPromptArgs):
+    use_screenshot_history: bool
+    use_reasoning: bool
+
+    def make_prompt(
+        self,
+        obs: dict,
+        screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
+        thought_history: Optional[list[str]] = None,
+        action_history: Optional[list[str]] = None,
+        action_set: Optional[HighLevelActionSet] = None,
+        extra_info: Optional[dict] = None,
+    ) -> AuxiliaryUIPrompt:
+        return AuxiliaryUIPrompt(
+            current_screenshot=obs["screenshot"],
+            screenshot_history=screenshot_history,
+            location=extra_info["location"],
+            use_screenshot_history=self.use_screenshot_history,
+            use_reasoning=self.use_reasoning,
+        )
