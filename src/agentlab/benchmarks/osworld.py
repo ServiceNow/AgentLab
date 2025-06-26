@@ -1,9 +1,13 @@
 import json
 import logging
 import os
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
+from bgym import AbstractActionSet
+from dataclasses_json import DataClassJsonMixin
 from desktop_env.desktop_env import DesktopEnv
 
 from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnv, AbstractEnvArgs
@@ -70,16 +74,46 @@ class OsworldGym(AbstractEnv):
         return self.env.close()
 
 
+class OSWorldActionSet(AbstractActionSet):
+    def __init__(self, action_space: Literal["computer_13", "pyautogui"]):
+        self.action_space = action_space
+
+    def describe(self, with_long_description: bool = True, with_examples: bool = True) -> str:
+        # TODO: Implement a detailed description of the action set.
+        return ""
+
+    def example_action(self, abstract: bool) -> str:
+        # TODO: Provide an example action
+        return "example_action"
+
+    def to_python_code(self, action) -> str:
+        # TODO: Convert the given action to browsergym-compatible python code.
+        return "pass"
+
+    def to_tool_descriptor(self) -> list[dict]:
+        # TODO: Convert the action set to a tool descriptor.
+        return [{}]
+
+
+@dataclass
+class OSWorldActionSetArgs(DataClassJsonMixin):
+    action_space: Literal["computer_13", "pyautogui"] = "computer_13"
+
+    def make_action_set(self):
+        logger.info(f"Creating OSWorld Action Set with action space: {self.action_space}")
+        return OSWorldActionSet(action_space=self.action_space)
+
+
 @dataclass
 class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
-    task_seed:int = 0
+    task_seed: int = 0
     task_name: str | None = None
-    path_to_vm: str | None = None
-    provider_name: str = "vmware"  # path to .vmx file
+    path_to_vm: str | None = None  # path to .vmx file
+    provider_name: str = "docker"
     region: str = "us-east-1"  # AWS specific, does not apply to all providers
     snapshot_name: str = "init_state"  # snapshot name to revert to
-    action_space: str = "computer_13"  # "computer_13" | "pyautogui"
+    action_space: Literal["computer_13", "pyautogui"] = "computer_13"
     cache_dir: str = "cache"
     screen_size: tuple[int, int] = (1920, 1080)
     headless: bool = False
@@ -88,7 +122,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
     os_type: str = "Ubuntu"
     enable_proxy: bool = False
 
-    def make_env(self) -> OsworldGym:
+    def make_env(self, exp_dir: Path, action_mapping=None, use_raw_page_output: bool = False) -> OsworldGym:
         logger.info(f"Creating OSWorld Gym with task: {self.task}")
         gym = OsworldGym(
             task=self.task,
@@ -111,7 +145,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
 class OsworldBenchmark(AbstractBenchmark):
     name: str = "osworld"
     is_multi_tab: bool = False
-    high_level_action_set_args: dict = {}
+    high_level_action_set_args: OSWorldActionSetArgs = None  # type: ignore
     test_set_path: str = "OSWorld/evaluation_examples"
     test_set_name: str = "test_all.json"
     domain: str = "all"
@@ -120,6 +154,9 @@ class OsworldBenchmark(AbstractBenchmark):
 
     def model_post_init(self, __context: Any) -> None:
         self.env_args_list = []
+        if not self.env_args:
+            self.env_args = OsworldEnvArgs(task={})
+        self.high_level_action_set_args = OSWorldActionSetArgs(action_space=self.env_args.action_space)
         with open(os.path.join(self.test_set_path, self.test_set_name)) as f:
             tasks = json.load(f)
         if self.domain != "all":
@@ -131,11 +168,8 @@ class OsworldBenchmark(AbstractBenchmark):
                 with open(task_file) as f:
                     task = json.load(f)
                 name = f"{self.name}.{task['id']}"
-                if self.env_args:
-                    env_args = self.env_args.copy()
-                    env_args.task = task
-                    env_args.task_name = name
-                else:
-                    env_args = OsworldEnvArgs(task=task, task_name=name)
-                self.env_args_list.append(env_args)
+                task_env_args = deepcopy(self.env_args)
+                task_env_args.task = task
+                task_env_args.task_name = name
+                self.env_args_list.append(task_env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from domain '{self.domain}'")
