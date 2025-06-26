@@ -27,4 +27,3 @@ ray[default]
 python-slugify
 pillow
 gymnasium>=0.27
-desktop-env~=0.1.22
