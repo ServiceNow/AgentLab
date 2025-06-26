@@ -1,9 +1,10 @@
+import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
 from desktop_env.desktop_env import DesktopEnv
-from distributed.protocol.cupy import d
 
 from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnv, AbstractEnvArgs
 
@@ -107,4 +108,29 @@ class OsworldEnvArgs(AbstractEnvArgs):
 
 class OsworldBenchmark(AbstractBenchmark):
     name: str = "osworld"
-    env_args_list: list[OsworldEnvArgs]
+    test_set_path: str = "OSWorld/evaluation_examples"
+    test_set_name: str = "test_all.json"
+    domain: str = "all"
+    env_args: OsworldEnvArgs = None  # type: ignore # basic env configuration for all tasks
+    env_args_list: list[OsworldEnvArgs] = None  # type: ignore
+
+    def model_post_init(self, __context: Any) -> None:
+        self.env_args_list = []
+        with open(os.path.join(self.test_set_path, self.test_set_name)) as f:
+            tasks = json.load(f)
+        if self.domain != "all":
+            tasks = {self.domain: tasks[self.domain]}
+
+        for domain in tasks:
+            for task_id in tasks[domain]:
+                task_file = os.path.join(self.test_set_path, f"examples/{domain}/{task_id}.json")
+                with open(task_file) as f:
+                    task = json.load(f)
+
+                if self.env_args:
+                    env_args = self.env_args.copy()
+                    env_args.task = task
+                else:
+                    env_args = OsworldEnvArgs(task=task)
+                self.env_args_list.append(env_args)
+        logger.info(f"Loaded {len(self.env_args_list)} tasks from domain '{self.domain}'")
