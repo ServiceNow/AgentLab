@@ -430,14 +430,7 @@ Your response should aim to point to the center or a representative point within
 If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
 The user asks a question, and the Assistant solves it. \
 You first think about the reasoning process in the mind and then provides the user with the answer. \
-The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e.:
-
-<think>
-reasoning process here
-</think>
-<answer>
-answer here
-</answer>
+The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>
 
 Instruction: {self.location}
 
