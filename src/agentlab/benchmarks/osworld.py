@@ -66,9 +66,15 @@ class OsworldGym(AbstractEnv):
         return obs, self.env_info
 
     def step(self, action: str):
-        obs, reward, done, info = self.env.step(action)
+        raw_obs, reward, done, info = self.env.step(action)
         truncated = False
+        obs = self.convert_observation(raw_obs)
         return obs, reward, done, truncated, info
+
+    def convert_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
+        """Convert the observation to a format suitable for the generic agent."""
+        # TODO: Implement conversion logic
+        return obs
 
     def close(self):
         return self.env.close()
