@@ -73,6 +73,8 @@ class OsworldGym(AbstractEnv):
 @dataclass
 class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
+    task_seed:int = 0
+    task_name: str | None = None
     path_to_vm: str | None = None
     provider_name: str = "vmware"  # path to .vmx file
     region: str = "us-east-1"  # AWS specific, does not apply to all providers
@@ -108,6 +110,8 @@ class OsworldEnvArgs(AbstractEnvArgs):
 
 class OsworldBenchmark(AbstractBenchmark):
     name: str = "osworld"
+    is_multi_tab: bool = False
+    high_level_action_set_args: dict = {}
     test_set_path: str = "OSWorld/evaluation_examples"
     test_set_name: str = "test_all.json"
     domain: str = "all"
@@ -126,11 +130,12 @@ class OsworldBenchmark(AbstractBenchmark):
                 task_file = os.path.join(self.test_set_path, f"examples/{domain}/{task_id}.json")
                 with open(task_file) as f:
                     task = json.load(f)
-
+                name = f"{self.name}.{task['id']}"
                 if self.env_args:
                     env_args = self.env_args.copy()
                     env_args.task = task
+                    env_args.task_name = name
                 else:
-                    env_args = OsworldEnvArgs(task=task)
+                    env_args = OsworldEnvArgs(task=task, task_name=name)
                 self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from domain '{self.domain}'")
