@@ -22,6 +22,7 @@ from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
+    ToolCalls,
     ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
@@ -98,7 +99,8 @@ class StructuredDiscussion:
                 messages.extend(group.messages)
             # Mark all summarized messages for caching
             if i == len(self.groups) - keep_last_n_obs:
-                messages[i].mark_all_previous_msg_for_caching()
+                if not isinstance(messages[i], ToolCalls):
+                    messages[i].mark_all_previous_msg_for_caching()
         return messages
 
     def set_last_summary(self, summary: MessageBuilder):
@@ -114,6 +116,18 @@ class StructuredDiscussion:
     def is_goal_set(self) -> bool:
         """Check if the goal is set in the first group."""
         return len(self.groups) > 0
+    
+    def contains_image(self) -> bool:
+        """Check if an image is set in any group"""
+        for grp in self.groups:
+            for msg in grp.messages:
+                for item in msg.content:
+                    if 'image' in item:
+                        return True
+        return False
+       
+
+
 
 
 SYS_MSG = """You are a web agent. Based on the observation, you will decide which action to take to accomplish your goal. 
@@ -165,24 +179,14 @@ class Obs(Block):
     use_tabs: bool = False
     add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
+    openai_cua_mode: bool = False  #  screenshot can only be added as tool response, given an initial screenshot obs
 
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
-        # bgym_calls = [call for call in last_llm_output.tool_calls if call.is_bgym_action]
-        # fn_calls = [call for call in last_llm_output.tool_calls if not call.is_bgym_action]
 
         obs_msg = llm.msg.user()
-        if tool_calls := last_llm_output.tool_calls:
-            for action_call in tool_calls.get_bgym_action_calls():
-                action_call.add_text("See the observation")
-            for fn_call in tool_calls.get_non_bgym_action_calls():
-                call_results = execute_fn_calls(fn_call.name, fn_call.arguments)
-                fn_call.add_text(call_results)
-            
-            tool_response = llm.msg.add_responded_tool_calls(tool_calls)
-            discussion.append(tool_response)
-
+        tool_calls = last_llm_output.tool_calls
         if self.use_last_error:
             if obs["last_action_error"] != "":
                 obs_msg.add_text(f"Last action error:\n{obs['last_action_error']}")
@@ -201,8 +205,16 @@ class Obs(Block):
                         Image.fromarray(obs["screenshot"]), obs["last_action"]
                     )
                 )
+            
+            if self.openai_cua_mode and discussion.contains_image():
+                if tool_calls and tool_calls.get_bgym_action_calls():
+                    computer_call = tool_calls.get_bgym_action_calls()[0]
+                    computer_call.add_image(
+                        image_to_png_base64_url(screenshot)
+                    )
+            else:
+                obs_msg.add_image(image_to_png_base64_url(screenshot))
 
-            obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
             obs_msg.add_text(f"AXTree:\n{AXTREE_NOTE}\n{obs['axtree_txt']}")
         if self.use_dom:
@@ -211,6 +223,17 @@ class Obs(Block):
             obs_msg.add_text(_format_tabs(obs))
 
         discussion.append(obs_msg)
+
+        if tool_calls:
+            for action_call in tool_calls.get_bgym_action_calls():
+                if not self.openai_cua_mode:
+                    action_call.add_text("See the observation")
+            for fn_call in tool_calls.get_non_bgym_action_calls():
+                call_results = execute_fn_calls(fn_call.name, fn_call.arguments)
+                fn_call.add_text(call_results)
+            tool_response = llm.msg.add_responded_tool_calls(tool_calls)
+            discussion.append(tool_response)
+
         return obs_msg
 
 
