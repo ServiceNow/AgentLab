@@ -1,4 +1,5 @@
 import logging
+
 from desktop_env.desktop_env import DesktopEnv
 
 logging.basicConfig(
@@ -17,25 +18,16 @@ example = {
                 "command": [
                     "python",
                     "-c",
-                    "import pyautogui; import time; pyautogui.click(960, 540); time.sleep(0.5);"
+                    "import pyautogui; import time; pyautogui.click(960, 540); time.sleep(0.5);",
                 ]
-            }
+            },
         }
     ],
     "evaluator": {
         "func": "check_include_exclude",
-        "result": {
-            "type": "vm_command_line",
-            "command": "which spotify"
-        },
-        "expected": {
-            "type": "rule",
-            "rules": {
-                "include": ["spotify"],
-                "exclude": ["not found"]
-            }
-        }
-    }
+        "result": {"type": "vm_command_line", "command": "which spotify"},
+        "expected": {"type": "rule", "rules": {"include": ["spotify"], "exclude": ["not found"]}},
+    },
 }
 
 env = DesktopEnv(action_space="pyautogui", provider_name="docker", os_type="Ubuntu")
