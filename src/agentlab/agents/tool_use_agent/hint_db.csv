@@ -17,3 +17,10 @@ June 18,miniwob.count-shape,23,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-
 June 18,miniwob.count-shape,23,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,communicate answer in miniwob,Answer by clicking one of the buttons describing multiple choices.
 June 18,miniwob.count-shape,23,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,Simbols of colors in miniwob,"Colors a distinct in this task, e.g., cyan is not a type of blue. "
 June 18,miniwob.form-sequence-2,23,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,allac,Reporting results in miniwob,Make sure to click submit to finish the task.
+June 19,miniwob.use-colorwheel-2,15,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Invisible elements,"Make sure submit button is visible by clicking on some empty space before clicking submit."
+June 19,miniwob.click-scroll-list,1,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Scrolling lists,"Lists are not always alphabetically ordered."
+June 19,miniwob.click-scroll-list,1,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Scrolling lists,"Hold Command to select multiple items as soon as you find any of them."
+June 19,miniwob.daily-calendar,26,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Calendar,"Use click and drag to choose a timeslot not equal to 60 minutes."
+June 19,miniwob.daily-calendar,26,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Calendar,"If the Create or Cancel buttons were not visible, try to scroll down a bit."
+June 19,miniwob.daily-calendar,26,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Calendar,"Before naming the event, make sure the time slot is correct."
+June 19,miniwob.social-media-all,23,claude-3-7-sonnet-20250219,MultiToolUse-claude-3-7-sonnet-20250219,miniwob,miniwob,hadi,Sharing and scrolling,"If you scroll long enough, you don't have to scroll after each step."
