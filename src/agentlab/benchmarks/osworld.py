@@ -62,7 +62,8 @@ class OsworldGym(AbstractEnv):
         )
 
     def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
-        obs = self.env.reset(task_config=self.task, seed=seed)
+        raw_obs = self.env.reset(task_config=self.task, seed=seed)
+        obs = self.convert_observation(raw_obs)
         return obs, self.env_info
 
     def step(self, action: str):
