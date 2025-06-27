@@ -121,7 +121,7 @@ class OpenAICUAModel(OpenAIResponseModel):
             elif output.type == "message" and output.content:
                 result.think += output.content[0].text + "\n"
 
-        result.action = actions
+        result.action = "\n".join(actions)
         result.tool_calls.raw_calls = response.output
 
         for key in interesting_keys:
