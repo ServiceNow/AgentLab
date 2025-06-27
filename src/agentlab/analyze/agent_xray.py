@@ -1246,7 +1246,6 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 horizontalalignment="left",
                 rotation=0,
                 clip_on=True,
-                antialiased=True,
                 fontweight=1000,
                 backgroundcolor=colors[12],
             )

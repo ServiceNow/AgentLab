@@ -58,7 +58,10 @@ fill("search_box", "hello world")
 click("submit_btn")"""
 
     # Mock properties mapping bids to bounding boxes
-    properties = {"search_box": (200, 100, 350, 130), "submit_btn": (200, 200, 280, 230)}
+    properties = {
+        "search_box": {"bbox": (50, 50, 100, 50)},
+        "submit_btn": {"bbox": (150, 100, 120, 30)},
+    }
 
     # Annotate the image and get colored HTML
     html_result = overlay_utils.annotate_action(img, action_string, properties, colormap="tab10")
