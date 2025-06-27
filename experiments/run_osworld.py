@@ -2,6 +2,7 @@ import logging
 import os
 
 from agentlab.agents.generic_agent import AGENT_4o_MINI
+from agentlab.agents.tool_use_agent.tool_use_agent import AGENT_CONFIG2
 from agentlab.benchmarks.osworld import OsworldBenchmark
 from agentlab.experiments.study import make_study
 
@@ -14,14 +15,14 @@ def main():
     os.environ["AGENTLAB_DEBUG"] = "1"
     study = make_study(
         benchmark=OsworldBenchmark(),  # type: ignore
-        agent_args=[AGENT_4o_MINI],
+        agent_args=[AGENT_CONFIG2],
         comment="osworld debug 1",
         logging_level=logging.INFO,
         logging_level_stdout=logging.INFO,
     )
 
     if os.environ.get("AGENTLAB_DEBUG"):
-        study.exp_args_list = study.exp_args_list[:3]
+        study.exp_args_list = study.exp_args_list[:1]
         study.run(n_jobs=1, n_relaunch=1, parallel_backend="sequential")
     else:
         study.run(n_jobs=n_jobs, n_relaunch=1, parallel_backend="ray")
