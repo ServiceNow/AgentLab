@@ -45,7 +45,7 @@ drag_and_drop("a123", "b456")
     assert test_code[args[3].start_index : args[3].stop_index] == "to_x=100, to_y=200"
 
 
-def manual_test():
+def manual_eval():
     """Manual test function that displays the resulting image."""
     import matplotlib.pyplot as plt
 
@@ -75,4 +75,4 @@ click("submit_btn")"""
 
 
 if __name__ == "__main__":
-    manual_test()
+    manual_eval()
