@@ -709,7 +709,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
                 result.think += output.text
         
         result.tool_calls = tool_calls if tool_calls else None
-        result.action = action_list
+        result.action = "\n".join(action_list)
         return result
 
     # def ensure_cache_conditions(self, msgs: List[Message]) -> bool:
