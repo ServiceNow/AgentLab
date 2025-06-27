@@ -376,6 +376,7 @@ class ToolUseAgentArgs(AgentArgs):
     def close(self):
         return self.model_args.close_server()
 
+from agentlab.benchmarks.osworld import OSWorldActionSet
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
@@ -385,9 +386,9 @@ class ToolUseAgent(bgym.Agent):
     ):
         self.model_args = model_args
         self.config = config
-        self.action_set = bgym.HighLevelActionSet(
-            self.config.action_subsets, multiaction=self.config.multiaction
-        )
+        self.action_set = OSWorldActionSet(
+            "computer_13" # or "pyautogui"
+        )  # TODO: Refactor this out to use proper config. Note this is for testing osworld only.
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
         self.call_ids = []
@@ -516,7 +517,6 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
     vision_support=True,
 )
 
-
 DEFAULT_PROMPT_CONFIG = PromptConfig(
     tag_screenshot=True,
     goal=Goal(goal_as_system_msg=True),
@@ -541,4 +541,28 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
 AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
     config=DEFAULT_PROMPT_CONFIG,
+)
+
+AGENT_CONFIG2 = ToolUseAgentArgs(
+    model_args=CLAUDE_MODEL_CONFIG,
+    config=PromptConfig(
+    tag_screenshot=True,
+    goal=Goal(goal_as_system_msg=True),
+    obs=Obs(
+        use_last_error=True,
+        use_screenshot=True,
+        use_axtree=False,
+        use_dom=False,
+        use_som=False,
+        use_tabs=False,
+    ),
+    summarizer=Summarizer(do_summary=True),
+    general_hints=GeneralHints(use_hints=False),
+    task_hint=TaskHint(use_task_hint=False),
+    keep_last_n_obs=None,  # keep only the last observation in the discussion
+    multiaction=False,  # whether to use multi-action or not
+    # action_subsets=("bid",),
+    action_subsets=("coord"),
+    # action_subsets=("coord", "bid"),
+),
 )
