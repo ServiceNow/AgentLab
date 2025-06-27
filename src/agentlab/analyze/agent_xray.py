@@ -571,7 +571,6 @@ def update_screenshot_pair(som_or_not: str):
 def update_screenshot_gallery(som_or_not: str):
     global info
     max_steps = len(info.exp_result.steps_info)
-    som_or_not == "SOM Screenshots"
 
     screenshots = [get_screenshot(info, step=i, som_or_not=som_or_not)[0] for i in range(max_steps)]
 
