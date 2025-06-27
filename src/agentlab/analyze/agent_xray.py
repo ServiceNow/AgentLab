@@ -1108,8 +1108,11 @@ def get_directory_contents(results_dir: Path):
                 most_recent_summary = max(summary_files, key=os.path.getctime)
                 summary_df = pd.read_csv(most_recent_summary)
 
+                if len(summary_df) == 0 or summary_df["avg_reward"].isna().all():
+                    continue  # skip if all avg_reward are NaN
+
                 # get row with max avg_reward
-                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax()]
+                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax(skipna=True)]
                 reward = max_reward_row["avg_reward"] * 100
                 completed = max_reward_row["n_completed"]
                 n_err = max_reward_row["n_err"]
@@ -1117,7 +1120,7 @@ def get_directory_contents(results_dir: Path):
                     f" - avg-reward: {reward:.1f}% - completed: {completed} - errors: {n_err}"
                 )
         except Exception as e:
-            print(f"Error while reading summary file: {e}")
+            print(f"Error while reading summary file {most_recent_summary}: {e}")
 
         exp_descriptions.append(exp_description)
 
