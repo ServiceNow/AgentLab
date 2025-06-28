@@ -55,7 +55,7 @@ class ToolCall:
     tool_response: List[ContentItem] = field(default_factory=list)
 
     @property
-    def is_bgym_action(self) -> bool:
+    def is_env_action(self) -> bool:
         """Check if the tool call is a reserved BGYM action."""
         return self.name in BGYM_RESERVED_ACTION_FUNCTION_NAMES
 
@@ -71,6 +71,10 @@ class ToolCall:
     def add_image(self, text: str) -> "MessageBuilder":
         self.tool_response.append({"image": text})
         return self
+    
+    def __repr__(self):
+        return f"ToolCall(name={self.name}, arguments={self.arguments})"
+
 
 @dataclass
 class ToolCalls:
@@ -83,11 +87,11 @@ class ToolCalls:
 
     def get_bgym_action_calls(self) -> List[ToolCall]:
         """Get all tool calls that are reserved BGYM actions."""
-        return [call for call in self.tool_calls if call.is_bgym_action]
+        return [call for call in self.tool_calls if call.is_env_action]
     
     def get_non_bgym_action_calls(self) -> List[ToolCall]:
         """Get all tool calls that are not reserved BGYM actions."""
-        return [call for call in self.tool_calls if not call.is_bgym_action]
+        return [call for call in self.tool_calls if not call.is_env_action]
     
     @property
     def all_responses_set(self) -> bool:
@@ -101,6 +105,10 @@ class ToolCalls:
     def __iter__(self):
         """Make ToolCalls iterable."""
         return iter(self.tool_calls)
+    
+    def __bool__(self):
+        """Check if there are any tool calls."""
+        return len(self.tool_calls) > 0
 
 
 @dataclass
@@ -212,44 +220,56 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
     def prepare_message(self) -> List[Message]:
         content = []
         for item in self.content:
-            if "text" in item:
-                content_type = "input_text" if self.role != "assistant" else "output_text"
-                content.append({"type": content_type, "text": item["text"]})
-
-            elif "image" in item:
-                content.append({"type": "input_image", "image_url": item["image"]})
-
+            content.append(self.convert_content_to_expected_format(item))
         output = [{"role": self.role, "content": content}]
-        if self.role != "tool":
-            return output
+
+        return output if self.role != "tool" else self.handle_tool_call()
+
+    def convert_content_to_expected_format(self, content: ContentItem) -> ContentItem:
+        """Convert the content item to the expected format for OpenAI Responses."""
+        if "text" in content:
+            content_type = "input_text" if self.role != "assistant" else "output_text"
+            return {"type": content_type, "text": content["text"]}
+        elif "image" in content:
+            return {"type": "input_image", "image_url": content["image"]}
         else:
-            tool_call_response = self.handle_tool_call(content)
-            return tool_call_response
+            raise ValueError(f"Unsupported content type: {content}")
 
-    def handle_tool_call(self, content):
+    def handle_tool_call(self):
         """Handle the tool call response from the last raw response."""
-        output = []
-        head_content, *tail_content = content
-        api_response = self.last_raw_response
-        fn_calls = [content for content in api_response.output if content.type == "function_call"]
-        assert len(fn_calls) > 0, "No function calls found in the last response"
-        if len(fn_calls) > 1:
-            logging.warning("Using only the first tool call from many.")
+        if self.responsed_tool_calls is None:
+            raise ValueError("No tool calls found in responsed_tool_calls")
 
-        first_fn_call_id = fn_calls[0].call_id
-        fn_output = head_content.get("text", "Function call answer in next message")
-        fn_call_response = {
-            "type": "function_call_output",
-            "call_id": first_fn_call_id,
-            "output": fn_output,
-        }
-        output.append(fn_call_response)
-        if tail_content:
-            # if there are more content items, add them as a new user message
-            output.append({"role": "user", "content": tail_content})
+        output = []
+        for fn_call in self.responsed_tool_calls:
+            call_type = fn_call.raw_call.type
+            call_id = fn_call.raw_call.call_id
+            call_response = fn_call.tool_response  # List[ContentItem]
+
+            match call_type:
+                case "function_call":
+                    # image output is not supported in function calls response.
+                    fn_call_response = {
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": [
+                            self.convert_content_to_expected_format(item) for item in call_response
+                        ],
+                    }
+                    output.append(fn_call_response)
+
+                case "computer_call":
+                    # For computer calls, use only images are expected.
+                    computer_call_output = {
+                        "type": "computer_call_output",
+                        "call_id": call_id,
+                        "output": self.convert_content_to_expected_format(call_response[0]), # list needs to be flattened
+                    }
+                    output.append(computer_call_output)  # this needs to be a screenshot
+
         return output
 
-    def mark_all_previous_msg_for_caching(self) -> List[Message]:
+    def mark_all_previous_msg_for_caching(self):
         pass
 
 
@@ -402,6 +422,8 @@ class OpenAIResponseModel(BaseModelWithPricing):
     ):
         self.tools = kwargs.pop("tools", None)
         self.tool_choice = kwargs.pop("tool_choice", None)
+        self.action_space_as_tools = True # this should be a config
+        self.multiaction_in_a_step = True # this should be a config
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -413,9 +435,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         self.client = OpenAI(api_key=api_key)
 
     def _call_api(self, messages: list[Any | MessageBuilder], **kwargs) -> dict:
-        input = []
-        for msg in messages:
-            input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
+        input = self.convert_messages_to_api_format(messages)
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
@@ -438,36 +458,100 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
         return response
 
-    def _parse_response(self, response: dict) -> LLMOutput:
-        result = LLMOutput(
+    def convert_messages_to_api_format(self, messages: List[MessageBuilder| ToolCalls]) -> List[Message]:
+        """Convert messages to the format expected by the OpenAI Responses API."""
+        input = []
+        for msg in messages:
+            if isinstance(msg, MessageBuilder):
+                temp = msg.prepare_message()
+            elif isinstance(msg, ToolCalls):
+                temp = msg.raw_calls
+            else:
+                raise TypeError('Unsupported message type: {}'.format(type(msg)))
+            input.extend(temp)
+        return input
+
+    def _parse_response(self, response: "OpenAIResponseObject") -> LLMOutput:
+        """Parse the raw response from the OpenAI Responses API."""
+        think_output = self._extract_thinking_content_from_response(response)
+        toolcalls = self._extract_tool_calls_from_response(response)
+        if self.action_space_as_tools:
+            env_action = self._extract_env_actions_from_toolcalls(toolcalls)
+        else:
+            env_action = self._extract_env_actions_from_text_response(response)
+        return LLMOutput(
             raw_response=response,
-            think="",
-            action=None,
-            tool_calls=None,
+            think=think_output,
+            action=env_action if env_action is not None else "",  
+            tool_calls=toolcalls if toolcalls is not None else None,
         )
-        interesting_keys = ["output_text"]
+
+    def _extract_tool_calls_from_response(self, response: "OpenAIResponseObject") -> ToolCalls:
+        """Extracts tool calls from the response."""
+        tool_calls = ToolCalls(raw_calls=response.output)
         for output in response.output:
             if output.type == "function_call":
-                arguments = json.loads(output.arguments)
-                func_args_str = ", ".join(
-                    [
-                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
-                        for k, v in arguments.items()
-                    ]
-                )
-                result.action = f"{output.name}({func_args_str})"
-                result.tool_calls = output
-                break
-            elif output.type == "reasoning":
-                if len(output.summary) > 0:
-                    result.think += output.summary[0].text + "\n"
+                tool_name = output.name
+                tool_args = json.loads(output.arguments)
+            elif output.type == "computer_call":
+                tool_name, tool_args = self.cua_action_to_env_tool_name_and_args(output.action)
+            else:
+                continue
+            tool_call = ToolCall(
+                name=tool_name,
+                arguments=tool_args,
+                raw_call=output,
+            )
+            tool_calls.add_tool_call(tool_call)
+        return tool_calls
 
+    def _extract_env_actions_from_toolcalls(self, toolcalls: ToolCalls) -> Any | None:
+        """Extracts actions from the response."""
+        actions = []
+        for call in toolcalls:
+            if call.is_env_action:
+                action_str = self.convert_toolcall_to_env_action_format(call)
+                actions.append(action_str)
+        if self.multiaction_in_a_step: # This should be a config
+            return self.convert_multiactions_to_env_action_format(actions)
+        else:
+            return actions[0] if actions else None
+
+    def _extract_thinking_content_from_response(self, response: "OpenAIResponseObject") -> str:
+        """Extracts the thinking content from the response."""
+        thinking_content = ""
+        for output in response.output:
+            if output.type == "reasoning":
+                if len(output.summary) > 0:
+                    thinking_content += output.summary[0].text + "\n"
             elif output.type == "message" and output.content:
-                result.think += output.content[0].text + "\n"
-        for key in interesting_keys:
-            if key_content := getattr(output, "output_text", None) is not None:
-                result.think += f"<{key}>{key_content}</{key}>"
-        return result
+                thinking_content += output.content[0].text + "\n"
+            elif hasattr(output, "output_text") and output.output_text:
+                thinking_content += f"{output.output_text}\n"
+        return thinking_content
+
+    # Environment Specific functions, in this case BGYM
+
+    def convert_toolcall_to_env_action_format(self, toolcall: ToolCall) -> str:
+        """Convert a tool call to an BGYM environment action string."""
+        action_name, tool_args = toolcall.name, toolcall.arguments
+        action_args = ", ".join(
+            f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}" for k, v in tool_args.items()
+        )
+        action_str = f"{action_name}({action_args})"
+        return action_str
+
+    def convert_multiactions_to_env_action_format(self, actions:list[Any] ) -> Any:
+        """Convert multiple actions list to a format that env supports"""
+        return "\n".join(actions) if actions else None
+
+    def cua_action_to_env_tool_name_and_args(self, action: str) -> tuple[str, Dict[str, Any]]:
+        pass
+
+    def _extract_env_actions_from_text_response(self, response: "OpenAIResponseObject") -> str | None:
+        """Extracts environment actions from the text response."""
+        # Use when action space is not given as tools.
+        pass
 
 
 class OpenAIChatCompletionModel(BaseModelWithPricing):
@@ -599,7 +683,6 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         else:
             reasoning_content = ""
         return f"{reasoning_content}{msg_content}{message.get('content', '')}"
-
 
 class ClaudeResponseModel(BaseModelWithPricing):
     def __init__(
