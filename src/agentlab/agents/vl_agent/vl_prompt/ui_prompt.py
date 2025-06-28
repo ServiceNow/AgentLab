@@ -53,12 +53,12 @@ class InteractionPromptPart(VLPromptPart):
         self,
         current_screenshot: Union[Image.Image, np.ndarray],
         screenshot_history: list[Union[Image.Image, np.ndarray]],
-        thought_history: list[str],
+        think_history: list[str],
         action_history: list[str],
         use_screenshot_history: bool,
     ):
         self._message_content = []
-        if len(screenshot_history) == len(thought_history) == len(action_history) != 0:
+        if len(screenshot_history) == len(think_history) == len(action_history) != 0:
             self._message_content.append(
                 {
                     "type": "text",
@@ -67,8 +67,8 @@ class InteractionPromptPart(VLPromptPart):
 """,
                 }
             )
-            for index, (screenshot, thought, action) in enumerate(
-                zip(screenshot_history, thought_history, action_history)
+            for index, (screenshot, think, action) in enumerate(
+                zip(screenshot_history, think_history, action_history)
             ):
                 self._message_content.append(
                     {
@@ -94,9 +94,9 @@ class InteractionPromptPart(VLPromptPart):
                     {
                         "type": "text",
                         "text": f"""
-### Thought
+### Think
 
-{thought}
+{think}
 
 ### Action
 
@@ -177,7 +177,7 @@ class ErrorPromptPart(VLPromptPart):
             )
             if logs_separator in last_action_error:
                 error, logs = last_action_error.split(logs_separator)
-                logs = logs.split("\n")[:logs_limit]
+                logs = "\n".join(logs.split("\n")[:logs_limit])
                 self._message_content.append(
                     {
                         "type": "text",
@@ -185,18 +185,11 @@ class ErrorPromptPart(VLPromptPart):
 {error}
 
 {logs_separator}
+
+{logs}
 """,
                     }
                 )
-                for log in logs:
-                    self._message_content.append(
-                        {
-                            "type": "text",
-                            "text": f"""
-{log}
-""",
-                        }
-                    )
             else:
                 self._message_content.append(
                     {
@@ -229,7 +222,7 @@ Here are all the actions you can take to interact with the browser.
 # The answer requirements
 
 Think about the action, and describe the location where the action is to be taken. \
-Your answer should contain one thought and one location.
+Your answer should contain one think and one location.
 """,
             }
         ]
@@ -240,9 +233,9 @@ Your answer should contain one thought and one location.
                     "text": """
 # An abstract example of the answer
 
-<thought>
-The thought about the action.
-</thought>
+<think>
+The think about the action.
+</think>
 <location>
 The description of the location where the action is to be taken.
 </location>
@@ -256,13 +249,13 @@ The description of the location where the action is to be taken.
                     "text": """
 # A concrete example of the answer
 
-<thought>
+<think>
 The goal is to click on the numbers in ascending order. \
 The smallest number visible on the screen is '1'. \
 I will use the 'mouse_click' action to directly click on the number '1'.
-</thought>
+</think>
 <location>
-The object in the top-left quadrant of the white area.
+The number '1' in the top-left quadrant of the white area.
 </location>
 """,
                 }
@@ -277,8 +270,8 @@ class FinalAnswerPromptPart(VLPromptPart):
     def __init__(
         self,
         action_set_description: str,
-        thought: str,
-        coordinates: str,
+        main_think: str,
+        auxiliary_location: str,
         use_abstract_example: bool,
         use_concrete_example: bool,
     ):
@@ -292,13 +285,13 @@ Here are all the actions you can take to interact with the browser.
 
 {action_set_description}
 
-# The thought about the action
+# The think about the action
 
-{thought}
+{main_think}
 
-# The coordinates where the action is to be taken
+# The location where the action is to be taken
 
-{coordinates}
+{auxiliary_location}
 
 # The answer requirements
 
@@ -377,15 +370,18 @@ class MainUIPrompt(VLPrompt):
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
-        answer_dict = {}
         if isinstance(self.answer_prompt_part, PreliminaryAnswerPromptPart):
             try:
-                answer_dict.update(parse_html_tags_raise(answer_text, keys=["thought", "location"]))
+                answer_dict = parse_html_tags_raise(answer_text, keys=["think", "location"])
             except ParseError as error:
                 raise error
+            answer_dict = {
+                "main_think": answer_dict["think"],
+                "main_location": answer_dict["location"],
+            }
         else:
             try:
-                answer_dict.update(parse_html_tags_raise(answer_text, keys=["action"]))
+                answer_dict = parse_html_tags_raise(answer_text, keys=["action"])
             except ParseError as error:
                 code_blocks = extract_code_blocks(answer_text)
                 if len(code_blocks) == 0:
@@ -406,7 +402,8 @@ class MainUIPrompt(VLPrompt):
 class AuxiliaryUIPrompt(VLPrompt):
     current_screenshot: Union[Image.Image, np.ndarray]
     screenshot_history: list[Union[Image.Image, np.ndarray]]
-    location: str
+    main_think: str
+    main_location: str
     use_screenshot_history: bool
     use_reasoning: bool
 
@@ -432,7 +429,7 @@ The user asks a question, and the Assistant solves it. \
 You first think about the reasoning process in the mind and then provides the user with the answer. \
 The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>
 
-Instruction: {self.location}
+Instruction: {self.main_think}
 
 Your answer should be a single tuple (x, y) cooridnates corresponding to the point of interest within <answer> </answer> tags.
 """,
@@ -448,7 +445,7 @@ Your response should aim to point to the center or a representative point within
 If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
 Your answer should be a single string (x, y) corresponding to the point of interest.
 
-Description: {self.location}
+Description: {self.main_location}
 """,
                 }
             )
@@ -462,12 +459,16 @@ Description: {self.location}
         answer_text = answer_content[0]["text"]
         if self.use_reasoning:
             try:
-                coordinates = parse_html_tags_raise(answer_text, keys=["answer"])["answer"]
+                answer_dict = parse_html_tags_raise(answer_text, keys=["think", "answer"])
             except ParseError as error:
                 raise error
+            answer_dict = {
+                "auxiliary_think": answer_dict["think"],
+                "auxiliary_location": answer_dict["answer"],
+            }
         else:
-            coordinates = answer_text
-        return {"coordinates": coordinates}
+            answer_dict = {"auxiliary_think": None, "auxiliary_location": answer_text}
+        return answer_dict
 
 
 @dataclass
@@ -482,7 +483,7 @@ class MainUIPromptArgs(VLPromptArgs):
         self,
         obs: dict,
         screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
-        thought_history: Optional[list[str]] = None,
+        think_history: Optional[list[str]] = None,
         action_history: Optional[list[str]] = None,
         action_set: Optional[HighLevelActionSet] = None,
         extra_info: Optional[dict] = None,
@@ -492,7 +493,7 @@ class MainUIPromptArgs(VLPromptArgs):
         interaction_prompt_part = InteractionPromptPart(
             obs["screenshot"],
             screenshot_history=screenshot_history,
-            thought_history=thought_history,
+            think_history=think_history,
             action_history=action_history,
             use_screenshot_history=self.use_screenshot_history,
         )
@@ -517,8 +518,8 @@ class MainUIPromptArgs(VLPromptArgs):
         else:
             answer_prompt_part = FinalAnswerPromptPart(
                 action_set.describe(with_long_description=True, with_examples=False),
-                thought=extra_info["thought"],
-                coordinates=extra_info["coordinates"],
+                main_think=extra_info["main_think"],
+                auxiliary_location=extra_info["auxiliary_location"],
                 use_abstract_example=self.use_abstract_example,
                 use_concrete_example=self.use_concrete_example,
             )
@@ -542,7 +543,7 @@ class AuxiliaryUIPromptArgs(VLPromptArgs):
         self,
         obs: dict,
         screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
-        thought_history: Optional[list[str]] = None,
+        think_history: Optional[list[str]] = None,
         action_history: Optional[list[str]] = None,
         action_set: Optional[HighLevelActionSet] = None,
         extra_info: Optional[dict] = None,
@@ -550,7 +551,8 @@ class AuxiliaryUIPromptArgs(VLPromptArgs):
         return AuxiliaryUIPrompt(
             current_screenshot=obs["screenshot"],
             screenshot_history=screenshot_history,
-            location=extra_info["location"],
+            main_think=extra_info["main_think"],
+            main_location=extra_info["main_location"],
             use_screenshot_history=self.use_screenshot_history,
             use_reasoning=self.use_reasoning,
         )

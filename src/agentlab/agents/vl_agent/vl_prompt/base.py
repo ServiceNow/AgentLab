@@ -30,7 +30,7 @@ class VLPromptArgs(ABC):
         self,
         obs: dict,
         screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
-        thought_history: Optional[list[str]] = None,
+        think_history: Optional[list[str]] = None,
         action_history: Optional[list[str]] = None,
         action_set: Optional[HighLevelActionSet] = None,
         extra_info: Optional[dict] = None,

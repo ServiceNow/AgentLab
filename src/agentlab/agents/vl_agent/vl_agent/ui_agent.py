@@ -27,16 +27,17 @@ class UIAgent(VLAgent):
         self.action_set = action_set_args.make_action_set()
         self.max_num_retries = max_num_retries
         self.screenshot_history = []
-        self.thought_history = []
+        self.think_history = []
         self.action_history = []
 
     @cost_tracker_decorator
     def get_action(self, obs: dict) -> tuple[str, dict]:
+        answers = {}
         stats = {}
         preliminary_main_ui_prompt = self.main_ui_prompt_args.make_prompt(
             obs,
             screenshot_history=self.screenshot_history,
-            thought_history=self.thought_history,
+            think_history=self.think_history,
             action_history=self.action_history,
             action_set=self.action_set,
         )
@@ -50,12 +51,13 @@ class UIAgent(VLAgent):
             )
             stats["preliminary_main_num_retries"] = (len(preliminary_main_messages) - 2) // 2
         except ParseError:
-            preliminary_answer = {"thought": None, "location": None}
+            preliminary_answer = {"main_think": None, "main_location": None}
             stats["preliminary_main_num_retries"] = self.max_num_retries
+        answers.update(preliminary_answer)
         auxiliary_ui_prompt = self.auxiliary_ui_prompt_args.make_prompt(
             obs,
             screenshot_history=self.screenshot_history,
-            extra_info=preliminary_answer,
+            extra_info=answers,
         )
         try:
             auxiliary_messages = Discussion([auxiliary_ui_prompt.message])
@@ -67,16 +69,16 @@ class UIAgent(VLAgent):
             )
             stats["auxiliary_num_retries"] = (len(auxiliary_messages) - 2) // 2
         except ParseError:
-            auxiliary_answer = {"coordinates": None}
+            auxiliary_answer = {"auxiliary_think": None, "auxiliary_location": None}
             stats["auxiliary_num_retries"] = self.max_num_retries
-        preliminary_answer.update(auxiliary_answer)
+        answers.update(auxiliary_answer)
         final_main_ui_prompt = self.main_ui_prompt_args.make_prompt(
             obs,
             screenshot_history=self.screenshot_history,
-            thought_history=self.thought_history,
+            think_history=self.think_history,
             action_history=self.action_history,
             action_set=self.action_set,
-            extra_info=preliminary_answer,
+            extra_info=answers,
         )
         try:
             final_main_messages = Discussion([final_main_ui_prompt.message])
@@ -90,13 +92,14 @@ class UIAgent(VLAgent):
         except ParseError:
             final_answer = {"action": None}
             stats["final_main_num_retries"] = self.max_num_retries
+        answers.update(final_answer)
         stats.update(self.main_vl_model.stats)
         stats.update(self.auxiliary_vl_model.stats)
         self.screenshot_history.append(obs["screenshot"])
-        self.thought_history.append(str(preliminary_answer["thought"]))
-        self.action_history.append(str(final_answer["action"]))
-        agent_info = AgentInfo(think=str(preliminary_answer), stats=stats)
-        return final_answer["action"], asdict(agent_info)
+        self.think_history.append(str(answers["main_think"]))
+        self.action_history.append(str(answers["action"]))
+        agent_info = AgentInfo(think=str(answers), stats=stats)
+        return answers["action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:
         return obs

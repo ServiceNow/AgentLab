@@ -99,7 +99,7 @@ VL_PROMPT_ARGS_DICT = {
         use_abstract_example=True,
         use_concrete_example=True,
     ),
-    "auxiliary_ui_prompt": AuxiliaryUIPromptArgs(use_screenshot_history=False, use_reasoning=True),
+    "auxiliary_ui_prompt": AuxiliaryUIPromptArgs(use_screenshot_history=False, use_reasoning=False),
 }
 
 VL_AGENT_ARGS_DICT = {
