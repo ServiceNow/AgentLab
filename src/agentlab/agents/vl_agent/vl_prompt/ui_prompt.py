@@ -402,7 +402,6 @@ class MainUIPrompt(VLPrompt):
 class AuxiliaryUIPrompt(VLPrompt):
     current_screenshot: Union[Image.Image, np.ndarray]
     screenshot_history: list[Union[Image.Image, np.ndarray]]
-    main_think: str
     main_location: str
     use_screenshot_history: bool
     use_reasoning: bool
@@ -429,7 +428,7 @@ The user asks a question, and the Assistant solves it. \
 You first think about the reasoning process in the mind and then provides the user with the answer. \
 The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>
 
-Instruction: {self.main_think}
+Instruction: {self.main_location}
 
 Your answer should be a single tuple (x, y) cooridnates corresponding to the point of interest within <answer> </answer> tags.
 """,
@@ -551,7 +550,6 @@ class AuxiliaryUIPromptArgs(VLPromptArgs):
         return AuxiliaryUIPrompt(
             current_screenshot=obs["screenshot"],
             screenshot_history=screenshot_history,
-            main_think=extra_info["main_think"],
             main_location=extra_info["main_location"],
             use_screenshot_history=self.use_screenshot_history,
             use_reasoning=self.use_reasoning,
