@@ -49,6 +49,7 @@ BGYM_RESERVED_ACTION_FUNCTION_NAMES = [
 
 @dataclass
 class ToolCall:
+    #TODO: Check if this is a suitable tool representation for being MCP compliant.
     name: str = field(default=None)
     arguments: Dict[str, Any] = field(default_factory=dict)
     raw_call: Any =  field(default=None)
@@ -57,6 +58,8 @@ class ToolCall:
     @property
     def is_env_action(self) -> bool:
         """Check if the tool call is a reserved BGYM action."""
+        # TODO: env should return some func to check if agent action is env action.
+        # Keep in mind env may or may not have a fixed set of reserved actions.
         return self.name in BGYM_RESERVED_ACTION_FUNCTION_NAMES
 
     @property
@@ -86,11 +89,11 @@ class ToolCalls:
         return self
 
     def get_env_action_calls(self) -> List[ToolCall]:
-        """Get all tool calls that are reserved BGYM actions."""
+        """Get all tool calls that are reserved Environment actions."""
         return [call for call in self.tool_calls if call.is_env_action]
     
     def get_non_env_action_calls(self) -> List[ToolCall]:
-        """Get all tool calls that are not reserved BGYM actions."""
+        """Get all tool calls that are not reserved Environment actions."""
         return [call for call in self.tool_calls if not call.is_env_action]
     
     @property
@@ -125,7 +128,7 @@ class MessageBuilder:
     def __init__(self, role: str):
 
         self.role = role
-        self.last_raw_response: LLMOutput = None # NOTE: last_raw_response will be deprecated in future version.
+        self.last_raw_response: LLMOutput = None # NOTE: last_raw_response will be deprecated in future version. We can use ToolCalls object to get all the relevant information.
         self.content: List[ContentItem] = []
         self.responsed_tool_calls: ToolCalls = None 
 
@@ -410,6 +413,85 @@ class BaseModelWithPricing(TrackAPIPricingMixin, BaseResponseModel):
     pass
 
 
+
+# TODO: Define and use Flexible set of Configuration.
+# Below configs are not used and are WIP. 
+# _______________________________________________________________
+
+# Some High-level requirements.
+
+# Env can have multiple actions sets. Each action set should be supported as tools and prompt description.
+# Env should have converstion functions to parse the tool calls or text to back to env actions.
+
+# Backend LLMs or Large action models can have thier own action sets (Ui-Tars, CUA), which can be fixed or flexible.
+# EnvConfig or LLMConfig or ActionConfig should provide conversion from Backend LLM action to env_action.
+
+# AgentLab Agents may emit multiple actions. EnvConfig should mention if it supports multiple actions in a single step.
+# If Env controller does not natively support multiactions. We can choose to integrate Env logic which brings this support.
+
+# Env should broadcast what obersvations are supported and agent loop should be able to handle them. (e.g, Ax_tree) 
+
+@dataclass
+class ActionConfig:
+    action_set: "AbstractActionSet"  # TODO: Agentlab AbstractActionSet, have constructor methods to create actions as tools or descriptions with examples.
+    multiaction: bool = True
+    env_action_as_tools: bool = True  # If True, action set is treated as tools
+    tools: Optional[List[Dict[str, Any]]] = None  # List of tool definitions or list of functions
+    tool_text_descriptions: str = ""  # Some description of the tools, emitted by the environment.
+    tools_calls_to_env_action_parser: callable = # Some callable given by the environment to convert tool calls to env actions.
+    text_to_env_action_parser: Optional[Type[MessageBuilder]] = None
+
+@dataclass
+class ObsConfig
+# Check generic agent
+    pass
+@dataclass
+class Config:
+    model_args: BaseModelArgs
+    obs: ObsConfig
+    action: ActionConfig
+    generationConfig: GenerationConfig
+
+@dataclass
+class PromptConfig:
+    # use_hints
+    # use_summarizer
+    pass
+@dataclass
+class ProviderConfig:
+    """Configuration for the LLM provider."""
+    api_key_env_var: Optional[str] = None
+    base_url: Optional[str] = None  # Base URL for the API, if different
+    # Anything else? # VLLM specific configurations ?, etc.
+@dataclass
+class LLMConfig:
+    # backend LLM supported action set 
+    # Any other LLM specific configurations
+    # Tool calling format?
+    # Maybe include provider specific configurations here?
+    
+    pass
+
+@dataclass
+class GenerationConfig:
+    temperature: float = 0.5
+    max_new_tokens: int = 100
+    # Might be useful for exploration to have the ability to modify inside agent loop.
+
+@dataclass
+class APIPayload:
+    messages: List[MessageBuilder | ToolCalls]
+    api_endpoint: str
+    api_key_env_var: Optional[str] = None
+    base_url: Optional[str] = None
+    tools: Optional[List[Dict[str, Any]]] = None  # Taken from ActionConfig 
+    tool_choice: Optional[str] = None  # Fix some literal value for tool choice, e.g., "auto" and convert according to the API. OpenAI and Anthrophic can have different tool choice parameters that behave differently.
+    generation_config: GenerationConfig = GenerationConfig()
+    caching: bool = False  # If True, cache the response
+    # The agent loop will form the payload based on the config and pass it to the API call.
+
+# _______________________________________________________________
+
 class OpenAIResponseModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -437,6 +519,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
     def _call_api(self, messages: list[Any | MessageBuilder], **kwargs) -> dict:
         input = self.convert_messages_to_api_format(messages)
 
+        #TODO: API/Payload Params should be a config dataclass. Update once settled on a config structure.
         api_params: Dict[str, Any] = {
             "model": self.model_name,
             "input": input,
@@ -486,8 +569,10 @@ class OpenAIResponseModel(BaseModelWithPricing):
             tool_calls=toolcalls if toolcalls is not None else None,
         )
 
+
     def _extract_tool_calls_from_response(self, response: "OpenAIResponseObject") -> ToolCalls:
         """Extracts tool calls from the response."""
+        #TODO: Should this be in the BaseResponseModelclass?
         tool_calls = ToolCalls(raw_calls=response.output)
         for output in response.output:
             if output.type == "function_call":
@@ -507,6 +592,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
     def _extract_env_actions_from_toolcalls(self, toolcalls: ToolCalls) -> Any | None:
         """Extracts actions from the response."""
+        #TODO: Should this be in the BaseResponseModelclass? or Emitted by Environment?
         actions = []
         for call in toolcalls:
             if call.is_env_action:
@@ -530,8 +616,9 @@ class OpenAIResponseModel(BaseModelWithPricing):
                 thinking_content += f"{output.output_text}\n"
         return thinking_content
 
-    # Environment Specific functions, in this case BGYM
+    ### Environment Specific functions, in this case BGYM  ###
 
+    #TODO: Should the below functions be in the BaseResponseModelclass? or Emitted by the Environment and intialized using a config?
     def convert_toolcall_to_env_action_format(self, toolcall: ToolCall) -> str:
         """Convert a tool call to an BGYM environment action string."""
         action_name, tool_args = toolcall.name, toolcall.arguments
@@ -554,6 +641,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         pass
 
 
+# TODO: Refactor similar to OpenAIResponseModel
 class OpenAIChatCompletionModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -684,6 +772,8 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             reasoning_content = ""
         return f"{reasoning_content}{msg_content}{message.get('content', '')}"
 
+
+# TODO: Refactor similar to OpenAIResponseModel
 class ClaudeResponseModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -807,6 +897,8 @@ class ClaudeResponseModel(BaseModelWithPricing):
 
 
 # Factory classes to create the appropriate model based on the API endpoint.
+
+# TODO: Do we really need these factory classes? how about implementing a _from_args() method in the BaseModelArgs class?
 @dataclass
 class OpenAIResponseModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenAI
