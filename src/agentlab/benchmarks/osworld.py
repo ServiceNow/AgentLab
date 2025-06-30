@@ -103,6 +103,8 @@ class OsworldGym(AbstractEnv):
 
         # Core visual and interaction components
         self._add_screenshot(converted_obs, obs)
+        # TODO: Check if the unprocessesed ac_tree is a suitable representation for agentlab agents or use the utility functions from os-world agents to convert them.
+        # TODO: Check if there is something equivalent to bid in OSWorld Axtree. and how it is used in the action space. This can be used with GenericAgent.
         converted_obs["axtree_object"] = obs["accessibility_tree"]
         converted_obs["last_action_error"] = ""  # OSWorld doesn't provide this directly
         converted_obs["focused_element_bid"] = ""  # Extract from accessibility tree if available
@@ -189,6 +191,10 @@ class OsworldGym(AbstractEnv):
 
 
 class OSWorldActionSet(AbstractActionSet):
+    # TODO: Define and use agentlab AbstractActionSet
+    # TODO: AbstractActionSet should define some standard format to represent actions.(list of callables? that have extensive docstring with examples. We can then use inspect module to extract relevant info)
+    # TODO: Should we have 'abstract function' here for action conversion for backend LLM with fixed action set like UI-Tars or Semi-fixed action set LLMs like OpenAI CUA?
+    # TODO: We need to support both 'action space as tools' and 'action space as prompt' for agentlab agents and have conversion functions to convert them to format acceptable by environment.
     def __init__(self, action_space: Literal["computer_13", "pyautogui"]):
         self.action_space = action_space
 
@@ -383,6 +389,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
     require_terminal: bool = False
     os_type: str = "Ubuntu"
     enable_proxy: bool = False
+    #TODO: Add max steps.
 
     def make_env(self, exp_dir: Path, action_mapping=None, use_raw_page_output: bool = False) -> OsworldGym:
         logger.info(f"Creating OSWorld Gym with task: {self.task}")
