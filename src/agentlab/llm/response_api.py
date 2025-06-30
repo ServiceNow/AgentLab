@@ -85,11 +85,11 @@ class ToolCalls:
         self.tool_calls.append(tool_call)
         return self
 
-    def get_bgym_action_calls(self) -> List[ToolCall]:
+    def get_env_action_calls(self) -> List[ToolCall]:
         """Get all tool calls that are reserved BGYM actions."""
         return [call for call in self.tool_calls if call.is_env_action]
     
-    def get_non_bgym_action_calls(self) -> List[ToolCall]:
+    def get_non_env_action_calls(self) -> List[ToolCall]:
         """Get all tool calls that are not reserved BGYM actions."""
         return [call for call in self.tool_calls if not call.is_env_action]
     
