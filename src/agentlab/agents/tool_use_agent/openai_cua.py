@@ -4,14 +4,10 @@ from typing import Any, Dict, List
 
 from agentlab.llm.llm_utils import call_openai_api_with_retries
 from agentlab.llm.response_api import (
-    ContentItem,
-    LLMOutput,
-    Message,
     MessageBuilder,
     OpenAIResponseAPIMessageBuilder,
     OpenAIResponseModel,
     OpenAIResponseModelArgs,
-    ToolCall,
     ToolCalls,
 )
 
@@ -28,16 +24,8 @@ from .tool_use_agent import (
 
 class OpenAICUAModel(OpenAIResponseModel):
 
-    def _call_api(self, messages: list[Any | MessageBuilder], tool_choice="auto", **kwargs) -> dict:
-        input = []
-        for msg in messages:
-            if isinstance(msg, MessageBuilder):
-                temp = msg.prepare_message()
-            elif isinstance(msg, ToolCalls):
-                temp = msg.raw_calls
-            else:
-                raise TypeError('Unsupported message type: {}'.format(type(msg)))
-            input.extend(temp)
+    def _call_api(self, messages: list[ToolCalls | MessageBuilder], tool_choice="auto", **kwargs) -> dict:
+        input = self.convert_messages_to_api_format(messages)
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
@@ -53,14 +41,15 @@ class OpenAICUAModel(OpenAIResponseModel):
             cua_tool_present = any(
                 tool.get("type") == "computer_use_preview" for tool in api_params["tools"]
             )
+            # CUA requires this tool 
             if not cua_tool_present:
                 api_params["tools"].extend(
                     [
                         {
                             "type": "computer_use_preview",
-                            "display_width": 1024,
+                            "display_width": 1024,   
                             "display_height": 768,
-                            "environment": "browser",  # other possible values: "mac", "windows", "ubuntu"
+                            "environment": "browser",  # TODO: Parametrize this 
                         }
                     ]
                 )
@@ -72,212 +61,72 @@ class OpenAICUAModel(OpenAIResponseModel):
 
         return response
 
-    def _parse_response(self, response: dict) -> dict:
-        result = LLMOutput(
-            raw_response=response,
-            think="",
-            action=None,
-            tool_calls=ToolCalls(),
-        )
-        interesting_keys = ["output_text"]
-        actions = []  # Collect all actions for multi-action support
-
-        for output in response.output:
-            if output.type in "computer_call":
-                # Mapping CUA action space to bgym coord action space.
-                bgym_fn, bgym_fn_args, action_str = (
-                    self.cua_action_to_bgym_action(output.action)
-                )
-                tool_call = ToolCall(
-                    name=bgym_fn,
-                    arguments=bgym_fn_args,
-                    raw_call=output,
-                )
-                result.tool_calls.add_tool_call(tool_call)
-                actions.append(action_str)
-
-            elif output.type == "function_call":
-                arguments = json.loads(output.arguments)
-                func_args_str = ", ".join(
-                    [
-                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
-                        for k, v in arguments.items()
-                    ]
-                )
-                action_str = f"{output.name}({func_args_str})"
-                tool_call = ToolCall(
-                    name=output.name,
-                    arguments=arguments,
-                    raw_call=output,
-                )
-                result.tool_calls.add_tool_call(tool_call)
-                if tool_call.is_bgym_action():
-                    actions.append(action_str)
-
-            elif output.type == "reasoning":
-                if len(output.summary) > 0:
-                    result.think += output.summary[0].text + "\n"
-
-            elif output.type == "message" and output.content:
-                result.think += output.content[0].text + "\n"
-
-        result.action = actions
-        result.tool_calls.raw_calls = response.output
-
-        for key in interesting_keys:
-            if key_content := getattr(output, "output_text", None) is not None:
-                result.think += f"<{key}>{key_content}</{key}>"
-        return result
-
-    @staticmethod
-    def cua_action_to_bgym_action(action) -> str:
+    def cua_action_to_env_tool_name_and_args(self, action) -> str:
         """
         Given a computer action (e.g., click, double_click, scroll, etc.),
         convert it to a text description.
         """
+        #TODO: #Provide an alternate implementation for OS-World.
 
         action_type = action.type
 
         try:
-            match action_type:
+            action_mapping = {
+                "click": lambda: self._handle_click_action(action),
+                "scroll": lambda: self._handle_scroll_action(action),
+                "keypress": lambda: self._handle_keypress_action(action),
+                "type": lambda: self._handle_type_action(action),
+                "wait": lambda: self._handle_wait_action(action),
+                "screenshot": lambda: self._handle_screenshot_action(action),
+                "drag": lambda: self._handle_drag_action(action),
+            }
 
-                case "click":
-                    x, y = action.x, action.y
-                    button = action.button
-                    print(f"Action: click at ({x}, {y}) with button '{button}'")
-                    # Not handling things like middle click, etc.
-                    if button != "left" and button != "right":
-                        button = "left"
-                    action_str = f"mouse_click({x}, {y}, button='{button}')"
-                    (
-                        bgym_fn,
-                        bgym_fn_args,
-                    ) = "mouse_click", {"x": x, "y": y, "button": button}
-
-                case "scroll":
-                    x, y = action.x, action.y
-                    scroll_x, scroll_y = action.scroll_x, action.scroll_y
-                    action_str = f"scroll_at({x}, {y}, {scroll_x},  {scroll_y})"
-                    bgym_fn, bgym_fn_args = "scroll_at", {
-                        "x": x,
-                        "y": y,
-                        "scroll_x": scroll_x,
-                        "scroll_y": scroll_y,
-                    }
-
-                case "keypress":
-                    keys = action.keys
-                    for k in keys:
-                        print(f"Action: keypress '{k}'")
-                        # A simple mapping for common keys; expand as needed.
-                        if k.lower() == "enter":
-                            action_str = "keyboard_press('Enter')"
-                        elif k.lower() == "space":
-                            action_str = "keyboard_press(' ')"
-                        else:
-                            action_str = f"keyboard_press('{k}')"
-
-                        bgym_fn, bgym_fn_args = "keyboard_press", {"key": k}
-
-                case "type":
-                    text = action.text
-                    print(f"Action: type text: {text}")
-                    action_str = f"keyboard_type('{text}')"
-                    bgym_fn, bgym_fn_args = "keyboard_type", {"text": text}
-
-                case "wait":
-                    print("Action: wait")
-                    action_str = "noop()"
-                    bgym_fn, bgym_fn_args = "noop", {}
-
-                case "screenshot":
-                    # Not a valid bgym action
-                    action_str = "noop()"
-                    bgym_fn, bgym_fn_args = "noop", {}
-
-                case "drag":
-                    x1, y1 = action.path[0].x, action.path[0].y
-                    x2, y2 = action.path[1].x, action.path[1].y
-                    print(f"Action: drag from ({x1}, {y1}) to ({x2}, {y2})")
-                    action_str = f"mouse_drag_and_drop({x1}, {y1}, {x2}, {y2})"
-                    bgym_fn, bgym_fn_args = "mouse_drag_and_drop", {
-                        "x1": x1,
-                        "y1": y1,
-                        "x2": x2,
-                        "y2": y2,
-                    }
-
-                case _:
-                    raise ValueError(f"Unrecognized action type: {action_type}")
-
-            # Return the function name and arguments for bgym
-
-            return bgym_fn, bgym_fn_args, action_str
+            if action_type in action_mapping:
+                return action_mapping[action_type]()
+            else:
+                raise ValueError(f"Unrecognized openAI CUA action type: {action_type}")
 
         except Exception as e:
             print(f"Error handling action {action}: {e}")
 
+    def _handle_click_action(self, action):
+        x, y = action.x, action.y
+        button = action.button
+        if button != "left" and button != "right":
+            button = "left"
+        return "mouse_click", {"x": x, "y": y, "button": button}
 
-class OpenaAICUAMessageBuilder(OpenAIResponseAPIMessageBuilder):
+    def _handle_scroll_action(self, action):
+        x, y = action.x, action.y
+        scroll_x, scroll_y = action.scroll_x, action.scroll_y
+        return "scroll_at", {"x": x, "y": y, "scroll_x": scroll_x, "scroll_y": scroll_y}
 
-    def prepare_message(self) -> List[Message]:
-        content = []
-        for item in self.content:
-            content.append(self.convert_content_to_expected_format(item))
-        output = [{"role": self.role, "content": content}]
+    def _handle_keypress_action(self, action):
+        keys = action.keys
+        #TODO: Check this if is suitable for BGYM env.
+        for k in keys:
+            print(f"Action: keypress '{k}'")
+            if k.lower() == "enter":
+                key = "Enter"
+            elif k.lower() == "space":
+                key = " "
+            return "keyboard_press", {"key": key}
 
-        if self.role != "tool":
-            return output
-        else:
-            return self.handle_tool_call()
+    def _handle_type_action(self, action):
+        text = action.text
+        return "keyboard_type", {"text": text}
 
-    def convert_content_to_expected_format(self, content: ContentItem) -> ContentItem:
-        """Convert the content item to the expected format for OpenAI Responses."""
-        if "text" in content:
-            content_type = "input_text" if self.role != "assistant" else "output_text"
-            return {"type": content_type, "text": content["text"]}
-        elif "image" in content:
-            return {"type": "input_image", "image_url": content["image"]}
-        else:
-            raise ValueError(f"Unsupported content type: {content}")
+    def _handle_wait_action(self, action):
+        return "noop", {}
 
-    def handle_tool_call(self):
-        """Handle the tool call response from the last raw response."""
-        if self.responsed_tool_calls is None:
-            raise ValueError("No tool calls found in responsed_tool_calls")
+    def _handle_screenshot_action(self, action):
+        return "noop", {}
 
-        output = []
-        for fn_call in self.responsed_tool_calls:
-            call_type = fn_call.raw_call.type
-            call_id = fn_call.raw_call.call_id
-            call_response = fn_call.tool_response  # List[ContentItem]
-
-            match call_type:
-                case "function_call":
-                    # image output is not supported in function calls response.
-                    fn_call_response = {
-                        "type": "function_call_output",
-                        "call_id": call_id,
-                        "output": [
-                            self.convert_content_to_expected_format(item) for item in call_response
-                        ],
-                    }
-                    output.append(fn_call_response)
-
-                case "computer_call":
-                    # For computer calls, use only images are expected.
-                    computer_call_output = {
-                        "type": "computer_call_output",
-                        "call_id": call_id,
-                        "output": self.convert_content_to_expected_format(call_response[0]), # list needs to be flattened
-                    }
-                    output.append(computer_call_output)  # this needs to be a screenshot
-
-        return output
-
-    def mark_all_previous_msg_for_caching(self):
-        pass
-
+    def _handle_drag_action(self, action):
+        x1, y1 = action.path[0].x, action.path[0].y
+        x2, y2 = action.path[1].x, action.path[1].y
+        print(f"Action: drag from ({x1}, {y1}) to ({x2}, {y2})")
+        return "mouse_drag_and_drop", {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
 
 @dataclass
 class OpenAICUAModelArgs(OpenAIResponseModelArgs):
@@ -297,7 +146,7 @@ class OpenAICUAModelArgs(OpenAIResponseModelArgs):
         )
 
     def get_message_builder(self) -> MessageBuilder:
-        return OpenaAICUAMessageBuilder
+        return OpenAIResponseAPIMessageBuilder
 
 
 # Default configuration for Computer Use Agent
