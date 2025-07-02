@@ -352,6 +352,7 @@ class ToolUseAgentArgs(AgentArgs):
     model_args: BaseModelArgs = None
     config: PromptConfig = None
     use_raw_page_output: bool = False  # This attribute is used in loop.py to setup the env.
+    action_set: bgym.AbstractActionSet | None = None
 
     def __post_init__(self):
         try:
@@ -363,8 +364,9 @@ class ToolUseAgentArgs(AgentArgs):
         if self.config is None:
             self.config = DEFAULT_PROMPT_CONFIG
         return ToolUseAgent(
-            model_args=self.model_args,
+            model_args=self.model_args,  # type: ignore
             config=self.config,
+            action_set=self.action_set,
         )
 
     def prepare(self):
@@ -379,12 +381,13 @@ class ToolUseAgent(bgym.Agent):
         self,
         model_args: OpenAIResponseModelArgs,
         config: PromptConfig = None,
+        action_set: bgym.AbstractActionSet | None = None,
     ):
         self.model_args = model_args
         self.config = config
-        self.action_set = OSWorldActionSet(
-            "computer_13"  # or "pyautogui"
-        )  # TODO: Refactor this out to use proper config. Note this is for testing osworld only.
+        self.action_set: bgym.AbstractActionSet = action_set or bgym.HighLevelActionSet(
+            self.config.action_subsets, multiaction=self.config.multiaction  # type: ignore
+        )
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
         self.call_ids = []
@@ -559,6 +562,7 @@ OSWORLD_CLAUDE = ToolUseAgentArgs(
         multiaction=False,  # whether to use multi-action or not
         action_subsets=("coord",),  # or "bid"
     ),
+    action_set=OSWorldActionSet("computer_13"),  # or "pyautogui"
 )
 
 OSWORLD_OAI = ToolUseAgentArgs(
@@ -581,4 +585,5 @@ OSWORLD_OAI = ToolUseAgentArgs(
         multiaction=False,  # whether to use multi-action or not
         action_subsets=("coord",),
     ),
+    action_set=OSWorldActionSet("computer_13"),  # or "pyautogui"
 )
