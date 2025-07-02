@@ -3,7 +3,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Union
 
 import openai
 from anthropic import Anthropic
@@ -42,7 +42,6 @@ class LLMOutput:
 
 class MessageBuilder:
     def __init__(self, role: str):
-
         self.role = role
         self.last_raw_response: LLMOutput = None
         self.content: List[ContentItem] = []
@@ -154,9 +153,11 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
             output.append({"role": "user", "content": tail_content})
         return output
 
+    def mark_all_previous_msg_for_caching(self):
+        pass  # This method is not applicable for OpenAI Responses API as it does not support caching breakpoints.
+
 
 class AnthropicAPIMessageBuilder(MessageBuilder):
-
     def prepare_message(self) -> List[Message]:
         content = [self.transform_content(item) for item in self.content]
         output = {"role": self.role, "content": content}
@@ -168,7 +169,6 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             output["role"] = "user"
 
         if self.role == "tool":
-
             api_response = self.last_raw_response
             fn_calls = [content for content in api_response.content if content.type == "tool_use"]
             assert len(fn_calls) > 0, "No tool calls found in the last response"
@@ -218,7 +218,6 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
 
 
 class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
-
     def prepare_message(self) -> List[Message]:
         """Prepare the message for the OpenAI API."""
         content = [self.transform_content(item) for item in self.content]
@@ -390,7 +389,6 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         *args,
         **kwargs,
     ):
-
         self.tools = self.format_tools_for_chat_completion(kwargs.pop("tools", None))
         self.tool_choice = kwargs.pop("tool_choice", None)
 
@@ -428,7 +426,6 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         return response
 
     def _parse_response(self, response: openai.types.chat.ChatCompletion) -> LLMOutput:
-
         output = LLMOutput(
             raw_response=response,
             think="",

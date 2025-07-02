@@ -20,6 +20,8 @@ from PIL import Image
 
 from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.benchmarks.osworld import OSWorldActionSet
+from agentlab.llm.base_api import BaseModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     ClaudeResponseModelArgs,
@@ -33,7 +35,6 @@ from agentlab.llm.tracking import cost_tracker_decorator
 
 @dataclass
 class Block(ABC):
-
     def _init(self):
         """Initialize the block."""
         pass
@@ -167,7 +168,6 @@ class Obs(Block):
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
-
         if last_llm_output.tool_calls is None:
             obs_msg = llm.msg.user()  # type: MessageBuilder
         else:
@@ -178,7 +178,6 @@ class Obs(Block):
                 obs_msg.add_text(f"Last action error:\n{obs['last_action_error']}")
 
         if self.use_screenshot:
-
             if self.use_som:
                 screenshot = obs["screenshot_som"]
             else:
@@ -222,7 +221,6 @@ Tab {page_index}{active_or_not}:
 
 @dataclass
 class GeneralHints(Block):
-
     use_hints: bool = True
 
     def apply(self, llm, discussion: StructuredDiscussion) -> dict:
@@ -319,7 +317,6 @@ class TaskHint(Block):
 
 
 class ToolCall(Block):
-
     def __init__(self, tool_server):
         self.tool_server = tool_server
 
@@ -352,7 +349,7 @@ class PromptConfig:
 
 @dataclass
 class ToolUseAgentArgs(AgentArgs):
-    model_args: OpenAIResponseModelArgs = None
+    model_args: BaseModelArgs = None
     config: PromptConfig = None
     use_raw_page_output: bool = False  # This attribute is used in loop.py to setup the env.
 
@@ -376,7 +373,6 @@ class ToolUseAgentArgs(AgentArgs):
     def close(self):
         return self.model_args.close_server()
 
-from agentlab.benchmarks.osworld import OSWorldActionSet
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
@@ -387,7 +383,7 @@ class ToolUseAgent(bgym.Agent):
         self.model_args = model_args
         self.config = config
         self.action_set = OSWorldActionSet(
-            "computer_13" # or "pyautogui"
+            "computer_13"  # or "pyautogui"
         )  # TODO: Refactor this out to use proper config. Note this is for testing osworld only.
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
@@ -543,26 +539,46 @@ AGENT_CONFIG = ToolUseAgentArgs(
     config=DEFAULT_PROMPT_CONFIG,
 )
 
-AGENT_CONFIG2 = ToolUseAgentArgs(
+OSWORLD_CLAUDE = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
     config=PromptConfig(
-    tag_screenshot=True,
-    goal=Goal(goal_as_system_msg=True),
-    obs=Obs(
-        use_last_error=True,
-        use_screenshot=True,
-        use_axtree=False,
-        use_dom=False,
-        use_som=False,
-        use_tabs=False,
+        tag_screenshot=True,
+        goal=Goal(goal_as_system_msg=True),
+        obs=Obs(
+            use_last_error=True,
+            use_screenshot=True,
+            use_axtree=False,
+            use_dom=False,
+            use_som=False,
+            use_tabs=False,
+        ),
+        summarizer=Summarizer(do_summary=True),
+        general_hints=GeneralHints(use_hints=False),
+        task_hint=TaskHint(use_task_hint=False),
+        keep_last_n_obs=1,  # keep only the last observation in the discussion
+        multiaction=False,  # whether to use multi-action or not
+        action_subsets=("coord",),  # or "bid"
     ),
-    summarizer=Summarizer(do_summary=True),
-    general_hints=GeneralHints(use_hints=False),
-    task_hint=TaskHint(use_task_hint=False),
-    keep_last_n_obs=None,  # keep only the last observation in the discussion
-    multiaction=False,  # whether to use multi-action or not
-    # action_subsets=("bid",),
-    action_subsets=("coord"),
-    # action_subsets=("coord", "bid"),
-),
+)
+
+OSWORLD_OAI = ToolUseAgentArgs(
+    model_args=OPENAI_MODEL_CONFIG,
+    config=PromptConfig(
+        tag_screenshot=True,
+        goal=Goal(goal_as_system_msg=True),
+        obs=Obs(
+            use_last_error=True,
+            use_screenshot=True,
+            use_axtree=False,
+            use_dom=False,
+            use_som=False,
+            use_tabs=False,
+        ),
+        summarizer=Summarizer(do_summary=True),
+        general_hints=GeneralHints(use_hints=False),
+        task_hint=TaskHint(use_task_hint=False),
+        keep_last_n_obs=1,  # keep only the last observation in the discussion
+        multiaction=False,  # whether to use multi-action or not
+        action_subsets=("coord",),
+    ),
 )

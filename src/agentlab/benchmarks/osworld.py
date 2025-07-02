@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,11 +16,8 @@ from agentlab.benchmarks.abstract_env import (
     AbstractBenchmark,
     AbstractEnv,
     AbstractEnvArgs,
-    add_step_timing_to_env_info_decorator
+    add_step_timing_to_env_info_decorator,
 )
-
-import re
-
 
 logger = logging.getLogger(__name__)
 
@@ -109,9 +107,9 @@ class OsworldGym(AbstractEnv):
         converted_obs["last_action_error"] = ""  # OSWorld doesn't provide this directly
         converted_obs["focused_element_bid"] = ""  # Extract from accessibility tree if available
         # Browser-like context (adapted for desktop environment)
-        self._add_browser_context(converted_obs)
+        converted_obs = self._add_browser_context(converted_obs)
         # Task and instruction context
-        self._add_task_context(converted_obs, obs)
+        converted_obs = self._add_task_context(converted_obs, obs)
 
         return converted_obs
 
@@ -147,28 +145,30 @@ class OsworldGym(AbstractEnv):
             logger.warning(f"Failed to process screenshot: {e}")
             converted_obs["screenshot"] = None
 
-
-    def _add_browser_context(self, converted_obs: dict[str, Any], obs) -> None:
+    def _add_browser_context(self, converted_obs: dict[str, Any]):
         """Add browser-like context fields adapted for desktop environment."""
         converted_obs["url"] = ""
-        converted_obs["open_pages_urls"] = [] 
+        converted_obs["open_pages_urls"] = []
         converted_obs["open_pages_titles"] = []
         converted_obs["active_page_index"] = 0
+        return converted_obs
 
-    def _add_task_context(self, converted_obs: dict[str, Any], obs: dict[str, Any]) -> None:
+    def _add_task_context(self, converted_obs: dict[str, Any], obs: dict[str, Any]):
         """Add task and instruction context fields."""
         instruction = obs.get("instruction", "")
         converted_obs["goal_object"] = [{"type": "text", "text": instruction}]
         # Terminal output (preserve if available)
         if obs.get("terminal"):
             converted_obs["terminal_output"] = obs["terminal"]
+        return converted_obs
 
-    def convert_agentlab_action_to_computer_13(self, action:str) -> dict[str, Any]:
-        """Convert action string to dictionary format"""        
+    def convert_agentlab_action_to_computer_13(self, action: str) -> dict[str, Any]:
+        """Convert action string to dictionary format"""
         import ast
+
         pattern = r"computer_\d+_action\(action_type=\"(\w+)\",\s*parameters=({.*?})\)"
         match = re.match(pattern, action)
-        
+
         if match:
             action_type = match.group(1)
             params_str = match.group(2)
@@ -179,10 +179,7 @@ class OsworldGym(AbstractEnv):
                 # Handle malformed parameter strings
                 parameters = {}
 
-            return {
-                "action_type": action_type,
-                "parameters": parameters
-            }
+            return {"action_type": action_type, "parameters": parameters}
         else:
             raise ValueError("Invalid action string format")
 
@@ -192,8 +189,8 @@ class OsworldGym(AbstractEnv):
 
 class OSWorldActionSet(AbstractActionSet):
     # TODO: Define and use agentlab AbstractActionSet
-    # TODO: AbstractActionSet should define some standard format to represent actions.(list of dict with keys that are MCP compatible)  
-        # (list of callables? that have extensive docstring with examples. We can then use inspect module to extract relevant info)
+    # TODO: AbstractActionSet should define some standard format to represent actions.(list of dict with keys that are MCP compatible)
+    # (list of callables? that have extensive docstring with examples. We can then use inspect module to extract relevant info)
     # TODO: Should we have 'abstract function' here for action conversion for backend LLM with fixed action set like UI-Tars or Semi-fixed action set LLMs like OpenAI CUA?
     # TODO: We need to support both 'action space as tools' and 'action space as prompt' for agentlab agents and have conversion functions to convert them to format acceptable by environment.
     def __init__(self, action_space: Literal["computer_13", "pyautogui"]):
@@ -390,9 +387,11 @@ class OsworldEnvArgs(AbstractEnvArgs):
     require_terminal: bool = False
     os_type: str = "Ubuntu"
     enable_proxy: bool = False
-    #TODO: Add max steps.
+    # TODO: Add max steps.
 
-    def make_env(self, exp_dir: Path, action_mapping=None, use_raw_page_output: bool = False) -> OsworldGym:
+    def make_env(
+        self, exp_dir: Path, action_mapping=None, use_raw_page_output: bool = False
+    ) -> OsworldGym:
         logger.info(f"Creating OSWorld Gym with task: {self.task}")
         gym = OsworldGym(
             task=self.task,
@@ -426,7 +425,9 @@ class OsworldBenchmark(AbstractBenchmark):
         self.env_args_list = []
         if not self.env_args:
             self.env_args = OsworldEnvArgs(task={})
-        self.high_level_action_set_args = OSWorldActionSetArgs(action_space=self.env_args.action_space)
+        self.high_level_action_set_args = OSWorldActionSetArgs(
+            action_space=self.env_args.action_space
+        )
         with open(os.path.join(self.test_set_path, self.test_set_name)) as f:
             tasks = json.load(f)
         if self.domain != "all":

@@ -1,8 +1,7 @@
 import logging
 import os
 
-from agentlab.agents.generic_agent import AGENT_4o_MINI
-from agentlab.agents.tool_use_agent.tool_use_agent import AGENT_CONFIG2
+from agentlab.agents.tool_use_agent.tool_use_agent import OSWORLD_CLAUDE
 from agentlab.benchmarks.osworld import OsworldBenchmark
 from agentlab.experiments.study import make_study
 
@@ -15,7 +14,7 @@ def main():
     os.environ["AGENTLAB_DEBUG"] = "1"
     study = make_study(
         benchmark=OsworldBenchmark(),  # type: ignore
-        agent_args=[AGENT_CONFIG2],
+        agent_args=[OSWORLD_CLAUDE],
         comment="osworld debug 1",
         logging_level=logging.INFO,
         logging_level_stdout=logging.INFO,
