@@ -19,6 +19,8 @@ from browsergym.utils.obs import (
 from PIL import Image
 
 from agentlab.agents import agent_utils
+from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
+from bgym import Benchmark as BgymBenchmark
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.benchmarks.osworld import OSWorldActionSet
 from agentlab.llm.base_api import BaseModelArgs
@@ -164,6 +166,7 @@ class Obs(Block):
     use_tabs: bool = False
     add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
+    use_osworld_obs_preprocessor: bool = False
 
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
@@ -375,6 +378,11 @@ class ToolUseAgentArgs(AgentArgs):
     def close(self):
         return self.model_args.close_server()
 
+    def set_benchmark(self, benchmark: AgentLabBenchmark | BgymBenchmark, demo_mode: bool):
+        """Set benchmark specific flags."""
+        benchmark_name = benchmark.name
+        if benchmark_name == "osworld":
+            self.config.obs.use_osworld_obs_preprocessor = True
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
@@ -405,7 +413,8 @@ class ToolUseAgent(bgym.Agent):
 
     def obs_preprocessor(self, obs):
         obs = copy(obs)
-
+        if self.config.obs.use_osworld_obs_preprocessor:
+            return self.osworld_obs_preprocessor(obs)
         page = obs.pop("page", None)
         if page is not None:
             obs["screenshot"] = extract_screenshot(page)
@@ -430,6 +439,10 @@ class ToolUseAgent(bgym.Agent):
             if self.config.obs.use_zoomed_webpage:
                 pass
 
+        return obs
+
+    def osworld_obs_preprocessor(self, obs):
+        """Preprocess the observation for OSWorld benchmark."""
         return obs
 
     def set_task_name(self, task_name: str):
