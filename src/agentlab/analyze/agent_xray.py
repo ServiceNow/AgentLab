@@ -14,10 +14,11 @@ import pandas as pd
 from attr import dataclass
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
+from openai.types.responses import ResponseFunctionToolCall
 from PIL import Image
 
-from agentlab.agents import agent_utils
 from agentlab.analyze import inspect_results
+from agentlab.analyze.overlay_utils import annotate_action
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpResult, StepInfo
 from agentlab.experiments.study import get_most_recent_study
@@ -351,7 +352,7 @@ clicking the refresh button.
                 pruned_html_code = gr.Code(language="html", **code_args)
 
             with gr.Tab("AXTree") as tab_axtree:
-                axtree_code = gr.Code(language=None, **code_args)
+                axtree_code = gr.Markdown()
 
             with gr.Tab("Chat Messages") as tab_chat:
                 chat_messages = gr.Markdown()
@@ -536,38 +537,45 @@ def if_active(tab_name, n_out=1):
 
 def update_screenshot(som_or_not: str):
     global info
-    action = info.exp_result.steps_info[info.step].action
-    return agent_utils.tag_screenshot_with_action(
-        get_screenshot(info, som_or_not=som_or_not), action
-    )
+    img, action_str = get_screenshot(info, som_or_not=som_or_not, annotate=True)
+    return img
 
 
-def get_screenshot(info: Info, step: int = None, som_or_not: str = "Raw Screenshots"):
+def get_screenshot(
+    info: Info, step: int = None, som_or_not: str = "Raw Screenshots", annotate: bool = False
+):
     if step is None:
         step = info.step
+    step_info = info.exp_result.steps_info[step]
     try:
         is_som = som_or_not == "SOM Screenshots"
-        return info.exp_result.get_screenshot(step, som=is_som)
+        img = info.exp_result.get_screenshot(step, som=is_som)
+        if annotate:
+            action_str = step_info.action
+            properties = step_info.obs.get("extra_element_properties", None)
+            action_colored = annotate_action(img, action_string=action_str, properties=properties)
+        else:
+            action_colored = None
+        return img, action_colored
     except FileNotFoundError:
-        return None
+        return None, None
 
 
 def update_screenshot_pair(som_or_not: str):
     global info
-    s1 = get_screenshot(info, info.step, som_or_not)
-    s2 = get_screenshot(info, info.step + 1, som_or_not)
-
-    if s1 is not None:
-        s1 = agent_utils.tag_screenshot_with_action(
-            s1, info.exp_result.steps_info[info.step].action
-        )
+    s1, action_str = get_screenshot(info, info.step, som_or_not, annotate=True)
+    s2, action_str = get_screenshot(info, info.step + 1, som_or_not)
     return s1, s2
 
 
 def update_screenshot_gallery(som_or_not: str):
     global info
-    screenshots = info.exp_result.get_screenshots(som=som_or_not == "SOM Screenshots")
+    max_steps = len(info.exp_result.steps_info)
+
+    screenshots = [get_screenshot(info, step=i, som_or_not=som_or_not)[0] for i in range(max_steps)]
+
     screenshots_and_label = [(s, f"Step {i}") for i, s in enumerate(screenshots)]
+
     gallery = gr.Gallery(
         value=screenshots_and_label,
         columns=2,
@@ -595,7 +603,8 @@ def update_pruned_html():
 
 
 def update_axtree():
-    return get_obs(key="axtree_txt", default="No AXTree")
+    obs = get_obs(key="axtree_txt", default="No AXTree")
+    return f"```\n{obs}\n```"
 
 
 def dict_to_markdown(d: dict):
@@ -645,7 +654,7 @@ def dict_msg_to_markdown(d: dict):
             case "text":
                 parts.append(f"\n```\n{item['text']}\n```\n")
             case "tool_use":
-                tool_use = f"Tool Use: {item['name']} {item['input']} (id = {item['id']})"
+                tool_use = _format_tool_call(item["name"], item["input"], item["call_id"])
                 parts.append(f"\n```\n{tool_use}\n```\n")
             case _:
                 parts.append(f"\n```\n{str(item)}\n```\n")
@@ -655,6 +664,30 @@ def dict_msg_to_markdown(d: dict):
     return markdown
 
 
+def _format_tool_call(name: str, input: str, call_id: str):
+    """
+    Format a tool call to markdown.
+    """
+    return f"Tool Call: {name}  `{input}` (call_id: {call_id})"
+
+
+def format_chat_message(message: BaseMessage | MessageBuilder | dict):
+    """
+    Format a message to markdown.
+    """
+    if isinstance(message, BaseMessage):
+        return message.content
+    elif isinstance(message, MessageBuilder):
+        return message.to_markdown()
+    elif isinstance(message, dict):
+        return dict_msg_to_markdown(message)
+    elif isinstance(message, ResponseFunctionToolCall):  # type: ignore[return]
+        too_use_str = _format_tool_call(message.name, message.arguments, message.call_id)
+        return f"### Tool Use\n```\n{too_use_str}\n```\n"
+    else:
+        return str(message)
+
+
 def update_chat_messages():
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
@@ -662,20 +695,9 @@ def update_chat_messages():
     if isinstance(chat_messages, Discussion):
         return chat_messages.to_markdown()
 
-    if isinstance(chat_messages, list) and isinstance(chat_messages[0], MessageBuilder):
-        chat_messages = [
-            m.to_markdown() if isinstance(m, MessageBuilder) else dict_msg_to_markdown(m)
-            for m in chat_messages
-        ]
+    if isinstance(chat_messages, list):
+        chat_messages = [format_chat_message(m) for m in chat_messages]
         return "\n\n".join(chat_messages)
-    messages = []  # TODO(ThibaultLSDC) remove this at some point
-    for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
-            m = m.content
-        elif isinstance(m, dict):
-            m = m.get("content", "No Content")
-        messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
-    return "\n".join(messages)
 
 
 def update_task_error():
@@ -722,8 +744,8 @@ def update_agent_info_html():
     global info
     # screenshots from current and next step
     try:
-        s1 = get_screenshot(info, info.step, False)
-        s2 = get_screenshot(info, info.step + 1, False)
+        s1, action_str = get_screenshot(info, info.step, False)
+        s2, action_str = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
         page = agent_info.get("html_page", ["No Agent Info"])
         if page is None:
@@ -854,6 +876,8 @@ def get_episode_info(info: Info):
 
 def get_action_info(info: Info):
     steps_info = info.exp_result.steps_info
+    img, action_str = get_screenshot(info, step=info.step, annotate=True)  # to update click_mapper
+
     if len(steps_info) == 0:
         return "No steps were taken"
     if len(steps_info) <= info.step:
@@ -863,7 +887,7 @@ def get_action_info(info: Info):
     action_info = f"""\
 **Action:**
 
-{code(step_info.action)}
+{action_str}
 """
     think = step_info.agent_info.get("think", None)
     if think is not None:
@@ -1084,8 +1108,11 @@ def get_directory_contents(results_dir: Path):
                 most_recent_summary = max(summary_files, key=os.path.getctime)
                 summary_df = pd.read_csv(most_recent_summary)
 
+                if len(summary_df) == 0 or summary_df["avg_reward"].isna().all():
+                    continue  # skip if all avg_reward are NaN
+
                 # get row with max avg_reward
-                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax()]
+                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax(skipna=True)]
                 reward = max_reward_row["avg_reward"] * 100
                 completed = max_reward_row["n_completed"]
                 n_err = max_reward_row["n_err"]
@@ -1093,7 +1120,7 @@ def get_directory_contents(results_dir: Path):
                     f" - avg-reward: {reward:.1f}% - completed: {completed} - errors: {n_err}"
                 )
         except Exception as e:
-            print(f"Error while reading summary file: {e}")
+            print(f"Error while reading summary file {most_recent_summary}: {e}")
 
         exp_descriptions.append(exp_description)
 
@@ -1219,7 +1246,6 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 horizontalalignment="left",
                 rotation=0,
                 clip_on=True,
-                antialiased=True,
                 fontweight=1000,
                 backgroundcolor=colors[12],
             )
