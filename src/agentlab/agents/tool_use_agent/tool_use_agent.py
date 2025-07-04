@@ -563,15 +563,15 @@ OSWORLD_CLAUDE = ToolUseAgentArgs(
         obs=Obs(
             use_last_error=True,
             use_screenshot=True,
-            use_axtree=False,
+            use_axtree=True,
             use_dom=False,
             use_som=False,
             use_tabs=False,
         ),
-        summarizer=Summarizer(do_summary=True),
+        summarizer=Summarizer(do_summary=True),  # do not summarize in OSWorld
         general_hints=GeneralHints(use_hints=False),
         task_hint=TaskHint(use_task_hint=False),
-        keep_last_n_obs=1,  # keep only the last observation in the discussion
+        keep_last_n_obs=None,  # keep only the last observation in the discussion
         multiaction=False,  # whether to use multi-action or not
         action_subsets=("coord",),  # or "bid"
     ),
