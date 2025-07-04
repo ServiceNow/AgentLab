@@ -38,6 +38,7 @@ class OsworldGym(AbstractEnv):
         require_terminal: bool,
         os_type: str,
         enable_proxy: bool,
+        max_steps: int = 50,
     ):
         self.task = task
         self.env_info = {
@@ -67,10 +68,13 @@ class OsworldGym(AbstractEnv):
             require_terminal=require_terminal,
             os_type=os_type,
         )
+        self._step_count = 0
+        self.max_steps = max_steps
 
     def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
         raw_obs = self.env.reset(task_config=self.task, seed=seed)
         obs = self.env_to_agentlab_observation(raw_obs)
+        self._step_count = 0
         return obs, self.env_info
 
     @add_step_timing_to_env_info_decorator
@@ -79,7 +83,8 @@ class OsworldGym(AbstractEnv):
         env_action = self.agentlab_to_env_action(action)
         logger.info(f"AgentLab Action returned: {action}, converted to: {env_action}")
         raw_obs, reward, done, info = self.env.step(env_action)
-        truncated = False  # Figure out how to handle truncation in OSWorld
+        self._step_count += 1
+        truncated = info.get('fail', False) or self._step_count >= self.max_steps
         obs = self.env_to_agentlab_observation(raw_obs)
         return obs, reward, done, truncated, info
 
@@ -387,7 +392,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
     require_terminal: bool = False
     os_type: str = "Ubuntu"
     enable_proxy: bool = False
-    # TODO: Add max steps.
+    max_steps: int = 100  
 
     def make_env(
         self, exp_dir: Path, action_mapping=None, use_raw_page_output: bool = False
@@ -407,6 +412,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
             require_terminal=self.require_terminal,
             os_type=self.os_type,
             enable_proxy=self.enable_proxy,
+            max_steps=self.max_steps,
         )
         return gym
 
