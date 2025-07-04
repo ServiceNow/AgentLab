@@ -249,6 +249,9 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
             output.append({"role": "user", "content": tail_content})
         return output
 
+    def mark_all_previous_msg_for_caching(self) -> List[Message]:
+        pass
+
 
 class AnthropicAPIMessageBuilder(MessageBuilder):
 
