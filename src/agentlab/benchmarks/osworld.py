@@ -1,16 +1,19 @@
+import ast
 import json
 import logging
 import os
-import re
 from copy import deepcopy
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
+import numpy as np
 from bgym import AbstractActionSet
 from dataclasses_json import DataClassJsonMixin
-from desktop_env.actions import ACTION_SPACE
+from desktop_env.actions import KEYBOARD_KEYS, X_MAX, Y_MAX
 from desktop_env.desktop_env import DesktopEnv
+from PIL import Image
 
 from agentlab.benchmarks.abstract_env import (
     AbstractBenchmark,
@@ -18,11 +21,310 @@ from agentlab.benchmarks.abstract_env import (
     AbstractEnvArgs,
     add_step_timing_to_env_info_decorator,
 )
+from agentlab.benchmarks.osworld_axtree_preprocessing import (
+    linearize_accessibility_tree,
+    tag_screenshot,
+)
 
 logger = logging.getLogger(__name__)
 
+# TODO: Extract X_Max and Y_MAX from screen size
+COMPUTER_13_ACTIONS_OAI_RESPONSE_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "move_to",
+            "description": "Move the cursor to the specified position",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "X coordinate",
+                        "minimum": 0,
+                        "maximum": X_MAX,
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y coordinate",
+                        "minimum": 0,
+                        "maximum": Y_MAX,
+                    },
+                },
+                "required": ["x", "y"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "click",
+            "description": "Click the left button if the button not specified, otherwise click the specified button; click at the current position if x and y are not specified, otherwise click at the specified position",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "button": {
+                        "type": "string",
+                        "enum": ["left", "right", "middle"],
+                        "description": "Mouse button to click",
+                    },
+                    "x": {
+                        "type": "number",
+                        "description": "X coordinate",
+                        "minimum": 0,
+                        "maximum": X_MAX,
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y coordinate",
+                        "minimum": 0,
+                        "maximum": Y_MAX,
+                    },
+                    "num_clicks": {
+                        "type": "integer",
+                        "enum": [1, 2, 3],
+                        "description": "Number of clicks",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_down",
+            "description": "Press the left button if the button not specified, otherwise press the specified button",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "button": {
+                        "type": "string",
+                        "enum": ["left", "right", "middle"],
+                        "description": "Mouse button to press",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_up",
+            "description": "Release the left button if the button not specified, otherwise release the specified button",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "button": {
+                        "type": "string",
+                        "enum": ["left", "right", "middle"],
+                        "description": "Mouse button to release",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "right_click",
+            "description": "Right click at the current position if x and y are not specified, otherwise right click at the specified position",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "X coordinate",
+                        "minimum": 0,
+                        "maximum": X_MAX,
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y coordinate",
+                        "minimum": 0,
+                        "maximum": Y_MAX,
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "double_click",
+            "description": "Double click at the current position if x and y are not specified, otherwise double click at the specified position",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "X coordinate",
+                        "minimum": 0,
+                        "maximum": X_MAX,
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y coordinate",
+                        "minimum": 0,
+                        "maximum": Y_MAX,
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "drag_to",
+            "description": "Drag the cursor to the specified position with the left button pressed",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "X coordinate",
+                        "minimum": 0,
+                        "maximum": X_MAX,
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y coordinate",
+                        "minimum": 0,
+                        "maximum": Y_MAX,
+                    },
+                },
+                "required": ["x", "y"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scroll",
+            "description": "Scroll the mouse wheel up or down",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dx": {"type": "integer", "description": "Horizontal scroll amount"},
+                    "dy": {"type": "integer", "description": "Vertical scroll amount"},
+                },
+                "required": ["dx", "dy"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "typing",
+            "description": "Type the specified text",
+            "parameters": {
+                "type": "object",
+                "properties": {"text": {"type": "string", "description": "Text to type"}},
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "press",
+            "description": "Press the specified key and release it",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "enum": KEYBOARD_KEYS, "description": "Key to press"}
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "key_down",
+            "description": "Press the specified key",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "enum": KEYBOARD_KEYS,
+                        "description": "Key to press down",
+                    }
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "key_up",
+            "description": "Release the specified key",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "enum": KEYBOARD_KEYS,
+                        "description": "Key to release",
+                    }
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hotkey",
+            "description": "Press the specified key combination",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keys": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": KEYBOARD_KEYS},
+                        "description": "Array of keys to press simultaneously",
+                    }
+                },
+                "required": ["keys"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wait",
+            "description": "Wait until the next action",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fail",
+            "description": "Decide the task cannot be performed",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "done",
+            "description": "Decide the task is done",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+]
+
 
 class OsworldGym(AbstractEnv):
+
     def __init__(
         self,
         task: dict,
@@ -93,17 +395,14 @@ class OsworldGym(AbstractEnv):
         obs = self.env_to_agentlab_observation(raw_obs)
         return obs, reward, done, truncated, info
 
-    def agentlab_to_env_action(self, action: str) -> str:
+    def agentlab_to_env_action(self, action: str) -> Any:
         """Convert AgentLab agents action format to OSWorld action format."""
         if self.env.action_space == "computer_13":
-            # expects dictionary with 'keys' action_type and parameters
             return self.convert_agentlab_action_to_computer_13(action)
         elif self.env.action_space == "pyautogui":
-            pattern = r"pyautogui_action\(action=['\"](.*)['\"]\)"
-            match = re.search(pattern, action)
-            if match:
-                return match.group(1)
-            return action
+            raise NotImplementedError(
+                "PyAutoGUI action space is not supported yet. Please use 'computer_13' action space."
+            )
 
     def env_to_agentlab_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
         """Convert OSWorld observation to AgentLab format."""
@@ -153,26 +452,56 @@ class OsworldGym(AbstractEnv):
             converted_obs["terminal_output"] = obs["terminal"]
         return converted_obs
 
-    def convert_agentlab_action_to_computer_13(self, action: str) -> dict[str, Any]:
-        """Convert action string to dictionary format"""
-        import ast
+    def convert_agentlab_action_to_computer_13(self, action: str) -> dict[str, Any] | str:
+        """Convert action string to dictionary format.
+        
+        Examples:
+        >>> env = OsworldGym(task={}, provider_name="vmware", region=None, path_to_vm=None, 
+        ...                  snapshot_name="init_state", action_space="computer_13", 
+        ...                  cache_dir="cache", screen_size=(1920, 1080), headless=True,
+        ...                  require_a11y_tree=True, require_terminal=False, os_type="Ubuntu",
+        ...                  enable_proxy=False, max_steps=50)
+        >>> env.convert_agentlab_action_to_computer_13("move_to(x=100, y=200)")
+        {'action_type': 'MOVE_TO', 'parameters': {'x': 100, 'y': 200}}
+        >>> env.convert_agentlab_action_to_computer_13("wait()")
+        'WAIT'
+        """
 
-        pattern = r"computer_\d+_action\(action_type=\"(\w+)\",\s*parameters=({.*?})\)"
-        match = re.match(pattern, action)
+        action_type, action_args, action_kwargs = self.parse_agentlab_action_str_to_func_args(action)
 
-        if match:
-            action_type = match.group(1)
-            params_str = match.group(2)
-            # Safely evaluate the parameters dictionary
-            try:
-                parameters = ast.literal_eval(params_str)
-            except (ValueError, SyntaxError):
-                # Handle malformed parameter strings
-                parameters = {}
+        if action_type in ["wait","done", "fail"]:
+            return str(action_type).upper()  
+        if action_args:
+            logger.warning(
+                f"""Action '{action_type}' has unexpected positional arguments: {action_args}.
+                OSWorld Computer 13 actions are processed as dictionaries."""
+            )
+        action_kwargs = action_kwargs if action_kwargs is not None else {}
 
-            return {"action_type": action_type, "parameters": parameters}
-        else:
-            raise ValueError("Invalid action string format")
+        return { "action_type": str(action_type).upper(), "parameters": action_kwargs}
+
+    @staticmethod
+    def parse_agentlab_action_str_to_func_args(action: str):
+        """Parse the agentlab action string to extract function name, args, and kwargs.
+        
+        Examples:
+        >>> parse_agentlab_action_str_to_func_args("move_to(x=100, y=200)")
+        ('move_to', [], {'x': 100, 'y': 200})
+        >>> parse_agentlab_action_str_to_func_args("hotkey(keys=['ctrl', 'alt', 't'])")
+        ('hotkey', [], {'keys': ['ctrl', 'alt', 't']})
+        """
+        try:
+            parsed = ast.parse(action, mode="eval")
+            if isinstance(parsed.body, ast.Call):
+                func_name = ast.unparse(parsed.body.func)
+                args = [ast.literal_eval(arg) for arg in parsed.body.args]
+                kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in parsed.body.keywords}
+                return func_name, args, kwargs
+        except Exception as e:
+            logger.warning(
+                f"Failed to parse agentlab agent's str function call: {action}, error: {e}"
+            )
+        return None, None, None
 
     def close(self):
         return self.env.close()
@@ -180,167 +509,42 @@ class OsworldGym(AbstractEnv):
 
 class OSWorldActionSet(AbstractActionSet):
     # TODO: Define and use agentlab AbstractActionSet
-    # TODO: AbstractActionSet should define some standard format to represent actions.(list of dict with keys that are MCP compatible)
-    # (list of callables? that have extensive docstring with examples. We can then use inspect module to extract relevant info)
-    # TODO: Should we have 'abstract function' here for action conversion for backend LLM with fixed action set like UI-Tars or Semi-fixed action set LLMs like OpenAI CUA?
-    # TODO: We need to support both 'action space as tools' and 'action space as prompt' for agentlab agents and have conversion functions to convert them to format acceptable by environment.
+    # AbstractActionSet should define some standard format to represent actions.(list of dict with keys that are MCP compatible)
+    # Should we have 'abstract function' here for action conversion for backend LLM with fixed action set like UI-Tars or Semi-fixed action set LLMs like OpenAI CUA?
+    # TODO: We need to support both 'action space as tools' and 'action space as prompt' for agentlab agents
+    # and have conversion functions to convert them to format acceptable by environment.
     def __init__(self, action_space: Literal["computer_13", "pyautogui"]):
         self.action_space = action_space
-
     def describe(self, with_long_description: bool = True, with_examples: bool = True) -> str:
         """Describe the OSWorld action set for desktop interactions."""
-        description = "OSWorld Desktop Action Set\n\n"
-
-        if with_long_description:
-            description += f"Action space: {self.action_space}\n\n"
-            description += (
-                "This action set provides comprehensive desktop interaction capabilities including:\n"
-                "- Mouse operations: click, double-click, right-click, move, drag\n"
-                "- Keyboard operations: type text, press keys, key combinations\n"
-                "- Scrolling operations\n"
-                "- Task control: wait, done, fail\n\n"
-            )
-
-            if self.action_space == "computer_13":
-                description += "Actions are provided as structured dictionaries with action_type and parameters.\n"
-                description += str(ACTION_SPACE)
-            else:
-                description += "Actions are provided as executable Python code using pyautogui.\n"
-
-        if with_examples:
-            description += "\nAvailable actions:\n"
-            actions = [
-                "MOVE_TO - Move cursor to position",
-                "CLICK - Click at position or current cursor location",
-                "RIGHT_CLICK - Right click at position",
-                "DOUBLE_CLICK - Double click at position",
-                "DRAG_TO - Drag to position with left button",
-                "MOUSE_DOWN/MOUSE_UP - Press/release mouse button",
-                "SCROLL - Scroll horizontally/vertically",
-                "TYPING - Type text string",
-                "PRESS - Press and release a key",
-                "KEY_DOWN/KEY_UP - Press/release a key",
-                "HOTKEY - Press key combination",
-                "WAIT - Wait for action to complete",
-                "DONE - Mark task as completed",
-                "FAIL - Mark task as failed",
-            ]
-            description += "\n".join(f"- {action}" for action in actions)
-
-        return description
-
+        pass
     def example_action(self, abstract: bool) -> str:
         """Provide example actions for the action set."""
-        if self.action_space == "computer_13":
-            if abstract:
-                return '{"action_type": "CLICK", "parameters": {"x": 100, "y": 200}}'
-            else:
-                examples = [
-                    '{"action_type": "CLICK", "parameters": {"x": 500, "y": 300, "button": "left"}}',
-                    '{"action_type": "TYPING", "parameters": {"text": "Hello World"}}',
-                    '{"action_type": "PRESS", "parameters": {"key": "enter"}}',
-                    '{"action_type": "HOTKEY", "parameters": {"keys": ["ctrl", "c"]}}',
-                    '{"action_type": "SCROLL", "parameters": {"dx": 0, "dy": -3}}',
-                ]
-                return "\n".join(examples)
-        else:  # pyautogui
-            if abstract:
-                return "pyautogui.click(x=100, y=200)"
-            else:
-                examples = [
-                    "pyautogui.click(x=500, y=300, button='left')",
-                    "pyautogui.typewrite('Hello World')",
-                    "pyautogui.press('enter')",
-                    "pyautogui.hotkey('ctrl', 'c')",
-                    "pyautogui.vscroll(-3)",
-                ]
-                return "\n".join(examples)
+        pass
 
     def to_python_code(self, action) -> str:
         """We use the OS-world/desktop_env environment controller"""
         pass
 
-    def to_tool_descriptor(self):
-        """Convert the action set to a tool descriptor for LLMs."""
-        return ACTION_SPACE
-
     def to_tool_description(self, api="openai"):
         """Convert the action set to a tool description for Tool-Use LLMs."""
+        # TODO: Rename bgym AbstractActionSet to_tool_descriptor method as to_tool_description for consistency.
         if self.action_space == "computer_13":
-            tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "computer_13_action",
-                        "description": self.describe(
-                            with_long_description=True, with_examples=True
-                        ),
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "action_type": {
-                                    "type": "string",
-                                    "enum": [
-                                        "CLICK",
-                                        "DOUBLE_CLICK",
-                                        "RIGHT_CLICK",
-                                        "MOVE_TO",
-                                        "DRAG_TO",
-                                        "MOUSE_DOWN",
-                                        "MOUSE_UP",
-                                        "SCROLL",
-                                        "TYPING",
-                                        "PRESS",
-                                        "KEY_DOWN",
-                                        "KEY_UP",
-                                        "HOTKEY",
-                                        "WAIT",
-                                        "DONE",
-                                        "FAIL",
-                                    ],
-                                },
-                                "parameters": {"type": "object"},
-                            },
-                            "required": ["action_type"],
-                        },
-                    },
-                }
-            ]
+            tools = COMPUTER_13_ACTIONS_OAI_RESPONSE_TOOLS
         else:
-            tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "pyautogui_action",
-                        "description": self.describe(
-                            with_long_description=True, with_examples=True
-                        ),
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                # Represent any action that pyautogui can perform in string format.
-                                "action": {
-                                    "type": "string",
-                                    "description": "A pyautogui action in string format, e.g., 'pyautogui.click(x=100, y=200)'",
-                                }
-                            },
-                        },
-                    },
-                }
-            ]
+            raise ValueError(
+                "Only 'computer_13' action space is currently supported for tool description."
+            )
         if api == "anthropic":
-            return format_tools_from_openai_to_anthropic(tools)
+            return format_response_api_tools_to_anthropic(tools)
         else:
             return tools
 
 
-def format_tools_from_openai_to_anthropic(tools: list[dict]) -> list[dict]:
-    """Convert OpenAI tool format to Anthropic tool format."""
+def format_response_api_tools_to_anthropic(tools: list[dict]) -> list[dict]:
+    """Convert OpenAI Response API tool format to Anthropic tool format."""
     formatted_tools = []
     for tool in tools:
-        if tool.get("type") != "function":
-            raise ValueError(f"Unsupported tool type: {tool.get('type')}")
-
         function_def = tool["function"]
         formatted_tool = {
             "name": function_def["name"],
