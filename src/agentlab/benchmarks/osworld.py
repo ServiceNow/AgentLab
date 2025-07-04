@@ -109,51 +109,33 @@ class OsworldGym(AbstractEnv):
         """Convert OSWorld observation to AgentLab format."""
         converted_obs = {}
 
-        # Core visual and interaction components
         self._add_screenshot(converted_obs, obs)
-        # TODO: Check if the unprocessesed ax_tree is a suitable representation for agentlab agents or use the utility functions from os-world agents to convert them.
-        # TODO: Check if there is something equivalent to bid in OSWorld Axtree. and how it is used in the action space. This can be used with GenericAgent.
-        converted_obs["axtree_object"] = obs["accessibility_tree"]
+        # self._add_som_screenshot(converted_obs, obs)  #TODO: test this
+        converted_obs["axtree_txt"] = linearize_accessibility_tree(
+            accessibility_tree=obs["accessibility_tree"], platform="ubuntu"
+        )
         converted_obs["last_action_error"] = ""  # OSWorld doesn't provide this directly
         converted_obs["focused_element_bid"] = ""  # Extract from accessibility tree if available
-        # Browser-like context (adapted for desktop environment)
         converted_obs = self._add_browser_context(converted_obs)
-        # Task and instruction context
         converted_obs = self._add_task_context(converted_obs, obs)
 
         return converted_obs
 
+    def convert_screenshot_to_numpy(self, screenshot) -> np.ndarray:
+        """Convert screenshot to numpy array format expected by AgentLab."""
+        image = Image.open(BytesIO(screenshot))
+        image = image.convert("RGB") if image.mode != "RGB" else image
+        return np.array(image)
+
     def _add_screenshot(self, converted_obs: dict[str, Any], obs: dict[str, Any]) -> None:
         """Convert screenshot to numpy array format expected by AgentLab"""
-        if "screenshot" not in obs:
-            return
+        converted_obs["screenshot"] = self.convert_screenshot_to_numpy(obs["screenshot"])
 
-        screenshot = obs["screenshot"]
-
-        try:
-            from io import BytesIO
-
-            import numpy as np
-            from PIL import Image
-
-            if isinstance(screenshot, bytes):
-                image = Image.open(BytesIO(screenshot))
-            elif hasattr(screenshot, "convert"):  # PIL Image
-                image = screenshot
-            elif hasattr(screenshot, "__array__"):  # numpy array
-                converted_obs["screenshot"] = np.array(screenshot)
-                return
-            else:
-                raise ValueError(f"Unexpected screenshot type: {type(screenshot)}")
-
-            # Convert PIL image to RGB numpy array
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            converted_obs["screenshot"] = np.array(image)
-
-        except Exception as e:
-            logger.warning(f"Failed to process screenshot: {e}")
-            converted_obs["screenshot"] = None
+    def _add_som_screenshot(self, converted_obs: dict[str, Any], obs: dict[str, Any]) -> None:
+        """Convert SOM screenshot to numpy array format expected by AgentLab"""
+        masks, drew_nodes, tagged_screenshot, linearized_accessibility_tree = tag_screenshot(
+            obs["screenshot"], obs["accessibility_tree"], platform="ubuntu")
+        converted_obs["som_screenshot"] = self.convert_screenshot_to_numpy(tagged_screenshot)
 
     def _add_browser_context(self, converted_obs: dict[str, Any]):
         """Add browser-like context fields adapted for desktop environment."""
@@ -167,7 +149,6 @@ class OsworldGym(AbstractEnv):
         """Add task and instruction context fields."""
         instruction = obs.get("instruction", "")
         converted_obs["goal_object"] = [{"type": "text", "text": instruction}]
-        # Terminal output (preserve if available)
         if obs.get("terminal"):
             converted_obs["terminal_output"] = obs["terminal"]
         return converted_obs
