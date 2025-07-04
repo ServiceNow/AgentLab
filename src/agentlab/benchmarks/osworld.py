@@ -85,6 +85,11 @@ class OsworldGym(AbstractEnv):
         raw_obs, reward, done, info = self.env.step(env_action)
         self._step_count += 1
         truncated = info.get('fail', False) or self._step_count >= self.max_steps
+        if done or truncated:
+            try:
+                reward = self.env.evaluate()
+            except Exception as e:
+                logger.warning(f"Failed to evaluate {self.task} task: {e}")
         obs = self.env_to_agentlab_observation(raw_obs)
         return obs, reward, done, truncated, info
 
