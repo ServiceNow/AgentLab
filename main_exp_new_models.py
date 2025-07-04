@@ -17,18 +17,21 @@ from agentlab.experiments.study import Study
 
 logging.getLogger().setLevel(logging.INFO)
 
+# chat_model_args = CHAT_MODEL_ARGS_DICT["openai/gpt-4.1-mini-2025-04-14"]
+# chat_model_args = CHAT_MODEL_ARGS_DICT["openai/gpt-4.1-2025-04-14"]
+chat_model_args = CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.7-sonnet"]
 agent_args = [
     GenericAgentArgs(
-        chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4.1-mini-2025-04-14"],
+        chat_model_args=chat_model_args,
         flags=FLAGS_GPT_4o,
     )
 ]
 
 
 # ## select the benchmark to run on
-benchmark = "miniwob_tiny_test"
+# benchmark = "miniwob_tiny_test"
 # benchmark = "miniwob"
-# benchmark = "workarena_l1"
+benchmark = "workarena_l1"
 # benchmark = "workarena_l2"
 # benchmark = "workarena_l3"
 # benchmark = "webarena"
@@ -40,10 +43,10 @@ reproducibility_mode = False
 
 # Set relaunch = True to relaunch an existing study, this will continue incomplete
 # experiments and relaunch errored experiments
-relaunch = False
+relaunch = True
 
 ## Number of parallel jobs
-n_jobs = 4  # Make sure to use 1 job when debugging in VSCode
+n_jobs = 5  # Make sure to use 1 job when debugging in VSCode
 # n_jobs = -1  # to use all available cores
 
 
