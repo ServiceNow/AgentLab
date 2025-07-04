@@ -29,24 +29,108 @@ It includes:
 ContentItem = Dict[str, Any]
 Message = Dict[str, Union[str, List[ContentItem]]]
 
+BGYM_RESERVED_ACTION_FUNCTION_NAMES = [
+            "noop",
+            "scroll_at",
+            "mouse_move",
+            "mouse_up",
+            "mouse_down",
+            "mouse_click",
+            "mouse_dblclick",
+            "mouse_drag_and_drop",
+            "mouse_upload_file",
+            "keyboard_down",
+            "keyboard_up",
+            "keyboard_press",
+            "keyboard_type",
+            "keyboard_insert_text",
+        ]
+
+
+@dataclass
+class ToolCall:
+    #TODO: Check if this is a suitable tool representation for being MCP compliant.
+    name: str = field(default=None)
+    arguments: Dict[str, Any] = field(default_factory=dict)
+    raw_call: Any =  field(default=None)
+    tool_response: List[ContentItem] = field(default_factory=list)
+
+    @property
+    def is_env_action(self) -> bool:
+        """Check if the tool call is a reserved BGYM action."""
+        # TODO: env should return some func to check if agent action is env action.
+        # Keep in mind env may or may not have a fixed set of reserved actions.
+        return self.name in BGYM_RESERVED_ACTION_FUNCTION_NAMES
+
+    @property
+    def is_response_set(self) -> bool:
+        """Check if the tool response is set."""
+        return self.tool_response is not None
+
+    def add_text(self, text: str) -> "MessageBuilder":
+        self.tool_response.append({"text": text})
+        return self
+
+    def add_image(self, text: str) -> "MessageBuilder":
+        self.tool_response.append({"image": text})
+        return self
+    
+    def __repr__(self):
+        return f"ToolCall(name={self.name}, arguments={self.arguments})"
+
+
+@dataclass
+class ToolCalls:
+    tool_calls: List[ToolCall] = field(default_factory=list)
+    raw_calls: List[Any] = field(default_factory=list)
+
+    def add_tool_call(self, tool_call: ToolCall) -> "ToolCalls":
+        self.tool_calls.append(tool_call)
+        return self
+
+    def get_env_action_calls(self) -> List[ToolCall]:
+        """Get all tool calls that are reserved Environment actions."""
+        return [call for call in self.tool_calls if call.is_env_action]
+    
+    def get_non_env_action_calls(self) -> List[ToolCall]:
+        """Get all tool calls that are not reserved Environment actions."""
+        return [call for call in self.tool_calls if not call.is_env_action]
+    
+    @property
+    def all_responses_set(self) -> bool:
+        """Check if all tool calls have responses set."""
+        return all(call.is_response_set for call in self.tool_calls)
+
+    def __len__(self) -> int:
+        """Return the number of tool calls."""
+        return len(self.tool_calls)
+
+    def __iter__(self):
+        """Make ToolCalls iterable."""
+        return iter(self.tool_calls)
+    
+    def __bool__(self):
+        """Check if there are any tool calls."""
+        return len(self.tool_calls) > 0
+
 
 @dataclass
 class LLMOutput:
     """Serializable object for the output of a response LLM."""
 
-    raw_response: Any = field(default_factory=dict)
+    raw_response: Any = field(default=None)
     think: str = field(default="")
     action: str = field(default=None)  # Default action if no tool call is made
-    tool_calls: Any = field(default=None)  # This will hold the tool call response if any
+    tool_calls: ToolCalls = field(default=None) # This will hold the tool call response if any
 
 
 class MessageBuilder:
     def __init__(self, role: str):
 
         self.role = role
-        self.last_raw_response: LLMOutput = None
+        self.last_raw_response: LLMOutput = None # NOTE: last_raw_response will be deprecated in future version. We can use ToolCalls object to get all the relevant information.
         self.content: List[ContentItem] = []
-        self.tool_call_id: Optional[str] = None
+        self.responsed_tool_calls: ToolCalls = None 
 
     @classmethod
     def system(cls) -> "MessageBuilder":
@@ -89,6 +173,19 @@ class MessageBuilder:
             elif "image" in item:
                 parts.append(f"![Image]({item['image']})")
 
+        # Tool call markdown repr
+        if self.responsed_tool_calls:
+            for i, tool_call in enumerate(self.responsed_tool_calls.tool_calls, 1):
+                args = ", ".join(f"{k}={v}" for k, v in tool_call.arguments.items())
+                parts.append(f"\n**Tool Call {i}**: {tool_call.name}({args})")
+                
+                if tool_call.tool_response:
+                    parts.append(f"\n**Tool Response {i}:**")
+                    for response_item in tool_call.tool_response:
+                        content = (f"```\n{response_item['text']}\n```" if "text" in response_item 
+                                 else f"![Tool Response Image]({response_item['image']})")
+                        parts.append(content)
+
         markdown = f"### {self.role.capitalize()}\n"
         markdown += "\n".join(parts)
 
@@ -104,6 +201,15 @@ class MessageBuilder:
         # This is a placeholder for future implementation.
         raise NotImplementedError
 
+    @classmethod
+    def add_responded_tool_calls(cls, responsed_tool_calls: ToolCalls) -> "MessageBuilder":
+        """Add tool calls to the message content."""
+
+        assert responsed_tool_calls.all_responses_set, "All tool calls must have a response."
+        msg = cls.tool(last_raw_response=None)
+        msg.responsed_tool_calls = responsed_tool_calls
+        return msg
+
 
 # TODO: Support parallel tool calls.
 
@@ -117,44 +223,56 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
     def prepare_message(self) -> List[Message]:
         content = []
         for item in self.content:
-            if "text" in item:
-                content_type = "input_text" if self.role != "assistant" else "output_text"
-                content.append({"type": content_type, "text": item["text"]})
-
-            elif "image" in item:
-                content.append({"type": "input_image", "image_url": item["image"]})
-
+            content.append(self.convert_content_to_expected_format(item))
         output = [{"role": self.role, "content": content}]
-        if self.role != "tool":
-            return output
+
+        return output if self.role != "tool" else self.handle_tool_call()
+
+    def convert_content_to_expected_format(self, content: ContentItem) -> ContentItem:
+        """Convert the content item to the expected format for OpenAI Responses."""
+        if "text" in content:
+            content_type = "input_text" if self.role != "assistant" else "output_text"
+            return {"type": content_type, "text": content["text"]}
+        elif "image" in content:
+            return {"type": "input_image", "image_url": content["image"]}
         else:
-            tool_call_response = self.handle_tool_call(content)
-            return tool_call_response
+            raise ValueError(f"Unsupported content type: {content}")
 
-    def handle_tool_call(self, content):
+    def handle_tool_call(self):
         """Handle the tool call response from the last raw response."""
-        output = []
-        head_content, *tail_content = content
-        api_response = self.last_raw_response
-        fn_calls = [content for content in api_response.output if content.type == "function_call"]
-        assert len(fn_calls) > 0, "No function calls found in the last response"
-        if len(fn_calls) > 1:
-            logging.warning("Using only the first tool call from many.")
+        if self.responsed_tool_calls is None:
+            raise ValueError("No tool calls found in responsed_tool_calls")
 
-        first_fn_call_id = fn_calls[0].call_id
-        fn_output = head_content.get("text", "Function call answer in next message")
-        fn_call_response = {
-            "type": "function_call_output",
-            "call_id": first_fn_call_id,
-            "output": fn_output,
-        }
-        output.append(fn_call_response)
-        if tail_content:
-            # if there are more content items, add them as a new user message
-            output.append({"role": "user", "content": tail_content})
+        output = []
+        for fn_call in self.responsed_tool_calls:
+            call_type = fn_call.raw_call.type
+            call_id = fn_call.raw_call.call_id
+            call_response = fn_call.tool_response  # List[ContentItem]
+
+            match call_type:
+                case "function_call":
+                    # image output is not supported in function calls response.
+                    fn_call_response = {
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": [
+                            self.convert_content_to_expected_format(item) for item in call_response
+                        ],
+                    }
+                    output.append(fn_call_response)
+
+                case "computer_call":
+                    # For computer calls, use only images are expected.
+                    computer_call_output = {
+                        "type": "computer_call_output",
+                        "call_id": call_id,
+                        "output": self.convert_content_to_expected_format(call_response[0]), # list needs to be flattened
+                    }
+                    output.append(computer_call_output)  # this needs to be a screenshot
+
         return output
 
-    def mark_all_previous_msg_for_caching(self) -> List[Message]:
+    def mark_all_previous_msg_for_caching(self):
         pass
 
 
@@ -171,22 +289,15 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
             output["role"] = "user"
 
         if self.role == "tool":
-
-            api_response = self.last_raw_response
-            fn_calls = [content for content in api_response.content if content.type == "tool_use"]
-            assert len(fn_calls) > 0, "No tool calls found in the last response"
-            if len(fn_calls) > 1:
-                logging.warning("Using only the first tool call from many.")
-            tool_call_id = fn_calls[0].id  # Using the first tool call ID
-
+            assert self.responsed_tool_calls is not None, "No tool_calls added to tool call response"
             output["role"] = "user"
-            output["content"] = [
-                {
+            output["content"] = [{
                     "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": output["content"],
-                }
-            ]
+                    "tool_use_id": call.raw_call.id,
+                    "content": [self.transform_content(item) for item in call.tool_response]
+                } for call in self.responsed_tool_calls
+                ]
+
         if self.role == "assistant":
             # Strip whitespace from assistant text responses. See anthropic error code 400.
             for c in output["content"]:
@@ -302,6 +413,85 @@ class BaseModelWithPricing(TrackAPIPricingMixin, BaseResponseModel):
     pass
 
 
+
+# TODO: Define and use Flexible set of Configuration.
+# Below configs are not used and are WIP. 
+# _______________________________________________________________
+
+# Some High-level requirements.
+
+# Env can have multiple actions sets. Each action set should be supported as tools and prompt description.
+# Env should have converstion functions to parse the tool calls or text to back to env actions.
+
+# Backend LLMs or Large action models can have thier own action sets (Ui-Tars, CUA), which can be fixed or flexible.
+# EnvConfig or LLMConfig or ActionConfig should provide conversion from Backend LLM action to env_action.
+
+# AgentLab Agents may emit multiple actions. EnvConfig should mention if it supports multiple actions in a single step.
+# If Env controller does not natively support multiactions. We can choose to integrate Env logic which brings this support.
+
+# Env should broadcast what obersvations are supported and agent loop should be able to handle them. (e.g, Ax_tree) 
+
+@dataclass
+class ActionConfig:
+    action_set: "AbstractActionSet"  # TODO: Agentlab AbstractActionSet, have constructor methods to create actions as tools or descriptions with examples.
+    multiaction: bool = True
+    env_action_as_tools: bool = True  # If True, action set is treated as tools
+    tools: Optional[List[Dict[str, Any]]] = None  # List of tool definitions or list of functions
+    tool_text_descriptions: str = ""  # Some description of the tools, emitted by the environment.
+    tools_calls_to_env_action_parser: callable = # Some callable given by the environment to convert tool calls to env actions.
+    text_to_env_action_parser: Optional[Type[MessageBuilder]] = None
+
+@dataclass
+class ObsConfig
+# Check generic agent
+    pass
+@dataclass
+class Config:
+    model_args: BaseModelArgs
+    obs: ObsConfig
+    action: ActionConfig
+    generationConfig: GenerationConfig
+
+@dataclass
+class PromptConfig:
+    # use_hints
+    # use_summarizer
+    pass
+@dataclass
+class ProviderConfig:
+    """Configuration for the LLM provider."""
+    api_key_env_var: Optional[str] = None
+    base_url: Optional[str] = None  # Base URL for the API, if different
+    # Anything else? # VLLM specific configurations ?, etc.
+@dataclass
+class LLMConfig:
+    # backend LLM supported action set 
+    # Any other LLM specific configurations
+    # Tool calling format?
+    # Maybe include provider specific configurations here?
+    
+    pass
+
+@dataclass
+class GenerationConfig:
+    temperature: float = 0.5
+    max_new_tokens: int = 100
+    # Might be useful for exploration to have the ability to modify inside agent loop.
+
+@dataclass
+class APIPayload:
+    messages: List[MessageBuilder | ToolCalls]
+    api_endpoint: str
+    api_key_env_var: Optional[str] = None
+    base_url: Optional[str] = None
+    tools: Optional[List[Dict[str, Any]]] = None  # Taken from ActionConfig 
+    tool_choice: Optional[str] = None  # Fix some literal value for tool choice, e.g., "auto" and convert according to the API. OpenAI and Anthrophic can have different tool choice parameters that behave differently.
+    generation_config: GenerationConfig = GenerationConfig()
+    caching: bool = False  # If True, cache the response
+    # The agent loop will form the payload based on the config and pass it to the API call.
+
+# _______________________________________________________________
+
 class OpenAIResponseModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -314,6 +504,8 @@ class OpenAIResponseModel(BaseModelWithPricing):
     ):
         self.tools = kwargs.pop("tools", None)
         self.tool_choice = kwargs.pop("tool_choice", None)
+        self.action_space_as_tools = True # this should be a config
+        self.multiaction_in_a_step = True # this should be a config
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -325,10 +517,9 @@ class OpenAIResponseModel(BaseModelWithPricing):
         self.client = OpenAI(api_key=api_key)
 
     def _call_api(self, messages: list[Any | MessageBuilder], **kwargs) -> dict:
-        input = []
-        for msg in messages:
-            input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
+        input = self.convert_messages_to_api_format(messages)
 
+        #TODO: API/Payload Params should be a config dataclass. Update once settled on a config structure.
         api_params: Dict[str, Any] = {
             "model": self.model_name,
             "input": input,
@@ -350,38 +541,107 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
         return response
 
-    def _parse_response(self, response: dict) -> dict:
-        result = LLMOutput(
+    def convert_messages_to_api_format(self, messages: List[MessageBuilder| ToolCalls]) -> List[Message]:
+        """Convert messages to the format expected by the OpenAI Responses API."""
+        input = []
+        for msg in messages:
+            if isinstance(msg, MessageBuilder):
+                temp = msg.prepare_message()
+            elif isinstance(msg, ToolCalls):
+                temp = msg.raw_calls
+            else:
+                raise TypeError('Unsupported message type: {}'.format(type(msg)))
+            input.extend(temp)
+        return input
+
+    def _parse_response(self, response: "OpenAIResponseObject") -> LLMOutput:
+        """Parse the raw response from the OpenAI Responses API."""
+        think_output = self._extract_thinking_content_from_response(response)
+        toolcalls = self._extract_tool_calls_from_response(response)
+        if self.action_space_as_tools:
+            env_action = self._extract_env_actions_from_toolcalls(toolcalls)
+        else:
+            env_action = self._extract_env_actions_from_text_response(response)
+        return LLMOutput(
             raw_response=response,
-            think="",
-            action=None,
-            tool_calls=None,
+            think=think_output,
+            action=env_action if env_action is not None else "",  
+            tool_calls=toolcalls if toolcalls is not None else None,
         )
-        interesting_keys = ["output_text"]
+
+
+    def _extract_tool_calls_from_response(self, response: "OpenAIResponseObject") -> ToolCalls:
+        """Extracts tool calls from the response."""
+        #TODO: Should this be in the BaseResponseModelclass?
+        tool_calls = ToolCalls(raw_calls=response.output)
         for output in response.output:
             if output.type == "function_call":
-                arguments = json.loads(output.arguments)
-                func_args_str = ", ".join(
-                    [
-                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
-                        for k, v in arguments.items()
-                    ]
-                )
-                result.action = f"{output.name}({func_args_str})"
-                result.tool_calls = output
-                break
-            elif output.type == "reasoning":
+                tool_name = output.name
+                tool_args = json.loads(output.arguments)
+            elif output.type == "computer_call":
+                tool_name, tool_args = self.cua_action_to_env_tool_name_and_args(output.action)
+            else:
+                continue
+            tool_call = ToolCall(
+                name=tool_name,
+                arguments=tool_args,
+                raw_call=output,
+            )
+            tool_calls.add_tool_call(tool_call)
+        return tool_calls
+
+    def _extract_env_actions_from_toolcalls(self, toolcalls: ToolCalls) -> Any | None:
+        """Extracts actions from the response."""
+        #TODO: Should this be in the BaseResponseModelclass? or Emitted by Environment?
+        actions = []
+        for call in toolcalls:
+            if call.is_env_action:
+                action_str = self.convert_toolcall_to_env_action_format(call)
+                actions.append(action_str)
+        if self.multiaction_in_a_step: # This should be a config
+            return self.convert_multiactions_to_env_action_format(actions)
+        else:
+            return actions[0] if actions else None
+
+    def _extract_thinking_content_from_response(self, response: "OpenAIResponseObject") -> str:
+        """Extracts the thinking content from the response."""
+        thinking_content = ""
+        for output in response.output:
+            if output.type == "reasoning":
                 if len(output.summary) > 0:
-                    result.think += output.summary[0].text + "\n"
-
+                    thinking_content += output.summary[0].text + "\n"
             elif output.type == "message" and output.content:
-                result.think += output.content[0].text + "\n"
-        for key in interesting_keys:
-            if key_content := getattr(output, "output_text", None) is not None:
-                result.think += f"<{key}>{key_content}</{key}>"
-        return result
+                thinking_content += output.content[0].text + "\n"
+            elif hasattr(output, "output_text") and output.output_text:
+                thinking_content += f"{output.output_text}\n"
+        return thinking_content
+
+    ### Environment Specific functions, in this case BGYM  ###
+
+    #TODO: Should the below functions be in the BaseResponseModelclass? or Emitted by the Environment and intialized using a config?
+    def convert_toolcall_to_env_action_format(self, toolcall: ToolCall) -> str:
+        """Convert a tool call to an BGYM environment action string."""
+        action_name, tool_args = toolcall.name, toolcall.arguments
+        action_args = ", ".join(
+            f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}" for k, v in tool_args.items()
+        )
+        action_str = f"{action_name}({action_args})"
+        return action_str
+
+    def convert_multiactions_to_env_action_format(self, actions:list[Any] ) -> Any:
+        """Convert multiple actions list to a format that env supports"""
+        return "\n".join(actions) if actions else None
+
+    def cua_action_to_env_tool_name_and_args(self, action: str) -> tuple[str, Dict[str, Any]]:
+        pass
+
+    def _extract_env_actions_from_text_response(self, response: "OpenAIResponseObject") -> str | None:
+        """Extracts environment actions from the text response."""
+        # Use when action space is not given as tools.
+        pass
 
 
+# TODO: Refactor similar to OpenAIResponseModel
 class OpenAIChatCompletionModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -513,6 +773,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         return f"{reasoning_content}{msg_content}{message.get('content', '')}"
 
 
+# TODO: Refactor similar to OpenAIResponseModel
 class ClaudeResponseModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -545,7 +806,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
         sys_msg, other_msgs = self.filter_system_messages(messages)
         sys_msg_text = "\n".join(c["text"] for m in sys_msg for c in m.content)
         for msg in other_msgs:
-            temp = msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg]
+            if isinstance(msg, MessageBuilder):
+                temp = msg.prepare_message() 
+            elif isinstance(msg, ToolCalls):
+                temp = [{
+                    "role": "assistant",
+                    "content": msg.raw_calls.content
+                }]
             if kwargs.pop("use_cache_breakpoints", False):
                 temp = self.apply_cache_breakpoints(msg, temp)
             input.extend(temp)
@@ -591,16 +858,16 @@ class ClaudeResponseModel(BaseModelWithPricing):
                 other_msgs.append(msg)
         return sys_msgs, other_msgs
 
-    def _parse_response(self, response: dict) -> dict:
+    def _parse_response(self, response: dict) -> LLMOutput:
         result = LLMOutput(
             raw_response=response,
             think="",
             action=None,
-            tool_calls={
-                "role": "assistant",
-                "content": response.content,
-            },
-        )
+            tool_calls=None
+            )
+        tool_calls = ToolCalls(raw_calls=response)  # Initialize ToolCalls to hold tool call responses
+        action_list = []
+        # print(f"Response from Claude: {response}")
         for output in response.content:
             if output.type == "tool_use":
                 func_args_str = ", ".join(
@@ -609,9 +876,13 @@ class ClaudeResponseModel(BaseModelWithPricing):
                         for k, v in output.input.items()
                     ]
                 )
-                result.action = f"{output.name}({func_args_str})"
+                action_list.append(f"{output.name}({func_args_str})")
+                tool_calls.add_tool_call(ToolCall(name=output.name, arguments=output.input, raw_call=output))
             elif output.type == "text":
                 result.think += output.text
+        
+        result.tool_calls = tool_calls if tool_calls else None
+        result.action = "\n".join(action_list)
         return result
 
     # def ensure_cache_conditions(self, msgs: List[Message]) -> bool:
@@ -626,6 +897,8 @@ class ClaudeResponseModel(BaseModelWithPricing):
 
 
 # Factory classes to create the appropriate model based on the API endpoint.
+
+# TODO: Do we really need these factory classes? how about implementing a _from_args() method in the BaseModelArgs class?
 @dataclass
 class OpenAIResponseModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an OpenAI

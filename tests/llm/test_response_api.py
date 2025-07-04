@@ -290,17 +290,15 @@ def test_claude_response_model_parse_and_cost():
             messages = [
                 AnthropicAPIMessageBuilder.user()
                 .add_text("Search for latest news")
-                .prepare_message()[0]
             ]
             parsed_output = model(messages)
 
     mock_create.assert_called_once()
-    fn_calls = [
-        content for content in parsed_output.raw_response.content if content.type == "tool_use"
-    ]
+    fn_call = next(iter(parsed_output.tool_calls))
+
     assert "Thinking about the request." in parsed_output.think
-    assert parsed_output.action == 'search_web(query="latest news")'
-    assert fn_calls[0].id == "tool_abc"
+    assert parsed_output.action == ['search_web(query="latest news")']
+    assert fn_call.name == "search_web"
     assert global_tracker.stats["input_tokens"] == 40
     assert global_tracker.stats["output_tokens"] == 20
     # assert global_tracker.stats["cost"] > 0 # Verify cost is calculated
@@ -442,14 +440,13 @@ def test_claude_response_model_pricy_call():
         messages = [
             AnthropicAPIMessageBuilder.user()
             .add_text("What is the weather in Paris?")
-            .prepare_message()[0]
         ]
         parsed_output = model(messages)
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == 'get_weather(location="Paris")'
-    ), f'Expected get_weather("Paris") but got {parsed_output.action}'
+        parsed_output.action == ['get_weather(location="Paris")']
+    ), f'Expected [get_weather("Paris")] but got {parsed_output.action}'
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -689,7 +686,10 @@ def test_claude_model_with_multiple_messages_pricy_call():
         prev_cost = global_tracker.stats["cost"]
 
         messages.append(llm_output1.tool_calls)
-        messages.append(msg_builder.tool(llm_output1.raw_response).add_text("Its sunny! 25°C"))
+        for tool_call in llm_output1.tool_calls:
+            tool_call.add_text("It's sunny! 25°C")
+        messages.append(
+            msg_builder.add_responded_tool_calls(llm_output1.tool_calls))
         messages.append(msg_builder.user().add_text("What is the weather in Delhi?"))
         llm_output2 = model(messages)
         # Token and cost deltas
@@ -703,8 +703,8 @@ def test_claude_model_with_multiple_messages_pricy_call():
     assert prev_cost > 0, "Expected previous cost value to be greater than 0"
     assert llm_output2.raw_response is not None
     assert (
-        llm_output2.action == 'get_weather(location="Delhi", unit="celsius")'
-    ), f'Expected get_weather("Delhi") but got {llm_output2.action}'
+        llm_output2.action == ['get_weather(location="Delhi", unit="celsius")']
+    ), f'Expected [get_weather("Delhi")] but got {llm_output2.action}'
     assert delta_input > 0, "Expected new input tokens to be greater than 0"
     assert delta_output > 0, "Expected new output tokens to be greater than 0"
     assert delta_cost > 0, "Expected new cost value to be greater than 0"
