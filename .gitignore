@@ -174,5 +174,4 @@ miniwob-plusplus/
 debugging_results/
 
 # working files
-main_miniwob_debug.py
-main_workarena_debug.py
+experiments/*
