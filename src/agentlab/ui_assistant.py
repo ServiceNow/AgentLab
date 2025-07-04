@@ -7,9 +7,9 @@ from agentlab.experiments.launch_exp import import_object
 from agentlab.experiments.loop import EnvArgs, ExpArgs
 
 
-def make_exp_args(agent_args: AgentArgs, start_url="https://www.google.com"):
+def make_exp_args(agent_args: GenericAgentArgs, start_url="https://www.google.com"):
     try:
-        agent_args.flags.action.demo_mode = "default"
+        agent_args.flags.action.action_set.demo_mode = "default"
     except AttributeError:
         pass
 
