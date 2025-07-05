@@ -20,7 +20,10 @@ from dotenv import load_dotenv
 from transformers import AutoTokenizer
 
 # used to display prompt. simple chat template from apache 2.0 model
-tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
+# tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
+tokenizer = AutoTokenizer.from_pretrained(
+    "/Users/patrice.bechard/.cache/huggingface/hub/models--HuggingFaceH4--zephyr-7b-beta/snapshots/892b3d7a7b1cf10c7a701c60881cd93df615734c"
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -803,7 +806,7 @@ def set_next_step_section():
 
 def set_controller():
     with st.container(border=True):
-        st.markdown("##### 🎮 Control")
+        st.markdown("##### 🕹️ Control")
         set_agent_state_box()
         set_prompt_modifier()
         col_prev, col_redo, col_next = st.columns([1, 1, 1])
@@ -946,12 +949,12 @@ def run_streamlit():
     # config page
     st.set_page_config(
         page_title="AgentLab Controller",
-        page_icon="🎮",
+        page_icon="🕹️",
         layout="wide",
         initial_sidebar_state="collapsed",
     )
     st.markdown(
-        '<h1 style="text-align: center;">🎮 AgentLab Controller 🎮</h1>', unsafe_allow_html=True
+        '<h1 style="text-align: center;">🕹️ AgentLab Controller 🕹️</h1>', unsafe_allow_html=True
     )
 
     setup_sidebar()
