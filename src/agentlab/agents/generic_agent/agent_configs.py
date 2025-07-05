@@ -350,3 +350,41 @@ RANDOM_SEARCH_AGENT = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-2024-05-13"],
     flags=DEFAULT_RS_FLAGS,
 )
+
+
+AGENT_AZURE_4o_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_4o = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41 = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini"],
+    flags=FLAGS_GPT_4o,
+)
+
+AGENT_AZURE_4o_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_4o_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_41_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_41_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini"],
+    flags=FLAGS_GPT_4o_VISION,
+)
