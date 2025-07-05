@@ -1,4 +1,4 @@
-.PHONY: test setup miniwob lint stop-miniwob
+.PHONY: test setup miniwob lint stop-miniwob osworld
 
 setup:
 	@pip install -e .
@@ -30,3 +30,23 @@ test: setup miniwob check-miniwob run-tests stop-miniwob
 lint: setup
 	@black src/ --check --diff
 	@darglint -v 2 -z short src/
+
+osworld:
+	@echo "Setting up OSWorld..."
+	@git clone https://github.com/xlang-ai/OSWorld || true
+	@echo "Modifying OSWorld requirements.txt to remove pinned versions..."
+	@cd OSWorld && \
+		sed -i.bak 's/numpy~=.*/numpy/' requirements.txt && \
+		sed -i.bak 's/torch~=.*/torch/' requirements.txt && \
+		sed -i.bak 's/torch$$/torch/' requirements.txt && \
+		sed -i.bak 's/tqdm~=.*/tqdm/' requirements.txt && \
+		sed -i.bak 's/pandas~=.*/pandas/' requirements.txt
+	@echo "Installing OSWorld requirements..."
+	@cd OSWorld && pip install -r requirements.txt
+	@echo "Installing OSWorld in development mode..."
+	@cd OSWorld && pip install -e .
+	@echo "OSWorld setup completed!"
+	@echo "Next steps:"
+	@echo "1. Configure your VM (VMware/VirtualBox) according to OSWorld documentation"
+	@echo "2. Download or set up the Ubuntu VM image"
+	@echo "3. Run AgentLab with OSWorld tasks"
