@@ -13,16 +13,17 @@ def main():
     n_jobs = 1
     os.environ["AGENTLAB_DEBUG"] = "1"
     study = make_study(
-        benchmark=OsworldBenchmark(test_set_name='test_small.json'),  # type: ignore
+        benchmark=OsworldBenchmark(test_set_name="test_small.json"),  # type: ignore
         agent_args=[OSWORLD_CLAUDE],
-        comment="osworld debug 1",
+        comment="osworld debug 2",
         logging_level=logging.INFO,
         logging_level_stdout=logging.INFO,
     )
 
     if os.environ.get("AGENTLAB_DEBUG"):
-        study.exp_args_list = study.exp_args_list[-9:-8]
-        study.run(n_jobs=1, n_relaunch=1, parallel_backend="sequential")
+        study.exp_args_list = study.exp_args_list[-9:-7]
+        print(f"Debug on {len(study.exp_args_list)} experiments")
+        study.run(n_jobs=2, n_relaunch=1, parallel_backend="ray")
     else:
         study.run(n_jobs=n_jobs, n_relaunch=1, parallel_backend="ray")
 
