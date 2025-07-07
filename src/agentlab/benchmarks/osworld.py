@@ -645,9 +645,25 @@ class OsworldBenchmark(AbstractBenchmark):
                 task_file = os.path.join(self.test_set_path, f"examples/{domain}/{task_id}.json")
                 with open(task_file) as f:
                     task = json.load(f)
+                    task = self.fix_settings_file_path_in_config(task)
                 name = f"{self.name}.{task['id']}"
                 task_env_args = deepcopy(self.env_args)
                 task_env_args.task = task
                 task_env_args.task_name = name
                 self.env_args_list.append(task_env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from domain '{self.domain}'")
+
+    def fix_settings_file_path_in_config(self, task) -> str:
+        """Fix the settings file path in the task configuration.
+        #TODO: We can create our own tiny_osworld.json with correct paths (OSWorld prefixed) to settings files. Meanwhile use this function to fix the paths.
+        """
+        osworld_repo = os.getenv("OSWORLD_REPO", "OSWorld")
+        updated_task = deepcopy(task)  # Avoid modifying the original task
+        for config in updated_task["config"]:
+                if config.get("parameters", False) and config["parameters"].get(
+                    "settings_file", False
+                ):
+                    config["parameters"]["settings_file"] = os.path.join(
+                        osworld_repo, config["parameters"]["settings_file"]
+                    )
+        return updated_task
