@@ -385,13 +385,19 @@ class OsworldGym(AbstractEnv):
         env_action = self.agentlab_to_env_action(action)
         logger.info(f"AgentLab Action returned: {action}, converted to: {env_action}")
         raw_obs, reward, done, info = self.env.step(env_action)
+        logger.info(f"Task {self.task['id']} Step {self._step_count + 1}/{self.max_steps} done")
         self._step_count += 1
-        truncated = info.get('fail', False) or self._step_count >= self.max_steps
+        truncated = info.get("fail", False) or self._step_count >= self.max_steps
         if done or truncated:
+            if done:
+                logger.info(f"Task {self.task['id']} completed successfully.")
+            else:
+                logger.warning(f"Task {self.task['id']} truncated after {self._step_count} steps.")
             try:
                 reward = self.env.evaluate()
+                logger.info(f"Evaluated reward: {reward}")
             except Exception as e:
-                logger.warning(f"Failed to evaluate {self.task} task: {e}")
+                logger.error(f"Failed to evaluate {self.task} task: {e}")
         obs = self.env_to_agentlab_observation(raw_obs)
         return obs, reward, done, truncated, info
 
@@ -433,7 +439,8 @@ class OsworldGym(AbstractEnv):
     def _add_som_screenshot(self, converted_obs: dict[str, Any], obs: dict[str, Any]) -> None:
         """Convert SOM screenshot to numpy array format expected by AgentLab"""
         masks, drew_nodes, tagged_screenshot, linearized_accessibility_tree = tag_screenshot(
-            obs["screenshot"], obs["accessibility_tree"], platform="ubuntu")
+            obs["screenshot"], obs["accessibility_tree"], platform="ubuntu"
+        )
         converted_obs["som_screenshot"] = self.convert_screenshot_to_numpy(tagged_screenshot)
 
     def _add_browser_context(self, converted_obs: dict[str, Any]):
@@ -454,10 +461,10 @@ class OsworldGym(AbstractEnv):
 
     def convert_agentlab_action_to_computer_13(self, action: str) -> dict[str, Any] | str:
         """Convert action string to dictionary format.
-        
+
         Examples:
-        >>> env = OsworldGym(task={}, provider_name="vmware", region=None, path_to_vm=None, 
-        ...                  snapshot_name="init_state", action_space="computer_13", 
+        >>> env = OsworldGym(task={}, provider_name="vmware", region=None, path_to_vm=None,
+        ...                  snapshot_name="init_state", action_space="computer_13",
         ...                  cache_dir="cache", screen_size=(1920, 1080), headless=True,
         ...                  require_a11y_tree=True, require_terminal=False, os_type="Ubuntu",
         ...                  enable_proxy=False, max_steps=50)
@@ -467,10 +474,12 @@ class OsworldGym(AbstractEnv):
         'WAIT'
         """
 
-        action_type, action_args, action_kwargs = self.parse_agentlab_action_str_to_func_args(action)
+        action_type, action_args, action_kwargs = self.parse_agentlab_action_str_to_func_args(
+            action
+        )
 
-        if action_type in ["wait","done", "fail"]:
-            return str(action_type).upper()  
+        if action_type in ["wait", "done", "fail"]:
+            return str(action_type).upper()
         if action_args:
             logger.warning(
                 f"""Action '{action_type}' has unexpected positional arguments: {action_args}.
@@ -478,12 +487,12 @@ class OsworldGym(AbstractEnv):
             )
         action_kwargs = action_kwargs if action_kwargs is not None else {}
 
-        return { "action_type": str(action_type).upper(), "parameters": action_kwargs}
+        return {"action_type": str(action_type).upper(), "parameters": action_kwargs}
 
     @staticmethod
     def parse_agentlab_action_str_to_func_args(action: str):
         """Parse the agentlab action string to extract function name, args, and kwargs.
-        
+
         Examples:
         >>> parse_agentlab_action_str_to_func_args("move_to(x=100, y=200)")
         ('move_to', [], {'x': 100, 'y': 200})
@@ -515,9 +524,11 @@ class OSWorldActionSet(AbstractActionSet):
     # and have conversion functions to convert them to format acceptable by environment.
     def __init__(self, action_space: Literal["computer_13", "pyautogui"]):
         self.action_space = action_space
+
     def describe(self, with_long_description: bool = True, with_examples: bool = True) -> str:
         """Describe the OSWorld action set for desktop interactions."""
         pass
+
     def example_action(self, abstract: bool) -> str:
         """Provide example actions for the action set."""
         pass
@@ -582,7 +593,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
     require_terminal: bool = False
     os_type: str = "Ubuntu"
     enable_proxy: bool = False
-    max_steps: int = 100  
+    max_steps: int = 50
 
     def make_env(
         self, exp_dir: Path, action_mapping=None, use_raw_page_output: bool = False
