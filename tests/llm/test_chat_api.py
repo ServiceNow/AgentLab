@@ -3,6 +3,7 @@ import os
 import pytest
 
 from agentlab.llm.chat_api import (
+    AnthropicModelArgs,
     AzureModelArgs,
     OpenAIModelArgs,
     make_system_message,
@@ -59,3 +60,27 @@ def test_api_model_args_openai():
     answer = model(messages)
 
     assert "5" in answer.get("content")
+
+
+@pytest.mark.pricy
+@pytest.mark.skipif(skip_tests, reason="Skipping on remote as Anthropic is pricy")
+def test_api_model_args_anthropic():
+    model_args = AnthropicModelArgs(
+        model_name="claude-3-haiku-20240307",
+        max_total_tokens=8192,
+        max_input_tokens=8192 - 512,
+        max_new_tokens=512,
+        temperature=1e-1,
+    )
+    model = model_args.make_model()
+
+    messages = [
+        make_system_message("You are an helpful virtual assistant"),
+        make_user_message("Give the third prime number. Just the number, no explanation."),
+    ]
+    answer = model(messages)
+    assert "5" in answer.get("content")
+
+
+if __name__ == "__main__":
+    test_api_model_args_anthropic()
