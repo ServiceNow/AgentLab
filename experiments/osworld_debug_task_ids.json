@@ -1,0 +1,37 @@
+[
+  {
+    "id": "550ce7e7-747b-495f-b122-acdc4d0b8e54",
+    "task": "I am checking our soccer club's to-do list for the last semester and adding strike-through sign on the line we have already accomplished. Could you help me add a strike-through on the first and second line?",
+    "complexity": 1
+  },
+  {
+    "id": "59f21cfb-0120-4326-b255-a5b827b38967",
+    "task": "Could you play the music video that's saved on my desktop for me via vlc?",
+    "complexity": 1
+  },
+  {
+    "id": "35253b65-1c19-4304-8aa4-6884b8218fc0",
+    "task": "Hey, I need a quick way back to this site. Could you whip up a shortcut on my desktop for me?",
+    "complexity": 1
+  },
+  {
+    "id": "0ed39f63-6049-43d4-ba4d-5fa2fe04a951",
+    "task": "Please help me change all the places in this document that say \"text\" to \"test\".",
+    "complexity": 1
+  },
+  {
+    "id": "5ea617a3-0e86-4ba6-aab2-dac9aa2e8d57",
+    "task": "I am currently using an Ubuntu system, and I have wrongly deleted a poster of party night. Could you help me recover it from the Trash?",
+    "complexity": 1
+  },
+  {
+    "id": "510f64c8-9bcc-4be1-8d30-638705850618",
+    "task": "Could you start VS Code in folder ~/Desktop/project from the terminal?",
+    "complexity": 1
+  },
+  {
+    "id": "53ad5833-3455-407b-bbc6-45b4c79ab8fb",
+    "task": "Please help me use VS Code to open the \"project\" in the \"user\" folder under \"home\".",
+    "complexity": 1
+  }
+]
