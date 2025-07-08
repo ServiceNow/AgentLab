@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -7,6 +8,12 @@ from agentlab.experiments.study import make_study
 
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
 logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[logging.StreamHandler()])
+
+
+def get_task_ids() -> set[str]:
+    with open("experiments/osworld_debug_task_ids.json", "r") as f:
+        task_ids = json.load(f)
+    return set([task["id"] for task in task_ids])
 
 
 def main():
@@ -21,7 +28,8 @@ def main():
     )
 
     if os.environ.get("AGENTLAB_DEBUG"):
-        study.exp_args_list = study.exp_args_list[-9:-7]
+        task_ids = get_task_ids()
+        study.exp_args_list = [exp_args for exp_args in study.exp_args_list if exp_args.env_args.task["id"] in task_ids]
         print(f"Debug on {len(study.exp_args_list)} experiments")
         study.run(n_jobs=2, n_relaunch=1, parallel_backend="ray")
     else:
