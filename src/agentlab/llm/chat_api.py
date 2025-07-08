@@ -11,7 +11,7 @@ from huggingface_hub import InferenceClient
 from openai import AzureOpenAI, OpenAI
 
 import agentlab.llm.tracking as tracking
-from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
+from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs,BaseModelArgsVLLM
 from agentlab.llm.huggingface_utils import HFBaseChatModel
 from agentlab.llm.llm_utils import AIMessage, Discussion
 
@@ -157,6 +157,58 @@ class SelfHostedModelArgs(BaseModelArgs):
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
 
+
+
+
+@dataclass
+class SelfHostedModelArgsVLLM(BaseModelArgsVLLM):
+    """Serializable object for instantiating a generic chat model with a self-hosted model."""
+ 
+    model_url_base: str = "http://localhost"  # Changed from model_url
+    port_num: int = 8000  # Added port_num
+    api_path: str = "/v1"  # Added api_path for flexibility
+    token: str = None
+    backend: str = "vllm"
+    n_retry_server: int = 4
+    chat_template: str = None  # Add chat_template parameter
+    privaleged_actions_path = None
+ 
+    @property
+    def model_url(self) -> str:
+        """Construct the full model URL."""
+        return f"{self.model_url_base}:{self.port_num}{self.api_path}"
+ 
+    def make_model(self):
+        if self.backend == "huggingface":
+            # currently only huggingface tgi servers are supported
+            if self.model_url is None:
+                self.model_url = os.environ["AGENTLAB_MODEL_URL"]
+            if self.token is None:
+                self.token = os.environ["AGENTLAB_MODEL_TOKEN"]
+ 
+            return HuggingFaceURLChatModel(
+                model_name=self.model_name,
+                model_url=self.model_url,
+                token=self.token,
+                temperature=self.temperature,
+                max_new_tokens=self.max_new_tokens,
+                n_retry_server=self.n_retry_server,
+                log_probs=self.log_probs,
+            )
+        elif self.backend == "vllm":
+            return VLLMChatModel(
+                model_name=self.model_name,
+                temperature=self.temperature,
+                max_tokens=self.max_new_tokens,
+                n_retry_server=self.n_retry_server,
+                base_url=self.model_url,  # Pass constructed URL
+                top_p=self.top_p,  # Pass top_p
+                stop_sequences=self.stop_sequences,  # Pass stop_sequences
+                log_probs=self.log_probs,  # Pass log_probs
+                chat_template=self.chat_template  # Pass chat_template
+            )
+        else:
+            raise ValueError(f"Backend {self.backend} is not supported")
 
 @dataclass
 class ChatModelArgs(BaseModelArgs):
@@ -448,8 +500,131 @@ class HuggingFaceURLChatModel(HFBaseChatModel):
         client = InferenceClient(model=model_url, token=token)
         self.llm = partial(client.text_generation, max_new_tokens=max_new_tokens, details=log_probs)
 
+class ChatModelVLLMBase(AbstractChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+        api_key_env_var=None,
+        client_class=OpenAI,
+        client_args=None,
+        pricing_func=None,
+        log_probs=False,
+        top_p=1.0,  # Added top_p
+        stop_sequences=None,  # Added stop_sequences
+    ):
+        assert max_retry > 0, "max_retry should be greater than 0"
+ 
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
+        self.min_retry_wait_time = min_retry_wait_time
+        self.log_probs = log_probs
+        self.top_p = top_p  # Store top_p
+        self.stop_sequences = stop_sequences  # Store stop_sequences
+ 
+        # Get the API key from the environment variable if not provided
+        if api_key_env_var:
+            api_key = api_key or os.getenv(api_key_env_var)
+        self.api_key = api_key
+ 
+        # Get pricing information
+        if pricing_func:
+            pricings = pricing_func()
+            try:
+                self.input_cost = float(pricings[model_name]["prompt"])
+                self.output_cost = float(pricings[model_name]["completion"])
+            except KeyError:
+                logging.warning(
+                    f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+                )
+                self.input_cost = 0.0
+                self.output_cost = 0.0
+        else:
+            self.input_cost = 0.0
+            self.output_cost = 0.0
+ 
+        client_args = client_args or {}
+        # Ensure base_url from client_args takes precedence if provided directly
+        if "base_url" not in client_args and hasattr(self, "base_url") and self.base_url:
+            client_args["base_url"] = self.base_url
+        self.client = client_class(
+            api_key=api_key,
+            **client_args,
+        )
+ 
+    def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+        # Initialize retry tracking attributes
+        self.retries = 0
+        self.success = False
+        self.error_types = []
+ 
+        completion = None
+        e = None
+        for itr in range(self.max_retry):
+            self.retries += 1
+            temperature = temperature if temperature is not None else self.temperature
+            try:
+                completion = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    n=n_samples,
+                    temperature=temperature,
+                    max_tokens=self.max_tokens,
+                    logprobs=self.log_probs,
+                )
+ 
+                if completion.usage is None:
+                    raise OpenRouterError(
+                        "The completion object does not contain usage information. This is likely a bug in the OpenRouter API."
+                    )
+ 
+                self.success = True
+                break
+            except openai.OpenAIError as e:
+                error_type = handle_error(e, itr, self.min_retry_wait_time, self.max_retry)
+                self.error_types.append(error_type)
+ 
+        if not completion:
+            raise RetryError(
+                f"Failed to get a response from the API after {self.max_retry} retries\n"
+                f"Last error: {error_type}"
+            )
+ 
+        input_tokens = completion.usage.prompt_tokens
+        output_tokens = completion.usage.completion_tokens
+        cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+ 
+        if hasattr(tracking.TRACKER, "instance") and isinstance(
+            tracking.TRACKER.instance, tracking.LLMTracker
+        ):
+            tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+ 
+        if n_samples == 1:
+            res = AIMessage(completion.choices[0].message.content)
+            if (
+                self.log_probs
+                and hasattr(completion.choices[0], "logprobs")
+                and completion.choices[0].logprobs
+            ):
+                res["log_probs"] = completion.choices[0].logprobs  # Adjusted access
+            return res
+        else:
+            return [AIMessage(c.message.content) for c in completion.choices]
+ 
+    def get_stats(self):
+        return {
+            "n_retry_llm": self.retries,
+            # "busted_retry_llm": int(not self.success), # not logged if it occurs anyways
+        }
+    
 
-class VLLMChatModel(ChatModel):
+class VLLMChatModel(ChatModelVLLMBase):
     def __init__(
         self,
         model_name,
@@ -458,7 +633,19 @@ class VLLMChatModel(ChatModel):
         max_tokens=100,
         n_retry_server=4,
         min_retry_wait_time=60,
+        base_url="http://0.0.0.0:8000/v1",  # Added to accept custom URL
+        top_p=1.0,  # Added to accept top_p
+        stop_sequences=None,  # Added to accept stop_sequences
+        log_probs=False,  # Added to accept log_probs
+        chat_template=None,  # Add chat_template parameter
     ):
+        # Prepare client arguments
+        client_args = {"base_url": base_url}
+        
+        # Add chat template to headers if provided
+        if chat_template:
+            client_args["default_headers"] = {"x-chat-template": chat_template}
+        
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -468,6 +655,9 @@ class VLLMChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             api_key_env_var="VLLM_API_KEY",
             client_class=OpenAI,
-            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            client_args=client_args,
             pricing_func=None,
+            top_p=top_p,  # Pass top_p to parent
+            stop_sequences=stop_sequences,  # Pass stop_sequences to parent
+            log_probs=log_probs,  # Pass log_probs to parent
         )

@@ -410,7 +410,8 @@ class ExpArgs:
                 env, seed=self.env_args.task_seed or 0, obs_preprocessor=agent.obs_preprocessor
             )
             logger.debug("Environment reset.")
-
+            goal = step_info.obs['goal'] 
+            agent.set_goal(goal)  # set the goal for the agent, if applicable
             while not step_info.is_done:  # set a limit
                 logger.debug(f"Starting step {step_info.step}.")
                 action = step_info.from_action(agent)
@@ -439,6 +440,10 @@ class ExpArgs:
                 logger.debug("Sending action to environment.")
                 step_info.from_step(env, action, obs_preprocessor=agent.obs_preprocessor)
                 logger.debug("Environment stepped.")
+                #if done 
+                if step_info.is_done:
+                    logger.debug("Episode is done. Ending loop.")
+                    break
 
         except Exception as e:
             err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
