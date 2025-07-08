@@ -347,7 +347,7 @@ class PromptConfig:
     task_hint: TaskHint = None
     keep_last_n_obs: int = 1
     multiaction: bool = False
-    action_subsets: tuple[str] = field(default_factory=lambda: ("coord",))
+    action_subsets: tuple[str] = None
 
 
 @dataclass
@@ -491,6 +491,15 @@ class ToolUseAgent(bgym.Agent):
 
 OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
     model_name="gpt-4.1",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
+GPT_4_1_MINI = OpenAIResponseModelArgs(
+    model_name="gpt-4.1-mini",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
     max_new_tokens=2_000,
