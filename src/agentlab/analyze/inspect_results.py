@@ -109,7 +109,7 @@ def load_result_df(
     set_index=True,
     result_df=None,
     index_white_list=("agent.*",),
-    index_black_list=("*model_url*", "*extra*", "*._*"),
+    index_black_list=("*model_url*", "*extra*", "*._*", "*action_set"),
     remove_args_suffix=True,
 ):
     """Load the result dataframe.
