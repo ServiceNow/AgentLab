@@ -2,6 +2,7 @@ import ast
 import json
 import logging
 import os
+import time
 from copy import deepcopy
 from dataclasses import dataclass
 from io import BytesIO
@@ -340,7 +341,8 @@ class OsworldGym(AbstractEnv):
         require_terminal: bool,
         os_type: str,
         enable_proxy: bool,
-        max_steps: int = 50,
+        max_steps: int,
+        exp_dir: Path,
     ):
         self.task = task
         self.env_info = {
@@ -372,10 +374,15 @@ class OsworldGym(AbstractEnv):
         )
         self._step_count = 0
         self.max_steps = max_steps
+        self.exp_dir = exp_dir
 
     def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
-        raw_obs = self.env.reset(task_config=self.task, seed=seed)
-        obs = self.env_to_agentlab_observation(raw_obs)
+        self.env.reset(task_config=self.task, seed=seed)
+        logging.info(f"Start solving task: {self.task['instruction']}")
+        time.sleep(60) # Wait for the environment to be ready, as in https://github.com/xlang-ai/OSWorld/blob/main/lib_run_single.py#L15
+        raw_obs = self.env._get_obs() # Get the initial observation
+        self.env.controller.start_recording()
+        obs = self.to_agentlab_observation(raw_obs)
         self._step_count = 0
         return obs, self.env_info
 
@@ -385,7 +392,7 @@ class OsworldGym(AbstractEnv):
         env_action = self.agentlab_to_env_action(action)
         logger.info(f"AgentLab Action returned: {action}, converted to: {env_action}")
         raw_obs, reward, done, info = self.env.step(env_action)
-        logger.info(f"Task {self.task['id']} Step {self._step_count + 1}/{self.max_steps} done")
+        logger.info(f"STEP {self.task['id']} {self._step_count + 1}/{self.max_steps}")
         self._step_count += 1
         truncated = info.get("fail", False) or self._step_count >= self.max_steps
         if done or truncated:
@@ -398,7 +405,7 @@ class OsworldGym(AbstractEnv):
                 logger.info(f"Evaluated reward: {reward}")
             except Exception as e:
                 logger.error(f"Failed to evaluate {self.task} task: {e}")
-        obs = self.env_to_agentlab_observation(raw_obs)
+        obs = self.to_agentlab_observation(raw_obs)
         return obs, reward, done, truncated, info
 
     def agentlab_to_env_action(self, action: str) -> Any:
@@ -410,7 +417,7 @@ class OsworldGym(AbstractEnv):
                 "PyAutoGUI action space is not supported yet. Please use 'computer_13' action space."
             )
 
-    def env_to_agentlab_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
+    def to_agentlab_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
         """Convert OSWorld observation to AgentLab format."""
         converted_obs = {}
 
@@ -467,7 +474,7 @@ class OsworldGym(AbstractEnv):
         ...                  snapshot_name="init_state", action_space="computer_13",
         ...                  cache_dir="cache", screen_size=(1920, 1080), headless=True,
         ...                  require_a11y_tree=True, require_terminal=False, os_type="Ubuntu",
-        ...                  enable_proxy=False, max_steps=50)
+        ...                  enable_proxy=False, max_steps=50, exp_dir=Path("."))
         >>> env.convert_agentlab_action_to_computer_13("move_to(x=100, y=200)")
         {'action_type': 'MOVE_TO', 'parameters': {'x': 100, 'y': 200}}
         >>> env.convert_agentlab_action_to_computer_13("wait()")
@@ -513,6 +520,9 @@ class OsworldGym(AbstractEnv):
         return None, None, None
 
     def close(self):
+        video_name = str(self.exp_dir / "recording.mp4")
+        self.env.controller.end_recording(video_name)
+        logger.info(f"Recorded video saved to {video_name}")
         return self.env.close()
 
 
@@ -614,6 +624,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
             os_type=self.os_type,
             enable_proxy=self.enable_proxy,
             max_steps=self.max_steps,
+            exp_dir=exp_dir,
         )
         return gym
 
