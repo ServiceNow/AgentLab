@@ -147,7 +147,7 @@ class Goal(Block):
 
 AXTREE_NOTE = """
 AXTree extracts most of the interactive elements of the DOM in a tree structure. It may also contain information that is not visible in the screenshot.
-A line starting with [bid] is a node in the AXTree. It is a unique alpha-numeric identifier to be used when calling tools.
+A line starting with [bid] is a node in the AXTree. It is a unique alpha-numeric identifier to be used when calling tools, e.g, click(bid="a253"). Make sure to include letters and numbers in the bid.
 """
 
 
