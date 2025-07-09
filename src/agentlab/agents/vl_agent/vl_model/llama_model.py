@@ -2,7 +2,9 @@ from accelerate import Accelerator
 from accelerate.utils.modeling import load_checkpoint_in_model
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
+from PIL import Image
 from transformers import AutoProcessor, MllamaForConditionalGeneration
+from transformers.models.mllama.image_processing_mllama import get_all_supported_aspect_ratios
 from typing import Optional
 from .base import VLModel, VLModelArgs
 from ..utils import auto_dispatch_model, image_url_to_image
@@ -69,6 +71,18 @@ class LlamaModel(VLModel):
             clean_up_tokenization_spaces=False,
         )[0]
         return AIMessage([{"type": "text", "text": output_text}])
+
+    def adapt_location(self, image: Image.Image, x: int, y: int) -> tuple[int, int]:
+        input = self.processor(images=[image], text="")
+        _, _, _, _, tile_height, tile_width = input["pixel_values"].shape
+        num_tiles_height, num_tiles_width = get_all_supported_aspect_ratios(
+            self.processor.image_processor.max_image_tiles
+        )[input["aspect_ratio_ids"].item() - 1]
+        height = tile_height * num_tiles_height
+        width = tile_width * num_tiles_width
+        x = int(int(x) / width * image.width)
+        y = int(int(y) / height * image.height)
+        return x, y
 
     @property
     def stats(self) -> dict:

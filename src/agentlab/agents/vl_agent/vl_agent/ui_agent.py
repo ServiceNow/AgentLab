@@ -3,11 +3,13 @@ from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import asdict, dataclass
+from PIL import Image
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
-from ..vl_prompt.ui_prompt import AuxiliaryUIPromptArgs, MainUIPromptArgs
+from ..vl_prompt.ui_prompt import UIPromptArgs
+import numpy as np
 
 
 class UIAgent(VLAgent):
@@ -15,15 +17,13 @@ class UIAgent(VLAgent):
         self,
         main_vl_model_args: VLModelArgs,
         auxiliary_vl_model_args: VLModelArgs,
-        main_ui_prompt_args: MainUIPromptArgs,
-        auxiliary_ui_prompt_args: AuxiliaryUIPromptArgs,
+        ui_prompt_args: UIPromptArgs,
         action_set_args: HighLevelActionSetArgs,
         max_num_retries: int,
     ):
         self.main_vl_model = main_vl_model_args.make_model()
         self.auxiliary_vl_model = auxiliary_vl_model_args.make_model()
-        self.main_ui_prompt_args = main_ui_prompt_args
-        self.auxiliary_ui_prompt_args = auxiliary_ui_prompt_args
+        self.ui_prompt_args = ui_prompt_args
         self.action_set = action_set_args.make_action_set()
         self.max_num_retries = max_num_retries
         self.screenshot_history = []
@@ -34,12 +34,15 @@ class UIAgent(VLAgent):
     def get_action(self, obs: dict) -> tuple[str, dict]:
         answers = {}
         stats = {}
-        preliminary_main_ui_prompt = self.main_ui_prompt_args.make_prompt(
+        preliminary_main_ui_prompt = self.ui_prompt_args.make_main_prompt(
             obs,
             screenshot_history=self.screenshot_history,
             think_history=self.think_history,
             action_history=self.action_history,
-            action_set=self.action_set,
+            action_set_description=self.action_set.describe(
+                with_long_description=True, with_examples=False
+            ),
+            action_validator=self.action_set.to_python_code,
         )
         try:
             preliminary_main_messages = Discussion([preliminary_main_ui_prompt.message])
@@ -54,9 +57,10 @@ class UIAgent(VLAgent):
             preliminary_answer = {"main_think": None, "main_location": None}
             stats["preliminary_main_num_retries"] = self.max_num_retries
         answers.update(preliminary_answer)
-        auxiliary_ui_prompt = self.auxiliary_ui_prompt_args.make_prompt(
+        auxiliary_ui_prompt = self.ui_prompt_args.make_auxiliary_prompt(
             obs,
             screenshot_history=self.screenshot_history,
+            location_adapter=self.auxiliary_vl_model.adapt_location,
             extra_info=answers,
         )
         try:
@@ -69,15 +73,18 @@ class UIAgent(VLAgent):
             )
             stats["auxiliary_num_retries"] = (len(auxiliary_messages) - 2) // 2
         except ParseError:
-            auxiliary_answer = {"auxiliary_think": None, "auxiliary_location": None}
+            auxiliary_answer = {"auxiliary_location": None, "auxiliary_response": None}
             stats["auxiliary_num_retries"] = self.max_num_retries
         answers.update(auxiliary_answer)
-        final_main_ui_prompt = self.main_ui_prompt_args.make_prompt(
+        final_main_ui_prompt = self.ui_prompt_args.make_main_prompt(
             obs,
             screenshot_history=self.screenshot_history,
             think_history=self.think_history,
             action_history=self.action_history,
-            action_set=self.action_set,
+            action_set_description=self.action_set.describe(
+                with_long_description=True, with_examples=False
+            ),
+            action_validator=self.action_set.to_python_code,
             extra_info=answers,
         )
         try:
@@ -90,18 +97,22 @@ class UIAgent(VLAgent):
             )
             stats["final_main_num_retries"] = (len(final_main_messages) - 2) // 2
         except ParseError:
-            final_answer = {"action": None}
+            final_answer = {"main_action": None}
             stats["final_main_num_retries"] = self.max_num_retries
         answers.update(final_answer)
         stats.update(self.main_vl_model.stats)
         stats.update(self.auxiliary_vl_model.stats)
         self.screenshot_history.append(obs["screenshot"])
         self.think_history.append(str(answers["main_think"]))
-        self.action_history.append(str(answers["action"]))
+        self.action_history.append(str(answers["main_action"]))
         agent_info = AgentInfo(think=str(answers), stats=stats)
-        return answers["action"], asdict(agent_info)
+        return answers["main_action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:
+        obs = copy(obs)
+        if isinstance(obs["screenshot"], np.ndarray):
+            obs["screenshot"] = Image.fromarray(obs["screenshot"])
+        obs["screenshot"] = obs["screenshot"].convert("RGB")
         return obs
 
 
@@ -109,8 +120,7 @@ class UIAgent(VLAgent):
 class UIAgentArgs(VLAgentArgs):
     main_vl_model_args: VLModelArgs = None
     auxiliary_vl_model_args: VLModelArgs = None
-    main_ui_prompt_args: MainUIPromptArgs = None
-    auxiliary_ui_prompt_args: AuxiliaryUIPromptArgs = None
+    ui_prompt_args: UIPromptArgs = None
     action_set_args: HighLevelActionSetArgs = None
     max_num_retries: int = None
 
@@ -121,8 +131,7 @@ class UIAgentArgs(VLAgentArgs):
         return UIAgent(
             main_vl_model_args=self.main_vl_model_args,
             auxiliary_vl_model_args=self.auxiliary_vl_model_args,
-            main_ui_prompt_args=self.main_ui_prompt_args,
-            auxiliary_ui_prompt_args=self.auxiliary_ui_prompt_args,
+            ui_prompt_args=self.ui_prompt_args,
             action_set_args=self.action_set_args,
             max_num_retries=self.max_num_retries,
         )
@@ -140,7 +149,7 @@ class UIAgentArgs(VLAgentArgs):
         self.auxiliary_vl_model_args.set_reproducibility_mode()
 
     def set_benchmark(self, benchmark: Benchmark, demo_mode: bool):
-        self.main_ui_prompt_args.use_tabs = benchmark.is_multi_tab
+        self.ui_prompt_args.use_tabs = benchmark.is_multi_tab
         self.action_set_args = deepcopy(benchmark.high_level_action_set_args)
         if demo_mode:
             self.action_set_args.demo_mode = "all_blue"

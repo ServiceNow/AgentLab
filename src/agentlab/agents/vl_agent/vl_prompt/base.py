@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import HumanMessage
-from browsergym.core.action.highlevel import HighLevelActionSet
 from PIL import Image
-from typing import Optional, Union
-import numpy as np
+from typing import Callable, Optional
 
 
 class VLPromptPart(ABC):
@@ -26,13 +24,24 @@ class VLPrompt(ABC):
 
 class VLPromptArgs(ABC):
     @abstractmethod
-    def make_prompt(
+    def make_main_prompt(
         self,
         obs: dict,
-        screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
-        think_history: Optional[list[str]] = None,
-        action_history: Optional[list[str]] = None,
-        action_set: Optional[HighLevelActionSet] = None,
+        screenshot_history: list[Image.Image],
+        think_history: list[str],
+        action_history: list[str],
+        action_set_description: str,
+        action_validator: Callable,
         extra_info: Optional[dict] = None,
+    ) -> VLPrompt:
+        raise NotImplementedError
+
+    @abstractmethod
+    def make_auxiliary_prompt(
+        self,
+        obs: dict,
+        screenshot_history: list[Image.Image],
+        location_adapter: Callable,
+        extra_info: dict,
     ) -> VLPrompt:
         raise NotImplementedError

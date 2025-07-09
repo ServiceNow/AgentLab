@@ -2,6 +2,7 @@ from accelerate import Accelerator
 from accelerate.utils.modeling import load_checkpoint_in_model
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
+from PIL import Image
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from typing import Optional
 from .base import VLModel, VLModelArgs
@@ -72,6 +73,15 @@ class QwenModel(VLModel):
             clean_up_tokenization_spaces=False,
         )[0]
         return AIMessage([{"type": "text", "text": output_text}])
+
+    def adapt_location(self, image: Image.Image, x: int, y: int) -> tuple[int, int]:
+        input = self.processor(images=[image], text="")
+        _, num_patches_height, num_patches_width = input["image_grid_thw"].tolist()[0]
+        height = self.processor.image_processor.patch_size * num_patches_height
+        width = self.processor.image_processor.patch_size * num_patches_width
+        x = int(int(x) / width * image.width)
+        y = int(int(y) / height * image.height)
+        return x, y
 
     @property
     def stats(self) -> dict:

@@ -4,13 +4,12 @@ from agentlab.llm.llm_utils import (
     ParseError,
     parse_html_tags_raise,
 )
-from browsergym.core.action.highlevel import HighLevelActionSet
 from dataclasses import dataclass
 from PIL import Image
 from typing import Callable, Optional, Union
 from .base import VLPrompt, VLPromptArgs, VLPromptPart
 from ..utils import image_to_image_url
-import numpy as np
+import ast
 
 
 class IntroductionPromptPart(VLPromptPart):
@@ -51,8 +50,8 @@ class GoalPromptPart(VLPromptPart):
 class InteractionPromptPart(VLPromptPart):
     def __init__(
         self,
-        current_screenshot: Union[Image.Image, np.ndarray],
-        screenshot_history: list[Union[Image.Image, np.ndarray]],
+        current_screenshot: Image.Image,
+        screenshot_history: list[Image.Image],
         think_history: list[str],
         action_history: list[str],
         use_screenshot_history: bool,
@@ -372,39 +371,41 @@ class MainUIPrompt(VLPrompt):
         answer_text = answer_content[0]["text"]
         if isinstance(self.answer_prompt_part, PreliminaryAnswerPromptPart):
             try:
-                answer_dict = parse_html_tags_raise(answer_text, keys=["think", "location"])
+                result = parse_html_tags_raise(answer_text, keys=["think", "location"])
+                think = result["think"]
+                location = result["location"]
             except ParseError as error:
                 raise error
-            answer_dict = {
-                "main_think": answer_dict["think"],
-                "main_location": answer_dict["location"],
-            }
+            answer_dict = {"main_think": think, "main_location": location}
         else:
             try:
-                answer_dict = parse_html_tags_raise(answer_text, keys=["action"])
+                action = parse_html_tags_raise(answer_text, keys=["action"])["action"]
             except ParseError as error:
                 code_blocks = extract_code_blocks(answer_text)
                 if len(code_blocks) == 0:
                     raise error
                 else:
-                    answer_dict["action"] = "\n".join([block for _, block in code_blocks])
-            if answer_dict["action"] == "None":
-                answer_dict["action"] = None
+                    action = "\n".join([block for _, block in code_blocks])
+            answer_dict = {"main_action": action}
+            if answer_dict["main_action"] == "None":
+                answer_dict["main_action"] = None
             else:
                 try:
-                    self.action_validator(answer_dict["action"])
+                    self.action_validator(answer_dict["main_action"])
                 except:
-                    raise ParseError(f"Invalid action: {answer_dict['action']}")
+                    raise ParseError(f"Invalid action: {answer_dict['main_action']}")
         return answer_dict
 
 
 @dataclass
 class AuxiliaryUIPrompt(VLPrompt):
-    current_screenshot: Union[Image.Image, np.ndarray]
-    screenshot_history: list[Union[Image.Image, np.ndarray]]
+    current_screenshot: Image.Image
+    screenshot_history: list[Image.Image]
+    main_think: str
     main_location: str
     use_screenshot_history: bool
-    use_reasoning: bool
+    use_location_reasoning: bool
+    location_adapter: Callable
 
     def __post_init__(self):
         message_content = []
@@ -416,22 +417,21 @@ class AuxiliaryUIPrompt(VLPrompt):
             message_content.append(
                 {"type": "image_url", "image_url": {"url": image_to_image_url(screenshot)}}
             )
-        if self.use_reasoning:
+        if self.use_location_reasoning:
             message_content.append(
                 {
                     "type": "text",
-                    "text": f"""\
-Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on this screen based on a description. \
-Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible. \
-If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
-The user asks a question, and the Assistant solves it. \
-You first think about the reasoning process in the mind and then provides the user with the answer. \
-The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>
-
-Instruction: {self.main_location}
-
-Your answer should be a single tuple (x, y) cooridnates corresponding to the point of interest within <answer> </answer> tags.
-""",
+                    "text": "\n".join(
+                        [
+                            f"You are StarVLM-R1, a reasoning GUI Agent Assistant. In the UI screenshot, I want you to continue executing the command '{self.main_think}'.",
+                            "Please provide the action to perform (enumerate from ['click']), the point where the cursor is moved to (integer) if a click is performed, and any input text required to complete the action.",
+                            "Output the response as as a JSON list follows:",
+                            "[{'action': enum['complete', 'close/delete', 'press_home', 'click', 'press_back', 'type', 'select', 'scroll', 'enter'], 'point': [x, y], 'input_text': 'no input text [default]', 'explanation': 'explanation and reason for why selecting this action and region'}]",
+                            "Example:",
+                            "[{'action': enum['click'], 'point': [123, 300], 'input_text': 'no input text', 'explanation': 'explanation and reason for why selecting this action and region'}]",
+                            "Please strictly follow the format.",
+                        ]
+                    ),
                 }
             )
         else:
@@ -439,13 +439,15 @@ Your answer should be a single tuple (x, y) cooridnates corresponding to the poi
                 {
                     "type": "text",
                     "text": f"""\
-Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on this screen based on a description. \
-Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible. \
-If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose. \
-Your answer should be a single string (x, y) corresponding to the point of interest.
+Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on the screen based on a description.
+
+- Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible.
+- If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose.
+- Your answer should be a single string (x, y) corresponding to the point of the interest.
 
 Description: {self.main_location}
-""",
+
+Answer:""",
                 }
             )
         self._message = HumanMessage(message_content)
@@ -456,35 +458,34 @@ Description: {self.main_location}
 
     def parse_answer(self, answer_content: list[dict]) -> dict:
         answer_text = answer_content[0]["text"]
-        if self.use_reasoning:
-            try:
-                answer_dict = parse_html_tags_raise(answer_text, keys=["think", "answer"])
-            except ParseError as error:
-                raise error
-            answer_dict = {
-                "auxiliary_think": answer_dict["think"],
-                "auxiliary_location": answer_dict["answer"],
-            }
-        else:
-            answer_dict = {"auxiliary_think": None, "auxiliary_location": answer_text}
-        return answer_dict
+        try:
+            if self.use_location_reasoning:
+                x, y = ast.literal_eval(answer_text.strip())[0]["point"]
+            else:
+                x, y = ast.literal_eval(answer_text.strip())
+        except:
+            raise ParseError(f"Invalid answer: {answer_text}")
+        x, y = self.location_adapter(self.current_screenshot, x, y)
+        return {"auxiliary_location": f"({x}, {y})", "auxiliary_response": answer_text}
 
 
 @dataclass
-class MainUIPromptArgs(VLPromptArgs):
+class UIPromptArgs(VLPromptArgs):
     use_screenshot_history: bool
     use_tabs: bool
     use_error: bool
     use_abstract_example: bool
     use_concrete_example: bool
+    use_location_reasoning: bool
 
-    def make_prompt(
+    def make_main_prompt(
         self,
         obs: dict,
-        screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
-        think_history: Optional[list[str]] = None,
-        action_history: Optional[list[str]] = None,
-        action_set: Optional[HighLevelActionSet] = None,
+        screenshot_history: list[Image.Image],
+        think_history: list[str],
+        action_history: list[str],
+        action_set_description: str,
+        action_validator: Callable,
         extra_info: Optional[dict] = None,
     ) -> MainUIPrompt:
         introduction_prompt_part = IntroductionPromptPart()
@@ -510,13 +511,13 @@ class MainUIPromptArgs(VLPromptArgs):
             error_prompt_part = None
         if extra_info is None:
             answer_prompt_part = PreliminaryAnswerPromptPart(
-                action_set.describe(with_long_description=True, with_examples=False),
+                action_set_description,
                 use_abstract_example=self.use_abstract_example,
                 use_concrete_example=self.use_concrete_example,
             )
         else:
             answer_prompt_part = FinalAnswerPromptPart(
-                action_set.describe(with_long_description=True, with_examples=False),
+                action_set_description,
                 main_think=extra_info["main_think"],
                 auxiliary_location=extra_info["auxiliary_location"],
                 use_abstract_example=self.use_abstract_example,
@@ -529,28 +530,21 @@ class MainUIPromptArgs(VLPromptArgs):
             tabs_prompt_part=tabs_prompt_part,
             error_prompt_part=error_prompt_part,
             answer_prompt_part=answer_prompt_part,
-            action_validator=action_set.to_python_code,
+            action_validator=action_validator,
         )
 
-
-@dataclass
-class AuxiliaryUIPromptArgs(VLPromptArgs):
-    use_screenshot_history: bool
-    use_reasoning: bool
-
-    def make_prompt(
+    def make_auxiliary_prompt(
         self,
         obs: dict,
-        screenshot_history: Optional[list[Union[Image.Image, np.ndarray]]] = None,
-        think_history: Optional[list[str]] = None,
-        action_history: Optional[list[str]] = None,
-        action_set: Optional[HighLevelActionSet] = None,
-        extra_info: Optional[dict] = None,
+        screenshot_history: list[Image.Image],
+        location_adapter: Callable,
+        extra_info: dict,
     ) -> AuxiliaryUIPrompt:
         return AuxiliaryUIPrompt(
             current_screenshot=obs["screenshot"],
             screenshot_history=screenshot_history,
             main_location=extra_info["main_location"],
             use_screenshot_history=self.use_screenshot_history,
-            use_reasoning=self.use_reasoning,
+            use_reasoning=self.use_location_reasoning,
+            location_adapter=location_adapter,
         )

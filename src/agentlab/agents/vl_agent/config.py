@@ -3,7 +3,7 @@ from .vl_agent.ui_agent import UIAgentArgs
 from .vl_model.llama_model import LlamaModelArgs
 from .vl_model.openrouter_api_model import OpenRouterAPIModelArgs
 from .vl_model.qwen_model import QwenModelArgs
-from .vl_prompt.ui_prompt import AuxiliaryUIPromptArgs, MainUIPromptArgs
+from .vl_prompt.ui_prompt import UIPromptArgs
 
 
 VL_MODEL_ARGS_DICT = {
@@ -92,22 +92,21 @@ VL_MODEL_ARGS_DICT = {
 }
 
 VL_PROMPT_ARGS_DICT = {
-    "main_ui_prompt": MainUIPromptArgs(
+    "ui_prompt": UIPromptArgs(
         use_screenshot_history=False,
         use_tabs=False,
         use_error=True,
         use_abstract_example=True,
         use_concrete_example=True,
-    ),
-    "auxiliary_ui_prompt": AuxiliaryUIPromptArgs(use_screenshot_history=False, use_reasoning=False),
+        use_location_reasoning=True,
+    )
 }
 
 VL_AGENT_ARGS_DICT = {
     "ui_agent": UIAgentArgs(
         main_vl_model_args=VL_MODEL_ARGS_DICT["gpt_4o"],
         auxiliary_vl_model_args=VL_MODEL_ARGS_DICT["qwen_25_vl_7b"],
-        main_ui_prompt_args=VL_PROMPT_ARGS_DICT["main_ui_prompt"],
-        auxiliary_ui_prompt_args=VL_PROMPT_ARGS_DICT["auxiliary_ui_prompt"],
+        ui_prompt_args=VL_PROMPT_ARGS_DICT["ui_prompt"],
         action_set_args=HighLevelActionSetArgs(subsets=["coord"]),
         max_num_retries=3,
     )
