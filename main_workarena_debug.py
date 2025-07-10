@@ -49,7 +49,7 @@ relaunch = False
 ## Number of parallel jobs
 n_jobs = 10  # Make sure to use 1 job when debugging in VSCode
 parallel_backend = "ray"
-parallel_backend = "sequential"
+# parallel_backend = "sequential"  # activate sequential backend for debugging in VSCode
 
 if __name__ == "__main__":  # necessary for dask backend
 
