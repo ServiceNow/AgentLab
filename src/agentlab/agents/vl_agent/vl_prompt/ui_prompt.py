@@ -543,8 +543,9 @@ class UIPromptArgs(VLPromptArgs):
         return AuxiliaryUIPrompt(
             current_screenshot=obs["screenshot"],
             screenshot_history=screenshot_history,
+            main_think=extra_info["main_think"],
             main_location=extra_info["main_location"],
             use_screenshot_history=self.use_screenshot_history,
-            use_reasoning=self.use_location_reasoning,
+            use_location_reasoning=self.use_location_reasoning,
             location_adapter=location_adapter,
         )
