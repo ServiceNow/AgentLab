@@ -601,7 +601,13 @@ def get_screenshot(
         if annotate:
             action_str = step_info.action
             properties = step_info.obs.get("extra_element_properties", None)
-            action_colored = annotate_action(img, action_string=action_str, properties=properties)
+            try:
+                action_colored = annotate_action(
+                    img, action_string=action_str, properties=properties
+                )
+            except Exception as e:
+                warning(f"Failed to annotate action: {e}")
+                action_colored = action_str
         else:
             action_colored = None
         return img, action_colored

@@ -299,7 +299,7 @@ def test_claude_response_model_parse_and_cost():
         content for content in parsed_output.raw_response.content if content.type == "tool_use"
     ]
     assert "Thinking about the request." in parsed_output.think
-    assert parsed_output.action == 'search_web(query="latest news")'
+    assert parsed_output.action == "search_web(query='latest news')"
     assert fn_calls[0].id == "tool_abc"
     assert global_tracker.stats["input_tokens"] == 40
     assert global_tracker.stats["output_tokens"] == 20
@@ -348,7 +348,7 @@ def test_openai_response_model_parse_and_cost():
     fn_calls = [
         content for content in parsed_output.raw_response.output if content.type == "function_call"
     ]
-    assert parsed_output.action == 'get_current_weather(location="Boston, MA", unit="celsius")'
+    assert parsed_output.action == "get_current_weather(location='Boston, MA', unit='celsius')"
     assert fn_calls[0].call_id == "call_abc123"
     assert parsed_output.raw_response == mock_api_resp
     assert global_tracker.stats["input_tokens"] == 70
@@ -716,3 +716,53 @@ def test_claude_model_with_multiple_messages_pricy_call():
 # TODO: Add tests for image token costing (this is complex and model-specific)
 #       - For OpenAI, you'd need to know how they bill for images (e.g., fixed cost per image + tokens for text parts)
 #       - You'd likely need to mock the response from client.chat.completions.create to include specific usage for images.
+
+
+EDGE_CASES = [
+    # 1. Empty kwargs dict
+    ("valid_function", {}, "valid_function()"),
+    # 2. Kwargs with problematic string values (quotes, escapes, unicode)
+    (
+        "send_message",
+        {
+            "text": 'He said "Hello!" and used a backslash: \\',
+            "unicode": "Café naïve résumé 🚀",
+            "newlines": "Line1\nLine2\tTabbed",
+        },
+        "send_message(text='He said \"Hello!\" and used a backslash: \\\\', unicode='Café naïve résumé 🚀', newlines='Line1\\nLine2\\tTabbed')",
+    ),
+    # 3. Mixed types including problematic float values
+    (
+        "complex_call",
+        {
+            "infinity": float("inf"),
+            "nan": float("nan"),
+            "negative_zero": -0.0,
+            "scientific": 1.23e-45,
+        },
+        "complex_call(infinity=inf, nan=nan, negative_zero=-0.0, scientific=1.23e-45)",
+    ),
+    # 4. Deeply nested structures that could stress repr()
+    (
+        "process_data",
+        {
+            "nested": {"level1": {"level2": {"level3": [1, 2, {"deep": True}]}}},
+            "circular_ref_like": {"a": {"b": {"c": "back_to_start"}}},
+        },
+        "process_data(nested={'level1': {'level2': {'level3': [1, 2, {'deep': True}]}}}, circular_ref_like={'a': {'b': {'c': 'back_to_start'}}})",
+    ),
+]
+
+
+def test_tool_call_to_python_code():
+    from agentlab.llm.response_api import tool_call_to_python_code
+
+    for edge_case in EDGE_CASES:
+        func_name, kwargs, expected = edge_case
+        result = tool_call_to_python_code(func_name, kwargs)
+        print(result)
+        assert result == expected, f"Expected {expected} but got {result}"
+
+
+if __name__ == "__main__":
+    test_tool_call_to_python_code()

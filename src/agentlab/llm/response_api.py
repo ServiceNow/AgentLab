@@ -360,14 +360,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         interesting_keys = ["output_text"]
         for output in response.output:
             if output.type == "function_call":
-                arguments = json.loads(output.arguments)
-                func_args_str = ", ".join(
-                    [
-                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
-                        for k, v in arguments.items()
-                    ]
-                )
-                result.action = f"{output.name}({func_args_str})"
+                result.action = tool_call_to_python_code(output.name, json.loads(output.arguments))
                 result.tool_calls = output
                 break
             elif output.type == "reasoning":
@@ -603,13 +596,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
         )
         for output in response.content:
             if output.type == "tool_use":
-                func_args_str = ", ".join(
-                    [
-                        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
-                        for k, v in output.input.items()
-                    ]
-                )
-                result.action = f"{output.name}({func_args_str})"
+                result.action = tool_call_to_python_code(output.name, output.input)
             elif output.type == "text":
                 result.think += output.text
         return result
@@ -736,3 +723,15 @@ class VLLMModelArgs(BaseModelArgs):
 
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIChatCompletionAPIMessageBuilder
+
+
+def tool_call_to_python_code(func_name, kwargs):
+    """Format a function name and kwargs dict into a Python function call string."""
+    if kwargs is None:
+        kwargs = {}
+
+    if not kwargs:
+        return f"{func_name}()"
+
+    args_str = ", ".join(f"{key}={repr(value)}" for key, value in kwargs.items())
+    return f"{func_name}({args_str})"

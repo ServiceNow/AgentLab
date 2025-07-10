@@ -1,7 +1,3 @@
-# import os
-
-# # Disable Ray log deduplication
-# os.environ["RAY_DEDUP_LOGS"] = "0"
 import logging
 import time
 
@@ -90,12 +86,22 @@ def poll_for_timeout(tasks: dict[str, ray.ObjectRef], timeout: float, poll_inter
 
 
 def get_elapsed_time(task_ref: ray.ObjectRef):
-    task_id = task_ref.task_id().hex()
-    task_info = state.get_task(task_id, address="auto")
-    if task_info and task_info.start_time_ms is not None:
-        start_time_s = task_info.start_time_ms / 1000.0  # Convert ms to s
+    try:
+        task_id = task_ref.task_id().hex()
+        task_info = state.get_task(task_id, address="auto")
+        if not task_info:
+            return None
+        if not isinstance(task_info, list):
+            task_info = [task_info]
+
+        start_times_ms = [getattr(t, "start_time_ms", None) for t in task_info]
+        start_time_s = max([t / 1000.0 if t is not None else -1 for t in start_times_ms])
+        if start_time_s < 0:
+            return None  # Task has not started yet
+
         current_time_s = time.time()
         elapsed_time = current_time_s - start_time_s
         return elapsed_time
-    else:
-        return None  # Task has not started yet
+    except Exception as e:
+        logger.warning(f"Could not get elapsed time for task {task_id}: {e}")
+        return None
