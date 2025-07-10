@@ -107,7 +107,7 @@ VL_AGENT_ARGS_DICT = {
         main_vl_model_args=VL_MODEL_ARGS_DICT["gpt_4o"],
         auxiliary_vl_model_args=VL_MODEL_ARGS_DICT["qwen_25_vl_7b"],
         ui_prompt_args=VL_PROMPT_ARGS_DICT["ui_prompt"],
-        action_set_args=HighLevelActionSetArgs(subsets=["coord"]),
+        action_set_args=HighLevelActionSetArgs(["coord"]),
         max_num_retries=3,
     )
 }
