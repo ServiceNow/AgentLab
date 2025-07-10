@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import HumanMessage
 from PIL import Image
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
+import numpy as np
 
 
 class VLPromptPart(ABC):
@@ -27,7 +28,7 @@ class VLPromptArgs(ABC):
     def make_main_prompt(
         self,
         obs: dict,
-        screenshot_history: list[Image.Image],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
         think_history: list[str],
         action_history: list[str],
         action_set_description: str,
@@ -40,7 +41,7 @@ class VLPromptArgs(ABC):
     def make_auxiliary_prompt(
         self,
         obs: dict,
-        screenshot_history: list[Image.Image],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
         location_adapter: Callable,
         extra_info: dict,
     ) -> VLPrompt:

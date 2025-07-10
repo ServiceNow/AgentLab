@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from agentlab.llm.llm_utils import AIMessage, Discussion
 from PIL import Image
+from typing import Union
+import numpy as np
 
 
 class VLModel(ABC):
@@ -9,7 +11,9 @@ class VLModel(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def adapt_location(self, image: Image.Image, x: int, y: int) -> tuple[int, int]:
+    def adapt_location(
+        self, image: Union[Image.Image, np.ndarray], x: int, y: int
+    ) -> tuple[int, int]:
         raise NotImplementedError
 
     @property

@@ -2,8 +2,10 @@ from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
 from openai import OpenAI, RateLimitError
 from PIL import Image
+from typing import Union
 from .base import VLModel, VLModelArgs
 import backoff
+import numpy as np
 import os
 
 
@@ -35,7 +37,9 @@ class OpenRouterAPIModel(VLModel):
         response = get_response(messages, self.max_tokens, **self.reproducibility_config)
         return AIMessage([{"type": "text", "text": response}])
 
-    def adapt_location(self, image: Image.Image, x: int, y: int) -> tuple[int, int]:
+    def adapt_location(
+        self, image: Union[Image.Image, np.ndarray], x: int, y: int
+    ) -> tuple[int, int]:
         return x, y
 
     @property

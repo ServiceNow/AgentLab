@@ -3,13 +3,11 @@ from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
 from browsergym.experiments.benchmark import Benchmark
 from browsergym.experiments.benchmark.base import HighLevelActionSetArgs
-from copy import copy, deepcopy
+from copy import deepcopy
 from dataclasses import asdict, dataclass
-from PIL import Image
 from .base import VLAgent, VLAgentArgs
 from ..vl_model.base import VLModelArgs
 from ..vl_prompt.ui_prompt import UIPromptArgs
-import numpy as np
 
 
 class UIAgent(VLAgent):
@@ -109,10 +107,6 @@ class UIAgent(VLAgent):
         return answers["main_action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:
-        obs = copy(obs)
-        if isinstance(obs["screenshot"], np.ndarray):
-            obs["screenshot"] = Image.fromarray(obs["screenshot"])
-        obs["screenshot"] = obs["screenshot"].convert("RGB")
         return obs
 
 

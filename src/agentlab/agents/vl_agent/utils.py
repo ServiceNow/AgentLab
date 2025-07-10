@@ -2,11 +2,16 @@ from accelerate import dispatch_model, infer_auto_device_map
 from accelerate.utils.modeling import get_balanced_memory
 from PIL import Image
 from torch.nn import Module
+from typing import Union
 import base64
 import io
+import numpy as np
 
 
-def image_to_image_url(image: Image.Image) -> str:
+def image_to_image_url(image: Union[Image.Image, np.ndarray]) -> str:
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    image = image.convert("RGB")
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG")
     image_base64 = base64.b64encode(buffer.getvalue()).decode()

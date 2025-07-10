@@ -4,9 +4,10 @@ from agentlab.llm.llm_utils import AIMessage, Discussion
 from dataclasses import dataclass
 from PIL import Image
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
-from typing import Optional
+from typing import Optional, Union
 from .base import VLModel, VLModelArgs
 from ..utils import auto_dispatch_model, image_url_to_image
+import numpy as np
 
 
 class QwenModel(VLModel):
@@ -74,7 +75,12 @@ class QwenModel(VLModel):
         )[0]
         return AIMessage([{"type": "text", "text": output_text}])
 
-    def adapt_location(self, image: Image.Image, x: int, y: int) -> tuple[int, int]:
+    def adapt_location(
+        self, image: Union[Image.Image, np.ndarray], x: int, y: int
+    ) -> tuple[int, int]:
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        image = image.convert("RGB")
         input = self.processor(images=[image], text="")
         _, num_patches_height, num_patches_width = input["image_grid_thw"].tolist()[0]
         height = self.processor.image_processor.patch_size * num_patches_height

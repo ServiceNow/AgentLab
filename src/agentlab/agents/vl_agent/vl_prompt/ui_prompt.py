@@ -10,6 +10,7 @@ from PIL import Image
 from typing import Callable, Optional, Union
 from .base import VLPrompt, VLPromptArgs, VLPromptPart
 from ..utils import image_to_image_url
+import numpy as np
 
 
 class IntroductionPromptPart(VLPromptPart):
@@ -50,8 +51,8 @@ class GoalPromptPart(VLPromptPart):
 class InteractionPromptPart(VLPromptPart):
     def __init__(
         self,
-        current_screenshot: Image.Image,
-        screenshot_history: list[Image.Image],
+        current_screenshot: Union[Image.Image, np.ndarray],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
         think_history: list[str],
         action_history: list[str],
         use_screenshot_history: bool,
@@ -399,8 +400,8 @@ class MainUIPrompt(VLPrompt):
 
 @dataclass
 class AuxiliaryUIPrompt(VLPrompt):
-    current_screenshot: Image.Image
-    screenshot_history: list[Image.Image]
+    current_screenshot: Union[Image.Image, np.ndarray]
+    screenshot_history: list[Union[Image.Image, np.ndarray]]
     main_think: str
     main_location: str
     use_screenshot_history: bool
@@ -481,7 +482,7 @@ class UIPromptArgs(VLPromptArgs):
     def make_main_prompt(
         self,
         obs: dict,
-        screenshot_history: list[Image.Image],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
         think_history: list[str],
         action_history: list[str],
         action_set_description: str,
@@ -536,7 +537,7 @@ class UIPromptArgs(VLPromptArgs):
     def make_auxiliary_prompt(
         self,
         obs: dict,
-        screenshot_history: list[Image.Image],
+        screenshot_history: list[Union[Image.Image, np.ndarray]],
         location_adapter: Callable,
         extra_info: dict,
     ) -> AuxiliaryUIPrompt:

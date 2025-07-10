@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from PIL import Image
 from transformers import AutoProcessor, MllamaForConditionalGeneration
 from transformers.models.mllama.image_processing_mllama import get_all_supported_aspect_ratios
-from typing import Optional
+from typing import Optional, Union
 from .base import VLModel, VLModelArgs
 from ..utils import auto_dispatch_model, image_url_to_image
+import numpy as np
 
 
 class LlamaModel(VLModel):
@@ -72,7 +73,12 @@ class LlamaModel(VLModel):
         )[0]
         return AIMessage([{"type": "text", "text": output_text}])
 
-    def adapt_location(self, image: Image.Image, x: int, y: int) -> tuple[int, int]:
+    def adapt_location(
+        self, image: Union[Image.Image, np.ndarray], x: int, y: int
+    ) -> tuple[int, int]:
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        image = image.convert("RGB")
         input = self.processor(images=[image], text="")
         _, _, _, _, tile_height, tile_width = input["pixel_values"].shape
         num_tiles_height, num_tiles_width = get_all_supported_aspect_ratios(
