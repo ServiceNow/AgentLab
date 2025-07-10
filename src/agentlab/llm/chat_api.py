@@ -482,13 +482,11 @@ class AnthropicChatModel(AbstractChatModel):
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
-        log_probs=False,
     ):
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retry = max_retry
-        self.log_probs = log_probs
 
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
@@ -544,5 +542,4 @@ class AnthropicModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            log_probs=self.log_probs,
         )

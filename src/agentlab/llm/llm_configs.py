@@ -1,4 +1,5 @@
 from agentlab.llm.chat_api import (
+    AnthropicModelArgs,
     AzureModelArgs,
     OpenAIModelArgs,
     OpenRouterModelArgs,
@@ -114,6 +115,12 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=128_000,
         max_new_tokens=16_384,
         vision_support=True,
+    ),
+    # ---------------- Anthropic ----------------#
+    "anthropic/claude-3-7-sonnet-20250219": AnthropicModelArgs(
+        model_name="claude-3-7-sonnet-20250219",
+        max_new_tokens=16_384,
+        temperature=1e-1,
     ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
