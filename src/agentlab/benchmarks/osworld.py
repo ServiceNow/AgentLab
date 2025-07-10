@@ -475,6 +475,13 @@ class OsworldGym(AbstractEnv):
     def convert_agentlab_action_to_computer_13(self, action: str) -> dict[str, Any] | str:
         """Convert action string to dictionary format.
 
+        Args:
+            action (str): Action string in AgentLab format, e.g., "move_to(x=100, y=200)".
+
+        Returns:
+            dict[str, Any] | str: Action in OSWorld Computer 13 format as a dictionary,
+            or a string for simple actions like "wait", "done", or "fail".
+
         Examples:
         >>> env = OsworldGym(task={}, provider_name="vmware", region=None, path_to_vm=None,
         ...                  snapshot_name="init_state", action_space="computer_13",
@@ -505,6 +512,13 @@ class OsworldGym(AbstractEnv):
     @staticmethod
     def parse_agentlab_action_str_to_func_args(action: str):
         """Parse the agentlab action string to extract function name, args, and kwargs.
+
+        Args:
+            action (str): Action string in AgentLab format, e.g., "move_to(x=100, y=200)".
+
+        Returns:
+            tuple: A tuple containing the function name, a list of positional arguments,
+                   and a dictionary of keyword arguments.
 
         Examples:
         >>> parse_agentlab_action_str_to_func_args("move_to(x=100, y=200)")
@@ -671,9 +685,16 @@ class OsworldBenchmark(AbstractBenchmark):
                 self.env_args_list.append(task_env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from domain '{self.domain}'")
 
-    def fix_settings_file_path_in_config(self, task) -> str:
+    def fix_settings_file_path_in_config(self, task: dict) -> dict:
         """Fix the settings file path in the task configuration.
+
         #TODO: We can create our own tiny_osworld.json with correct paths (OSWorld prefixed) to settings files. Meanwhile use this function to fix the paths.
+
+        Args:
+            task (dict): Task configuration dictionary.
+
+        Returns:
+            dict: Updated task configuration with fixed settings file paths.
         """
         osworld_repo = os.getenv("OSWORLD_REPO", "OSWorld")
         updated_task = deepcopy(task)  # Avoid modifying the original task
