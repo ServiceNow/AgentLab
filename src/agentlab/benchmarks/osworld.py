@@ -29,7 +29,6 @@ from agentlab.benchmarks.osworld_axtree_preprocessing import (
 
 logger = logging.getLogger(__name__)
 
-# TODO: Extract X_Max and Y_MAX from screen size
 COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS = [
     {
         "type": "function",
@@ -549,10 +548,10 @@ class OsworldGym(AbstractEnv):
 
 def format_chat_completion_tools_to_response_api(tools: list[dict]) -> list[dict]:
     """Convert tools from OpenAI Chat Completion format to Responses API format.
-    
+
     Args:
         tools: List of tools in Chat Completion format with nested function object
-        
+
     Returns:
         List of tools in Responses API format with flattened structure
     """
@@ -565,14 +564,15 @@ def format_chat_completion_tools_to_response_api(tools: list[dict]) -> list[dict
             "description": function_def["description"],
             "parameters": function_def["parameters"],
         }
-        
+
         # Handle the strict field if present
         if "strict" in function_def:
             formatted_tool["strict"] = function_def["strict"]
-            
+
         formatted_tools.append(formatted_tool)
 
     return formatted_tools
+
 
 @dataclass
 class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
@@ -598,11 +598,23 @@ class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
 
     def to_tool_description(self, api="openai"):
         """Convert the action set to a tool description for Tool-Use LLMs.
+
         The default for openai is openai Response API tools format.
+
+        Args:
+            api (str): The API format to use. Defaults to "openai".
+
+        Returns:
+            list[dict]: List of tool descriptions in the specified API format.
+
+        Raises:
+            ValueError: If an unsupported action space is specified.
         """
-        # TODO: Rename bgym AbstractActionSet to_tool_descriptor method as to_tool_description for consistency.
+        # TODO: Rename bgym AbstractActionSet 'to_tool_descriptor' method as 'to_tool_description' for consistency.
         if self.action_space == "computer_13":
-            tools = format_chat_completion_tools_to_response_api(COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS)
+            tools = format_chat_completion_tools_to_response_api(
+                COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS
+            )
         else:
             raise ValueError(
                 "Only 'computer_13' action space is currently supported for tool description."
@@ -642,7 +654,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
     task_seed: int = 0
     task_name: str | None = None
-    path_to_vm: str | None = None # path to .vmx file
+    path_to_vm: str | None = None  # path to .vmx file
     provider_name: str = "docker"  # path to .vmx file
     region: str = "us-east-1"  # AWS specific, does not apply to all providers
     snapshot_name: str = "init_state"  # snapshot name to revert to
@@ -694,9 +706,7 @@ class OsworldBenchmark(AbstractBenchmark):
         self.env_args_list = []
         if not self.env_args:
             self.env_args = OsworldEnvArgs(task={})
-        self.high_level_action_set_args = OSWorldActionSet(
-            action_space=self.env_args.action_space
-        )
+        self.high_level_action_set_args = OSWorldActionSet(action_space=self.env_args.action_space)
         with open(os.path.join(self.test_set_path, self.test_set_name)) as f:
             tasks = json.load(f)
         if self.domain != "all":
@@ -717,9 +727,6 @@ class OsworldBenchmark(AbstractBenchmark):
 
     def fix_settings_file_path_in_config(self, task: dict) -> dict:
         """Fix the settings file path in the task configuration.
-
-        #TODO: We can create our own tiny_osworld.json with correct paths (OSWorld prefixed) to settings files. Meanwhile use this function to fix the paths.
-
         Args:
             task (dict): Task configuration dictionary.
 
