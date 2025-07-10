@@ -4,12 +4,12 @@ from agentlab.llm.llm_utils import (
     ParseError,
     parse_html_tags_raise,
 )
+from ast import literal_eval
 from dataclasses import dataclass
 from PIL import Image
 from typing import Callable, Optional, Union
 from .base import VLPrompt, VLPromptArgs, VLPromptPart
 from ..utils import image_to_image_url
-import ast
 
 
 class IntroductionPromptPart(VLPromptPart):
@@ -372,21 +372,21 @@ class MainUIPrompt(VLPrompt):
         if isinstance(self.answer_prompt_part, PreliminaryAnswerPromptPart):
             try:
                 result = parse_html_tags_raise(answer_text, keys=["think", "location"])
-                think = result["think"]
-                location = result["location"]
+                main_think = result["think"]
+                main_location = result["location"]
             except ParseError as error:
                 raise error
-            answer_dict = {"main_think": think, "main_location": location}
+            answer_dict = {"main_think": main_think, "main_location": main_location}
         else:
             try:
-                action = parse_html_tags_raise(answer_text, keys=["action"])["action"]
+                main_action = parse_html_tags_raise(answer_text, keys=["action"])["action"]
             except ParseError as error:
                 code_blocks = extract_code_blocks(answer_text)
                 if len(code_blocks) == 0:
                     raise error
                 else:
-                    action = "\n".join([block for _, block in code_blocks])
-            answer_dict = {"main_action": action}
+                    main_action = "\n".join([block for _, block in code_blocks])
+            answer_dict = {"main_action": main_action}
             if answer_dict["main_action"] == "None":
                 answer_dict["main_action"] = None
             else:
@@ -460,12 +460,12 @@ Answer:""",
         answer_text = answer_content[0]["text"]
         try:
             if self.use_location_reasoning:
-                x, y = ast.literal_eval(answer_text.strip())[0]["point"]
+                x, y = literal_eval(answer_text.strip())[0]["point"]
             else:
-                x, y = ast.literal_eval(answer_text.strip())
+                x, y = literal_eval(answer_text.strip())
         except:
             raise ParseError(f"Invalid answer: {answer_text}")
-        x, y = self.location_adapter(self.current_screenshot, x, y)
+        x, y = self.location_adapter(self.current_screenshot, int(x), int(y))
         return {"auxiliary_location": f"({x}, {y})", "auxiliary_response": answer_text}
 
 

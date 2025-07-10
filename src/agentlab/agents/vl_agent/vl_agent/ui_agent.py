@@ -105,7 +105,7 @@ class UIAgent(VLAgent):
         self.screenshot_history.append(obs["screenshot"])
         self.think_history.append(str(answers["main_think"]))
         self.action_history.append(str(answers["main_action"]))
-        agent_info = AgentInfo(think=str(answers), stats=stats)
+        agent_info = AgentInfo(str(answers), stats=stats)
         return answers["main_action"], asdict(agent_info)
 
     def obs_preprocessor(self, obs: dict) -> dict:

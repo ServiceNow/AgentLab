@@ -79,8 +79,8 @@ class QwenModel(VLModel):
         _, num_patches_height, num_patches_width = input["image_grid_thw"].tolist()[0]
         height = self.processor.image_processor.patch_size * num_patches_height
         width = self.processor.image_processor.patch_size * num_patches_width
-        x = int(int(x) / width * image.width)
-        y = int(int(y) / height * image.height)
+        x = int(x / width * image.width)
+        y = int(y / height * image.height)
         return x, y
 
     @property

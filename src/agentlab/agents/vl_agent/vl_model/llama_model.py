@@ -80,8 +80,8 @@ class LlamaModel(VLModel):
         )[input["aspect_ratio_ids"].item() - 1]
         height = tile_height * num_tiles_height
         width = tile_width * num_tiles_width
-        x = int(int(x) / width * image.width)
-        y = int(int(y) / height * image.height)
+        x = int(x / width * image.width)
+        y = int(y / height * image.height)
         return x, y
 
     @property
