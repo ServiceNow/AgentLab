@@ -30,7 +30,7 @@ from agentlab.benchmarks.osworld_axtree_preprocessing import (
 logger = logging.getLogger(__name__)
 
 # TODO: Extract X_Max and Y_MAX from screen size
-COMPUTER_13_ACTIONS_OAI_RESPONSE_TOOLS = [
+COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS = [
     {
         "type": "function",
         "function": {
@@ -547,6 +547,33 @@ class OsworldGym(AbstractEnv):
         return self.env.close()
 
 
+def format_chat_completion_tools_to_response_api(tools: list[dict]) -> list[dict]:
+    """Convert tools from OpenAI Chat Completion format to Responses API format.
+    
+    Args:
+        tools: List of tools in Chat Completion format with nested function object
+        
+    Returns:
+        List of tools in Responses API format with flattened structure
+    """
+    formatted_tools = []
+    for tool in tools:
+        function_def = tool["function"]
+        formatted_tool = {
+            "type": "function",
+            "name": function_def["name"],
+            "description": function_def["description"],
+            "parameters": function_def["parameters"],
+        }
+        
+        # Handle the strict field if present
+        if "strict" in function_def:
+            formatted_tool["strict"] = function_def["strict"]
+            
+        formatted_tools.append(formatted_tool)
+
+    return formatted_tools
+
 @dataclass
 class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
     # TODO: Define and use agentlab AbstractActionSet
@@ -570,10 +597,12 @@ class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
         pass
 
     def to_tool_description(self, api="openai"):
-        """Convert the action set to a tool description for Tool-Use LLMs."""
+        """Convert the action set to a tool description for Tool-Use LLMs.
+        The default for openai is openai Response API tools format.
+        """
         # TODO: Rename bgym AbstractActionSet to_tool_descriptor method as to_tool_description for consistency.
         if self.action_space == "computer_13":
-            tools = COMPUTER_13_ACTIONS_OAI_RESPONSE_TOOLS
+            tools = format_chat_completion_tools_to_response_api(COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS)
         else:
             raise ValueError(
                 "Only 'computer_13' action space is currently supported for tool description."
@@ -613,8 +642,8 @@ class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
     task_seed: int = 0
     task_name: str | None = None
-    path_to_vm: str | None = "OSWorld/vmware_vm_data/Ubuntu0/Ubuntu0.vmx"  # path to .vmx file
-    provider_name: str = "vmware"  # path to .vmx file
+    path_to_vm: str | None = None # path to .vmx file
+    provider_name: str = "docker"  # path to .vmx file
     region: str = "us-east-1"  # AWS specific, does not apply to all providers
     snapshot_name: str = "init_state"  # snapshot name to revert to
     action_space: Literal["computer_13", "pyautogui"] = "computer_13"
