@@ -9,7 +9,6 @@ repository.
 import logging
 
 import bgym
-from bgym import DEFAULT_BENCHMARKS
 
 from agentlab.agents.tool_use_agent.tool_use_agent import (
     DEFAULT_PROMPT_CONFIG,
@@ -22,8 +21,8 @@ from agentlab.experiments.study import Study
 logging.getLogger().setLevel(logging.INFO)
 
 agent_config = ToolUseAgentArgs(
-    model_args=OPENAI_MODEL_CONFIG,
-    config=GPT_4_1_MINI,
+    model_args=GPT_4_1_MINI,
+    config=DEFAULT_PROMPT_CONFIG,
 )
 
 
@@ -37,7 +36,7 @@ agent_args = [agent_config]
 benchmark = "workarena_l1"
 
 
-benchmark = DEFAULT_BENCHMARKS[benchmark](n_seeds=1)  # type: bgym.Benchmark
+benchmark = bgym.DEFAULT_BENCHMARKS[benchmark]()  # type: bgym.Benchmark
 benchmark = benchmark.subset_from_glob("task_name", "*create*")
 
 # for env_args in benchmark.env_args_list:
