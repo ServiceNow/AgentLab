@@ -547,14 +547,15 @@ class OsworldGym(AbstractEnv):
         return self.env.close()
 
 
-class OSWorldActionSet(AbstractActionSet):
+@dataclass
+class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
     # TODO: Define and use agentlab AbstractActionSet
     # AbstractActionSet should define some standard format to represent actions.(list of dict with keys that are MCP compatible)
     # Should we have 'abstract function' here for action conversion for backend LLM with fixed action set like UI-Tars or Semi-fixed action set LLMs like OpenAI CUA?
     # TODO: We need to support both 'action space as tools' and 'action space as prompt' for agentlab agents
     # and have conversion functions to convert them to format acceptable by environment.
-    def __init__(self, action_space: Literal["computer_13", "pyautogui"]):
-        self.action_space = action_space
+    action_space: Literal["computer_13", "pyautogui"] = "computer_13"
+    multiaction: bool = False
 
     def describe(self, with_long_description: bool = True, with_examples: bool = True) -> str:
         """Describe the OSWorld action set for desktop interactions."""
@@ -598,13 +599,13 @@ def format_response_api_tools_to_anthropic(tools: list[dict]) -> list[dict]:
     return formatted_tools
 
 
-@dataclass
-class OSWorldActionSetArgs(DataClassJsonMixin):
-    action_space: Literal["computer_13", "pyautogui"] = "computer_13"
+# @dataclass
+# class OSWorldActionSetArgs(DataClassJsonMixin):
+#     action_space: Literal["computer_13", "pyautogui"] = "computer_13"
 
-    def make_action_set(self):
-        logger.info(f"Creating OSWorld Action Set with action space: {self.action_space}")
-        return OSWorldActionSet(action_space=self.action_space)
+#     def make_action_set(self):
+#         logger.info(f"Creating OSWorld Action Set with action space: {self.action_space}")
+#         return OSWorldActionSet(action_space=self.action_space)
 
 
 @dataclass
@@ -612,8 +613,8 @@ class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
     task_seed: int = 0
     task_name: str | None = None
-    path_to_vm: str | None = None  # path to .vmx file
-    provider_name: str = "docker"
+    path_to_vm: str | None = "OSWorld/vmware_vm_data/Ubuntu0/Ubuntu0.vmx"  # path to .vmx file
+    provider_name: str = "vmware"  # path to .vmx file
     region: str = "us-east-1"  # AWS specific, does not apply to all providers
     snapshot_name: str = "init_state"  # snapshot name to revert to
     action_space: Literal["computer_13", "pyautogui"] = "computer_13"
@@ -653,7 +654,7 @@ class OsworldEnvArgs(AbstractEnvArgs):
 class OsworldBenchmark(AbstractBenchmark):
     name: str = "osworld"
     is_multi_tab: bool = False
-    high_level_action_set_args: OSWorldActionSetArgs = None  # type: ignore
+    high_level_action_set_args: OSWorldActionSet = None  # type: ignore
     test_set_path: str = "OSWorld/evaluation_examples"
     test_set_name: str = "test_all.json"
     domain: str = "all"
@@ -664,7 +665,7 @@ class OsworldBenchmark(AbstractBenchmark):
         self.env_args_list = []
         if not self.env_args:
             self.env_args = OsworldEnvArgs(task={})
-        self.high_level_action_set_args = OSWorldActionSetArgs(
+        self.high_level_action_set_args = OSWorldActionSet(
             action_space=self.env_args.action_space
         )
         with open(os.path.join(self.test_set_path, self.test_set_name)) as f:
