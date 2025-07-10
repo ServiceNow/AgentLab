@@ -29,9 +29,9 @@ def main():
 
     if os.environ.get("AGENTLAB_DEBUG"):
         task_ids = get_task_ids()
-        study.exp_args_list = [exp_args for exp_args in study.exp_args_list if exp_args.env_args.task["id"] in task_ids]
+        study.exp_args_list = [exp_args for exp_args in study.exp_args_list if exp_args.env_args.task["id"] in task_ids]  # type: ignore
         print(f"Debug on {len(study.exp_args_list)} experiments")
-        study.run(n_jobs=2, n_relaunch=1, parallel_backend="ray")
+        study.run(n_jobs=4, n_relaunch=1, parallel_backend="ray")
     else:
         study.run(n_jobs=n_jobs, n_relaunch=1, parallel_backend="ray")
 

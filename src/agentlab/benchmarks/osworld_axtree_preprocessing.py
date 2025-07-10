@@ -25,6 +25,7 @@ def find_leaf_nodes(xlm_file_str):
     collect_leaf_nodes(root, leaf_nodes)
     return leaf_nodes
 
+
 attributes_ns_ubuntu = "https://accessibility.windows.example.org/ns/attributes"
 attributes_ns_windows = "https://accessibility.windows.example.org/ns/attributes"
 state_ns_ubuntu = "https://accessibility.ubuntu.example.org/ns/state"
@@ -337,4 +338,3 @@ def trim_accessibility_tree(linearized_accessibility_tree, max_tokens):
         linearized_accessibility_tree = enc.decode(tokens[:max_tokens])
         linearized_accessibility_tree += "[...]\n"
     return linearized_accessibility_tree
-

@@ -343,6 +343,7 @@ class OsworldGym(AbstractEnv):
         enable_proxy: bool,
         max_steps: int,
         exp_dir: Path,
+        record_video: bool = True,
     ):
         self.task = task
         self.env_info = {
@@ -375,13 +376,18 @@ class OsworldGym(AbstractEnv):
         self._step_count = 0
         self.max_steps = max_steps
         self.exp_dir = exp_dir
+        self.record_video = record_video
 
     def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
         self.env.reset(task_config=self.task, seed=seed)
         logging.info(f"Start solving task: {self.task['instruction']}")
-        time.sleep(60) # Wait for the environment to be ready, as in https://github.com/xlang-ai/OSWorld/blob/main/lib_run_single.py#L15
-        raw_obs = self.env._get_obs() # Get the initial observation
-        self.env.controller.start_recording()
+        time.sleep(
+            60
+        )  # Wait for the environment to be ready, as in https://github.com/xlang-ai/OSWorld/blob/main/lib_run_single.py#L15
+        raw_obs = self.env._get_obs()  # Get the initial observation
+        if self.record_video:
+            self.env.controller.start_recording()
+            logging.info("Started recording the environment video")
         obs = self.to_agentlab_observation(raw_obs)
         self._step_count = 0
         return obs, self.env_info
@@ -520,9 +526,10 @@ class OsworldGym(AbstractEnv):
         return None, None, None
 
     def close(self):
-        video_name = str(self.exp_dir / "recording.mp4")
-        self.env.controller.end_recording(video_name)
-        logger.info(f"Recorded video saved to {video_name}")
+        if self.record_video:
+            video_name = str(self.exp_dir / "recording.mp4")
+            self.env.controller.end_recording(video_name)
+            logger.info(f"Recorded video saved to {video_name}")
         return self.env.close()
 
 
@@ -671,10 +678,8 @@ class OsworldBenchmark(AbstractBenchmark):
         osworld_repo = os.getenv("OSWORLD_REPO", "OSWorld")
         updated_task = deepcopy(task)  # Avoid modifying the original task
         for config in updated_task["config"]:
-                if config.get("parameters", False) and config["parameters"].get(
-                    "settings_file", False
-                ):
-                    config["parameters"]["settings_file"] = os.path.join(
-                        osworld_repo, config["parameters"]["settings_file"]
-                    )
+            if config.get("parameters", False) and config["parameters"].get("settings_file", False):
+                config["parameters"]["settings_file"] = os.path.join(
+                    osworld_repo, config["parameters"]["settings_file"]
+                )
         return updated_task

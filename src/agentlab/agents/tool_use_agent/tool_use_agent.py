@@ -384,6 +384,7 @@ class ToolUseAgentArgs(AgentArgs):
         if benchmark_name == "osworld":
             self.config.obs.use_osworld_obs_preprocessor = True
 
+
 class ToolUseAgent(bgym.Agent):
     def __init__(
         self,
@@ -598,5 +599,7 @@ OSWORLD_OAI = ToolUseAgentArgs(
         multiaction=False,  # whether to use multi-action or not
         action_subsets=("coord",),
     ),
-    action_set=OSWorldActionSet("computer_13"),  # or "pyautogui" #TODO: agent config should only be some primitive types.
+    action_set=OSWorldActionSet(
+        "computer_13"
+    ),  # or "pyautogui" #TODO: agent config should only be some primitive types.
 )
