@@ -546,34 +546,6 @@ class OsworldGym(AbstractEnv):
         return self.env.close()
 
 
-def format_chat_completion_tools_to_response_api(tools: list[dict]) -> list[dict]:
-    """Convert tools from OpenAI Chat Completion format to Responses API format.
-
-    Args:
-        tools: List of tools in Chat Completion format with nested function object
-
-    Returns:
-        List of tools in Responses API format with flattened structure
-    """
-    formatted_tools = []
-    for tool in tools:
-        function_def = tool["function"]
-        formatted_tool = {
-            "type": "function",
-            "name": function_def["name"],
-            "description": function_def["description"],
-            "parameters": function_def["parameters"],
-        }
-
-        # Handle the strict field if present
-        if "strict" in function_def:
-            formatted_tool["strict"] = function_def["strict"]
-
-        formatted_tools.append(formatted_tool)
-
-    return formatted_tools
-
-
 @dataclass
 class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
     # TODO: Define and use agentlab AbstractActionSet
@@ -620,12 +592,12 @@ class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
                 "Only 'computer_13' action space is currently supported for tool description."
             )
         if api == "anthropic":
-            return format_response_api_tools_to_anthropic(tools)
+            return format_chat_completion_tools_to_anthropic(tools)
         else:
             return tools
 
 
-def format_response_api_tools_to_anthropic(tools: list[dict]) -> list[dict]:
+def format_chat_completion_tools_to_anthropic(tools: list[dict]) -> list[dict]:
     """Convert OpenAI Response API tool format to Anthropic tool format."""
     formatted_tools = []
     for tool in tools:
@@ -635,6 +607,34 @@ def format_response_api_tools_to_anthropic(tools: list[dict]) -> list[dict]:
             "description": function_def["description"],
             "input_schema": function_def["parameters"],
         }
+        formatted_tools.append(formatted_tool)
+
+    return formatted_tools
+
+
+def format_chat_completion_tools_to_response_api(tools: list[dict]) -> list[dict]:
+    """Convert tools from OpenAI Chat Completion format to Responses API format.
+
+    Args:
+        tools: List of tools in Chat Completion format with nested function object
+
+    Returns:
+        List of tools in Responses API format with flattened structure
+    """
+    formatted_tools = []
+    for tool in tools:
+        function_def = tool["function"]
+        formatted_tool = {
+            "type": "function",
+            "name": function_def["name"],
+            "description": function_def["description"],
+            "parameters": function_def["parameters"],
+        }
+
+        # Handle the strict field if present
+        if "strict" in function_def:
+            formatted_tool["strict"] = function_def["strict"]
+
         formatted_tools.append(formatted_tool)
 
     return formatted_tools
