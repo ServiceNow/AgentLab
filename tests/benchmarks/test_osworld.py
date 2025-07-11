@@ -1,9 +1,9 @@
+import importlib.util
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import importlib.util
 
 spec = importlib.util.find_spec("desktop_env")
 if spec is None:
@@ -18,6 +18,7 @@ else:
         OsworldEnvArgs,
         OsworldGym,
     )
+
     DESKTOP_ENV_AVAILABLE = True
 
 
