@@ -127,8 +127,10 @@ class Goal(Block):
 
     goal_as_system_msg: bool = True
 
-    def apply(self, llm, discussion: StructuredDiscussion, obs: dict) -> dict:
-        system_message = llm.msg.system().add_text(SYS_MSG)
+    def apply(
+        self, llm, discussion: StructuredDiscussion, obs: dict, sys_msg: str = SYS_MSG
+    ) -> dict:
+        system_message = llm.msg.system().add_text(sys_msg)
         discussion.append(system_message)
 
         if self.goal_as_system_msg:
@@ -441,7 +443,13 @@ class ToolUseAgent(bgym.Agent):
         self.llm.reset_stats()
         if not self.discussion.is_goal_set():
             self.discussion.new_group("goal")
-            self.config.goal.apply(self.llm, self.discussion, obs)
+
+            if self.config.multiaction:
+                sys_msg = SYS_MSG + "\nYou can take multiple actions in a single step, if needed."
+            else:
+                sys_msg = SYS_MSG + "\nYou can only take one action at a time."
+            self.config.goal.apply(self.llm, self.discussion, obs, sys_msg)
+
             self.config.summarizer.apply_init(self.llm, self.discussion)
             self.config.general_hints.apply(self.llm, self.discussion)
             self.task_hint.apply(self.llm, self.discussion, self.task_name)
@@ -489,7 +497,7 @@ class ToolUseAgent(bgym.Agent):
         return action, agent_info
 
 
-OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
+GPT_4_1 = OpenAIResponseModelArgs(
     model_name="gpt-4.1",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
