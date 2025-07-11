@@ -7,28 +7,37 @@ repository.
 """
 
 import logging
+from copy import deepcopy
 
 import bgym
 
 from agentlab.agents.tool_use_agent.tool_use_agent import (
     DEFAULT_PROMPT_CONFIG,
-    GPT_4_1_MINI,
-    OPENAI_MODEL_CONFIG,
+    GPT_4_1,
     ToolUseAgentArgs,
 )
 from agentlab.experiments.study import Study
 
 logging.getLogger().setLevel(logging.INFO)
 
-agent_config = ToolUseAgentArgs(
-    model_args=GPT_4_1_MINI,
-    config=DEFAULT_PROMPT_CONFIG,
-)
+config = deepcopy(DEFAULT_PROMPT_CONFIG)
+# config.keep_last_n_obs = 1
+config.obs.use_som = True
 
 
-agent_config.config.action_subsets = ("workarena",)  # use the workarena action set
+agent_configs = [
+    ToolUseAgentArgs(
+        model_args=GPT_4_1,
+        config=config,
+    ),
+    # ToolUseAgentArgs(
+    #     model_args=GPT_4_1,
+    #     config=config,
+    # ),
+]
 
-agent_args = [agent_config]
+for agent_config in agent_configs:
+    agent_config.config.action_subsets = ("workarena",)  # use the workarena action set
 
 
 # ## select the benchmark to run on
@@ -36,7 +45,7 @@ agent_args = [agent_config]
 benchmark = "workarena_l1"
 
 
-benchmark = bgym.DEFAULT_BENCHMARKS[benchmark]()  # type: bgym.Benchmark
+benchmark = bgym.DEFAULT_BENCHMARKS[benchmark](n_repeats=4)  # type: bgym.Benchmark
 benchmark = benchmark.subset_from_glob("task_name", "*create*")
 
 # for env_args in benchmark.env_args_list:
@@ -58,7 +67,7 @@ if __name__ == "__main__":  # necessary for dask backend
         study.find_incomplete(include_errors=True)
 
     else:
-        study = Study(agent_args, benchmark, logging_level_stdout=logging.WARNING)
+        study = Study(agent_configs, benchmark, logging_level_stdout=logging.WARNING)
 
     study.run(
         n_jobs=n_jobs,
