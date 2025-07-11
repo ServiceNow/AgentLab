@@ -586,7 +586,7 @@ class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
         # TODO: Rename bgym AbstractActionSet 'to_tool_descriptor' method as 'to_tool_description' for consistency.
         if self.action_space == "computer_13":
             tools = COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS
-            
+
         else:
             raise ValueError(
                 "Only 'computer_13' action space is currently supported for tool description."
@@ -594,12 +594,12 @@ class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
         api_formatters = {
             "openai": lambda: format_chat_completion_tools_to_response_api(tools),
             "chatcompletion": lambda: tools,
-            "anthropic": lambda: format_chat_completion_tools_to_anthropic(tools)
+            "anthropic": lambda: format_chat_completion_tools_to_anthropic(tools),
         }
-        
+
         if api not in api_formatters:
             raise ValueError(f"Unsupported API type: {api}")
-        
+
         return api_formatters[api]()
 
 
@@ -733,11 +733,12 @@ class OsworldBenchmark(AbstractBenchmark):
 
     def fix_settings_file_path_in_config(self, task: dict) -> dict:
         """Fix the settings file path in the task configuration.
+        
         Args:
-            task (dict): Task configuration dictionary.
+            task: Task configuration dictionary.
 
         Returns:
-            dict: Updated task configuration with fixed settings file paths.
+            Updated task configuration with fixed settings file paths.
         """
         osworld_repo = os.getenv("OSWORLD_REPO", "OSWorld")
         updated_task = deepcopy(task)  # Avoid modifying the original task
