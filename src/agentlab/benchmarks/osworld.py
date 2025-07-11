@@ -733,7 +733,7 @@ class OsworldBenchmark(AbstractBenchmark):
 
     def fix_settings_file_path_in_config(self, task: dict) -> dict:
         """Fix the settings file path in the task configuration.
-        
+
         Args:
             task: Task configuration dictionary.
 

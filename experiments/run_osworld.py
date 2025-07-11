@@ -2,11 +2,9 @@ import json
 import logging
 import os
 
-from tapeagents import agent
-
-from agentlab.agents.tool_use_agent.tool_use_agent import OSWORLD_CLAUDE, OSWORLD_OAI
+from agentlab.agents.tool_use_agent.tool_use_agent import OSWORLD_CLAUDE
 from agentlab.benchmarks.osworld import OsworldBenchmark
-from agentlab.experiments.study import make_study, Study
+from agentlab.experiments.study import Study, make_study
 
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
 logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[logging.StreamHandler()])
@@ -20,6 +18,7 @@ def get_most_recent_incomplete_study() -> Study:
     study.find_incomplete(include_errors=True)
     return study
 
+
 def get_task_ids() -> set[str]:
     with open("experiments/osworld_debug_task_ids.json", "r") as f:
         task_ids = json.load(f)
@@ -32,13 +31,15 @@ def main():
     relaunch = True
     agent_args = [
         OSWORLD_CLAUDE,
-                #    OSWORLD_OAI # performs poorly. 
-                   ]  # type: ignore
+        #    OSWORLD_OAI # performs poorly.
+    ]  # type: ignore
     parallel_backend = "ray"
     os.environ["AGENTLAB_DEBUG"] = os.environ.get("AGENTLAB_DEBUG", "1")
 
     study = make_study(
-        benchmark=OsworldBenchmark(test_set_name="test_small.json"), # or test_all.json (Exper)  # type: ignore
+        benchmark=OsworldBenchmark(
+            test_set_name="test_small.json"
+        ),  # or test_all.json (Exper)  # type: ignore
         agent_args=agent_args,  # type: ignore
         comment="osworld debug 2",
         logging_level=logging.INFO,

@@ -1,4 +1,3 @@
-
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -10,7 +9,6 @@ from agentlab.benchmarks.osworld import (
     OsworldEnvArgs,
     OsworldGym,
 )
-
 
 
 def mock_task_config() -> dict:
@@ -282,4 +280,3 @@ class TestOsworldGym:
                 result = gym.convert_agentlab_action_to_computer_13('typing(text="hello")')
                 expected = {"action_type": "TYPING", "parameters": {"text": "hello"}}
                 assert result == expected
-
