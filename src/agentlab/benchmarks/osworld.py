@@ -526,6 +526,7 @@ class OsworldGym(AbstractEnv):
         ('hotkey', [], {'keys': ['ctrl', 'alt', 't']})
         """
         try:
+            action = action.strip()
             parsed = ast.parse(action, mode="eval")
             if isinstance(parsed.body, ast.Call):
                 func_name = ast.unparse(parsed.body.func)
@@ -584,17 +585,22 @@ class OSWorldActionSet(AbstractActionSet, DataClassJsonMixin):
         """
         # TODO: Rename bgym AbstractActionSet 'to_tool_descriptor' method as 'to_tool_description' for consistency.
         if self.action_space == "computer_13":
-            tools = format_chat_completion_tools_to_response_api(
-                COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS
-            )
+            tools = COMPUTER_13_ACTIONS_OAI_CHATCOMPLETION_TOOLS
+            
         else:
             raise ValueError(
                 "Only 'computer_13' action space is currently supported for tool description."
             )
-        if api == "anthropic":
-            return format_chat_completion_tools_to_anthropic(tools)
-        else:
-            return tools
+        api_formatters = {
+            "openai": lambda: format_chat_completion_tools_to_response_api(tools),
+            "chatcompletion": lambda: tools,
+            "anthropic": lambda: format_chat_completion_tools_to_anthropic(tools)
+        }
+        
+        if api not in api_formatters:
+            raise ValueError(f"Unsupported API type: {api}")
+        
+        return api_formatters[api]()
 
 
 def format_chat_completion_tools_to_anthropic(tools: list[dict]) -> list[dict]:
