@@ -1164,7 +1164,7 @@ def get_directory_contents(results_dir: Path):
                 most_recent_summary = max(summary_files, key=os.path.getctime)
                 summary_df = pd.read_csv(most_recent_summary)
 
-                if len(summary_df) == 0 or summary_df["avg_reward"].isna().all():
+                if len(summary_df) == 0:
                     continue  # skip if all avg_reward are NaN
 
                 # get row with max avg_reward
