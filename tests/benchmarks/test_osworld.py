@@ -4,6 +4,17 @@ from unittest.mock import patch
 
 import pytest
 
+# Check if desktop_env is available
+try:
+    import desktop_env
+
+    DESKTOP_ENV_AVAILABLE = True
+except ImportError:
+    DESKTOP_ENV_AVAILABLE = False
+
+# Skip the entire module if desktop_env is not available
+pytestmark = pytest.mark.skipif(not DESKTOP_ENV_AVAILABLE, reason="desktop_env not installed")
+
 from agentlab.benchmarks.osworld import (
     OSWorldActionSet,
     OsworldEnvArgs,
