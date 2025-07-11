@@ -1,4 +1,6 @@
+import time
 from abc import ABC, abstractmethod
+from functools import wraps
 
 import gymnasium as gym
 from dataclasses_json import DataClassJsonMixin
@@ -71,3 +73,38 @@ class AbstractEnv(gym.Env, ABC):
     @abstractmethod
     def close(self):
         """Close any resources used by the environment"""
+
+
+def add_step_timing_to_env_info_decorator(step_func):
+    """Decorator/wrapper that adds timing information to any step function.
+
+    This wrapper can be applied to any step method to automatically
+    measure and include action execution timing in the env_info.
+
+    Args:
+        step_func: The step function to wrap
+
+    Returns:
+        Wrapped function that includes timing information
+    """
+
+    @wraps(step_func)
+    def wrapped_step(self, action: str):
+        action_exec_start = time.time()
+        obs, reward, terminated, truncated, env_info = step_func(self, action)
+        action_exec_stop = time.time()
+
+        # Ensure env_info is a dictionary
+        if env_info is None:
+            env_info = {}
+
+        if "action_exec_start" not in env_info:
+            env_info["action_exec_start"] = action_exec_start
+        if "action_exec_stop" not in env_info:
+            env_info["action_exec_stop"] = action_exec_stop
+        if "action_exec_timeout" not in env_info:
+            env_info["action_exec_timeout"] = 0.0  # Default to 0, override if needed
+
+        return obs, reward, terminated, truncated, env_info
+
+    return wrapped_step

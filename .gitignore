@@ -172,6 +172,9 @@ outputs/
 miniwob-plusplus/
 .miniwob-server.pid
 debugging_results/
+docker_vm_data/
+OSWorld/
+
 
 # working files
 experiments/*
