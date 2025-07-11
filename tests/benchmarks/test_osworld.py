@@ -3,23 +3,26 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import importlib.util
 
-# Check if desktop_env is available
-try:
-    import desktop_env
-
-    DESKTOP_ENV_AVAILABLE = True
-except ImportError:
+spec = importlib.util.find_spec("desktop_env")
+if spec is None:
     DESKTOP_ENV_AVAILABLE = False
+    OSWorldActionSet = None
+    OsworldEnvArgs = None
+    OsworldGym = None
+else:
+    # If desktop_env is available, import the necessary classes
+    from agentlab.benchmarks.osworld import (
+        OSWorldActionSet,
+        OsworldEnvArgs,
+        OsworldGym,
+    )
+    DESKTOP_ENV_AVAILABLE = True
+
 
 # Skip the entire module if desktop_env is not available
 pytestmark = pytest.mark.skipif(not DESKTOP_ENV_AVAILABLE, reason="desktop_env not installed")
-
-from agentlab.benchmarks.osworld import (
-    OSWorldActionSet,
-    OsworldEnvArgs,
-    OsworldGym,
-)
 
 
 def mock_task_config() -> dict:
