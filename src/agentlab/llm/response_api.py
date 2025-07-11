@@ -313,7 +313,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
         **kwargs,
     ):
         self.tools = kwargs.pop("tools", None)
-        self.tool_choice = kwargs.pop("tool_choice", None)
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -324,7 +323,9 @@ class OpenAIResponseModel(BaseModelWithPricing):
         )
         self.client = OpenAI(api_key=api_key)
 
-    def _call_api(self, messages: list[Any | MessageBuilder], **kwargs) -> dict:
+    def _call_api(
+        self, messages: list[Any | MessageBuilder], tool_choice: str = "auto", **kwargs
+    ) -> dict:
         input = []
         for msg in messages:
             input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
@@ -339,8 +340,10 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
         if self.tools is not None:
             api_params["tools"] = self.tools
-        if self.tool_choice is not None:
-            api_params["tool_choice"] = self.tool_choice
+        if tool_choice in ("any", "required"):
+            tool_choice = "required"
+
+        api_params["tool_choice"] = tool_choice
 
         # api_params |= kwargs  # Merge any additional parameters passed
         response = call_openai_api_with_retries(
@@ -388,7 +391,6 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
     ):
 
         self.tools = self.format_tools_for_chat_completion(kwargs.pop("tools", None))
-        self.tool_choice = kwargs.pop("tool_choice", None)
 
         super().__init__(
             model_name=model_name,
@@ -403,7 +405,9 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             **client_args
         )  # Ensures client_args is a dict or defaults to an empty dict
 
-    def _call_api(self, messages: list[dict | MessageBuilder]) -> openai.types.chat.ChatCompletion:
+    def _call_api(
+        self, messages: list[dict | MessageBuilder], tool_choice: str = "auto"
+    ) -> openai.types.chat.ChatCompletion:
         input = []
         for msg in messages:
             input.extend(msg.prepare_message() if isinstance(msg, MessageBuilder) else [msg])
@@ -416,8 +420,10 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         }
         if self.tools is not None:
             api_params["tools"] = self.tools
-        if self.tool_choice is not None:
-            api_params["tool_choice"] = self.tool_choice
+
+        if tool_choice in ("any", "required"):
+            tool_choice = "required"
+        api_params["tool_choice"] = tool_choice
 
         response = call_openai_api_with_retries(self.client.chat.completions.create, api_params)
 
@@ -517,7 +523,6 @@ class ClaudeResponseModel(BaseModelWithPricing):
         **kwargs,
     ):
         self.tools = kwargs.pop("tools", None)
-        self.tool_choice = kwargs.pop("tool_choice", None)
 
         super().__init__(
             model_name=model_name,
@@ -542,6 +547,9 @@ class ClaudeResponseModel(BaseModelWithPricing):
             if kwargs.pop("use_cache_breakpoints", False):
                 temp = self.apply_cache_breakpoints(msg, temp)
             input.extend(temp)
+
+        if tool_choice in ("any", "required"):
+            tool_choice = "any"  # Claude API expects "any" and gpt expects "required"
 
         api_params: Dict[str, Any] = {
             "model": self.model_name,
