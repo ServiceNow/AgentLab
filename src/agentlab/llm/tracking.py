@@ -164,7 +164,7 @@ class TrackAPIPricingMixin:
 
         usage = dict(getattr(response, "usage", {}))
         if 'prompt_tokens_details' in usage:
-            usage['cached_tokens'] = usage['prompt_token_details'].cached_tokens
+            usage['cached_tokens'] = usage['prompt_tokens_details'].cached_tokens
         if 'input_tokens_details' in usage:
             usage['cached_tokens'] = usage['input_tokens_details'].cached_tokens
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
