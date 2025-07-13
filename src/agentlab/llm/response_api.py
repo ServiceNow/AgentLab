@@ -127,11 +127,6 @@ class MessageBuilder:
     def assistant(cls) -> "MessageBuilder":
         return cls("assistant")
 
-    # Use responded_tool_calls to add tool calls to the message content.
-    # @classmethod
-    # def tool(cls) -> "MessageBuilder":  
-    #     return cls("tool")
-
     @abstractmethod
     def prepare_message(self) -> List[Message]:
         """Prepare the message for the API call."""
@@ -187,7 +182,7 @@ class MessageBuilder:
     def add_responded_tool_calls(cls, responded_tool_calls: ToolCalls) -> "MessageBuilder":
         """Add tool calls to the message content."""
         assert responded_tool_calls.all_responses_set, "All tool calls must have a response."
-        msg = cls('tool')
+        msg = cls("tool")
         msg.responded_tool_calls = responded_tool_calls
         return msg
 
@@ -222,7 +217,7 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
             raise ValueError("No tool calls found in responded_tool_calls")
 
         output = []
-        output.extend(self.responded_tool_calls.raw_calls.output) # this contains response
+        output.extend(self.responded_tool_calls.raw_calls.output)  # this contains response
         for fn_call in self.responded_tool_calls:
             call_type = fn_call.raw_call.type
             call_id = fn_call.raw_call.call_id
@@ -280,18 +275,25 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
         """Handle the tool call response from the last raw response."""
         if self.responded_tool_calls is None:
             raise ValueError("No tool calls found in responded_tool_calls")
-        
-        llm_tool_call = {"role": "assistant", "content": self.responded_tool_calls.raw_calls.content} # Add the toolcall block 
-        tool_response = {'role': 'user', 'content': []}  # Anthropic expects a list of messages
+
+        llm_tool_call = {
+            "role": "assistant",
+            "content": self.responded_tool_calls.raw_calls.content,
+        }  # Add the toolcall block
+        tool_response = {"role": "user", "content": []}  # Anthropic expects a list of messages
         for call in self.responded_tool_calls:
             assert (
                 "image" not in call.tool_response
             ), "Image output is not supported in tool calls response."
-            tool_response['content'].append({
-                "type": "tool_result",
-                "tool_use_id": call.raw_call.id,
-                "content": self.transform_content(call.tool_response)["text"], # needs to be str
-            })
+            tool_response["content"].append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": call.raw_call.id,
+                    "content": self.transform_content(call.tool_response)[
+                        "text"
+                    ],  # needs to be str
+                }
+            )
 
         return [llm_tool_call, tool_response]
 
@@ -345,11 +347,14 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
         if self.responded_tool_calls is None:
             raise ValueError("No tool calls found in responded_tool_calls")
         output = []
-        output.append(self.responded_tool_calls.raw_calls.choices[0].message)  # add raw calls to output
+        output.append(
+            self.responded_tool_calls.raw_calls.choices[0].message
+        )  # add raw calls to output
         for fn_call in self.responded_tool_calls:
             raw_call = fn_call.raw_call
-            assert ("image" not in fn_call.tool_response
-                    ), "Image output is not supported in function calls response."
+            assert (
+                "image" not in fn_call.tool_response
+            ), "Image output is not supported in function calls response."
             # a function_call_output dict has keys "role", "tool_call_id" and "content"
             tool_call_reponse = {
                 "name": raw_call["function"]["name"],  # required with OpenRouter
@@ -422,6 +427,7 @@ class BaseResponseModel(ABC):
         """Parse the raw response from the model API and return a structured response."""
         pass
 
+
 class AgentlabAction:
     """
     Collection of utility function to convert tool calls to Agentlab action format.
@@ -446,6 +452,7 @@ class AgentlabAction:
 
 class BaseModelWithPricing(TrackAPIPricingMixin, BaseResponseModel):
     pass
+
 
 class OpenAIResponseModel(BaseModelWithPricing):
     def __init__(
@@ -517,21 +524,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
             tool_calls=toolcalls if toolcalls is not None else None,
         )
 
-    def convert_messages_to_api_format(
-        self, messages: List[MessageBuilder | ToolCalls]
-    ) -> List[Message]:
-        """Convert messages to the format expected by the OpenAI Responses API."""
-        input = []
-        for msg in messages:
-            if isinstance(msg, MessageBuilder):
-                temp = msg.prepare_message()
-            elif isinstance(msg, ToolCalls):
-                temp = msg.raw_calls
-            else:
-                raise TypeError("Unsupported message type: {}".format(type(msg)))
-            input.extend(temp)
-        return input
-
     def _extract_tool_calls_from_response(self, response: "OpenAIResponseObject") -> ToolCalls:
         """Extracts tool calls from the response."""
         tool_calls = []
@@ -542,7 +534,6 @@ class OpenAIResponseModel(BaseModelWithPricing):
             elif output.type == "computer_call":
                 tool_name, tool_args = self.cua_action_to_env_tool_name_and_args(output.action)
             else:
-                # skip if the output is not a tool call
                 continue
             tool_calls.append(ToolCall(name=tool_name, arguments=tool_args, raw_call=output))
 
@@ -611,7 +602,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         self.client = OpenAI(**client_args)
         self.init_pricing_tracker(pricing_api="openai")  # Use the PricingMixin
 
-    def _call_api(self, payload: APIPayload) -> openai.types.chat.ChatCompletion:
+    def _call_api(self, payload: APIPayload) -> "openai.types.chat.ChatCompletion":
         input = []
         for msg in payload.messages:
             input.extend(msg.prepare_message())
@@ -644,7 +635,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
 
         return response
 
-    def _parse_response(self, response: openai.types.chat.ChatCompletion) -> LLMOutput:
+    def _parse_response(self, response: "openai.types.chat.ChatCompletion") -> LLMOutput:
         think_output = self._extract_thinking_content_from_response(response)
         tool_calls = self._extract_tool_calls_from_response(response)
 
@@ -658,7 +649,6 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             action=env_action if env_action is not None else None,
             tool_calls=tool_calls if tool_calls is not None else None,
         )
-
 
     def _extract_thinking_content_from_response(
         self, response: openai.types.chat.ChatCompletion, wrap_tag="think"
@@ -722,7 +712,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
             else actions[0]
         )
         return actions
-    
+
     def _extract_env_actions_from_text_response(
         self, response: "openai.types.chat.ChatCompletion"
     ) -> str | None:
@@ -737,7 +727,6 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         Why we need this?
         Ans: actionset.to_tool_description() in bgym only returns description
         format valid for OpenAI Response API.
-
         Args:
             tools: List of tool descriptions to format for Chat Completion API.
 
@@ -781,8 +770,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
         self.client = Anthropic(**client_args)
         self.init_pricing_tracker(pricing_api="anthropic")  # Use the PricingMixin
 
-    def _call_api(
-        self, payload: APIPayload) -> Completion:
+    def _call_api(self, payload: APIPayload) -> Completion:
         sys_msg, other_msgs = self.filter_system_messages(payload.messages)
         sys_msg_text = "\n".join(c["text"] for m in sys_msg for c in m.content)
         input = []
@@ -795,10 +783,11 @@ class ClaudeResponseModel(BaseModelWithPricing):
         api_params: Dict[str, Any] = {
             "model": self.model_name,
             "messages": input,
-            "system": sys_msg_text}  # Anthropic API expects system message as a string
+            "system": sys_msg_text,
+        }  # Anthropic API expects system message as a string
 
         if self.temperature is not None:
-            api_params['temperature'] = self.temperature
+            api_params["temperature"] = self.temperature
         if self.max_tokens is not None:
             api_params["max_tokens"] = self.max_tokens
 
@@ -806,14 +795,16 @@ class ClaudeResponseModel(BaseModelWithPricing):
             api_params["tools"] = payload.tools
         if payload.tool_choice is not None and payload.force_call_tool is None:
             api_params["tool_choice"] = (
-                {"type": "any"} if payload.tool_choice in ("required", "any") else {"type": payload.tool_choice}
+                {"type": "any"}
+                if payload.tool_choice in ("required", "any")
+                else {"type": payload.tool_choice}
             )
         if payload.force_call_tool is not None:
             api_params["tool_choice"] = {"type": "tool", "name": payload.force_call_tool}
         if payload.cache_tool_definition:
             # Indicating cache control for the last message enables caching of the last message.
             api_params["tools"][-1]["cache_control"] = {"type": "ephemeral"}
-        if payload.cache_complete_prompt:        
+        if payload.cache_complete_prompt:
             # Indicating cache control for the last message enables caching of the complete prompt.
             api_params["messages"][-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
 
@@ -885,10 +876,8 @@ class ClaudeResponseModel(BaseModelWithPricing):
             else actions[0]
         )
         return actions
-    
-    def _extract_env_actions_from_text_response(
-        self, response: "AnthrophicMessage"
-    ) -> str | None:
+
+    def _extract_env_actions_from_text_response(self, response: "AnthrophicMessage") -> str | None:
         """Extracts environment actions from the text response."""
         # Use when action space is not given as tools.
         pass
@@ -901,6 +890,7 @@ class ClaudeResponseModel(BaseModelWithPricing):
 
 
 # Factory classes to create the appropriate model based on the API endpoint.
+
 
 @dataclass
 class OpenAIResponseModelArgs(BaseModelArgs):
