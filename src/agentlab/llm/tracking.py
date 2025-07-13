@@ -151,22 +151,22 @@ class TrackAPIPricingMixin:
     def reset_stats(self):
         self.stats = Stats()
 
-    def __init__(self, *args, **kwargs):
-        pricing_api = kwargs.pop("pricing_api", None)
+    def init_pricing_tracker(
+        self, pricing_api=None
+    ):  # TODO: Use this function in the base class init instead of having a init in the Mixin class.
         self._pricing_api = pricing_api
-        super().__init__(*args, **kwargs)
         self.set_pricing_attributes()
         self.reset_stats()
 
     def __call__(self, *args, **kwargs):
         """Call the API and update the pricing tracker."""
+        # 'self' here calls ._call_api() method of the subclass
         response = self._call_api(*args, **kwargs)
-
         usage = dict(getattr(response, "usage", {}))
-        if 'prompt_tokens_details' in usage:
-            usage['cached_tokens'] = usage['prompt_tokens_details'].cached_tokens
-        if 'input_tokens_details' in usage:
-            usage['cached_tokens'] = usage['input_tokens_details'].cached_tokens
+        if "prompt_tokens_details" in usage:
+            usage["cached_tokens"] = usage["prompt_tokens_details"].cached_tokens
+        if "input_tokens_details" in usage:
+            usage["cached_tokens"] = usage["input_tokens_details"].cached_tokens
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
         usage |= {"effective_cost": self.get_effective_cost(response)}
@@ -306,13 +306,13 @@ class TrackAPIPricingMixin:
         if usage is None:
             logging.warning("No usage information found in the response. Defaulting cost to 0.0.")
             return 0.0
-        api_type = 'chatcompletion' if hasattr(usage, "prompt_tokens_details") else 'response'
-        if api_type == 'chatcompletion':
+        api_type = "chatcompletion" if hasattr(usage, "prompt_tokens_details") else "response"
+        if api_type == "chatcompletion":
             total_input_tokens = usage.prompt_tokens
             output_tokens = usage.completion_tokens
             cached_input_tokens = usage.prompt_tokens_details.cached_tokens
             non_cached_input_tokens = total_input_tokens - cached_input_tokens
-        elif api_type == 'response':
+        elif api_type == "response":
             total_input_tokens = usage.input_tokens
             output_tokens = usage.output_tokens
             cached_input_tokens = usage.input_tokens_details.cached_tokens
@@ -320,7 +320,7 @@ class TrackAPIPricingMixin:
         else:
             logging.warning(f"Unsupported API type: {api_type}. Defaulting cost to 0.0.")
             return 0.0
-        
+
         cache_read_cost = self.input_cost * OPENAI_CACHE_PRICING_FACTOR["cache_read_tokens"]
         effective_cost = (
             self.input_cost * non_cached_input_tokens
