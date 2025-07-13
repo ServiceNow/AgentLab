@@ -31,24 +31,6 @@ It includes:
 ContentItem = Dict[str, Any]
 Message = Dict[str, Union[str, List[ContentItem]]]
 
-# TODO: It would be better idea to let the agent logic decide what is not an env action, instead of env emitting env based actions.
-BGYM_RESERVED_ACTION_FUNCTION_NAMES = [
-    "noop",
-    "scroll_at",
-    "mouse_move",
-    "mouse_up",
-    "mouse_down",
-    "mouse_click",
-    "mouse_dblclick",
-    "mouse_drag_and_drop",
-    "mouse_upload_file",
-    "keyboard_down",
-    "keyboard_up",
-    "keyboard_press",
-    "keyboard_type",
-    "keyboard_insert_text",
-]
-
 
 @dataclass
 class ToolCall:
@@ -64,13 +46,6 @@ class ToolCall:
     arguments: Dict[str, Any] = field(default_factory=dict)
     raw_call: Any = field(default=None)
     tool_response: ContentItem = None
-
-    @property
-    def is_env_action(self) -> bool:
-        """Check if the tool call is a reserved BGYM action."""
-        # TODO: env should return some func to check if agent action is env action.
-        # Keep in mind env may or may not have a fixed set of reserved actions.
-        return self.name in BGYM_RESERVED_ACTION_FUNCTION_NAMES
 
     @property
     def is_response_set(self) -> bool:
@@ -104,14 +79,6 @@ class ToolCalls:
     def add_tool_call(self, tool_call: ToolCall) -> "ToolCalls":
         self.tool_calls.append(tool_call)
         return self
-
-    def get_env_action_calls(self) -> List[ToolCall]:
-        """Get all tool calls that are reserved Environment actions."""
-        return [call for call in self.tool_calls if call.is_env_action]
-
-    def get_non_env_action_calls(self) -> List[ToolCall]:
-        """Get all tool calls that are not reserved Environment actions."""
-        return [call for call in self.tool_calls if not call.is_env_action]
 
     @property
     def all_responses_set(self) -> bool:
