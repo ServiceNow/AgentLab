@@ -28,6 +28,7 @@ from agentlab.llm.response_api import (
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
+    APIPayload,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -125,9 +126,6 @@ class StructuredDiscussion:
                     if 'image' in item:
                         return True
         return False
-       
-
-
 
 
 SYS_MSG = """You are a web agent. Based on the observation, you will decide which action to take to accomplish your goal. 
@@ -225,12 +223,9 @@ class Obs(Block):
         discussion.append(obs_msg)
 
         if tool_calls:
-            for action_call in tool_calls.get_bgym_action_calls():
-                if not self.openai_cua_mode:
-                    action_call.add_text("See the observation")
-            for fn_call in tool_calls.get_non_bgym_action_calls():
-                call_results = execute_fn_calls(fn_call.name, fn_call.arguments)
-                fn_call.add_text(call_results)
+            for call in tool_calls:
+                # call_results = execute_fn_calls(call.name, call.arguments)
+                call.response_text("See Observation")
             tool_response = llm.msg.add_responded_tool_calls(tool_calls)
             discussion.append(tool_response)
 
@@ -288,8 +283,8 @@ class Summarizer(Block):
         msg = llm.msg.user().add_text("""Summarize\n""")
 
         discussion.append(msg)
-        # TODO need to make sure we don't force tool use here
-        summary_response = llm(messages=discussion.flatten(), tool_choice="none")
+
+        summary_response = llm(APIPayload(messages=discussion.flatten()))
 
         summary_msg = llm.msg.assistant().add_text(summary_response.think)
         discussion.append(summary_msg)
@@ -428,7 +423,7 @@ class ToolUseAgent(bgym.Agent):
 
         self.call_ids = []
 
-        self.llm = model_args.make_model(extra_kwargs={"tools": self.tools})
+        self.llm = model_args.make_model()
         self.msg_builder = model_args.get_message_builder()
         self.llm.msg = self.msg_builder
 
@@ -495,11 +490,14 @@ class ToolUseAgent(bgym.Agent):
 
         messages = self.discussion.flatten()
         response: LLMOutput = self.llm(
-            messages=messages,
-            tool_choice="any",
-            cache_tool_definition=True,
-            cache_complete_prompt=False,
-            use_cache_breakpoints=True,
+            APIPayload(
+                messages=messages,
+                tools=self.tools, # You can update tools available tools now.
+                tool_choice="any",
+                cache_tool_definition=True,
+                cache_complete_prompt=False,
+                use_cache_breakpoints=True,
+            )
         )
         action = response.action
         think = response.think
@@ -508,7 +506,7 @@ class ToolUseAgent(bgym.Agent):
             think = last_summary.content[0]["text"] + "\n" + think
 
         self.discussion.new_group()
-        self.discussion.append(response.tool_calls)
+        # self.discussion.append(response.tool_calls) # No need to append tool calls anymore.
 
         self.last_response = response
         self._responses.append(response)  # may be useful for debugging
@@ -535,6 +533,32 @@ OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
     max_input_tokens=200_000,
     max_new_tokens=2_000,
     temperature=0.1,
+    vision_support=True,
+)
+O3_RESPONSE_MODEL = OpenAIResponseModelArgs(
+    model_name="o3-2025-04-16",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,   # O3 does not support temperature
+    vision_support=True,
+)
+O3_CHATAPI_MODEL = OpenAIChatModelArgs(
+    model_name="o3-2025-04-16",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,
+    vision_support=True,
+)
+from agentlab.llm.response_api import OpenRouterModelArgs
+
+GPT4_1_OPENROUTER_MODEL = OpenRouterModelArgs(
+    model_name="openai/gpt-4.1",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,  # O3 does not support temperature
     vision_support=True,
 )
 
@@ -582,3 +606,20 @@ AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
     config=DEFAULT_PROMPT_CONFIG,
 )
+
+OAI_AGENT = ToolUseAgentArgs(
+    model_args=O3_RESPONSE_MODEL,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+
+OAI_CHATAPI_AGENT = ToolUseAgentArgs(
+    model_args=O3_CHATAPI_MODEL,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+
+OAI_OPENROUTER_AGENT = ToolUseAgentArgs(
+    model_args=GPT4_1_OPENROUTER_MODEL,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+
+## My test can have a different config and a simple task for the tool use agent.
