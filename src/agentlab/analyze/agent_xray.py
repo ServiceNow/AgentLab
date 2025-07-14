@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import traceback
 from copy import deepcopy
@@ -31,6 +32,32 @@ select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
 TASK_NAME_KEY = "env.task_name"
 TASK_SEED_KEY = "env.task_seed"
+
+
+def dict_to_markdown(data, level=1):
+    """
+    Convert a nested dictionary to a Markdown string with hierarchical headers.
+
+    Parameters:
+        data (dict): The dictionary to convert.
+        level (int): The current header level (default is 1).
+
+    Returns:
+        str: The formatted Markdown string.
+    """
+    markdown = ""
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            # Add a header for the key and recursively process the dictionary
+            markdown += f"{'#' * level} {key}\n"
+            markdown += dict_to_markdown(value, level + 1)
+        else:
+            # Add the key-value pair with indentation
+            markdown += f"{'#' * level} {key}\n"
+            markdown += f"    {value}\n"
+
+    return markdown
 
 
 def display_table(df: pd.DataFrame):
@@ -363,6 +390,9 @@ clicking the refresh button.
             with gr.Tab("Task Error") as tab_error:
                 task_error = gr.Markdown()
 
+            with gr.Tab("Error Analysis") as tab_error_analysis:
+                error_analysis = gr.Markdown()
+
             with gr.Tab("Logs") as tab_logs:
                 logs = gr.Code(language=None, **code_args)
 
@@ -490,6 +520,7 @@ clicking the refresh button.
         tab_axtree.select(fn=update_axtree, outputs=axtree_code)
         tab_chat.select(fn=update_chat_messages, outputs=chat_messages)
         tab_error.select(fn=update_task_error, outputs=task_error)
+        tab_error_analysis.select(fn=update_error_analysis, outputs=error_analysis)
         tab_logs.select(fn=update_logs, outputs=logs)
         tab_stats.select(fn=update_stats, outputs=stats)
         tab_agent_info_html.select(fn=update_agent_info_html, outputs=agent_info_html)
@@ -761,6 +792,20 @@ def update_task_error():
         return f"""{code(stack_trace)}"""
     except FileNotFoundError:
         return "No Task Error"
+
+
+def update_error_analysis():
+    global info
+    try:
+        error_analysis = info.exp_result.exp_dir / "error_analysis.json"
+        if not error_analysis.exists():
+            return "No Error Analysis Found"
+        with error_analysis.open("r") as f:
+            json_data = json.load(f)
+        res = dict_to_markdown(json_data)
+        return res
+    except FileNotFoundError:
+        return "No Error Analysis"
 
 
 def update_logs():
@@ -1361,4 +1406,5 @@ def main():
 
 
 if __name__ == "__main__":
+    main()
     main()
