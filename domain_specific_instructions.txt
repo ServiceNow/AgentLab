@@ -21,67 +21,46 @@ Here is some important information that will help you do your task properly. Pay
 
 #### General Steps (Works for Any Table)
 
-1. **Navigate to the Right Module:**
-
-   * Use the **Filter Navigator** (left sidebar or search bar at top).
-   * Type the name of the application or table (e.g., `Incident`, `Change`, `User`, `Task`, etc.).
-   * Click on the module that says **Create New** or **New** under that application.
-
-     * For example: `Incident > Create New` or `User > New`
-
-2. **Fill Out the Form:**
+1. **Fill Out the Form:**
 
    * A new form opens for the selected record type.
    * Fill in the required fields (marked with a red asterisk \*), and any other fields you need.
+   * If the form has multiple tabs, fill in the fields in the tab you need.
+   * If there is a magnifying glass icon next to the field, click on it to open a lookup dialog and search the value in there.
+   * ONLY fill the fields asked by the user.
+   * IMPORTANT: If there is a default value filled, change it to the values asked by the user.
 
-3. **Submit or Save:**
+2. **Submit or Save:**
 
    * Click **Submit** (usually creates the record and returns you to the list view), or
    * Click **Save** (creates the record but keeps you on the form so you can keep editing), or
    * In some interfaces, you may see **Update** (when editing an existing record).
 
-
-#### Example: Creating a New Incident
-
-1. In the **Filter Navigator**, type `incident`.
-2. Click on **Incident > Create New**.
-3. The **New Incident** form appears.
-4. Enter details, such as:
-
-   * **Caller**
-   * **Short Description**
-   * **Description**
-   * Any other required or relevant fields.
-5. Click **Submit** (bottom or top of the form).
-
 ---
 
-### How to Filter Records in a Table in ServiceNow
+### How to Filter Records in ServiceNow
 
-1. **Navigate to Your Table/List**
+1. **Click on the "Show / hide filter" button**
+  * The filter builder will open with an empty condition row
+2. **Create a New Condition:**
+  * Choose the field you want to filter on by typing the field name in the "-- choose field --" combobox. Make sure the field is properly selected before moving on to selecting the operator and value. Once the field is selected, a new dropdown will appear to select the operator.
+  * Select the appropriate operator by clicking on the appropriate operator (e.g. is, is not, contains) in the "Operator For Condition" combobox. ALWAYS prefer the combination of operator 'is' and value '' over the single operator 'isempty'. If the operator needs to be set to 'is' and is already set by default, YOU DO NOT NEED TO CHANGE IT.
+  * Enter the values to filter by (e.g. "Service Desk", "Critical") or select them from the dropdown if available in the "value" combobox (after the operator). If the value needs to be set to empty string ('') and is already set to this value, YOU DO NOT NEED TO CHANGE IT.
+  * Some values are lookup lists; in this case, you need to click on the magnifying glass icon to open a lookup dialog and search the value in there. Type the value and then press enter. Once the value you want appears in the list, click on it to select it.
+  * IMPORTANT: if you need to add more than 1 condition, `click` on the "Add AND Condition" button after the current condition. DO NOT use the "Add a new AND filter condition" to do so.
+3. **Apply Your Filter:**
+  * To apply the filter, click on the `Run filter` button.
 
-   * For example, go to **Incident > All** or any other table you want to view.
-
-2. **Filter by One or Multiple Conditions**
-
-* You'll see a **filter row** above the table (sometimes with "Add Filter" or a funnel icon).
-* **Build your filter:**
-
-  1. **Field:** Select the field to filter on (e.g., State, Priority, Assigned To).
-  2. **Operator:** Choose the operator (e.g., is, is not, contains, starts with, etc.).
-  3. **Value:** Enter or select a value (e.g., "Open" for State).
-  4. Click the **AND/OR** button to add more conditions if needed.
-* **Run the filter:** Click the **Run** button (funnel icon or "Run") to apply the filter.
-
-
-#### Example: Filtering Incidents
-
-1. Go to **Incident > All**.
-2. Click **Filter** or the funnel icon.
-3. Set **State** to **is** **In Progress**.
-4. Add **AND Priority is High**.
-5. Click **Run**.
-6. Only high-priority, in-progress incidents will be displayed.
+Example: Let's say you want to see all incidents in the "Software" category with critical priority.
+1. `click` on the "Show / hide filter` button.
+2. `fill` the first condition field with "Category". `press` Enter after typing the field name.
+3. `click` on the operator combobox and select "is" operator.
+4. Choose the "Software" option from the dropdown for the value.
+5. `click` on the "Add AND Condition" button to add another condition.
+6. `fill` the second condition field with "Priority". `press` Enter after typing the field name.
+7. `click` on the operator combobox and select "is" operator.
+8. Choose the "Critical" option from the dropdown for the value.
+9. `click` on the "Run filter" button to apply the filter.
 
 ---
 
