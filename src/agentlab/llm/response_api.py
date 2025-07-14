@@ -390,10 +390,8 @@ class APIPayload:
     )
 
     def __post_init__(self):
-        # assert tool_choice is None when force_call_tool is set
-        assert (
-            self.tool_choice is None or self.force_call_tool is None
-        ), "tool_choice and force_call_tool cannot be set at the same time."
+        if self.tool_choice and self.force_call_tool:
+            raise ValueError("tool_choice and force_call_tool are mutually exclusive")
 
 
 # # Base class for all API Endpoints
@@ -569,7 +567,9 @@ class OpenAIResponseModel(BaseModelWithPricing):
 
     def cua_action_to_env_tool_name_and_args(self, action: str) -> tuple[str, Dict[str, Any]]:
         """ "Overwrite this method to convert a computer action to agentlab action string"""
-        pass
+        raise NotImplementedError(
+            "This method should be implemented in the subclass to convert a computer action to agentlab action string."
+        )
 
     def _extract_env_actions_from_text_response(
         self, response: "OpenAIResponseObject"
