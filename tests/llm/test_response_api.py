@@ -313,7 +313,7 @@ def test_openai_chat_completion_model_parse_and_cost():
 
     mock_create.assert_called_once()
     assert parsed_output.raw_response.choices[0].message.content == "This is a test thought."
-    assert parsed_output.action == 'get_weather(location="Paris")'
+    assert parsed_output.action == """get_weather(location='Paris')"""
     assert parsed_output.raw_response.choices[0].message.tool_calls[0].id == "call_123"
     # Check cost tracking (token counts)
     assert global_tracker.stats["input_tokens"] == 50
@@ -419,8 +419,8 @@ def test_openai_chat_completion_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == 'get_weather(location="Paris")'
-    ), f""" Expected get_weather(location="Paris") but got {parsed_output.action}"""
+        parsed_output.action == "get_weather(location='Paris')"
+    ), f""" Expected get_weather(location='Paris') but got {parsed_output.action}"""
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -446,8 +446,8 @@ def test_claude_response_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == 'get_weather(location="Paris")'
-    ), f'Expected get_weather("Paris") but got {parsed_output.action}'
+        parsed_output.action == "get_weather(location='Paris')"
+    ), f"""Expected get_weather('Paris') but got {parsed_output.action}"""
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -474,8 +474,8 @@ def test_openai_response_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == """get_weather(location="Paris")"""
-    ), f""" Expected get_weather(location="Paris") but got {parsed_output.action}"""
+        parsed_output.action == """get_weather(location='Paris')"""
+    ), f""" Expected get_weather(location='Paris') but got {parsed_output.action}"""
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -524,7 +524,9 @@ def test_openai_response_model_with_multiple_messages_and_cost_tracking():
     assert prev_output > 0
     assert prev_cost > 0
     assert parsed.raw_response is not None
-    assert parsed.action == 'get_weather(location="Delhi")', f"Unexpected action: {parsed.action}"
+    assert (
+        parsed.action == """get_weather(location='Delhi')"""
+    ), f"Unexpected action: {parsed.action}"
     assert delta_input > 0
     assert delta_output > 0
     assert delta_cost > 0
@@ -597,7 +599,9 @@ def test_openai_chat_completion_model_with_multiple_messages_and_cost_tracking()
     assert prev_output > 0
     assert prev_cost > 0
     assert parsed.raw_response is not None
-    assert parsed.action == 'get_weather(location="Delhi")', f"Unexpected action: {parsed.action}"
+    assert (
+        parsed.action == """get_weather(location='Delhi')"""
+    ), f"Unexpected action: {parsed.action}"
     assert delta_input > 0
     assert delta_output > 0
     assert delta_cost > 0
@@ -663,8 +667,8 @@ def test_claude_model_with_multiple_messages_pricy_call():
     assert prev_cost > 0, "Expected previous cost value to be greater than 0"
     assert llm_output2.raw_response is not None
     assert (
-        llm_output2.action == 'get_weather(location="Delhi", unit="celsius")'
-    ), f'Expected get_weather("Delhi") but got {llm_output2.action}'
+        llm_output2.action == """get_weather(location='Delhi', unit='celsius')"""
+    ), f"""Expected get_weather('Delhi') but got {llm_output2.action}"""
     assert delta_input > 0, "Expected new input tokens to be greater than 0"
     assert delta_output > 0, "Expected new output tokens to be greater than 0"
     assert delta_cost > 0, "Expected new cost value to be greater than 0"
@@ -682,12 +686,7 @@ def test_multi_action_tool_calls():
     """
     # test_config (setting name, BaseModelArgs, model_name, tools)
     tool_test_configs = [
-        (
-            "gpt-4.1-responses API",
-            OpenAIResponseModelArgs,
-            "gpt-4.1-2025-04-14",
-            responses_api_tools,
-        ),
+        ("gpt-4.1-responses API", OpenAIResponseModelArgs, "gpt-4.1-2025-04-14", responses_api_tools),
         ("gpt-4.1-chat Completions API", OpenAIChatModelArgs, "gpt-4.1-2025-04-14", chat_api_tools),
         # ("claude-3", ClaudeResponseModelArgs, "claude-3-haiku-20240307", anthropic_tools),   # fails
         # ("claude-3.7", ClaudeResponseModelArgs, "claude-3-7-sonnet-20250219", anthropic_tools), # fails
