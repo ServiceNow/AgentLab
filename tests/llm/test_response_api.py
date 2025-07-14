@@ -686,7 +686,12 @@ def test_multi_action_tool_calls():
     """
     # test_config (setting name, BaseModelArgs, model_name, tools)
     tool_test_configs = [
-        ("gpt-4.1-responses API", OpenAIResponseModelArgs, "gpt-4.1-2025-04-14", responses_api_tools),
+        (
+            "gpt-4.1-responses API",
+            OpenAIResponseModelArgs,
+            "gpt-4.1-2025-04-14",
+            responses_api_tools,
+        ),
         ("gpt-4.1-chat Completions API", OpenAIChatModelArgs, "gpt-4.1-2025-04-14", chat_api_tools),
         # ("claude-3", ClaudeResponseModelArgs, "claude-3-haiku-20240307", anthropic_tools),   # fails
         # ("claude-3.7", ClaudeResponseModelArgs, "claude-3-7-sonnet-20250219", anthropic_tools), # fails
