@@ -434,12 +434,8 @@ class AgentlabAction:
     def convert_toolcall_to_agentlab_action_format(toolcall: ToolCall) -> str:
         """Convert a tool call to an Agentlab environment action string.
         This converts tools calls to python function call strings."""
-        action_name, tool_args = toolcall.name, toolcall.arguments
-        action_args = ", ".join(
-            f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}" for k, v in tool_args.items()
-        )
-        action_str = f"{action_name}({action_args})"
-        return action_str
+        tool_name, tool_args = toolcall.name, toolcall.arguments
+        return tool_call_to_python_code(tool_name, tool_args)
 
     def convert_multiactions_to_agentlab_action_format(actions: list[str]) -> str:
         """Convert multiple actions list to a format that env supports
@@ -474,7 +470,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         # Init pricing tracker after super() so that all attributes have been set.
         self.init_pricing_tracker(pricing_api="openai")  # Use the PricingMixin
 
-    def _call_api(self, payload: APIPayload) -> "ResponseObject":
+    def _call_api(self, payload: APIPayload) -> "OpenAIResponseObject":
 
         input = []
         for msg in payload.messages:
@@ -964,6 +960,18 @@ class OpenRouterModelArgs(BaseModelArgs):
 
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIChatCompletionAPIMessageBuilder
+
+
+def tool_call_to_python_code(func_name, kwargs):
+    """Format a function name and kwargs dict into a Python function call string."""
+    if kwargs is None:
+        kwargs = {}
+
+    if not kwargs:
+        return f"{func_name}()"
+
+    args_str = ", ".join(f"{key}={repr(value)}" for key, value in kwargs.items())
+    return f"{func_name}({args_str})"
 
 
 # ___Not__Tested__#
