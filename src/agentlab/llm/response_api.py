@@ -433,13 +433,23 @@ class AgentlabAction:
 
     def convert_toolcall_to_agentlab_action_format(toolcall: ToolCall) -> str:
         """Convert a tool call to an Agentlab environment action string.
-        This converts tools calls to python function call strings."""
+        Args:
+            toolcall: ToolCall object containing the name and arguments of the tool call.
+
+        Returns:
+            str: A string representing the action in Agentlab format i.e. python function call string.
+        """
+
         tool_name, tool_args = toolcall.name, toolcall.arguments
         return tool_call_to_python_code(tool_name, tool_args)
 
     def convert_multiactions_to_agentlab_action_format(actions: list[str]) -> str:
-        """Convert multiple actions list to a format that env supports
-        Joins multiple python function calls with a newline character.
+        """Convert multiple actions list to a format that env supports.
+        Args:
+            actions: List of action strings to be joined.
+
+        Returns:
+            str: Joined actions separated by newlines, or None if empty.
         """
         return "\n".join(actions) if actions else None
 
@@ -655,7 +665,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         Note: The wrapping of 'thinking' content may not be nedeed and may be reconsidered.
 
         Args:
-            message: The message object or dict containing content and reasoning.
+            response: The message object or dict containing content and reasoning.
             wrap_tag: The tag name to wrap reasoning content (default: "think").
 
         Returns:
@@ -723,6 +733,7 @@ class OpenAIChatCompletionModel(BaseModelWithPricing):
         Why we need this?
         Ans: actionset.to_tool_description() in bgym only returns description
         format valid for OpenAI Response API.
+
         Args:
             tools: List of tool descriptions to format for Chat Completion API.
 
