@@ -486,8 +486,11 @@ class ToolUseAgent(bgym.Agent):
         tools_msg = MessageBuilder("tool_description").add_text(tools_str)
 
         # Adding these extra messages to visualize in gradio
-        messages.insert(0, tools_msg)  # insert at the beginning of the messages
-        messages.append(response.tool_calls)
+        messages.insert(0, tools_msg)  # insert at the beginning of the message
+        # This avoids the assertion error with self.llm.user().add_responded_tool_calls(tool_calls)
+        msg = self.llm.msg("tool")
+        msg.responded_tool_calls = response.tool_calls
+        messages.append(msg) 
 
         agent_info = bgym.AgentInfo(
             think=think,
