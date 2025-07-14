@@ -151,7 +151,9 @@ class MessageBuilder:
         # Tool call markdown repr
         if self.responded_tool_calls is not None:
             for i, tool_call in enumerate(self.responded_tool_calls.tool_calls, 1):
-                parts.append(f"\n**Tool Call {i}**: {tool_call_to_python_code(tool_call.name, tool_call.arguments)}")
+                parts.append(
+                    f"\n**Tool Call {i}**: {tool_call_to_python_code(tool_call.name, tool_call.arguments)}"
+                )
                 response = tool_call.tool_response
                 if response is not None:
                     parts.append(f"\n**Tool Response {i}:**")

@@ -490,7 +490,7 @@ class ToolUseAgent(bgym.Agent):
         # This avoids the assertion error with self.llm.user().add_responded_tool_calls(tool_calls)
         msg = self.llm.msg("tool")
         msg.responded_tool_calls = response.tool_calls
-        messages.append(msg) 
+        messages.append(msg)
 
         agent_info = bgym.AgentInfo(
             think=think,
