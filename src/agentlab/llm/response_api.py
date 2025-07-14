@@ -403,9 +403,8 @@ class BaseResponseModel(ABC):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ):
-
-        self.api_key = api_key
         self.model_name = model_name
+        self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
         super().__init__()

@@ -28,6 +28,7 @@ from agentlab.llm.response_api import (
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
+    OpenRouterModelArgs,
     ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
@@ -161,7 +162,7 @@ class Goal(Block):
 
 AXTREE_NOTE = """
 AXTree extracts most of the interactive elements of the DOM in a tree structure. It may also contain information that is not visible in the screenshot.
-A line starting with [bid] is a node in the AXTree. It is a unique alpha-numeric identifier to be used when calling tools.
+A line starting with [bid] is a node in the AXTree. It is a unique alpha-numeric identifier to be used when calling tools, e.g, click(bid="a253"). Make sure to include letters and numbers in the bid.
 """
 
 
@@ -346,7 +347,7 @@ class PromptConfig:
     task_hint: TaskHint = None
     keep_last_n_obs: int = 1
     multiaction: bool = False
-    action_subsets: tuple[str] = field(default_factory=lambda: ("coord",))
+    action_subsets: tuple[str] = None
 
 
 @dataclass
@@ -446,6 +447,7 @@ class ToolUseAgent(bgym.Agent):
             else:
                 sys_msg = SYS_MSG + "\nYou can only take one action at a time."
             self.config.goal.apply(self.llm, self.discussion, obs, sys_msg)
+
             self.config.summarizer.apply_init(self.llm, self.discussion)
             self.config.general_hints.apply(self.llm, self.discussion)
             self.task_hint.apply(self.llm, self.discussion, self.task_name)
@@ -495,7 +497,7 @@ class ToolUseAgent(bgym.Agent):
         return action, agent_info
 
 
-OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
+GPT_4_1 = OpenAIResponseModelArgs(
     model_name="gpt-4.1",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
@@ -503,30 +505,13 @@ OPENAI_MODEL_CONFIG = OpenAIResponseModelArgs(
     temperature=0.1,
     vision_support=True,
 )
-O3_RESPONSE_MODEL = OpenAIResponseModelArgs(
-    model_name="o3-2025-04-16",
-    max_total_tokens=200_000,
-    max_input_tokens=200_000,
-    max_new_tokens=2_000,
-    temperature=None,  # O3 does not support temperature
-    vision_support=True,
-)
-O3_CHATAPI_MODEL = OpenAIChatModelArgs(
-    model_name="o3-2025-04-16",
-    max_total_tokens=200_000,
-    max_input_tokens=200_000,
-    max_new_tokens=2_000,
-    temperature=None,
-    vision_support=True,
-)
-from agentlab.llm.response_api import OpenRouterModelArgs
 
-GPT4_1_OPENROUTER_MODEL = OpenRouterModelArgs(
-    model_name="openai/gpt-4.1",
+GPT_4_1_MINI = OpenAIResponseModelArgs(
+    model_name="gpt-4.1-mini",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
     max_new_tokens=2_000,
-    temperature=None,  # O3 does not support temperature
+    temperature=0.1,
     vision_support=True,
 )
 
@@ -548,6 +533,31 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
     vision_support=True,
 )
 
+O3_RESPONSE_MODEL = OpenAIResponseModelArgs(
+    model_name="o3-2025-04-16",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,  # O3 does not support temperature
+    vision_support=True,
+)
+O3_CHATAPI_MODEL = OpenAIChatModelArgs(
+    model_name="o3-2025-04-16",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,
+    vision_support=True,
+)
+
+GPT4_1_OPENROUTER_MODEL = OpenRouterModelArgs(
+    model_name="openai/gpt-4.1",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,  # O3 does not support temperature
+    vision_support=True,
+)
 
 DEFAULT_PROMPT_CONFIG = PromptConfig(
     tag_screenshot=True,
@@ -576,7 +586,7 @@ AGENT_CONFIG = ToolUseAgentArgs(
 )
 
 OAI_AGENT = ToolUseAgentArgs(
-    model_args=OPENAI_MODEL_CONFIG,
+    model_args=GPT_4_1,
     config=DEFAULT_PROMPT_CONFIG,
 )
 

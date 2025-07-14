@@ -84,7 +84,7 @@ class StepId:
 @dataclass
 class Info:
     results_dir: Path = None  # to root directory of all experiments
-    exp_list_dir: Path = None  # the path of the currently selected experiment
+    study_dirs: Path = None  # the path of the currently selected experiment
     result_df: pd.DataFrame = None  # the raw loaded df
     agent_df: pd.DataFrame = None  # the df filtered for selected agent
     tasks_df: pd.DataFrame = None  # the unique tasks for selected agent
@@ -179,6 +179,8 @@ def run_gradio(results_dir: Path):
         agent_task_id = gr.State(value=None)
         step_id = gr.State(value=None)
 
+        hidden_key_input = gr.Textbox(visible=False, elem_id="key_capture")
+
         with gr.Accordion("Help", open=False):
             gr.Markdown(
                 """\
@@ -208,6 +210,7 @@ clicking the refresh button.
             exp_dir_choice = gr.Dropdown(
                 choices=get_directory_contents(results_dir),
                 value=select_dir_instructions,
+                multiselect=True,
                 label="Experiment Directory",
                 show_label=False,
                 scale=6,
@@ -503,6 +506,32 @@ clicking the refresh button.
 
         demo.load(fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice)
 
+        demo.load(
+            None,
+            None,
+            None,
+            js="""
+    function() {
+        document.addEventListener('keydown', function(e) {
+            if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                const hiddenInput = document.querySelector('#key_capture input, #key_capture textarea');
+                if (hiddenInput) {
+                    let event = e.key === 'ArrowLeft' ? 'Cmd+Left' : 'Cmd+Right';
+                    hiddenInput.value = event;
+                    hiddenInput.dispatchEvent(new Event('input', {bubbles: true}));
+                }
+            }
+        });
+    }
+        """,
+        )
+        hidden_key_input.change(
+            handle_key_event,
+            inputs=[hidden_key_input, step_id],
+            outputs=[hidden_key_input, step_id],
+        )
+
     demo.queue()
 
     do_share = os.getenv("AGENTXRAY_SHARE_GRADIO", "false").lower() == "true"
@@ -510,6 +539,25 @@ clicking the refresh button.
     if isinstance(port, str):
         port = int(port)
     demo.launch(server_port=port, share=do_share)
+
+
+def handle_key_event(key_event, step_id: StepId):
+
+    if key_event:
+        global info
+
+        # print(f"Key event: {key_event}")
+        step = step_id.step
+        if key_event.startswith("Cmd+Left"):
+            step = max(0, step - 1)
+        elif key_event.startswith("Cmd+Right"):
+            step = min(len(info.exp_result.steps_info) - 2, step + 1)
+        else:
+            return gr.update()
+        # print(f"Updating step to {step} from key event {key_event}")
+        info.step = step
+        step_id = StepId(episode_id=step_id.episode_id, step=step)
+    return ("", step_id)
 
 
 def tab_select(evt: gr.SelectData):
@@ -547,18 +595,24 @@ def get_screenshot(
 ):
     if step is None:
         step = info.step
-    step_info = info.exp_result.steps_info[step]
     try:
+        step_info = info.exp_result.steps_info[step]
         is_som = som_or_not == "SOM Screenshots"
         img = info.exp_result.get_screenshot(step, som=is_som)
         if annotate:
             action_str = step_info.action
             properties = step_info.obs.get("extra_element_properties", None)
-            action_colored = annotate_action(img, action_string=action_str, properties=properties)
+            try:
+                action_colored = annotate_action(
+                    img, action_string=action_str, properties=properties
+                )
+            except Exception as e:
+                warning(f"Failed to annotate action: {e}")
+                action_colored = action_str
         else:
             action_colored = None
         return img, action_colored
-    except FileNotFoundError:
+    except (FileNotFoundError, IndexError):
         return None, None
 
 
@@ -843,6 +897,10 @@ def get_episode_info(info: Info):
     try:
         env_args = info.exp_result.exp_args.env_args
         steps_info = info.exp_result.steps_info
+        if info.step >= len(steps_info):
+            info.step = len(steps_info) - 1
+        if len(steps_info) == 0:
+            return "No steps were taken in this episode."
         step_info = steps_info[info.step]
         try:
             goal = step_info.obs["goal_object"]
@@ -1044,31 +1102,29 @@ def update_global_stats():
 
 
 def update_error_report():
-    report_files = list(info.exp_list_dir.glob("error_report*.md"))
-    if len(report_files) == 0:
-        return "No error report found"
-    report_files = sorted(report_files, key=os.path.getctime, reverse=True)
-    return report_files[0].read_text()
+    return inspect_results.error_report(info.result_df, max_stack_trace=3, use_log=True)
 
 
-def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
-    if exp_dir == select_dir_instructions:
+def new_exp_dir(study_names: list, progress=gr.Progress(), just_refresh=False):
+    global info
+
+    # remove select_dir_instructions from study_names
+    if select_dir_instructions in study_names:
+        study_names.remove(select_dir_instructions)
+
+    if len(study_names) == 0:
         return None, None
 
-    exp_dir = exp_dir.split(" - ")[0]
-
-    if len(exp_dir) == 0:
-        info.exp_list_dir = None
-        return None, None
-
-    info.exp_list_dir = info.results_dir / exp_dir
-    info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
+    info.study_dirs = [info.results_dir / study_name.split(" - ")[0] for study_name in study_names]
+    info.result_df = inspect_results.load_result_df(info.study_dirs, progress_fn=progress.tqdm)
     info.result_df = remove_args_from_col(info.result_df)
 
     study_summary = inspect_results.summarize_study(info.result_df)
     # save study_summary
-    study_summary.to_csv(info.exp_list_dir / "summary_df.csv", index=False)
-    agent_report = display_table(study_summary)
+
+    for study_dir in info.study_dirs:
+        study_summary.to_csv(study_dir / "summary_df.csv", index=False)
+        agent_report = display_table(study_summary)
 
     info.agent_id_keys = agent_report.index.names
     agent_report.reset_index(inplace=True)
@@ -1112,7 +1168,7 @@ def get_directory_contents(results_dir: Path):
                 most_recent_summary = max(summary_files, key=os.path.getctime)
                 summary_df = pd.read_csv(most_recent_summary)
 
-                if len(summary_df) == 0 or summary_df["avg_reward"].isna().all():
+                if len(summary_df) == 0:
                     continue  # skip if all avg_reward are NaN
 
                 # get row with max avg_reward

@@ -344,7 +344,7 @@ def test_claude_response_model_parse_and_cost():
     fn_call = next(iter(parsed_output.tool_calls))
 
     assert "Thinking about the request." in parsed_output.think
-    assert parsed_output.action == 'search_web(query="latest news")'
+    assert parsed_output.action == """search_web(query='latest news')"""
     assert fn_call.name == "search_web"
     assert global_tracker.stats["input_tokens"] == 40
     assert global_tracker.stats["output_tokens"] == 20
@@ -387,7 +387,7 @@ def test_openai_response_model_parse_and_cost():
         for content in parsed_output.tool_calls.raw_calls.output
         if content.type == "function_call"
     ]
-    assert parsed_output.action == 'get_current_weather(location="Boston, MA", unit="celsius")'
+    assert parsed_output.action == "get_current_weather(location='Boston, MA', unit='celsius')"
     assert fn_calls[0].call_id == "call_abc123"
     assert parsed_output.raw_response == mock_api_resp
     assert global_tracker.stats["input_tokens"] == 70
@@ -737,3 +737,53 @@ def test_multi_action_tool_calls():
             ), f"Expected 2 tool calls, but got {num_tool_calls} for {name} with tool choice {tool_choice}"
         # import pandas as pd
         # print(pd.DataFrame(res_df))
+
+
+EDGE_CASES = [
+    # 1. Empty kwargs dict
+    ("valid_function", {}, "valid_function()"),
+    # 2. Kwargs with problematic string values (quotes, escapes, unicode)
+    (
+        "send_message",
+        {
+            "text": 'He said "Hello!" and used a backslash: \\',
+            "unicode": "Café naïve résumé 🚀",
+            "newlines": "Line1\nLine2\tTabbed",
+        },
+        "send_message(text='He said \"Hello!\" and used a backslash: \\\\', unicode='Café naïve résumé 🚀', newlines='Line1\\nLine2\\tTabbed')",
+    ),
+    # 3. Mixed types including problematic float values
+    (
+        "complex_call",
+        {
+            "infinity": float("inf"),
+            "nan": float("nan"),
+            "negative_zero": -0.0,
+            "scientific": 1.23e-45,
+        },
+        "complex_call(infinity=inf, nan=nan, negative_zero=-0.0, scientific=1.23e-45)",
+    ),
+    # 4. Deeply nested structures that could stress repr()
+    (
+        "process_data",
+        {
+            "nested": {"level1": {"level2": {"level3": [1, 2, {"deep": True}]}}},
+            "circular_ref_like": {"a": {"b": {"c": "back_to_start"}}},
+        },
+        "process_data(nested={'level1': {'level2': {'level3': [1, 2, {'deep': True}]}}}, circular_ref_like={'a': {'b': {'c': 'back_to_start'}}})",
+    ),
+]
+
+
+def test_tool_call_to_python_code():
+    from agentlab.llm.response_api import tool_call_to_python_code
+
+    for edge_case in EDGE_CASES:
+        func_name, kwargs, expected = edge_case
+        result = tool_call_to_python_code(func_name, kwargs)
+        print(result)
+        assert result == expected, f"Expected {expected} but got {result}"
+
+
+if __name__ == "__main__":
+    test_tool_call_to_python_code()
