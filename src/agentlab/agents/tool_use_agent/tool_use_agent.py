@@ -22,13 +22,13 @@ from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
-    ToolCalls,
+    APIPayload,
     ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
-    APIPayload,
+    ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -117,13 +117,13 @@ class StructuredDiscussion:
     def is_goal_set(self) -> bool:
         """Check if the goal is set in the first group."""
         return len(self.groups) > 0
-    
+
     def contains_image(self) -> bool:
         """Check if an image is set in any group"""
         for grp in self.groups:
             for msg in grp.messages:
                 for item in msg.content:
-                    if 'image' in item:
+                    if "image" in item:
                         return True
         return False
 
@@ -177,7 +177,6 @@ class Obs(Block):
     use_tabs: bool = False
     add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
-    openai_cua_mode: bool = False  #  screenshot can only be added as tool response, given an initial screenshot obs
 
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
@@ -197,21 +196,13 @@ class Obs(Block):
                 screenshot = obs["screenshot"]
 
             if self.add_mouse_pointer:
-                # TODO this mouse pointer should be added at the browsergym level
                 screenshot = np.array(
                     agent_utils.add_mouse_pointer_from_action(
                         Image.fromarray(obs["screenshot"]), obs["last_action"]
                     )
                 )
-            
-            if self.openai_cua_mode and discussion.contains_image():
-                if tool_calls and tool_calls.get_bgym_action_calls():
-                    computer_call = tool_calls.get_bgym_action_calls()[0]
-                    computer_call.add_image(
-                        image_to_png_base64_url(screenshot)
-                    )
-            else:
-                obs_msg.add_image(image_to_png_base64_url(screenshot))
+
+        obs_msg.add_image(image_to_png_base64_url(screenshot))
 
         if self.use_axtree:
             obs_msg.add_text(f"AXTree:\n{AXTREE_NOTE}\n{obs['axtree_txt']}")
@@ -224,16 +215,12 @@ class Obs(Block):
 
         if tool_calls:
             for call in tool_calls:
-                # call_results = execute_fn_calls(call.name, call.arguments)
                 call.response_text("See Observation")
             tool_response = llm.msg.add_responded_tool_calls(tool_calls)
             discussion.append(tool_response)
 
         return obs_msg
 
-
-def execute_fn_calls(func_name: str, arguments: dict) -> str:
-    return ""
 
 def _format_tabs(obs):
     """Format the open tabs in a llm-readable way."""
@@ -347,25 +334,6 @@ class TaskHint(Block):
             msg = llm.msg.user().add_text(hints_str)
 
             discussion.append(msg)
-
-
-# class ToolCall(Block):
-
-#     def __init__(self, tool_server):
-#         self.tool_server = tool_server
-
-#     def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
-#         # build the message by adding components to obs
-#         response: LLMOutput = llm(messages=self.messages)
-
-#         messages.append(response.assistant_message)  # this is tool call
-
-#         tool_answer = self.tool_server.call_tool(response)
-#         tool_msg = llm.msg.tool()  # type: MessageBuilder
-#         tool_msg.add_tool_id(response.last_computer_call_id)
-#         tool_msg.update_last_raw_response(response)
-#         tool_msg.add_text(str(tool_answer))
-#         messages.append(tool_msg)
 
 
 @dataclass
@@ -492,7 +460,7 @@ class ToolUseAgent(bgym.Agent):
         response: LLMOutput = self.llm(
             APIPayload(
                 messages=messages,
-                tools=self.tools, # You can update tools available tools now.
+                tools=self.tools,  # You can update tools available tools now.
                 tool_choice="any",
                 cache_tool_definition=True,
                 cache_complete_prompt=False,
@@ -540,7 +508,7 @@ O3_RESPONSE_MODEL = OpenAIResponseModelArgs(
     max_total_tokens=200_000,
     max_input_tokens=200_000,
     max_new_tokens=2_000,
-    temperature=None,   # O3 does not support temperature
+    temperature=None,  # O3 does not support temperature
     vision_support=True,
 )
 O3_CHATAPI_MODEL = OpenAIChatModelArgs(
@@ -595,7 +563,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     summarizer=Summarizer(do_summary=True),
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
-    keep_last_n_obs=None,  # keep only the last observation in the discussion
+    keep_last_n_obs=None,
     multiaction=True,  # whether to use multi-action or not
     # action_subsets=("bid",),
     action_subsets=("coord"),
@@ -608,7 +576,7 @@ AGENT_CONFIG = ToolUseAgentArgs(
 )
 
 OAI_AGENT = ToolUseAgentArgs(
-    model_args=O3_RESPONSE_MODEL,
+    model_args=OPENAI_MODEL_CONFIG,
     config=DEFAULT_PROMPT_CONFIG,
 )
 
@@ -621,5 +589,3 @@ OAI_OPENROUTER_AGENT = ToolUseAgentArgs(
     model_args=GPT4_1_OPENROUTER_MODEL,
     config=DEFAULT_PROMPT_CONFIG,
 )
-
-## My test can have a different config and a simple task for the tool use agent.
