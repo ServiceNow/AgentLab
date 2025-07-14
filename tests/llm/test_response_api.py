@@ -673,6 +673,68 @@ def test_claude_model_with_multiple_messages_pricy_call():
     assert global_tracker.stats["cost"] == pytest.approx(prev_cost + delta_cost)
 
 
-# TODO: Add tests for image token costing (this is complex and model-specific)
-#       - For OpenAI, you'd need to know how they bill for images (e.g., fixed cost per image + tokens for text parts)
-#       - You'd likely need to mock the response from client.chat.completions.create to include specific usage for images.
+## Test multiaction
+@pytest.mark.pricy
+def test_multi_action_tool_calls():
+    """
+    Test that the model can produce multiple tool calls in parallel.
+    Uncomment commented lines to see the full behaviour of models and tool choices.
+    """
+    # test_config (setting name, BaseModelArgs, model_name, tools)
+    tool_test_configs = [
+        (
+            "gpt-4.1-responses API",
+            OpenAIResponseModelArgs,
+            "gpt-4.1-2025-04-14",
+            responses_api_tools,
+        ),
+        ("gpt-4.1-chat Completions API", OpenAIChatModelArgs, "gpt-4.1-2025-04-14", chat_api_tools),
+        # ("claude-3", ClaudeResponseModelArgs, "claude-3-haiku-20240307", anthropic_tools),   # fails
+        # ("claude-3.7", ClaudeResponseModelArgs, "claude-3-7-sonnet-20250219", anthropic_tools), # fails
+        ("claude-4-sonnet", ClaudeResponseModelArgs, "claude-sonnet-4-20250514", anthropic_tools),
+        # add more models as needed
+    ]
+
+    def add_user_messages(msg_builder):
+        return [
+            msg_builder.user().add_text("What is the weather in Paris and Delhi?"),
+            msg_builder.user().add_text("You must call multiple tools to achieve the task."),
+        ]
+
+    res_df = []
+
+    for tool_choice in [
+        # 'none',
+        # 'required', # fails for Responses API
+        # 'any',  # fails for Responses API
+        "auto",
+        # 'get_weather'
+    ]:
+        for name, llm_class, checkpoint_name, tools in tool_test_configs:
+            print(name, "tool choice:", tool_choice, "\n", "**" * 10)
+            model_args = llm_class(model_name=checkpoint_name, max_new_tokens=200, temperature=None)
+            llm, msg_builder = model_args.make_model(), model_args.get_message_builder()
+            messages = add_user_messages(msg_builder)
+            if tool_choice == "get_weather":  # force a specific tool call
+                response: LLMOutput = llm(
+                    APIPayload(messages=messages, tools=tools, force_call_tool=tool_choice)
+                )
+            else:
+                response: LLMOutput = llm(
+                    APIPayload(messages=messages, tools=tools, tool_choice=tool_choice)
+                )
+                num_tool_calls = len(response.tool_calls) if response.tool_calls else 0
+            res_df.append(
+                {
+                    "model": name,
+                    "checkpoint": checkpoint_name,
+                    "tool_choice": tool_choice,
+                    "num_tool_calls": num_tool_calls,
+                    "action": response.action,
+                }
+            )
+            assert (
+                num_tool_calls == 2
+            ), f"Expected 2 tool calls, but got {num_tool_calls} for {name} with tool choice {tool_choice}"
+        # import pandas as pd
+        # print(pd.DataFrame(res_df))
