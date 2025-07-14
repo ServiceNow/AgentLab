@@ -9,6 +9,7 @@ import pytest
 from agentlab.llm import tracking
 from agentlab.llm.response_api import (
     AnthropicAPIMessageBuilder,
+    APIPayload,
     ClaudeResponseModelArgs,
     LLMOutput,
     OpenAIChatCompletionAPIMessageBuilder,
@@ -76,6 +77,69 @@ def create_mock_openai_chat_completion(
         "tool_calls": tool_calls,
     }
     return completion
+
+
+responses_api_tools = [
+    {
+        "type": "function",
+        "name": "get_weather",
+        "description": "Get the current weather in a given location.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The location to get the weather for.",
+                },
+                "unit": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"],
+                    "description": "The unit of temperature.",
+                },
+            },
+            "required": ["location"],
+        },
+    }
+]
+
+chat_api_tools = [
+    {
+        "type": "function",
+        "name": "get_weather",
+        "description": "Get the current weather in a given location.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The location to get the weather for.",
+                },
+                "unit": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"],
+                    "description": "The unit of temperature.",
+                },
+            },
+            "required": ["location"],
+        },
+    }
+]
+anthropic_tools = [
+    {
+        "name": "get_weather",
+        "description": "Get the current weather in a given location.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The location to get the weather for.",
+                },
+            },
+            "required": ["location"],
+        },
+    }
+]
 
 
 # Helper to create a mock Anthropic response
@@ -196,13 +260,6 @@ def test_anthropic_api_message_builder_image():
 def test_openai_chat_completion_api_message_builder_text():
     builder = OpenAIChatCompletionAPIMessageBuilder.user()
     builder.add_text("Hello, ChatCompletion!")
-    # Mock last_response as it's used by tool role
-    builder.last_raw_response = MagicMock(spec=LLMOutput)
-    builder.last_raw_response.raw_response = MagicMock()
-    builder.last_raw_response.raw_response.choices = [MagicMock()]
-    builder.last_raw_response.raw_response.choices[0].message.to_dict.return_value = {
-        "tool_calls": [{"function": {"name": "some_function"}}]
-    }
     messages = builder.prepare_message()
 
     assert len(messages) == 1
@@ -213,13 +270,6 @@ def test_openai_chat_completion_api_message_builder_text():
 def test_openai_chat_completion_api_message_builder_image():
     builder = OpenAIChatCompletionAPIMessageBuilder.user()
     builder.add_image("data:image/jpeg;base64,CHATCOMPLETIONBASE64")
-    # Mock last_response
-    builder.last_raw_response = MagicMock(spec=LLMOutput)
-    builder.last_raw_response.raw_response = MagicMock()
-    builder.last_raw_response.raw_response.choices = [MagicMock()]
-    builder.last_raw_response.raw_response.choices[0].message.to_dict.return_value = {
-        "tool_calls": [{"function": {"name": "some_function"}}]
-    }
     messages = builder.prepare_message()
 
     assert len(messages) == 1
@@ -230,14 +280,12 @@ def test_openai_chat_completion_api_message_builder_image():
 
 
 def test_openai_chat_completion_model_parse_and_cost():
-    args = OpenAIChatModelArgs(model_name="gpt-3.5-turbo")  # A cheap model for testing
-    # Mock the OpenAI client to avoid needing OPENAI_API_KEY
+    args = OpenAIChatModelArgs(model_name="gpt-3.5-turbo")
     with patch("agentlab.llm.response_api.OpenAI") as mock_openai_class:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
         model = args.make_model()
 
-    # Mock the API call
     mock_response = create_mock_openai_chat_completion(
         content="This is a test thought.",
         tool_calls=[
@@ -254,13 +302,14 @@ def test_openai_chat_completion_model_parse_and_cost():
     with patch.object(
         model.client.chat.completions, "create", return_value=mock_response
     ) as mock_create:
-        with tracking.set_tracker() as global_tracker:  # Use your global tracker
+        with tracking.set_tracker() as global_tracker:
             messages = [
-                OpenAIChatCompletionAPIMessageBuilder.user()
-                .add_text("What's the weather in Paris?")
-                .prepare_message()[0]
+                OpenAIChatCompletionAPIMessageBuilder.user().add_text(
+                    "What's the weather in Paris?"
+                )
             ]
-            parsed_output = model(messages)
+            payload = APIPayload(messages=messages)
+            parsed_output = model(payload)
 
     mock_create.assert_called_once()
     assert parsed_output.raw_response.choices[0].message.content == "This is a test thought."
@@ -273,7 +322,7 @@ def test_openai_chat_completion_model_parse_and_cost():
 
 
 def test_claude_response_model_parse_and_cost():
-    args = ClaudeResponseModelArgs(model_name="claude-3-haiku-20240307")  # A cheap model
+    args = ClaudeResponseModelArgs(model_name="claude-3-haiku-20240307")
     model = args.make_model()
 
     mock_anthropic_api_response = create_mock_anthropic_response(
@@ -287,31 +336,23 @@ def test_claude_response_model_parse_and_cost():
         model.client.messages, "create", return_value=mock_anthropic_api_response
     ) as mock_create:
         with tracking.set_tracker() as global_tracker:
-            messages = [
-                AnthropicAPIMessageBuilder.user()
-                .add_text("Search for latest news")
-            ]
-            parsed_output = model(messages)
+            messages = [AnthropicAPIMessageBuilder.user().add_text("Search for latest news")]
+            payload = APIPayload(messages=messages)
+            parsed_output = model(payload)
 
     mock_create.assert_called_once()
     fn_call = next(iter(parsed_output.tool_calls))
 
     assert "Thinking about the request." in parsed_output.think
-    assert parsed_output.action == ['search_web(query="latest news")']
+    assert parsed_output.action == 'search_web(query="latest news")'
     assert fn_call.name == "search_web"
     assert global_tracker.stats["input_tokens"] == 40
     assert global_tracker.stats["output_tokens"] == 20
-    # assert global_tracker.stats["cost"] > 0 # Verify cost is calculated
 
 
 def test_openai_response_model_parse_and_cost():
-    """
-    Tests OpenAIResponseModel output parsing and cost tracking with both
-    function_call and reasoning outputs.
-    """
     args = OpenAIResponseModelArgs(model_name="gpt-4.1")
 
-    # Mock outputs
     mock_function_call_output = {
         "type": "function_call",
         "name": "get_current_weather",
@@ -325,7 +366,6 @@ def test_openai_response_model_parse_and_cost():
         output_tokens=40,
     )
 
-    # Mock the OpenAI client to avoid needing OPENAI_API_KEY
     with patch("agentlab.llm.response_api.OpenAI") as mock_openai_class:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
@@ -336,15 +376,16 @@ def test_openai_response_model_parse_and_cost():
     ) as mock_create_method:
         with tracking.set_tracker() as global_tracker:
             messages = [
-                OpenAIResponseAPIMessageBuilder.user()
-                .add_text("What's the weather in Boston?")
-                .prepare_message()[0]
+                OpenAIResponseAPIMessageBuilder.user().add_text("What's the weather in Boston?")
             ]
-            parsed_output = model(messages)
+            payload = APIPayload(messages=messages)
+            parsed_output = model(payload)
 
     mock_create_method.assert_called_once()
     fn_calls = [
-        content for content in parsed_output.raw_response.output if content.type == "function_call"
+        content
+        for content in parsed_output.tool_calls.raw_calls.output
+        if content.type == "function_call"
     ]
     assert parsed_output.action == 'get_current_weather(location="Boston, MA", unit="celsius")'
     assert fn_calls[0].call_id == "call_abc123"
@@ -366,38 +407,15 @@ def test_openai_chat_completion_model_pricy_call():
         max_new_tokens=100,
     )
 
-    tools = [
-        {
-            "type": "function",
-            "name": "get_weather",
-            "description": "Get the current weather in a given location.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The location to get the weather for.",
-                    },
-                    "unit": {
-                        "type": "string",
-                        "enum": ["celsius", "fahrenheit"],
-                        "description": "The unit of temperature.",
-                    },
-                },
-                "required": ["location"],
-            },
-        }
-    ]
-
-    model = args.make_model(tools=tools, tool_choice="required")
+    tools = chat_api_tools
+    model = args.make_model()
 
     with tracking.set_tracker() as global_tracker:
         messages = [
-            OpenAIChatCompletionAPIMessageBuilder.user()
-            .add_text("What is the weather in Paris?")
-            .prepare_message()[0]
+            OpenAIChatCompletionAPIMessageBuilder.user().add_text("What is the weather in Paris?")
         ]
-        parsed_output = model(messages)
+        payload = APIPayload(messages=messages, tools=tools, tool_choice="required")
+        parsed_output = model(payload)
 
     assert parsed_output.raw_response is not None
     assert (
@@ -418,35 +436,18 @@ def test_claude_response_model_pricy_call():
         temperature=1e-5,
         max_new_tokens=100,
     )
-    tools = [
-        {
-            "name": "get_weather",
-            "description": "Get the current weather in a given location.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The location to get the weather for.",
-                    },
-                },
-                "required": ["location"],
-            },
-        }
-    ]
-    model = args.make_model(tools=tools)
+    tools = anthropic_tools
+    model = args.make_model()
 
     with tracking.set_tracker() as global_tracker:
-        messages = [
-            AnthropicAPIMessageBuilder.user()
-            .add_text("What is the weather in Paris?")
-        ]
-        parsed_output = model(messages)
+        messages = [AnthropicAPIMessageBuilder.user().add_text("What is the weather in Paris?")]
+        payload = APIPayload(messages=messages, tools=tools)
+        parsed_output = model(payload)
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == ['get_weather(location="Paris")']
-    ), f'Expected [get_weather("Paris")] but got {parsed_output.action}'
+        parsed_output.action == 'get_weather(location="Paris")'
+    ), f'Expected get_weather("Paris") but got {parsed_output.action}'
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -461,37 +462,15 @@ def test_openai_response_model_pricy_call():
     """
     args = OpenAIResponseModelArgs(model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
 
-    tools = [
-        {
-            "type": "function",
-            "name": "get_weather",
-            "description": "Get the current weather in a given location.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The location to get the weather for.",
-                    },
-                    "unit": {
-                        "type": "string",
-                        "enum": ["celsius", "fahrenheit"],
-                        "description": "The unit of temperature.",
-                    },
-                },
-                "required": ["location"],
-            },
-        }
-    ]
-    model = args.make_model(tools=tools)
+    tools = responses_api_tools
+    model = args.make_model()
 
     with tracking.set_tracker() as global_tracker:
         messages = [
-            OpenAIResponseAPIMessageBuilder.user()
-            .add_text("What is the weather in Paris?")
-            .prepare_message()[0]
+            OpenAIResponseAPIMessageBuilder.user().add_text("What is the weather in Paris?")
         ]
-        parsed_output = model(messages)
+        payload = APIPayload(messages=messages, tools=tools)
+        parsed_output = model(payload)
 
     assert parsed_output.raw_response is not None
     assert (
@@ -511,56 +490,36 @@ def test_openai_response_model_with_multiple_messages_and_cost_tracking():
     """
     args = OpenAIResponseModelArgs(model_name="gpt-4.1", temperature=1e-5, max_new_tokens=100)
 
-    tools = [
-        {
-            "type": "function",
-            "name": "get_weather",
-            "description": "Get the current weather in a given location.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The location to get the weather for.",
-                    },
-                    "unit": {
-                        "type": "string",
-                        "enum": ["celsius", "fahrenheit"],
-                        "description": "The unit of temperature.",
-                    },
-                },
-                "required": ["location"],
-            },
-        }
-    ]
-
-    model = args.make_model(tools=tools, tool_choice="required")
+    tools = responses_api_tools
+    model = args.make_model()
     builder = args.get_message_builder()
 
     messages = [builder.user().add_text("What is the weather in Paris?")]
 
     with tracking.set_tracker() as tracker:
-        # First turn: get initial tool call
-        parsed = model(messages)
+        payload = APIPayload(messages=messages, tools=tools, tool_choice="required")
+        parsed = model(payload)
         prev_input = tracker.stats["input_tokens"]
         prev_output = tracker.stats["output_tokens"]
         prev_cost = tracker.stats["cost"]
 
+        assert parsed.tool_calls, "Expected tool calls in the response"
+        # Set tool responses
+        for tool_call in parsed.tool_calls:
+            tool_call.response_text("Its sunny! 25°C")
         # Simulate tool execution and user follow-up
         messages += [
-            parsed.tool_calls,  # Add tool call from the model
-            builder.tool(parsed.raw_response).add_text("Its sunny! 25°C"),
+            builder.add_responded_tool_calls(parsed.tool_calls),
             builder.user().add_text("What is the weather in Delhi?"),
         ]
 
-        parsed = model(messages)
+        payload = APIPayload(messages=messages, tools=tools, tool_choice="required")
+        parsed = model(payload)
 
-        # Token and cost deltas
         delta_input = tracker.stats["input_tokens"] - prev_input
         delta_output = tracker.stats["output_tokens"] - prev_output
         delta_cost = tracker.stats["cost"] - prev_cost
 
-    # Assertions
     assert prev_input > 0
     assert prev_output > 0
     assert prev_cost > 0
@@ -606,33 +565,34 @@ def test_openai_chat_completion_model_with_multiple_messages_and_cost_tracking()
         }
     ]
 
-    model = args.make_model(tools=tools, tool_choice="required")
+    model = args.make_model()
     builder = args.get_message_builder()
 
     messages = [builder.user().add_text("What is the weather in Paris?")]
 
     with tracking.set_tracker() as tracker:
-        # First turn: get initial tool call
-        parsed = model(messages)
+        payload = APIPayload(messages=messages, tools=tools, tool_choice="required")
+        parsed = model(payload)
         prev_input = tracker.stats["input_tokens"]
         prev_output = tracker.stats["output_tokens"]
         prev_cost = tracker.stats["cost"]
 
+        for tool_call in parsed.tool_calls:
+            tool_call.response_text("Its sunny! 25°C")
         # Simulate tool execution and user follow-up
         messages += [
-            parsed.tool_calls,  # Add tool call from the model
-            builder.tool(parsed.raw_response).add_text("Its sunny! 25°C"),
+            builder.add_responded_tool_calls(parsed.tool_calls),
             builder.user().add_text("What is the weather in Delhi?"),
         ]
+        # Set tool responses
 
-        parsed = model(messages)
+        payload = APIPayload(messages=messages, tools=tools, tool_choice="required")
+        parsed = model(payload)
 
-        # Token and cost deltas
         delta_input = tracker.stats["input_tokens"] - prev_input
         delta_output = tracker.stats["output_tokens"] - prev_output
         delta_cost = tracker.stats["cost"] - prev_cost
 
-    # Assertions
     assert prev_input > 0
     assert prev_output > 0
     assert prev_cost > 0
@@ -673,38 +633,38 @@ def test_claude_model_with_multiple_messages_pricy_call():
             },
         }
     ]
-    model = model_factory.make_model(tools=tools)
+    model = model_factory.make_model()
     msg_builder = model_factory.get_message_builder()
     messages = []
 
     messages.append(msg_builder.user().add_text("What is the weather in Paris?"))
     with tracking.set_tracker() as global_tracker:
-        llm_output1 = model(messages)
+        payload = APIPayload(messages=messages, tools=tools)
+        llm_output1 = model(payload)
 
         prev_input = global_tracker.stats["input_tokens"]
         prev_output = global_tracker.stats["output_tokens"]
         prev_cost = global_tracker.stats["cost"]
 
-        messages.append(llm_output1.tool_calls)
         for tool_call in llm_output1.tool_calls:
-            tool_call.add_text("It's sunny! 25°C")
-        messages.append(
-            msg_builder.add_responded_tool_calls(llm_output1.tool_calls))
-        messages.append(msg_builder.user().add_text("What is the weather in Delhi?"))
-        llm_output2 = model(messages)
-        # Token and cost deltas
+            tool_call.response_text("It's sunny! 25°C")
+        messages += [
+            msg_builder.add_responded_tool_calls(llm_output1.tool_calls),
+            msg_builder.user().add_text("What is the weather in Delhi?"),
+        ]
+        payload = APIPayload(messages=messages, tools=tools)
+        llm_output2 = model(payload)
         delta_input = global_tracker.stats["input_tokens"] - prev_input
         delta_output = global_tracker.stats["output_tokens"] - prev_output
         delta_cost = global_tracker.stats["cost"] - prev_cost
 
-    # Assertions
     assert prev_input > 0, "Expected previous input tokens to be greater than 0"
     assert prev_output > 0, "Expected previous output tokens to be greater than 0"
     assert prev_cost > 0, "Expected previous cost value to be greater than 0"
     assert llm_output2.raw_response is not None
     assert (
-        llm_output2.action == ['get_weather(location="Delhi", unit="celsius")']
-    ), f'Expected [get_weather("Delhi")] but got {llm_output2.action}'
+        llm_output2.action == 'get_weather(location="Delhi", unit="celsius")'
+    ), f'Expected get_weather("Delhi") but got {llm_output2.action}'
     assert delta_input > 0, "Expected new input tokens to be greater than 0"
     assert delta_output > 0, "Expected new output tokens to be greater than 0"
     assert delta_cost > 0, "Expected new cost value to be greater than 0"
