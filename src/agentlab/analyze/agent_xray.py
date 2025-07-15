@@ -26,6 +26,7 @@ from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
 from agentlab.llm.response_api import MessageBuilder
+from agentlab.llm.response_api import ToolCalls
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -673,6 +674,9 @@ def dict_to_markdown(d: dict):
         str: A markdown-formatted string representation of the dictionary.
     """
     if not isinstance(d, dict):
+        if isinstance(d, ToolCalls):
+            # ToolCalls rendered by to_markdown method.
+            return ""
         warning(f"Expected dict, got {type(d)}")
         return repr(d)
     if not d:

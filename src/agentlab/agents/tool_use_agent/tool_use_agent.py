@@ -22,11 +22,14 @@ from agentlab.agents import agent_utils
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
+    APIPayload,
     ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
     OpenAIChatModelArgs,
     OpenAIResponseModelArgs,
+    OpenRouterModelArgs,
+    ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -98,7 +101,8 @@ class StructuredDiscussion:
                 messages.extend(group.messages)
             # Mark all summarized messages for caching
             if i == len(self.groups) - keep_last_n_obs:
-                messages[i].mark_all_previous_msg_for_caching()
+                if not isinstance(messages[i], ToolCalls):
+                    messages[i].mark_all_previous_msg_for_caching()
         return messages
 
     def set_last_summary(self, summary: MessageBuilder):
@@ -163,18 +167,15 @@ class Obs(Block):
     use_dom: bool = False
     use_som: bool = False
     use_tabs: bool = False
-    add_mouse_pointer: bool = False
+    # add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
 
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
 
-        if last_llm_output.tool_calls is None:
-            obs_msg = llm.msg.user()  # type: MessageBuilder
-        else:
-            obs_msg = llm.msg.tool(last_llm_output.raw_response)  # type: MessageBuilder
-
+        obs_msg = llm.msg.user()
+        tool_calls = last_llm_output.tool_calls
         if self.use_last_error:
             if obs["last_action_error"] != "":
                 obs_msg.add_text(f"Last action error:\n{obs['last_action_error']}")
@@ -186,13 +187,12 @@ class Obs(Block):
             else:
                 screenshot = obs["screenshot"]
 
-            if self.add_mouse_pointer:
-                # TODO this mouse pointer should be added at the browsergym level
-                screenshot = np.array(
-                    agent_utils.add_mouse_pointer_from_action(
-                        Image.fromarray(obs["screenshot"]), obs["last_action"]
-                    )
-                )
+            # if self.add_mouse_pointer:
+            #     screenshot = np.array(
+            #         agent_utils.add_mouse_pointer_from_action(
+            #             Image.fromarray(obs["screenshot"]), obs["last_action"]
+            #         )
+            #     )
 
             obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
@@ -203,6 +203,13 @@ class Obs(Block):
             obs_msg.add_text(_format_tabs(obs))
 
         discussion.append(obs_msg)
+
+        if tool_calls:
+            for call in tool_calls:
+                call.response_text("See Observation")
+            tool_response = llm.msg.add_responded_tool_calls(tool_calls)
+            discussion.append(tool_response)
+
         return obs_msg
 
 
@@ -254,8 +261,8 @@ class Summarizer(Block):
         msg = llm.msg.user().add_text("""Summarize\n""")
 
         discussion.append(msg)
-        # TODO need to make sure we don't force tool use here
-        summary_response = llm(messages=discussion.flatten(), tool_choice="none")
+
+        summary_response = llm(APIPayload(messages=discussion.flatten()))
 
         summary_msg = llm.msg.assistant().add_text(summary_response.think)
         discussion.append(summary_msg)
@@ -320,25 +327,6 @@ class TaskHint(Block):
             discussion.append(msg)
 
 
-class ToolCall(Block):
-
-    def __init__(self, tool_server):
-        self.tool_server = tool_server
-
-    def apply(self, llm, messages: list[MessageBuilder], obs: dict) -> dict:
-        # build the message by adding components to obs
-        response: LLMOutput = llm(messages=self.messages)
-
-        messages.append(response.assistant_message)  # this is tool call
-
-        tool_answer = self.tool_server.call_tool(response)
-        tool_msg = llm.msg.tool()  # type: MessageBuilder
-        tool_msg.add_tool_id(response.last_computer_call_id)
-        tool_msg.update_last_raw_response(response)
-        tool_msg.add_text(str(tool_answer))
-        messages.append(tool_msg)
-
-
 @dataclass
 class PromptConfig:
     tag_screenshot: bool = True  # Whether to tag the screenshot with the last action.
@@ -394,7 +382,7 @@ class ToolUseAgent(bgym.Agent):
 
         self.call_ids = []
 
-        self.llm = model_args.make_model(extra_kwargs={"tools": self.tools})
+        self.llm = model_args.make_model()
         self.msg_builder = model_args.get_message_builder()
         self.llm.msg = self.msg_builder
 
@@ -462,13 +450,15 @@ class ToolUseAgent(bgym.Agent):
 
         messages = self.discussion.flatten()
         response: LLMOutput = self.llm(
-            messages=messages,
-            tool_choice="any",
-            cache_tool_definition=True,
-            cache_complete_prompt=False,
-            use_cache_breakpoints=True,
+            APIPayload(
+                messages=messages,
+                tools=self.tools,  # You can update tools available tools now.
+                tool_choice="any",
+                cache_tool_definition=True,
+                cache_complete_prompt=False,
+                use_cache_breakpoints=True,
+            )
         )
-
         action = response.action
         think = response.think
         last_summary = self.discussion.get_last_summary()
@@ -476,7 +466,7 @@ class ToolUseAgent(bgym.Agent):
             think = last_summary.content[0]["text"] + "\n" + think
 
         self.discussion.new_group()
-        self.discussion.append(response.tool_calls)
+        # self.discussion.append(response.tool_calls) # No need to append tool calls anymore.
 
         self.last_response = response
         self._responses.append(response)  # may be useful for debugging
@@ -486,8 +476,11 @@ class ToolUseAgent(bgym.Agent):
         tools_msg = MessageBuilder("tool_description").add_text(tools_str)
 
         # Adding these extra messages to visualize in gradio
-        messages.insert(0, tools_msg)  # insert at the beginning of the messages
-        messages.append(response.tool_calls)
+        messages.insert(0, tools_msg)  # insert at the beginning of the message
+        # This avoids the assertion error with self.llm.user().add_responded_tool_calls(tool_calls)
+        msg = self.llm.msg("tool")
+        msg.responded_tool_calls = response.tool_calls
+        messages.append(msg)
 
         agent_info = bgym.AgentInfo(
             think=think,
@@ -533,6 +526,31 @@ CLAUDE_MODEL_CONFIG = ClaudeResponseModelArgs(
     vision_support=True,
 )
 
+O3_RESPONSE_MODEL = OpenAIResponseModelArgs(
+    model_name="o3-2025-04-16",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,  # O3 does not support temperature
+    vision_support=True,
+)
+O3_CHATAPI_MODEL = OpenAIChatModelArgs(
+    model_name="o3-2025-04-16",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,
+    vision_support=True,
+)
+
+GPT4_1_OPENROUTER_MODEL = OpenRouterModelArgs(
+    model_name="openai/gpt-4.1",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=None,  # O3 does not support temperature
+    vision_support=True,
+)
 
 DEFAULT_PROMPT_CONFIG = PromptConfig(
     tag_screenshot=True,
@@ -548,8 +566,8 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     summarizer=Summarizer(do_summary=True),
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
-    keep_last_n_obs=None,  # keep only the last observation in the discussion
-    multiaction=False,  # whether to use multi-action or not
+    keep_last_n_obs=None,
+    multiaction=True,  # whether to use multi-action or not
     # action_subsets=("bid",),
     action_subsets=("coord"),
     # action_subsets=("coord", "bid"),
@@ -557,5 +575,20 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
 
 AGENT_CONFIG = ToolUseAgentArgs(
     model_args=CLAUDE_MODEL_CONFIG,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+
+OAI_AGENT = ToolUseAgentArgs(
+    model_args=GPT_4_1,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+
+OAI_CHATAPI_AGENT = ToolUseAgentArgs(
+    model_args=O3_CHATAPI_MODEL,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+
+OAI_OPENROUTER_AGENT = ToolUseAgentArgs(
+    model_args=GPT4_1_OPENROUTER_MODEL,
     config=DEFAULT_PROMPT_CONFIG,
 )
