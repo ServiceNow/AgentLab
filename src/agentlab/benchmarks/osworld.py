@@ -853,15 +853,6 @@ def format_chat_completion_tools_to_response_api(tools: list[dict]) -> list[dict
     return formatted_tools
 
 
-# @dataclass
-# class OSWorldActionSetArgs(DataClassJsonMixin):
-#     action_space: Literal["computer_13", "pyautogui"] = "computer_13"
-
-#     def make_action_set(self):
-#         logger.info(f"Creating OSWorld Action Set with action space: {self.action_space}")
-#         return OSWorldActionSet(action_space=self.action_space)
-
-
 @dataclass
 class OsworldEnvArgs(AbstractEnvArgs):
     task: dict[str, Any]
