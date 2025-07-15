@@ -56,6 +56,7 @@ def create_mock_openai_chat_completion(
     # or if get_tokens_counts_from_response had different fallback logic.
     completion.usage.prompt_tokens = prompt_tokens
     completion.usage.completion_tokens = completion_tokens
+    completion.usage.prompt_tokens_details.cached_tokens = 0
 
     completion.model_dump.return_value = {
         "id": "chatcmpl-xxxx",
@@ -69,6 +70,7 @@ def create_mock_openai_chat_completion(
             "output_tokens": completion_tokens,  # Generic name
             "prompt_tokens": prompt_tokens,  # OpenAI specific
             "completion_tokens": completion_tokens,  # OpenAI specific
+            "prompt_tokens_details": {"cached_tokens": 0},
         },
     }
     message.to_dict.return_value = {
@@ -166,6 +168,8 @@ def create_mock_anthropic_response(
     response.usage = MagicMock()
     response.usage.input_tokens = input_tokens
     response.usage.output_tokens = output_tokens
+    response.usage.cache_input_tokens = 0
+    response.usage.cache_creation_input_tokens = 0
     return response
 
 
@@ -207,6 +211,7 @@ def create_mock_openai_responses_api_response(
     response_mock.usage.output_tokens = output_tokens
     response_mock.usage.prompt_tokens = input_tokens
     response_mock.usage.completion_tokens = output_tokens
+    response_mock.usage.input_tokens_details.cached_tokens = 0
 
     return response_mock
 
