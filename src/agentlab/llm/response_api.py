@@ -104,8 +104,10 @@ class LLMOutput:
 
     raw_response: Any = field(default=None)
     think: str = field(default="")
-    action: str = field(default=None)  # Default action if no tool call is made
-    tool_calls: ToolCalls = field(default=None)  # This will hold the tool call response if any
+    action: str | None = field(default=None)  # Default action if no tool call is made
+    tool_calls: ToolCalls | None = field(
+        default=None
+    )  # This will hold the tool call response if any
 
 
 class MessageBuilder:
@@ -374,10 +376,10 @@ class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
 
 @dataclass
 class APIPayload:
-    messages: List[MessageBuilder | ToolCalls] = None
+    messages: List[MessageBuilder] | None = None
     tools: List[Dict[str, Any]] | None = None
     tool_choice: Literal["none", "auto", "any", "required"] | None = None
-    force_call_tool: str = (
+    force_call_tool: str | None = (
         None  # Name of the tool to call # If set, will force the LLM to call this tool.
     )
     use_cache_breakpoints: bool = (
@@ -410,7 +412,7 @@ class BaseResponseModel(ABC):
         self.max_tokens = max_tokens
         super().__init__()
 
-    def __call__(self, payload: APIPayload) -> dict:
+    def __call__(self, payload: APIPayload) -> LLMOutput:
         """Make a call to the model and return the parsed response."""
         response = self._call_api(payload)
         return self._parse_response(response)
@@ -431,25 +433,29 @@ class AgentlabAction:
     Collection of utility function to convert tool calls to Agentlab action format.
     """
 
+    @staticmethod
     def convert_toolcall_to_agentlab_action_format(toolcall: ToolCall) -> str:
         """Convert a tool call to an Agentlab environment action string.
+
         Args:
             toolcall: ToolCall object containing the name and arguments of the tool call.
 
         Returns:
-            str: A string representing the action in Agentlab format i.e. python function call string.
+            A string representing the action in Agentlab format i.e. python function call string.
         """
 
         tool_name, tool_args = toolcall.name, toolcall.arguments
         return tool_call_to_python_code(tool_name, tool_args)
 
-    def convert_multiactions_to_agentlab_action_format(actions: list[str]) -> str:
+    @staticmethod
+    def convert_multiactions_to_agentlab_action_format(actions: list[str]) -> str | None:
         """Convert multiple actions list to a format that env supports.
+
         Args:
             actions: List of action strings to be joined.
 
         Returns:
-            str: Joined actions separated by newlines, or None if empty.
+            Joined actions separated by newlines, or None if empty.
         """
         return "\n".join(actions) if actions else None
 
