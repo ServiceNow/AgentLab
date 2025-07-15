@@ -28,7 +28,7 @@ def get_task_ids() -> set[str]:
 def main():
     n_jobs = 4
     use_vmware = True
-    relaunch = True
+    relaunch = False
     agent_args = [
         OSWORLD_CLAUDE,
         #    OSWORLD_OAI # performs poorly.
