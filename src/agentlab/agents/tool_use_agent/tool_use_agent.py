@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import bgym
-import numpy as np
 import pandas as pd
+from bgym import Benchmark as BgymBenchmark
 from browsergym.core.observation import extract_screenshot
 from browsergym.utils.obs import (
     flatten_axtree_to_str,
@@ -16,12 +16,9 @@ from browsergym.utils.obs import (
     overlay_som,
     prune_html,
 )
-from PIL import Image
 
-from agentlab.agents import agent_utils
-from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
-from bgym import Benchmark as BgymBenchmark
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
 from agentlab.benchmarks.osworld import OSWorldActionSet
 from agentlab.llm.base_api import BaseModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
@@ -629,7 +626,7 @@ OSWORLD_CLAUDE = ToolUseAgentArgs(
 )
 
 OSWORLD_OAI = ToolUseAgentArgs(
-    model_args=OPENAI_MODEL_CONFIG,
+    model_args=GPT_4_1_MINI,
     config=PromptConfig(
         tag_screenshot=True,
         goal=Goal(goal_as_system_msg=True),
