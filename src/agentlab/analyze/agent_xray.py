@@ -712,7 +712,7 @@ def dict_msg_to_markdown(d: dict):
             case "text":
                 parts.append(f"\n```\n{item['text']}\n```\n")
             case "tool_use":
-                tool_use = _format_tool_call(item["name"], item["input"], item["call_id"])
+                tool_use = _format_tool_call(item["name"], item["input"], item["id"])
                 parts.append(f"\n```\n{tool_use}\n```\n")
             case _:
                 parts.append(f"\n```\n{str(item)}\n```\n")
@@ -1337,7 +1337,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 horizontalalignment="right",
                 rotation=0,
                 clip_on=True,
-                antialiased=True,
+                # antialiased=True,
                 fontweight=1000,
                 backgroundcolor=color,
             )

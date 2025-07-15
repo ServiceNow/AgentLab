@@ -112,7 +112,6 @@ class LLMOutput:
 
 class MessageBuilder:
     def __init__(self, role: str):
-
         self.role = role
         self.content: List[ContentItem] = []
         self.responded_tool_calls: ToolCalls = None
@@ -259,7 +258,6 @@ class OpenAIResponseAPIMessageBuilder(MessageBuilder):
 
 
 class AnthropicAPIMessageBuilder(MessageBuilder):
-
     def prepare_message(self) -> List[Message]:
         content = [self.transform_content(item) for item in self.content]
         output = {"role": self.role, "content": content}
@@ -327,7 +325,6 @@ class AnthropicAPIMessageBuilder(MessageBuilder):
 
 
 class OpenAIChatCompletionAPIMessageBuilder(MessageBuilder):
-
     def prepare_message(self) -> List[Message]:
         """Prepare the message for the OpenAI API."""
         content = []

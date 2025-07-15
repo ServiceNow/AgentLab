@@ -19,7 +19,11 @@ from browsergym.utils.obs import (
 from PIL import Image
 
 from agentlab.agents import agent_utils
+from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
+from bgym import Benchmark as BgymBenchmark
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.benchmarks.osworld import OSWorldActionSet
+from agentlab.llm.base_api import BaseModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     APIPayload,
@@ -36,7 +40,6 @@ from agentlab.llm.tracking import cost_tracker_decorator
 
 @dataclass
 class Block(ABC):
-
     def _init(self):
         """Initialize the block."""
         pass
@@ -169,6 +172,7 @@ class Obs(Block):
     use_tabs: bool = False
     # add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
+    skip_preprocessing: bool = False
 
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
@@ -181,7 +185,6 @@ class Obs(Block):
                 obs_msg.add_text(f"Last action error:\n{obs['last_action_error']}")
 
         if self.use_screenshot:
-
             if self.use_som:
                 screenshot = obs["screenshot_som"]
             else:
@@ -231,7 +234,6 @@ Tab {page_index}{active_or_not}:
 
 @dataclass
 class GeneralHints(Block):
-
     use_hints: bool = True
 
     def apply(self, llm, discussion: StructuredDiscussion) -> dict:
@@ -342,9 +344,10 @@ class PromptConfig:
 
 @dataclass
 class ToolUseAgentArgs(AgentArgs):
-    model_args: OpenAIResponseModelArgs = None
+    model_args: BaseModelArgs = None
     config: PromptConfig = None
     use_raw_page_output: bool = False  # This attribute is used in loop.py to setup the env.
+    action_set: bgym.AbstractActionSet | None = None
 
     def __post_init__(self):
         try:
@@ -356,8 +359,9 @@ class ToolUseAgentArgs(AgentArgs):
         if self.config is None:
             self.config = DEFAULT_PROMPT_CONFIG
         return ToolUseAgent(
-            model_args=self.model_args,
+            model_args=self.model_args,  # type: ignore
             config=self.config,
+            action_set=self.action_set,
         )
 
     def prepare(self):
@@ -366,17 +370,24 @@ class ToolUseAgentArgs(AgentArgs):
     def close(self):
         return self.model_args.close_server()
 
+    def set_benchmark(self, benchmark: AgentLabBenchmark | BgymBenchmark, demo_mode: bool):
+        """Set benchmark specific flags."""
+        benchmark_name = benchmark.name
+        if benchmark_name == "osworld":
+            self.config.obs.skip_preprocessing = True
+
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
         self,
         model_args: OpenAIResponseModelArgs,
         config: PromptConfig = None,
+        action_set: bgym.AbstractActionSet | None = None,
     ):
         self.model_args = model_args
         self.config = config
-        self.action_set = bgym.HighLevelActionSet(
-            self.config.action_subsets, multiaction=self.config.multiaction
+        self.action_set: bgym.AbstractActionSet = action_set or bgym.HighLevelActionSet(
+            self.config.action_subsets, multiaction=self.config.multiaction  # type: ignore
         )
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
@@ -395,7 +406,8 @@ class ToolUseAgent(bgym.Agent):
 
     def obs_preprocessor(self, obs):
         obs = copy(obs)
-
+        if self.config.obs.skip_preprocessing:
+            return obs
         page = obs.pop("page", None)
         if page is not None:
             obs["screenshot"] = extract_screenshot(page)
@@ -591,4 +603,50 @@ OAI_CHATAPI_AGENT = ToolUseAgentArgs(
 OAI_OPENROUTER_AGENT = ToolUseAgentArgs(
     model_args=GPT4_1_OPENROUTER_MODEL,
     config=DEFAULT_PROMPT_CONFIG,
+)
+
+OSWORLD_CLAUDE = ToolUseAgentArgs(
+    model_args=CLAUDE_MODEL_CONFIG,
+    config=PromptConfig(
+        tag_screenshot=True,
+        goal=Goal(goal_as_system_msg=True),
+        obs=Obs(
+            use_last_error=True,
+            use_screenshot=True,
+            use_axtree=True,
+            use_dom=False,
+            use_som=False,
+            use_tabs=False,
+        ),
+        summarizer=Summarizer(do_summary=True),
+        general_hints=GeneralHints(use_hints=False),
+        task_hint=TaskHint(use_task_hint=False),
+        keep_last_n_obs=None,
+        multiaction=False,  # whether to use multi-action or not
+        action_subsets=("coord",),  # or "bid"
+    ),
+    action_set=OSWorldActionSet("computer_13"),  # or "pyautogui"
+)
+
+OSWORLD_OAI = ToolUseAgentArgs(
+    model_args=OPENAI_MODEL_CONFIG,
+    config=PromptConfig(
+        tag_screenshot=True,
+        goal=Goal(goal_as_system_msg=True),
+        obs=Obs(
+            use_last_error=True,
+            use_screenshot=True,
+            use_axtree=False,
+            use_dom=False,
+            use_som=False,
+            use_tabs=False,
+        ),
+        summarizer=Summarizer(do_summary=True),
+        general_hints=GeneralHints(use_hints=False),
+        task_hint=TaskHint(use_task_hint=False),
+        keep_last_n_obs=1,  # keep only the last observation in the discussion
+        multiaction=False,  # whether to use multi-action or not
+        action_subsets=("coord",),
+    ),
+    action_set=OSWorldActionSet("computer_13"),
 )
