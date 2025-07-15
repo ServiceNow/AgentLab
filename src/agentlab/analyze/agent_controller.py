@@ -4,9 +4,11 @@ import importlib
 import json
 import logging
 import os
+import pickle
 from collections import Counter
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 
 import numpy as np
 import PIL.Image
@@ -14,6 +16,7 @@ import requests
 import streamlit as st
 from agentlab.agents.generic_agent import __all__ as ALL_AGENTS
 from agentlab.experiments.exp_utils import RESULTS_DIR
+from agentlab.experiments.loop import ExpArgs, StepInfo, save_package_versions
 from agentlab.llm.llm_utils import Discussion
 from bgym import DEFAULT_BENCHMARKS
 from dotenv import load_dotenv
@@ -133,6 +136,12 @@ def reset_env_history():
     st.session_state.screenshot_history = []
     st.session_state.axtree_history = []
 
+    # related to env info
+    st.session_state.reward_history = []
+    st.session_state.terminated_history = []
+    st.session_state.truncated_history = []
+    st.session_state.env_info_history = []
+
 
 def reset_agent_history():
     logger.info("Resetting agent history")
@@ -150,12 +159,18 @@ def reset_agent_state():
     st.session_state.agent.reset()
 
 
-def step_env_history(obs):
+def step_env_history(obs, response_json):
     logger.info("Stepping env history")
     st.session_state.last_obs = copy.deepcopy(obs)
     st.session_state.obs_history.append(obs)
     st.session_state.screenshot_history.append(obs[Constants.SCREENSHOT])
     st.session_state.axtree_history.append(obs[Constants.AXTREE_TXT])
+
+    # other relevant info found in response_json
+    st.session_state.reward_history.append(response_json["reward"])
+    st.session_state.terminated_history.append(response_json["terminated"])
+    st.session_state.truncated_history.append(response_json["truncated"])
+    st.session_state.env_info_history.append(response_json["info"])
 
 
 def step_agent_history(action, action_info):
@@ -185,6 +200,12 @@ def revert_env_history():
     st.session_state.screenshot_history.pop()
     st.session_state.axtree_history.pop()
 
+    # related to env info
+    st.session_state.reward_history.pop()
+    st.session_state.terminated_history.pop()
+    st.session_state.truncated_history.pop()
+    st.session_state.env_info_history.pop()
+
 
 def revert_agent_history():
     logger.info("Reverting agent history")
@@ -208,6 +229,12 @@ def restore_env_history(step: int):
     st.session_state.obs_history = copy.deepcopy(st.session_state.obs_history[:step])
     st.session_state.screenshot_history = copy.deepcopy(st.session_state.screenshot_history[:step])
     st.session_state.axtree_history = copy.deepcopy(st.session_state.axtree_history[:step])
+
+    # related to env info
+    st.session_state.reward_history = copy.deepcopy(st.session_state.reward_history[:step])
+    st.session_state.terminated_history = copy.deepcopy(st.session_state.terminated_history[:step])
+    st.session_state.truncated_history = copy.deepcopy(st.session_state.truncated_history[:step])
+    st.session_state.env_info_history = copy.deepcopy(st.session_state.env_info_history[:step])
 
 
 def restore_agent_history(step: int):
@@ -262,6 +289,8 @@ def set_session_state():
         st.session_state.task = None
     if "subtask" not in st.session_state:
         st.session_state.subtask = None
+    if "env_args" not in st.session_state:
+        st.session_state.env_args = None
 
     # current state
     if "agent" not in st.session_state:
@@ -290,6 +319,14 @@ def set_session_state():
         st.session_state.action_info_history = None
     if "obs_history" not in st.session_state:
         st.session_state.obs_history = None
+    if "reward_history" not in st.session_state:
+        st.session_state.reward_history = None
+    if "terminated_history" not in st.session_state:
+        st.session_state.terminated_history = None
+    if "truncated_history" not in st.session_state:
+        st.session_state.truncated_history = None
+    if "env_info_history" not in st.session_state:
+        st.session_state.env_info_history = None
 
     if "has_clicked_prev" not in st.session_state:
         st.session_state.has_clicked_prev = False
@@ -362,6 +399,13 @@ def set_task_selector():
                     st.session_state.task = selected_task_str
                     st.session_state.subtask = selected_subtask_str
 
+                    st.session_state.env_args = [
+                        elem
+                        for elem in selected_benchmark.env_args_list
+                        if elem.task_name == selected_task_str
+                        and str(elem.task_seed) == str(selected_subtask_str)
+                    ][0]
+
                     reset_env_history()
                     reset_agent_history()
 
@@ -423,11 +467,12 @@ def reset_environment():
         logger.error(resp.json()[Constants.STATUS])
         logger.error(resp.json()[Constants.MESSAGE])
     response_json = resp.json()
+    print(response_json.keys())
     response_json = deserialize_response(response_json)
     obs = response_json[Constants.OBS]
     if st.session_state.agent.obs_preprocessor:
         obs = st.session_state.agent.obs_preprocessor(obs)
-    step_env_history(obs)
+    step_env_history(obs, response_json)
     st.session_state.action = None
     st.session_state.action_info = None
 
@@ -447,7 +492,7 @@ def reload_task():
     obs = response_json[Constants.OBS]
     if st.session_state.agent.obs_preprocessor:
         obs = st.session_state.agent.obs_preprocessor(obs)
-    step_env_history(obs)
+    step_env_history(obs, response_json)
     st.session_state.action = None
     st.session_state.action_info = None
 
@@ -468,7 +513,7 @@ def step_environment(action):
     obs = response_json[Constants.OBS]
     if st.session_state.agent.obs_preprocessor:
         obs = st.session_state.agent.obs_preprocessor(obs)
-    step_env_history(obs)
+    step_env_history(obs, response_json)
     st.session_state.action = None
     st.session_state.action_info = None
 
@@ -880,44 +925,45 @@ def set_save_tab():
     save_dir = st.text_input("Save Directory", value="~/Downloads")
     save_dir = os.path.expanduser(save_dir)
     if st.button("Save Session State for Current Run"):
-        now_str = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-        filename = f"agentlab_controller_state_{now_str}.json"
+        # save everything from the session in a way that is consistent
+        # with how experiments are saved with AgentLab
 
-        # prepare payload for saving
-        payload = {}
-        payload["timestamp"] = now_str
-        payload["benchmark"] = st.session_state.benchmark
-        payload["task"] = st.session_state.task
-        payload["subtask"] = st.session_state.subtask
-        payload["agent_args"] = {
-            k: v for k, v in vars(st.session_state.agent_args).items() if is_json_serializable(v)
-        }
-        payload["agent_flags"] = {
-            k: v for k, v in vars(st.session_state.agent.flags).items() if is_json_serializable(v)
-        }
-        payload["agent_flags"]["obs"] = {
-            k: v
-            for k, v in vars(st.session_state.agent.flags.obs).items()
-            if is_json_serializable(v)
-        }
-        payload["agent_flags"]["action"] = {
-            k: v
-            for k, v in vars(st.session_state.agent.flags.action).items()
-            if is_json_serializable(v)
-        }
-        payload["goal"] = st.session_state.last_obs["goal"]
-        payload["steps"] = []
+        # dir name has this format: 2025-07-14_16-46-47_tooluse-gpt-4-1-on-workarena-l1-task-name-sort
+        exp_dir = (
+            Path(save_dir)
+            / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_genericagent_{st.session_state.agent_args.agent_name}_on_{st.session_state.benchmark}_{st.session_state.env_args.task_name}_{st.session_state.env_args.task_name}_{st.session_state.env_args.task_seed}"
+        )
+        exp_dir.mkdir(parents=True, exist_ok=True)
+
+        # save package versions
+        save_package_versions(exp_dir)
+
+        # create ExpArgs object
+        exp_args = ExpArgs(
+            agent_args=st.session_state.agent_args, env_args=st.session_state.env_args
+        )
+        with open(exp_dir / "exp_args.pkl", "wb") as f:
+            pickle.dump(exp_args, f)
+
+        # create StepInfo object for each step
         for i in range(len(st.session_state.action_history)):
-            step = {}
-            step["action"] = st.session_state.action_history[i]
-            step["thought"] = st.session_state.thought_history[i]
-            step["prompt"] = st.session_state.prompt_history[i]
-            step["screenshot"] = get_base64_serialized_image(st.session_state.screenshot_history[i])
-            step["axtree"] = st.session_state.axtree_history[i]
-            payload["steps"].append(step)
+            step_info = StepInfo()
+            step_info.step = i
+            step_info.obs = st.session_state.obs_history[i]
+            step_info.reward = st.session_state.reward_history[i]
+            step_info.terminated = st.session_state.terminated_history[i]
+            step_info.truncated = st.session_state.truncated_history[i]
+            step_info.action = st.session_state.action_history[i]
+            step_info.agent_info = st.session_state.action_info_history[i]
+            step_info.make_stats()
+            # TODO: set profiling stats
+            step_info.task_info = st.session_state.env_info_history[i].get("task_info", None)
+            step_info.raw_reward = st.session_state.env_info_history[i].get(
+                "RAW_REWARD_GLOBAL", None
+            )
+            step_info.save_step_info(exp_dir, save_screenshot=True, save_som=True)
 
-        with open(os.path.join(save_dir, filename), "w") as f:
-            json.dump(payload, f)
+        st.success(f"Saved session state at {exp_dir}")
 
 
 def set_info_tabs():
