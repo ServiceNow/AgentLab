@@ -234,6 +234,10 @@ class EnvWrapper:
             {
                 "status": "success",
                 "message": "Environment status retrieved successfully.",
+                "obs": self.last_obs,
+                "reward": 0,
+                "terminated": False,
+                "truncated": False,
                 "info_set": self.info_set,
                 "env_created": self.env is not None,
             }
@@ -318,6 +322,9 @@ class EnvWrapper:
                 "status": "success",
                 "message": "Task reloaded successfully.",
                 "obs": self.last_obs,
+                "reward": 0,
+                "terminated": False,
+                "truncated": False,
                 "info": self.last_info,
             }
         )
@@ -356,6 +363,9 @@ class EnvWrapper:
                 "status": "success",
                 "message": "Environment reset successfully",
                 "obs": self.last_obs,
+                "reward": 0,
+                "terminated": False,
+                "truncated": False,
                 "info": self.last_info,
             }
         )
@@ -413,6 +423,9 @@ class EnvWrapper:
                 "status": "success",
                 "message": "Observation retrieved successfully.",
                 "obs": self.last_obs,
+                "reward": 0,
+                "terminated": False,
+                "truncated": False,
                 "info": self.last_info,
             }
         )
