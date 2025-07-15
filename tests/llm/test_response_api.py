@@ -184,7 +184,7 @@ def create_mock_openai_responses_api_response(
     Compatible with OpenAIResponseModel and TrackAPIPricingMixin.
     """
 
-    response_mock = MagicMock(openai.types.responses.response)
+    response_mock = MagicMock(spec=openai.types.responses.response.Response)
     response_mock.type = "response"
     response_mock.output = []
 
@@ -208,7 +208,7 @@ def create_mock_openai_responses_api_response(
             response_mock.output.append(output_item_mock)
 
     # Token usage for pricing tracking
-    response_mock.usage = MagicMock()
+    response_mock.usage = MagicMock(spec=openai.types.responses.response.ResponseUsage)
     response_mock.usage.input_tokens = input_tokens
     response_mock.usage.output_tokens = output_tokens
     response_mock.usage.prompt_tokens = input_tokens
