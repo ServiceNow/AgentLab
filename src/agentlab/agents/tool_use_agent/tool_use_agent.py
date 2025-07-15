@@ -119,15 +119,6 @@ class StructuredDiscussion:
         """Check if the goal is set in the first group."""
         return len(self.groups) > 0
 
-    def contains_image(self) -> bool:
-        """Check if an image is set in any group"""
-        for grp in self.groups:
-            for msg in grp.messages:
-                for item in msg.content:
-                    if "image" in item:
-                        return True
-        return False
-
 
 SYS_MSG = """You are a web agent. Based on the observation, you will decide which action to take to accomplish your goal. 
 You strive for excellence and need to be as meticulous as possible. Make sure to explore when not sure.
@@ -176,7 +167,7 @@ class Obs(Block):
     use_dom: bool = False
     use_som: bool = False
     use_tabs: bool = False
-    add_mouse_pointer: bool = False
+    # add_mouse_pointer: bool = False
     use_zoomed_webpage: bool = False
 
     def apply(
@@ -196,15 +187,14 @@ class Obs(Block):
             else:
                 screenshot = obs["screenshot"]
 
-            if self.add_mouse_pointer:
-                screenshot = np.array(
-                    agent_utils.add_mouse_pointer_from_action(
-                        Image.fromarray(obs["screenshot"]), obs["last_action"]
-                    )
-                )
+            # if self.add_mouse_pointer:
+            #     screenshot = np.array(
+            #         agent_utils.add_mouse_pointer_from_action(
+            #             Image.fromarray(obs["screenshot"]), obs["last_action"]
+            #         )
+            #     )
 
-        obs_msg.add_image(image_to_png_base64_url(screenshot))
-
+            obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
             obs_msg.add_text(f"AXTree:\n{AXTREE_NOTE}\n{obs['axtree_txt']}")
         if self.use_dom:
