@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Optional
 
+import anthropic
 import openai
 from huggingface_hub import InferenceClient
 from openai import AzureOpenAI, OpenAI
@@ -470,4 +471,78 @@ class VLLMChatModel(ChatModel):
             client_class=OpenAI,
             client_args={"base_url": "http://0.0.0.0:8000/v1"},
             pricing_func=None,
+        )
+
+
+class AnthropicChatModel(AbstractChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        log_probs=False,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
+        self.log_probs = log_probs
+
+        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        self.client = anthropic.Anthropic(api_key=api_key)
+
+    def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+        # Convert OpenAI format to Anthropic format
+        system_message = None
+        anthropic_messages = []
+
+        for msg in messages:
+            if msg["role"] == "system":
+                system_message = msg["content"]
+            else:
+                anthropic_messages.append({"role": msg["role"], "content": msg["content"]})
+
+        temperature = temperature if temperature is not None else self.temperature
+
+        for attempt in range(self.max_retry):
+            try:
+                kwargs = {
+                    "model": self.model_name,
+                    "messages": anthropic_messages,
+                    "max_tokens": self.max_tokens,
+                    "temperature": temperature,
+                }
+
+                if system_message:
+                    kwargs["system"] = system_message
+
+                response = self.client.messages.create(**kwargs)
+
+                # Track usage if available
+                if hasattr(tracking.TRACKER, "instance"):
+                    tracking.TRACKER.instance(
+                        response.usage.input_tokens,
+                        response.usage.output_tokens,
+                        0,  # cost calculation would need pricing info
+                    )
+
+                return AIMessage(response.content[0].text)
+
+            except Exception as e:
+                if attempt == self.max_retry - 1:
+                    raise e
+                logging.warning(f"Anthropic API error (attempt {attempt + 1}): {e}")
+                time.sleep(60)  # Simple retry delay
+
+
+@dataclass
+class AnthropicModelArgs(BaseModelArgs):
+    def make_model(self):
+        return AnthropicChatModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            log_probs=self.log_probs,
         )

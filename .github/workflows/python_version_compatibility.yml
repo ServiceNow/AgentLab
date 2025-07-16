@@ -1,0 +1,40 @@
+name: Python Compatibility (Info Only)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  info-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+    - uses: actions/checkout@v4
+    
+    # Optional: Cache uv for faster runs
+    - name: Cache uv
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/uv
+        key: uv-${{ runner.os }}
+    
+    - name: Install uv
+      run: |
+        if [ ! -f ~/.cargo/bin/uv ]; then
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+        fi
+        
+    - name: Check Python ${{ matrix.python-version }}
+      continue-on-error: true
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        if uvx --python ${{ matrix.python-version }} --from python --with-requirements requirements.txt python -c "print('✅ Compatible')"; then
+          echo "✅ Python ${{ matrix.python-version }} works"
+        else
+          echo "❌ Python ${{ matrix.python-version }} incompatible"
+        fi

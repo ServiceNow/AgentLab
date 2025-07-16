@@ -6,17 +6,18 @@ import random
 import uuid
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from multiprocessing import Manager, Pool, Queue
 from pathlib import Path
 
 import bgym
-from bgym import Benchmark
+from bgym import DEFAULT_BENCHMARKS, Benchmark
 from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
+from agentlab.benchmarks.abstract_env import AbstractEnvArgs
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import (
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def make_study(
     agent_args: list[AgentArgs] | AgentArgs,
-    benchmark: bgym.Benchmark | str,
+    benchmark: Benchmark | str,
     logging_level=logging.WARNING,
     logging_level_stdout=logging.WARNING,
     suffix="",
@@ -47,8 +48,8 @@ def make_study(
             The agent configuration(s) to run. *IMPORTANT*: these objects will be pickled and
             unpickled.  Make sure they are imported from a package that is accessible from
             PYTHONPATH. Otherwise, it won't load in agentlab-xray.
-        benchmark: bgym.Benchmark | str
-            The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
+        benchmark: Benchmark | str
+            The benchmark to run the agents on. See DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
         logging_level: int
             The logging level for file log.
@@ -89,7 +90,7 @@ def make_study(
         agent_args = [agent_args]
 
     if isinstance(benchmark, str):
-        benchmark = bgym.DEFAULT_BENCHMARKS[benchmark.lower()]()
+        benchmark = DEFAULT_BENCHMARKS[benchmark.lower()]()
 
     if len(agent_args) > 1 and ("webarena" in benchmark.name or parallel_servers is not None):
         logger.warning(
@@ -184,8 +185,8 @@ class Study(AbstractStudy):
             The agent configuration(s) to run. *IMPORTANT*: these objects will be pickled and
             unpickled.  Make sure they are imported from a package that is accessible from
             PYTHONPATH. Otherwise, it won't load in agentlab-xray.
-        benchmark: bgym.Benchmark | str
-            The benchmark to run the agents on. See bgym.DEFAULT_BENCHMARKS for the main ones. You
+        benchmark: Benchmark | str
+            The benchmark to run the agents on. See DEFAULT_BENCHMARKS for the main ones. You
             can also make your own by modifying an existing one.
         dir: Path
             The directory where the study will be saved. If None, a directory will be created in
@@ -241,7 +242,10 @@ class Study(AbstractStudy):
         """Initialize the study. Set the uuid, and generate the exp_args_list."""
         self.uuid = uuid.uuid4()
         if isinstance(self.benchmark, str):
-            self.benchmark = bgym.DEFAULT_BENCHMARKS[self.benchmark.lower()]()
+            self.benchmark = DEFAULT_BENCHMARKS[self.benchmark.lower()]()
+
+        self.benchmark.env_args_list = _convert_env_args(self.benchmark.env_args_list)
+
         if isinstance(self.dir, str):
             self.dir = Path(self.dir)
         self.make_exp_args_list()
@@ -328,28 +332,31 @@ class Study(AbstractStudy):
             self._run(n_jobs, parallel_backend, strict_reproducibility)
 
             suffix = f"trial_{i + 1}_of_{n_relaunch}"
-            _, summary_df, _ = self.get_results(suffix=suffix)
+            _, summary_df, error_report = self.get_results(suffix=suffix)
             logger.info("\n" + str(summary_df))
 
             n_incomplete, n_error = self.find_incomplete(include_errors=relaunch_errors)
 
             if n_error / n_exp > 0.3:
-                logger.warning("More than 30% of the experiments errored. Stopping the study.")
-                return
+                logger.warning("More than 30% of the experiments errored. Stopping the retries.")
+                break
 
             if last_error_count is not None and n_error >= last_error_count:
                 logger.warning(
-                    "Last trial did not reduce the number of errors. Stopping the study."
+                    "Last trial did not reduce the number of errors. Stopping the retries."
                 )
-                return
+                break
 
             if n_incomplete == 0:
                 logger.info(f"Study {self.name} finished.")
-                return
+                break
 
-        logger.warning(
-            f"Study {self.name} did not finish after {n_relaunch} trials. There are {n_incomplete} incomplete experiments."
-        )
+        logger.info("# Error Report:\n-------------\n\n" + error_report)
+
+        if n_incomplete != 0:
+            logger.warning(
+                f"Study {self.name} did not finish after {n_relaunch} trials. There are {n_incomplete} incomplete experiments."
+            )
 
     def _run(self, n_jobs=1, parallel_backend="joblib", strict_reproducibility=False):
         """Run all experiments in the study in parallel when possible.
@@ -358,7 +365,7 @@ class Study(AbstractStudy):
             n_jobs: int
                 Number of parallel jobs.
             parallel_backend: str
-                Parallel backend to use. Either "joblib", "dask" or "sequential".
+                Parallel backend to use. Either "joblib", "ray" or "sequential".
             strict_reproducibility: bool
                 If True, all modifications have to be committed before running the experiments.
                 Also, if relaunching a study, it will not be possible if the code has changed.
@@ -436,7 +443,7 @@ class Study(AbstractStudy):
     def agents_on_benchmark(
         self,
         agents: list[AgentArgs] | AgentArgs,
-        benchmark: bgym.Benchmark,
+        benchmark: Benchmark,
         demo_mode=False,
         logging_level: int = logging.INFO,
         logging_level_stdout: int = logging.INFO,
@@ -447,7 +454,7 @@ class Study(AbstractStudy):
         Args:
             agents: list[AgentArgs] | AgentArgs
                 The agent configuration(s) to run.
-            benchmark: bgym.Benchmark
+            benchmark: Benchmark
                 The benchmark to run the agents on.
             demo_mode: bool
                 If True, the experiments will be run in demo mode.
@@ -717,6 +724,35 @@ def set_demo_mode(env_args_list: list[EnvArgs]):
         env_args.record_video = True
         env_args.wait_for_user_message = False
         env_args.slow_mo = 1000
+
+
+def _convert_env_args(env_args_list):
+    """Return a list where every element is the *new* EnvArgs.
+
+    For backward compatibility, we need to convert the old EnvArgs to the new one.
+
+    Args:
+        env_args_list (list): list of EnvArgs objects to convert
+
+    Returns:
+        list: list of converted EnvArgs objects
+
+    Raises:
+        TypeError: If an element in env_args_list is not of expected type.
+    """
+    from bgym import EnvArgs as BGymEnvArgs
+
+    new_list = []
+    for ea in env_args_list:
+        # already new → keep as‑is
+        if isinstance(ea, (EnvArgs, AbstractEnvArgs)):
+            new_list.append(ea)
+        # old → convert
+        elif isinstance(ea, BGymEnvArgs):
+            new_list.append(EnvArgs(**asdict(ea)))
+        else:
+            raise TypeError(f"Unexpected type: {type(ea)}")
+    return new_list
 
 
 # def _flag_sequential_exp(exp_args_list: list[ExpArgs], benchmark: Benchmark):

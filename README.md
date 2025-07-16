@@ -61,6 +61,7 @@ AgentLab Features:
 | [GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard) (soon) | - | - | None | - | - | live web | soon |
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
+| [OSWorld](https://os-world.github.io/) | [setup](https://github.com/ServiceNow/AgentLab/blob/main/src/agentlab/benchmarks/setup.md) | 369 | None | - | - | self hosted  | soon |
 
 
 ## 🛠️ Setup AgentLab
@@ -275,6 +276,15 @@ dynamic benchmarks.
   between the two executions. **Note**: this is a beta feature and will need some adaptation for your
   own agent.
 
+## Variables
+Here's a list of relevant env. variables that are used by AgentLab:
+- `OPEAI_API_KEY` which is used by default for OpenAI LLMs.
+- `AZURE_OPENAI_API_KEY`, used by default for AzureOpenAI LLMs.
+- `AZURE_OPENAI_ENDPOINT` to specify your Azure endpoint.
+- `OPENAI_API_VERSION` for the Azure API.
+- `OPENROUTER_API_KEY` for the Openrouter API
+- `AGENTLAB_EXP_ROOT`, desired path for your experiments to be stored, defaults to `~/agentlab-results`.
+- `AGENTXRAY_SHARE_GRADIO`, which prompts AgentXRay to open a public tunnel on launch.
 
 ## Misc
 

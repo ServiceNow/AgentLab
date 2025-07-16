@@ -14,15 +14,19 @@ import pandas as pd
 from attr import dataclass
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
-from PIL import Image, ImageDraw
+from openai.types.responses import ResponseFunctionToolCall
+from PIL import Image
 
 from agentlab.analyze import inspect_results
+from agentlab.analyze.overlay_utils import annotate_action
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpResult, StepInfo
 from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.response_api import MessageBuilder
+from agentlab.llm.response_api import ToolCalls
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -80,7 +84,7 @@ class StepId:
 @dataclass
 class Info:
     results_dir: Path = None  # to root directory of all experiments
-    exp_list_dir: Path = None  # the path of the currently selected experiment
+    study_dirs: Path = None  # the path of the currently selected experiment
     result_df: pd.DataFrame = None  # the raw loaded df
     agent_df: pd.DataFrame = None  # the df filtered for selected agent
     tasks_df: pd.DataFrame = None  # the unique tasks for selected agent
@@ -175,6 +179,8 @@ def run_gradio(results_dir: Path):
         agent_task_id = gr.State(value=None)
         step_id = gr.State(value=None)
 
+        hidden_key_input = gr.Textbox(visible=False, elem_id="key_capture")
+
         with gr.Accordion("Help", open=False):
             gr.Markdown(
                 """\
@@ -204,6 +210,7 @@ clicking the refresh button.
             exp_dir_choice = gr.Dropdown(
                 choices=get_directory_contents(results_dir),
                 value=select_dir_instructions,
+                multiselect=True,
                 label="Experiment Directory",
                 show_label=False,
                 scale=6,
@@ -349,7 +356,7 @@ clicking the refresh button.
                 pruned_html_code = gr.Code(language="html", **code_args)
 
             with gr.Tab("AXTree") as tab_axtree:
-                axtree_code = gr.Code(language=None, **code_args)
+                axtree_code = gr.Markdown()
 
             with gr.Tab("Chat Messages") as tab_chat:
                 chat_messages = gr.Markdown()
@@ -497,6 +504,34 @@ clicking the refresh button.
         # keep track of active tab
         tabs.select(tab_select)
 
+        demo.load(fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice)
+
+        demo.load(
+            None,
+            None,
+            None,
+            js="""
+    function() {
+        document.addEventListener('keydown', function(e) {
+            if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                const hiddenInput = document.querySelector('#key_capture input, #key_capture textarea');
+                if (hiddenInput) {
+                    let event = e.key === 'ArrowLeft' ? 'Cmd+Left' : 'Cmd+Right';
+                    hiddenInput.value = event;
+                    hiddenInput.dispatchEvent(new Event('input', {bubbles: true}));
+                }
+            }
+        });
+    }
+        """,
+        )
+        hidden_key_input.change(
+            handle_key_event,
+            inputs=[hidden_key_input, step_id],
+            outputs=[hidden_key_input, step_id],
+        )
+
     demo.queue()
 
     do_share = os.getenv("AGENTXRAY_SHARE_GRADIO", "false").lower() == "true"
@@ -504,6 +539,25 @@ clicking the refresh button.
     if isinstance(port, str):
         port = int(port)
     demo.launch(server_port=port, share=do_share)
+
+
+def handle_key_event(key_event, step_id: StepId):
+
+    if key_event:
+        global info
+
+        # print(f"Key event: {key_event}")
+        step = step_id.step
+        if key_event.startswith("Cmd+Left"):
+            step = max(0, step - 1)
+        elif key_event.startswith("Cmd+Right"):
+            step = min(len(info.exp_result.steps_info) - 2, step + 1)
+        else:
+            return gr.update()
+        # print(f"Updating step to {step} from key event {key_event}")
+        info.step = step
+        step_id = StepId(episode_id=step_id.episode_id, step=step)
+    return ("", step_id)
 
 
 def tab_select(evt: gr.SelectData):
@@ -530,73 +584,53 @@ def if_active(tab_name, n_out=1):
     return decorator
 
 
-def tag_screenshot_with_action(screenshot: Image, action: str) -> Image:
-    """
-    If action is a coordinate action, try to render it on the screenshot.
-
-    e.g. mouse_click(120, 130) -> draw a dot at (120, 130) on the screenshot
-
-    Args:
-        screenshot: The screenshot to tag.
-        action: The action to tag the screenshot with.
-
-    Returns:
-        The tagged screenshot.
-
-    Raises:
-        ValueError: If the action parsing fails.
-    """
-    if action.startswith("mouse_click"):
-        try:
-            coords = action[action.index("(") + 1 : action.index(")")].split(",")
-            coords = [c.strip() for c in coords]
-            if len(coords) != 2:
-                raise ValueError(f"Invalid coordinate format: {coords}")
-            if coords[0].startswith("x="):
-                coords[0] = coords[0][2:]
-            if coords[1].startswith("y="):
-                coords[1] = coords[1][2:]
-            x, y = float(coords[0].strip()), float(coords[1].strip())
-            draw = ImageDraw.Draw(screenshot)
-            radius = 5
-            draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius), fill="red", outline="red"
-            )
-        except (ValueError, IndexError) as e:
-            warning(f"Failed to parse action '{action}': {e}")
-    return screenshot
-
-
 def update_screenshot(som_or_not: str):
     global info
-    action = info.exp_result.steps_info[info.step].action
-    return tag_screenshot_with_action(get_screenshot(info, som_or_not=som_or_not), action)
+    img, action_str = get_screenshot(info, som_or_not=som_or_not, annotate=True)
+    return img
 
 
-def get_screenshot(info: Info, step: int = None, som_or_not: str = "Raw Screenshots"):
+def get_screenshot(
+    info: Info, step: int = None, som_or_not: str = "Raw Screenshots", annotate: bool = False
+):
     if step is None:
         step = info.step
     try:
+        step_info = info.exp_result.steps_info[step]
         is_som = som_or_not == "SOM Screenshots"
-        return info.exp_result.get_screenshot(step, som=is_som)
-    except FileNotFoundError:
-        return None
+        img = info.exp_result.get_screenshot(step, som=is_som)
+        if annotate:
+            action_str = step_info.action
+            properties = step_info.obs.get("extra_element_properties", None)
+            try:
+                action_colored = annotate_action(
+                    img, action_string=action_str, properties=properties
+                )
+            except Exception as e:
+                warning(f"Failed to annotate action: {e}")
+                action_colored = action_str
+        else:
+            action_colored = None
+        return img, action_colored
+    except (FileNotFoundError, IndexError):
+        return None, None
 
 
 def update_screenshot_pair(som_or_not: str):
     global info
-    s1 = get_screenshot(info, info.step, som_or_not)
-    s2 = get_screenshot(info, info.step + 1, som_or_not)
-
-    if s1 is not None:
-        s1 = tag_screenshot_with_action(s1, info.exp_result.steps_info[info.step].action)
+    s1, action_str = get_screenshot(info, info.step, som_or_not, annotate=True)
+    s2, action_str = get_screenshot(info, info.step + 1, som_or_not)
     return s1, s2
 
 
 def update_screenshot_gallery(som_or_not: str):
     global info
-    screenshots = info.exp_result.get_screenshots(som=som_or_not == "SOM Screenshots")
+    max_steps = len(info.exp_result.steps_info)
+
+    screenshots = [get_screenshot(info, step=i, som_or_not=som_or_not)[0] for i in range(max_steps)]
+
     screenshots_and_label = [(s, f"Step {i}") for i, s in enumerate(screenshots)]
+
     gallery = gr.Gallery(
         value=screenshots_and_label,
         columns=2,
@@ -624,7 +658,92 @@ def update_pruned_html():
 
 
 def update_axtree():
-    return get_obs(key="axtree_txt", default="No AXTree")
+    obs = get_obs(key="axtree_txt", default="No AXTree")
+    return f"```\n{obs}\n```"
+
+
+def dict_to_markdown(d: dict):
+    """
+    Convert a dictionary to a clean markdown representation, recursively.
+
+    Args:
+        d (dict): A dictionary where keys are strings and values can be strings,
+                  lists of dictionaries, or nested dictionaries.
+
+    Returns:
+        str: A markdown-formatted string representation of the dictionary.
+    """
+    if not isinstance(d, dict):
+        if isinstance(d, ToolCalls):
+            # ToolCalls rendered by to_markdown method.
+            return ""
+        warning(f"Expected dict, got {type(d)}")
+        return repr(d)
+    if not d:
+        return "No Data"
+    res = ""
+    for k, v in d.items():
+        if isinstance(v, dict):
+            res += f"### {k}\n{dict_to_markdown(v)}\n"
+        elif isinstance(v, list):
+            res += f"### {k}\n"
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    res += f"#### Item {i}\n{dict_to_markdown(item)}\n"
+                else:
+                    res += f"- {item}\n"
+        else:
+            res += f"- **{k}**: {v}\n"
+    return res
+
+
+def dict_msg_to_markdown(d: dict):
+    if "role" not in d:
+        return dict_to_markdown(d)
+    parts = []
+    for item in d["content"]:
+
+        if hasattr(item, "dict"):
+            item = item.dict()
+
+        match item["type"]:
+            case "image":
+                parts.append(f"![Image]({item['image']})")
+            case "text":
+                parts.append(f"\n```\n{item['text']}\n```\n")
+            case "tool_use":
+                tool_use = _format_tool_call(item["name"], item["input"], item["id"])
+                parts.append(f"\n```\n{tool_use}\n```\n")
+            case _:
+                parts.append(f"\n```\n{str(item)}\n```\n")
+
+    markdown = f"### {d["role"].capitalize()}\n"
+    markdown += "\n".join(parts)
+    return markdown
+
+
+def _format_tool_call(name: str, input: str, call_id: str):
+    """
+    Format a tool call to markdown.
+    """
+    return f"Tool Call: {name}  `{input}` (call_id: {call_id})"
+
+
+def format_chat_message(message: BaseMessage | MessageBuilder | dict):
+    """
+    Format a message to markdown.
+    """
+    if isinstance(message, BaseMessage):
+        return message.content
+    elif isinstance(message, MessageBuilder):
+        return message.to_markdown()
+    elif isinstance(message, dict):
+        return dict_msg_to_markdown(message)
+    elif isinstance(message, ResponseFunctionToolCall):  # type: ignore[return]
+        too_use_str = _format_tool_call(message.name, message.arguments, message.call_id)
+        return f"### Tool Use\n```\n{too_use_str}\n```\n"
+    else:
+        return str(message)
 
 
 def update_chat_messages():
@@ -633,14 +752,10 @@ def update_chat_messages():
     chat_messages = agent_info.get("chat_messages", ["No Chat Messages"])
     if isinstance(chat_messages, Discussion):
         return chat_messages.to_markdown()
-    messages = []  # TODO(ThibaultLSDC) remove this at some point
-    for i, m in enumerate(chat_messages):
-        if isinstance(m, BaseMessage):  # TODO remove once langchain is deprecated
-            m = m.content
-        elif isinstance(m, dict):
-            m = m.get("content", "No Content")
-        messages.append(f"""# Message {i}\n```\n{m}\n```\n\n""")
-    return "\n".join(messages)
+
+    if isinstance(chat_messages, list):
+        chat_messages = [format_chat_message(m) for m in chat_messages]
+        return "\n\n".join(chat_messages)
 
 
 def update_task_error():
@@ -687,8 +802,8 @@ def update_agent_info_html():
     global info
     # screenshots from current and next step
     try:
-        s1 = get_screenshot(info, info.step, False)
-        s2 = get_screenshot(info, info.step + 1, False)
+        s1, action_str = get_screenshot(info, info.step, False)
+        s2, action_str = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
         page = agent_info.get("html_page", ["No Agent Info"])
         if page is None:
@@ -782,6 +897,10 @@ def get_episode_info(info: Info):
     try:
         env_args = info.exp_result.exp_args.env_args
         steps_info = info.exp_result.steps_info
+        if info.step >= len(steps_info):
+            info.step = len(steps_info) - 1
+        if len(steps_info) == 0:
+            return "No steps were taken in this episode."
         step_info = steps_info[info.step]
         try:
             goal = step_info.obs["goal_object"]
@@ -819,6 +938,8 @@ def get_episode_info(info: Info):
 
 def get_action_info(info: Info):
     steps_info = info.exp_result.steps_info
+    img, action_str = get_screenshot(info, step=info.step, annotate=True)  # to update click_mapper
+
     if len(steps_info) == 0:
         return "No steps were taken"
     if len(steps_info) <= info.step:
@@ -828,7 +949,7 @@ def get_action_info(info: Info):
     action_info = f"""\
 **Action:**
 
-{code(step_info.action)}
+{action_str}
 """
     think = step_info.agent_info.get("think", None)
     if think is not None:
@@ -968,37 +1089,42 @@ def get_agent_report(result_df: pd.DataFrame):
 
 
 def update_global_stats():
-    stats = inspect_results.global_report(info.result_df, reduce_fn=inspect_results.summarize_stats)
-    stats.reset_index(inplace=True)
-    return stats
+    try:
+        stats = inspect_results.global_report(
+            info.result_df, reduce_fn=inspect_results.summarize_stats
+        )
+        stats.reset_index(inplace=True)
+        return stats
+
+    except Exception as e:
+        warning(f"Error while updating global stats: {e}")
+        return None
 
 
 def update_error_report():
-    report_files = list(info.exp_list_dir.glob("error_report*.md"))
-    if len(report_files) == 0:
-        return "No error report found"
-    report_files = sorted(report_files, key=os.path.getctime, reverse=True)
-    return report_files[0].read_text()
+    return inspect_results.error_report(info.result_df, max_stack_trace=3, use_log=True)
 
 
-def new_exp_dir(exp_dir, progress=gr.Progress(), just_refresh=False):
-    if exp_dir == select_dir_instructions:
+def new_exp_dir(study_names: list, progress=gr.Progress(), just_refresh=False):
+    global info
+
+    # remove select_dir_instructions from study_names
+    if select_dir_instructions in study_names:
+        study_names.remove(select_dir_instructions)
+
+    if len(study_names) == 0:
         return None, None
 
-    exp_dir = exp_dir.split(" - ")[0]
-
-    if len(exp_dir) == 0:
-        info.exp_list_dir = None
-        return None, None
-
-    info.exp_list_dir = info.results_dir / exp_dir
-    info.result_df = inspect_results.load_result_df(info.exp_list_dir, progress_fn=progress.tqdm)
+    info.study_dirs = [info.results_dir / study_name.split(" - ")[0] for study_name in study_names]
+    info.result_df = inspect_results.load_result_df(info.study_dirs, progress_fn=progress.tqdm)
     info.result_df = remove_args_from_col(info.result_df)
 
     study_summary = inspect_results.summarize_study(info.result_df)
     # save study_summary
-    study_summary.to_csv(info.exp_list_dir / "summary_df.csv", index=False)
-    agent_report = display_table(study_summary)
+
+    for study_dir in info.study_dirs:
+        study_summary.to_csv(study_dir / "summary_df.csv", index=False)
+        agent_report = display_table(study_summary)
 
     info.agent_id_keys = agent_report.index.names
     agent_report.reset_index(inplace=True)
@@ -1042,8 +1168,11 @@ def get_directory_contents(results_dir: Path):
                 most_recent_summary = max(summary_files, key=os.path.getctime)
                 summary_df = pd.read_csv(most_recent_summary)
 
+                if len(summary_df) == 0:
+                    continue  # skip if all avg_reward are NaN
+
                 # get row with max avg_reward
-                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax()]
+                max_reward_row = summary_df.loc[summary_df["avg_reward"].idxmax(skipna=True)]
                 reward = max_reward_row["avg_reward"] * 100
                 completed = max_reward_row["n_completed"]
                 n_err = max_reward_row["n_err"]
@@ -1051,7 +1180,7 @@ def get_directory_contents(results_dir: Path):
                     f" - avg-reward: {reward:.1f}% - completed: {completed} - errors: {n_err}"
                 )
         except Exception as e:
-            print(f"Error while reading summary file: {e}")
+            print(f"Error while reading summary file {most_recent_summary}: {e}")
 
         exp_descriptions.append(exp_description)
 
@@ -1177,7 +1306,6 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 horizontalalignment="left",
                 rotation=0,
                 clip_on=True,
-                antialiased=True,
                 fontweight=1000,
                 backgroundcolor=colors[12],
             )
@@ -1209,7 +1337,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 horizontalalignment="right",
                 rotation=0,
                 clip_on=True,
-                antialiased=True,
+                # antialiased=True,
                 fontweight=1000,
                 backgroundcolor=color,
             )

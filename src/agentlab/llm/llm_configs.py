@@ -17,6 +17,20 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
+    "openai/gpt-4.1-mini-2025-04-14": OpenAIModelArgs(
+        model_name="gpt-4.1-mini-2025-04-14",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
+    "openai/gpt-4.1-2025-04-14": OpenAIModelArgs(
+        model_name="gpt-4.1-2025-04-14",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
     "openai/o3-mini-2025-01-31": OpenAIModelArgs(
         model_name="o3-mini-2025-01-31",
         max_total_tokens=200_000,
@@ -154,6 +168,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=100_000,
         max_new_tokens=28_000,
         temperature=1e-1,
+    ),
+    "openrouter/meta-llama/llama-4-maverick": OpenRouterModelArgs(
+        model_name="meta-llama/llama-4-maverick",
+        max_total_tokens=128_000,
+        max_input_tokens=100_000,
+        max_new_tokens=28_000,
+        temperature=1e-1,
+        vision_support=True,
     ),
     "openrouter/meta-llama/llama-3.1-8b-instruct:free": OpenRouterModelArgs(
         model_name="meta-llama/llama-3.1-8b-instruct:free",

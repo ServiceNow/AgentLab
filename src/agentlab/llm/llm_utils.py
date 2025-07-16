@@ -11,7 +11,9 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Union
 from warnings import warn
 
+import anthropic
 import numpy as np
+import openai
 import tiktoken
 import yaml
 from langchain.schema import BaseMessage as LangchainBaseMessage
@@ -88,6 +90,332 @@ def retry(
             messages.append(dict(role="user", content=str(parsing_error)))
 
     raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
+
+
+def generic_call_api_with_retries(
+    client_function,
+    api_params,
+    is_response_valid_fn,
+    rate_limit_exceptions,
+    api_error_exceptions,
+    get_status_code_fn=None,
+    max_retries=10,
+    initial_retry_delay_seconds=20,
+    max_retry_delay_seconds=60 * 5,
+):
+    """
+    Makes an API call with retries for transient failures, rate limiting,
+    and responses deemed invalid by a custom validation function.
+    (Refactored for improved readability with helper functions)
+
+    Args:
+        client_function: The API client function to call.
+        api_params: Parameters to pass to the client function.
+        is_response_valid_fn: Function to validate if the response is valid.
+        rate_limit_exceptions: Tuple of exception types for rate limiting.
+        api_error_exceptions: Tuple of exception types for API errors.
+        get_status_code_fn: Optional function to extract status code from exceptions.
+        max_retries: Maximum number of retry attempts.
+        initial_retry_delay_seconds: Initial delay between retries in seconds.
+        max_retry_delay_seconds: Maximum delay between retries in seconds.
+
+    Returns:
+        The API response if successful.
+
+    Raises:
+        Exception: For unexpected errors that are immediately re-raised.
+        RuntimeError: If API call fails after maximum retries.
+    """
+
+    def _calculate_delay(
+        current_attempt, initial_delay, max_delay, is_first_attempt_for_type=False
+    ):
+        """Calculates exponential backoff delay."""
+        # For invalid response content (not an exception), the first "attempt" at retrying this specific issue
+        # might use a slightly different delay calculation if desired (e.g. attempt-1 for the exponent).
+        # For exceptions, the attempt number directly applies.
+        # Here, we use 'current_attempt' for exception-driven retries,
+        # and 'current_attempt -1' for the first retry due to invalid content (is_first_attempt_for_type).
+        if is_first_attempt_for_type:  # First retry due to invalid content
+            # The first retry after an invalid response (attempt 1 for this *type* of failure)
+            effective_attempt = current_attempt - 1  # Use 0 for the first exponent
+        else:  # Retries due to exceptions or subsequent invalid content retries
+            effective_attempt = current_attempt  # Use current_attempt for exponent
+
+        # Ensure effective_attempt for exponent is at least 0
+        exponent_attempt = max(
+            0, effective_attempt if not is_first_attempt_for_type else current_attempt - 1
+        )
+
+        return min(initial_delay * (2**exponent_attempt), max_delay)
+
+    def _handle_invalid_response_content(attempt):
+        logging.warning(
+            f"[Attempt {attempt}/{max_retries}] API response deemed invalid by validation function. Retrying after delay..."
+        )
+        if attempt < max_retries:
+            # For the first retry due to invalid content, use attempt-1 for exponent
+            delay = _calculate_delay(
+                attempt,
+                initial_retry_delay_seconds,
+                max_retry_delay_seconds,
+                is_first_attempt_for_type=True,
+            )
+            logging.debug(f"Sleeping for {delay:.2f} seconds due to invalid response content.")
+            time.sleep(delay)
+            return True  # Indicate retry
+        return False  # Max retries reached for this path
+
+    def _handle_rate_limit_error(e, attempt):
+        logging.warning(
+            f"[Attempt {attempt}/{max_retries}] Rate limit error: {e}. Retrying after delay..."
+        )
+        if attempt < max_retries:
+            delay = _calculate_delay(attempt, initial_retry_delay_seconds, max_retry_delay_seconds)
+            logging.debug(f"Sleeping for {delay:.2f} seconds due to rate limit.")
+            time.sleep(delay)
+            return True  # Indicate retry
+        return False  # Max retries reached for this path
+
+    def _handle_api_error(e, attempt):
+        logging.error(f"[Attempt {attempt}/{max_retries}] APIError: {e}")
+        status_code = None
+        if get_status_code_fn:
+            try:
+                status_code = get_status_code_fn(e)
+            except Exception as ex_status_fn:
+                logging.warning(
+                    f"Could not get status code from exception {type(e)} using get_status_code_fn: {ex_status_fn}"
+                )
+
+        if status_code == 429 or (status_code and status_code >= 500):
+            log_msg = "Rate limit (429)" if status_code == 429 else f"Server error ({status_code})"
+            logging.warning(f"{log_msg} indicated by status code. Retrying after delay...")
+            if attempt < max_retries:
+                delay = _calculate_delay(
+                    attempt, initial_retry_delay_seconds, max_retry_delay_seconds
+                )
+                logging.debug(
+                    f"Sleeping for {delay:.2f} seconds due to API error status {status_code}."
+                )
+                time.sleep(delay)
+                return True  # Indicate retry
+            return False  # Max retries reached for this path
+        else:
+            logging.error(
+                f"Non-retriable or unrecognized API error occurred (status: {status_code}). Raising."
+            )
+            raise e  # Re-raise non-retriable error
+
+    # Main retry loop
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = client_function(**api_params)
+
+            if is_response_valid_fn(response):
+                logging.info(f"[Attempt {attempt}/{max_retries}] API call succeeded.")
+                return response
+            else:
+                if _handle_invalid_response_content(attempt):
+                    continue
+                else:  # Max retries reached after invalid content
+                    break
+
+        except rate_limit_exceptions as e:
+            if _handle_rate_limit_error(e, attempt):
+                continue
+            else:  # Max retries reached after rate limit
+                break
+
+        except api_error_exceptions as e:
+            # _handle_api_error will raise if non-retriable, or return True to continue
+            if _handle_api_error(e, attempt):
+                continue
+            else:  # Max retries reached for retriable API error
+                break
+
+        except Exception as e:  # Catch-all for truly unexpected errors
+            logging.exception(
+                f"[Attempt {attempt}/{max_retries}] Unexpected exception: {e}. Raising."
+            )
+            raise e  # Re-raise unexpected errors immediately
+
+    logging.error(f"Exceeded maximum {max_retries} retry attempts. API call failed.")
+    raise RuntimeError(f"API call failed after {max_retries} retries.")
+
+
+def call_openai_api_with_retries(client_function, api_params, max_retries=10):
+    """
+    Makes an OpenAI API call with retries for transient failures,
+    rate limiting, and invalid or error-containing responses.
+    (This is now a wrapper around generic_call_api_with_retries for OpenAI)
+
+    Args:
+        client_function: The OpenAI API client function to call.
+        api_params: Parameters to pass to the client function.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        The OpenAI API response if successful.
+    """
+
+    def is_openai_response_valid(response):
+        # Check for explicit error field in response object first
+        if getattr(response, "error", None):
+            logging.warning(f"OpenAI API response contains an error attribute: {response.error}")
+            return False  # Treat as invalid for retry purposes
+        if hasattr(response, "choices") and response.choices:  # Chat Completion API
+            return True
+        if hasattr(response, "output") and response.output:  # Response API
+            return True
+        logging.warning("OpenAI API response is missing 'choices' or 'output' is empty.")
+        return False
+
+    def get_openai_status_code(exception):
+        return getattr(exception, "http_status", None)
+
+    return generic_call_api_with_retries(
+        client_function=client_function,
+        api_params=api_params,
+        is_response_valid_fn=is_openai_response_valid,
+        rate_limit_exceptions=(openai.RateLimitError,),
+        api_error_exceptions=(openai.APIError,),  # openai.RateLimitError is caught first
+        get_status_code_fn=get_openai_status_code,
+        max_retries=max_retries,
+        # You can also pass initial_retry_delay_seconds and max_retry_delay_seconds
+        # if you want to customize them from their defaults in the generic function.
+    )
+
+
+def call_anthropic_api_with_retries(client_function, api_params, max_retries=10):
+    """
+    Makes an Anthropic API call with retries for transient failures,
+    rate limiting, and invalid responses.
+    (This is a wrapper around generic_call_api_with_retries for Anthropic)
+
+    Args:
+        client_function: The Anthropic API client function to call.
+        api_params: Parameters to pass to the client function.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        The Anthropic API response if successful.
+    """
+
+    def is_anthropic_response_valid(response):
+        """Checks if the Anthropic response is valid."""
+        # A successful Anthropic message response typically has:
+        # - a 'type' attribute equal to 'message' (for message creation)
+        # - a 'content' attribute which is a list of blocks
+        # - no 'error' attribute at the top level of the response object itself
+        #   (errors are usually raised as exceptions by the client)
+
+        if not response:
+            logging.warning("Anthropic API response is None or empty.")
+            return False
+
+        # Check for explicit error type if the API might return it in a 200 OK
+        # For anthropic.types.Message, an error would typically be an exception.
+        # However, if the client_function could return a dict with an 'error' key:
+        if isinstance(response, dict) and response.get("type") == "error":
+            logging.warning(f"Anthropic API response indicates an error: {response.get('error')}")
+            return False
+
+        # For anthropic.types.Message objects from client.messages.create
+        if hasattr(response, "type") and response.type == "message":
+            if hasattr(response, "content") and isinstance(response.content, list):
+                # Optionally, check if content is not empty, though an empty content list
+                # might be valid for some assistant stop reasons.
+                return True
+            else:
+                logging.warning(
+                    "Anthropic API response is of type 'message' but missing valid 'content'."
+                )
+                return False
+
+        logging.warning(
+            f"Anthropic API response does not appear to be a valid message object. Type: {getattr(response, 'type', 'N/A')}"
+        )
+        return False
+
+    def get_anthropic_status_code(exception):
+        """Extracts HTTP status code from an Anthropic exception."""
+        # anthropic.APIStatusError has a 'status_code' attribute
+        return getattr(exception, "status_code", None)
+
+    # Define Anthropic specific exceptions.
+    # anthropic.RateLimitError for specific rate limit errors.
+    # anthropic.APIError is a base class for many errors.
+    # anthropic.APIStatusError provides status_code.
+    # anthropic.APIConnectionError for network issues.
+    # Order can matter if there's inheritance; specific ones first.
+
+    # Ensure these are the correct exception types from your installed anthropic library version.
+    anthropic_rate_limit_exception = anthropic.RateLimitError
+    # Broader API errors, APIStatusError is more specific for HTTP status related issues.
+    # APIConnectionError for network problems. APIError as a general catch-all.
+    anthropic_api_error_exceptions = (
+        anthropic.APIStatusError,  # Catches errors with a status_code
+        anthropic.APIConnectionError,  # Catches network-related issues
+        anthropic.APIError,  # General base class for other Anthropic API errors
+    )
+
+    return generic_call_api_with_retries(
+        client_function=client_function,
+        api_params=api_params,
+        is_response_valid_fn=is_anthropic_response_valid,
+        rate_limit_exceptions=(anthropic_rate_limit_exception,),
+        api_error_exceptions=anthropic_api_error_exceptions,
+        get_status_code_fn=get_anthropic_status_code,
+        max_retries=max_retries,
+        # You can also pass initial_retry_delay_seconds and max_retry_delay_seconds
+        # if you want to customize them from their defaults in the generic function.
+    )
+
+
+def supports_tool_calling_for_openrouter(
+    model_name: str,
+) -> bool:
+    """
+    Check if the openrouter model supports tool calling.
+
+    Args:
+        model_name (str): The name of the model.
+
+    Returns:
+        bool: True if the model supports tool calling, False otherwise.
+    """
+    import os
+
+    import openai
+
+    client = openai.Client(
+        api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1"
+    )
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": "Call the test tool"}],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "dummy_tool",
+                        "description": "Just a test tool",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                        },
+                    },
+                }
+            ],
+            tool_choice="required",
+        )
+        response = response.to_dict()
+        return "tool_calls" in response["choices"][0]["message"]
+    except Exception as e:
+        print(f"Skipping tool callign support check in openrouter for {model_name}: {e}")
+        return True
 
 
 def retry_multiple(
@@ -188,8 +516,8 @@ def get_tokenizer(model_name="gpt-4"):
         logging.info(f"Could not find a tokenizer for model {model_name}. Trying HuggingFace.")
     try:
         return AutoTokenizer.from_pretrained(model_name)
-    except OSError:
-        logging.info(f"Could not find a tokenizer for model {model_name}. Defaulting to gpt-4.")
+    except Exception as e:
+        logging.info(f"Could not find a tokenizer for model {model_name}: {e} Defaulting to gpt-4.")
     return tiktoken.encoding_for_model("gpt-4")
 
 
@@ -381,6 +709,17 @@ def image_to_jpg_base64_url(image: np.ndarray | Image.Image):
     return f"data:image/jpeg;base64,{image_base64}"
 
 
+def image_to_png_base64_url(image: np.ndarray | Image.Image):
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    if image.mode in ("RGBA", "LA"):
+        image = image.convert("RGB")
+    buffered = io.BytesIO()
+    image.save(buffered, "PNG")
+    image_base64 = base64.b64encode(buffered.getvalue()).decode()
+    return f"data:image/png;base64,{image_base64}"
+
+
 class BaseMessage(dict):
     def __init__(self, role: str, content: Union[str, list[dict]], **kwargs):
         allowed_attrs = {"log_probs"}
@@ -401,7 +740,13 @@ class BaseMessage(dict):
             else:
                 logging.info(msg)
 
-        return "\n".join([elem["text"] for elem in self["content"] if elem["type"] == "text"])
+        return "\n".join(
+            [
+                elem["text"]
+                for elem in self["content"]
+                if elem["type"] == "text" or elem["type"] == "input_text"
+            ]
+        )
 
     def add_content(self, type: str, content: Any):
         if isinstance(self["content"], str):
