@@ -1,5 +1,6 @@
 import base64
 import copy
+import gzip
 import importlib
 import json
 import logging
@@ -14,7 +15,14 @@ import numpy as np
 import PIL.Image
 import requests
 import streamlit as st
-from agentlab.agents.generic_agent import __all__ as ALL_AGENTS
+from agentlab.agents.generic_agent import __all__ as ALL_GENERIC_AGENTS
+from agentlab.agents.generic_agent.generic_agent import GenericAgent
+from agentlab.agents.tool_use_agent import __all__ as ALL_TOOL_USE_AGENTS
+from agentlab.agents.tool_use_agent.tool_use_agent import (
+    DEFAULT_PROMPT_CONFIG,
+    ToolUseAgent,
+    ToolUseAgentArgs,
+)
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpArgs, StepInfo, save_package_versions
 from agentlab.llm.llm_utils import Discussion
@@ -32,7 +40,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 load_dotenv()
 
-DEFAULT_AGENT = "AGENT_AZURE_4o"
 DEFAULT_BENCHMARK = "workarena_l1"
 
 SERVER_URL = "http://127.0.0.1:8000"
@@ -151,7 +158,8 @@ def reset_agent_history():
     st.session_state.action_info_history = []
     st.session_state.thought_history = []
     st.session_state.prompt_history = []
-    st.session_state.memory_history = []
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.memory_history = []
 
 
 def reset_agent_state():
@@ -183,7 +191,8 @@ def step_agent_history(action, action_info):
     st.session_state.prompt_history.append(get_prompt(action_info))
 
     # HACK: memory history can only be obtained via the agent
-    st.session_state.memory_history.append(st.session_state.agent.memories[-1])
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.memory_history.append(st.session_state.agent.memories[-1])
 
 
 def set_agent_state():
@@ -191,7 +200,8 @@ def set_agent_state():
     st.session_state.agent.obs_history = copy.deepcopy(st.session_state.obs_history)
     st.session_state.agent.actions = copy.deepcopy(st.session_state.action_history)
     st.session_state.agent.thoughts = copy.deepcopy(st.session_state.thought_history)
-    st.session_state.agent.memories = copy.deepcopy(st.session_state.memory_history)
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.agent.memories = copy.deepcopy(st.session_state.memory_history)
 
 
 def revert_env_history():
@@ -213,7 +223,8 @@ def revert_agent_history():
     st.session_state.action_info_history.pop()
     st.session_state.thought_history.pop()
     st.session_state.prompt_history.pop()
-    st.session_state.memory_history.pop()
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.memory_history.pop()
 
 
 def revert_agent_state():
@@ -245,30 +256,39 @@ def restore_agent_history(step: int):
     )
     st.session_state.thought_history = copy.deepcopy(st.session_state.thought_history[:step])
     st.session_state.prompt_history = copy.deepcopy(st.session_state.prompt_history[:step])
-    st.session_state.memory_history = copy.deepcopy(st.session_state.memory_history[:step])
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.memory_history = copy.deepcopy(st.session_state.memory_history[:step])
 
 
 def get_prompt(info):
-    if info is not None and isinstance(info.chat_messages, Discussion):
-        chat_messages = info.chat_messages.messages
-        new_chat_messages = []
-        for message in chat_messages:
-            if isinstance(message["content"], list):
-                # concatenate all text elements
-                new_chat_messages.append(
-                    {
-                        "role": message["role"],
-                        "content": "\n\n".join(
-                            [elem["text"] for elem in message["content"] if elem["type"] == "text"]
-                        ),
-                    }
-                )
-            else:
-                new_chat_messages.append(message)
-        prompt = tokenizer.apply_chat_template(
-            new_chat_messages, add_special_tokens=True, tokenize=False
-        )
-        return prompt
+    if info is not None:
+        if hasattr(info, "chat_messages") and isinstance(info.chat_messages, Discussion):
+            chat_messages = info.chat_messages.messages
+            new_chat_messages = []
+            for message in chat_messages:
+                if isinstance(message["content"], list):
+                    # concatenate all text elements
+                    new_chat_messages.append(
+                        {
+                            "role": message["role"],
+                            "content": "\n\n".join(
+                                [
+                                    elem["text"]
+                                    for elem in message["content"]
+                                    if elem["type"] == "text"
+                                ]
+                            ),
+                        }
+                    )
+                else:
+                    new_chat_messages.append(message)
+            prompt = tokenizer.apply_chat_template(
+                new_chat_messages, add_special_tokens=True, tokenize=False
+            )
+            return prompt
+        else:
+            prompt = "Not implemented yet for Response API"
+            return prompt
 
 
 def setup_sidebar():
@@ -304,29 +324,38 @@ def set_session_state():
 
     # track history
     if "prompt_history" not in st.session_state:
-        st.session_state.prompt_history = None
+        st.session_state.prompt_history = []
     if "screenshot_history" not in st.session_state:
-        st.session_state.screenshot_history = None
+        st.session_state.screenshot_history = []
     if "axtree_history" not in st.session_state:
-        st.session_state.axtree_history = None
+        st.session_state.axtree_history = []
     if "thought_history" not in st.session_state:
-        st.session_state.thought_history = None
+        st.session_state.thought_history = []
     if "memory_history" not in st.session_state:
-        st.session_state.memory_history = None
+        st.session_state.memory_history = []
     if "action_history" not in st.session_state:
-        st.session_state.action_history = None
+        st.session_state.action_history = []
     if "action_info_history" not in st.session_state:
-        st.session_state.action_info_history = None
+        st.session_state.action_info_history = []
     if "obs_history" not in st.session_state:
-        st.session_state.obs_history = None
+        st.session_state.obs_history = []
     if "reward_history" not in st.session_state:
-        st.session_state.reward_history = None
+        st.session_state.reward_history = []
     if "terminated_history" not in st.session_state:
-        st.session_state.terminated_history = None
+        st.session_state.terminated_history = []
     if "truncated_history" not in st.session_state:
-        st.session_state.truncated_history = None
+        st.session_state.truncated_history = []
     if "env_info_history" not in st.session_state:
-        st.session_state.env_info_history = None
+        st.session_state.env_info_history = []
+
+    if "task_to_benchmark_mapping" not in st.session_state:
+        st.session_state.task_to_benchmark_mapping = {}
+        for benchmark in list(DEFAULT_BENCHMARKS.keys()):
+            all_tasks = set(
+                [elem.task_name for elem in DEFAULT_BENCHMARKS[benchmark]().env_args_list]
+            )
+            for task in all_tasks:
+                st.session_state.task_to_benchmark_mapping[task] = benchmark
 
     if "has_clicked_prev" not in st.session_state:
         st.session_state.has_clicked_prev = False
@@ -336,11 +365,36 @@ def set_session_state():
         st.session_state.has_clicked_multiple_reprompt = False
 
 
-def select_agent():
+def select_agent_type():
+    """Dropdown to select an agent type."""
+    agent_type = st.selectbox("Select Agent Type", ["GenericAgent", "ToolUseAgent"], index=0)
+    return agent_type
+
+
+def select_agent(agent_type: str = "GenericAgent"):
     """Dropdown to select an agent."""
-    agent_str = st.selectbox("Select Agent", ALL_AGENTS, index=ALL_AGENTS.index(DEFAULT_AGENT))
-    agents_module = importlib.import_module("agentlab.agents.generic_agent")
-    agent = getattr(agents_module, agent_str)
+    if agent_type == "GenericAgent":
+        agent_choices = ALL_GENERIC_AGENTS
+        default_agent = "AGENT_AZURE_4o"
+        agent_str = st.selectbox(
+            "Select Agent", agent_choices, index=agent_choices.index(default_agent)
+        )
+        agents_module = importlib.import_module("agentlab.agents.generic_agent")
+        agent = getattr(agents_module, agent_str)
+    elif agent_type == "ToolUseAgent":
+        agent_choices = ALL_TOOL_USE_AGENTS
+        default_agent = "AZURE_GPT_4_1"
+        agent_str = st.selectbox(
+            "Select Agent", agent_choices, index=agent_choices.index(default_agent)
+        )
+        agents_module = importlib.import_module("agentlab.agents.tool_use_agent.tool_use_agent")
+        model_args = getattr(agents_module, agent_str)
+        agent = ToolUseAgentArgs(
+            model_args=model_args,
+            config=copy.deepcopy(DEFAULT_PROMPT_CONFIG),
+        )
+    else:
+        st.error("Invalid agent type")
     return agent
 
 
@@ -374,22 +428,24 @@ def set_task_selector():
     with st.container(border=True):
         st.markdown("##### ⚙️ Select")
         with st.form("Task Selector"):
-            col1, col2, col3, col4, col5, col6 = st.columns(
-                [2, 2, 4, 2, 1, 1], vertical_alignment="bottom"
+            col1, col2, col3, col4, col5, col6, col7 = st.columns(
+                [2, 2, 2, 3, 1, 1, 1], vertical_alignment="bottom"
             )
             with col1:
-                selected_agent_args = select_agent()
+                selected_agent_type = select_agent_type()
             with col2:
+                selected_agent_args = select_agent(selected_agent_type)
+            with col3:
                 selected_benchmark_str = select_benchmark()
                 selected_benchmark = DEFAULT_BENCHMARKS[selected_benchmark_str]()
-            with col3:
-                selected_task_str = select_task(selected_benchmark)
             with col4:
-                selected_subtask_str = select_subtask(selected_benchmark, selected_task_str)
+                selected_task_str = select_task(selected_benchmark)
             with col5:
+                selected_subtask_str = select_subtask(selected_benchmark, selected_task_str)
+            with col6:
                 if st.form_submit_button("🔄", use_container_width=True):
                     clean_session()
-            with col6:
+            with col7:
                 if st.form_submit_button("▶️", use_container_width=True):
 
                     # saving configs related to agent and task
@@ -413,6 +469,93 @@ def set_task_selector():
                     set_environment_info()
                     prepare_benchmark()
                     reset_environment()
+        # alternatively, one can load a file from disk to load a previous session
+        with st.expander(label="Load a previous run", expanded=False):
+            with st.form("Load Previous Run"):
+                col1, col2 = st.columns(
+                    (11, 1),
+                    vertical_alignment="top",
+                    border=False,
+                )
+                with col1:
+                    exp_files = st.file_uploader(
+                        "Select all files from a previous run directory",
+                        accept_multiple_files=True,
+                        label_visibility="collapsed",
+                    )
+                with col2:
+                    if st.form_submit_button(
+                        "⬆️",
+                        use_container_width=True,
+                    ):
+                        if exp_files:
+                            with st.spinner("Loading session..."):
+                                load_session(exp_files)
+
+
+def load_session(exp_files):
+    logger.info(f"Loading session...")
+    start = datetime.now()
+
+    # load env and agent args
+    exp_args_files = [file for file in exp_files if file.name == "exp_args.pkl"]
+    if len(exp_args_files) == 0:
+        st.error("No exp_args.pkl file found in the selected directory.")
+        return
+    exp_args = exp_args_files[0].getvalue()
+    exp_args = pickle.loads(exp_args)
+    st.session_state.agent_args = exp_args.agent_args
+    st.session_state.env_args = exp_args.env_args
+    st.session_state.benchmark = st.session_state.task_to_benchmark_mapping[
+        exp_args.env_args.task_name
+    ]
+    st.session_state.task = exp_args.env_args.task_name
+    st.session_state.subtask = exp_args.env_args.task_seed
+
+    # load state from step files
+    screenshot_file_names = [
+        file.name for file in exp_files if file.name.startswith("screenshot_step_")
+    ]
+    step_files = [file for file in exp_files if file.name.startswith("step_")]
+    if len(step_files) == 0:
+        st.error("No step files found in the selected directory.")
+        return
+    # sort step files
+    step_files.sort(key=lambda x: int(x.name.split("_")[-1].split(".")[0]))
+    # only keep step files for which we have an associated `screenshot_step_n.png`
+    step_files = [
+        file
+        for file in step_files
+        if f"screenshot_{file.name.split('.')[0]}.png" in screenshot_file_names
+    ]
+    for file in step_files:
+        with gzip.open(file, "rb") as f:
+            step_info = pickle.load(f)
+        st.session_state.action_history.append(step_info.action)
+        st.session_state.action_info_history.append(step_info.agent_info)
+        st.session_state.thought_history.append(step_info.agent_info.get("think", None))
+        st.session_state.prompt_history.append(get_prompt(step_info.agent_info))
+        if isinstance(st.session_state.agent, GenericAgent):
+            st.session_state.memory_history.append(step_info.agent_info.get("memory", None))
+        st.session_state.obs_history.append(step_info.obs)
+        st.session_state.reward_history.append(step_info.reward)
+        st.session_state.terminated_history.append(step_info.terminated)
+        st.session_state.truncated_history.append(step_info.truncated)
+        st.session_state.env_info_history.append(
+            {"task_info": step_info.task_info, "RAW_REWARD_GLOBAL": step_info.raw_reward}
+        )
+    st.session_state.last_obs = st.session_state.obs_history[-1]
+
+    # set environment in right state
+    prepare_agent()
+    reset_env_history()
+    set_environment_info()
+    prepare_benchmark()
+    reset_environment()
+    restore_environment()
+    end = datetime.now()
+    logger.info(f"Done in {end - start}")
+    st.rerun()
 
 
 def clean_session():
@@ -430,6 +573,7 @@ def clean_session():
 def prepare_agent():
     st.session_state.agent_args.prepare()
     st.session_state.agent = st.session_state.agent_args.make_agent()
+    st.session_state.agent.set_task_name(st.session_state.task)
 
 
 def set_environment_info():
@@ -467,7 +611,6 @@ def reset_environment():
         logger.error(resp.json()[Constants.STATUS])
         logger.error(resp.json()[Constants.MESSAGE])
     response_json = resp.json()
-    print(response_json.keys())
     response_json = deserialize_response(response_json)
     obs = response_json[Constants.OBS]
     if st.session_state.agent.obs_preprocessor:
@@ -601,91 +744,161 @@ def set_agent_state_box():
 
 def set_prompt_modifier():
     with st.expander("**Prompt Modifier**", expanded=False):
-        st.markdown("**Observation Flags**")
-        col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
-        with col1:
-            st.session_state.agent.flags.obs.use_html = st.checkbox(
-                "use_html", value=st.session_state.agent.flags.obs.use_html
+        if isinstance(st.session_state.agent, GenericAgent):
+            st.markdown("**Observation Flags**")
+            col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
+            with col1:
+                st.session_state.agent.flags.obs.use_html = st.checkbox(
+                    "use_html", value=st.session_state.agent.flags.obs.use_html
+                )
+                st.session_state.agent.flags.obs.use_action_history = st.checkbox(
+                    "use_action_history", value=st.session_state.agent.flags.obs.use_action_history
+                )
+            with col2:
+                st.session_state.agent.flags.obs.use_ax_tree = st.checkbox(
+                    "use_ax_tree", value=st.session_state.agent.flags.obs.use_ax_tree
+                )
+                st.session_state.agent.flags.obs.use_think_history = st.checkbox(
+                    "use_think_history", value=st.session_state.agent.flags.obs.use_think_history
+                )
+            with col3:
+                st.session_state.agent.flags.obs.use_focused_element = st.checkbox(
+                    "use_focused_element",
+                    value=st.session_state.agent.flags.obs.use_focused_element,
+                )
+                st.session_state.agent.flags.obs.use_diff = st.checkbox(
+                    "use_diff", value=st.session_state.agent.flags.obs.use_diff
+                )
+            with col4:
+                st.session_state.agent.flags.obs.use_error_logs = st.checkbox(
+                    "use_error_logs", value=st.session_state.agent.flags.obs.use_error_logs
+                )
+                st.session_state.agent.flags.obs.use_screenshot = st.checkbox(
+                    "use_screenshot", value=st.session_state.agent.flags.obs.use_screenshot
+                )
+            with col5:
+                st.session_state.agent.flags.obs.use_history = st.checkbox(
+                    "use_history", value=st.session_state.agent.flags.obs.use_history
+                )
+                st.session_state.agent.flags.obs.use_som = st.checkbox(
+                    "use_som", value=st.session_state.agent.flags.obs.use_som
+                )
+            with col6:
+                st.session_state.agent.flags.obs.use_past_error_logs = st.checkbox(
+                    "use_past_error_logs",
+                    value=st.session_state.agent.flags.obs.use_past_error_logs,
+                )
+                st.session_state.agent.flags.obs.use_tabs = st.checkbox(
+                    "use_tabs", value=st.session_state.agent.flags.obs.use_tabs
+                )
+            st.markdown("**Other Flags**")
+            col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
+            with col1:
+                st.session_state.agent.flags.use_plan = st.checkbox(
+                    "use_plan", value=st.session_state.agent.flags.use_plan
+                )
+                st.session_state.agent.flags.use_hints = st.checkbox(
+                    "use_hints", value=st.session_state.agent.flags.use_hints
+                )
+            with col2:
+                st.session_state.agent.flags.use_criticise = st.checkbox(
+                    "use_criticise", value=st.session_state.agent.flags.use_criticise
+                )
+                st.session_state.agent.flags.be_cautious = st.checkbox(
+                    "be_cautious", value=st.session_state.agent.flags.be_cautious
+                )
+            with col3:
+                st.session_state.agent.flags.use_thinking = st.checkbox(
+                    "use_thinking", value=st.session_state.agent.flags.use_thinking
+                )
+                st.session_state.agent.flags.enable_chat = st.checkbox(
+                    "enable_chat", value=st.session_state.agent.flags.enable_chat
+                )
+            with col4:
+                st.session_state.agent.flags.use_memory = st.checkbox(
+                    "use_memory", value=st.session_state.agent.flags.use_memory
+                )
+            with col5:
+                st.session_state.agent.flags.use_abstract_example = st.checkbox(
+                    "use_abstract_example", value=st.session_state.agent.flags.use_abstract_example
+                )
+            with col6:
+                st.session_state.agent.flags.use_concrete_example = st.checkbox(
+                    "use_concrete_example", value=st.session_state.agent.flags.use_concrete_example
+                )
+            extra_instructions = st.text_area(
+                "extra_instructions", value=st.session_state.agent.flags.extra_instructions
             )
-            st.session_state.agent.flags.obs.use_action_history = st.checkbox(
-                "use_action_history", value=st.session_state.agent.flags.obs.use_action_history
+            if extra_instructions == "":
+                extra_instructions = None
+            st.session_state.agent.flags.extra_instructions = extra_instructions
+        elif isinstance(st.session_state.agent, ToolUseAgent):
+
+            st.session_state.agent.config.tag_screenshot = st.checkbox(
+                "Tag screenshot", value=st.session_state.agent.config.tag_screenshot
             )
-        with col2:
-            st.session_state.agent.flags.obs.use_ax_tree = st.checkbox(
-                "use_ax_tree", value=st.session_state.agent.flags.obs.use_ax_tree
+
+            # Goal flags
+            st.session_state.agent.config.goal.goal_as_system_msg = st.checkbox(
+                "Goal as system message",
+                value=st.session_state.agent.config.goal.goal_as_system_msg,
             )
-            st.session_state.agent.flags.obs.use_think_history = st.checkbox(
-                "use_think_history", value=st.session_state.agent.flags.obs.use_think_history
+
+            # Obs flags
+            st.session_state.agent.config.obs.use_last_error = st.checkbox(
+                "Use last error", value=st.session_state.agent.config.obs.use_last_error
             )
-        with col3:
-            st.session_state.agent.flags.obs.use_focused_element = st.checkbox(
-                "use_focused_element", value=st.session_state.agent.flags.obs.use_focused_element
+            st.session_state.agent.config.obs.use_screenshot = st.checkbox(
+                "Use screenshot", value=st.session_state.agent.config.obs.use_screenshot
             )
-            st.session_state.agent.flags.obs.use_diff = st.checkbox(
-                "use_diff", value=st.session_state.agent.flags.obs.use_diff
+            st.session_state.agent.config.obs.use_axtree = st.checkbox(
+                "Use axtree", value=st.session_state.agent.config.obs.use_axtree
             )
-        with col4:
-            st.session_state.agent.flags.obs.use_error_logs = st.checkbox(
-                "use_error_logs", value=st.session_state.agent.flags.obs.use_error_logs
+            st.session_state.agent.config.obs.use_dom = st.checkbox(
+                "Use dom", value=st.session_state.agent.config.obs.use_dom
             )
-            st.session_state.agent.flags.obs.use_screenshot = st.checkbox(
-                "use_screenshot", value=st.session_state.agent.flags.obs.use_screenshot
+            st.session_state.agent.config.obs.use_som = st.checkbox(
+                "Use som", value=st.session_state.agent.config.obs.use_som
             )
-        with col5:
-            st.session_state.agent.flags.obs.use_history = st.checkbox(
-                "use_history", value=st.session_state.agent.flags.obs.use_history
+            st.session_state.agent.config.obs.use_tabs = st.checkbox(
+                "Use tabs", value=st.session_state.agent.config.obs.use_tabs
             )
-            st.session_state.agent.flags.obs.use_som = st.checkbox(
-                "use_som", value=st.session_state.agent.flags.obs.use_som
+            st.session_state.agent.config.obs.add_mouse_pointer = st.checkbox(
+                "Add mouse pointer", value=st.session_state.agent.config.obs.add_mouse_pointer
             )
-        with col6:
-            st.session_state.agent.flags.obs.use_past_error_logs = st.checkbox(
-                "use_past_error_logs", value=st.session_state.agent.flags.obs.use_past_error_logs
+            st.session_state.agent.config.obs.use_zoomed_webpage = st.checkbox(
+                "Use zoomed webpage", value=st.session_state.agent.config.obs.use_zoomed_webpage
             )
-            st.session_state.agent.flags.obs.use_tabs = st.checkbox(
-                "use_tabs", value=st.session_state.agent.flags.obs.use_tabs
+
+            # Summarizer flags
+            st.session_state.agent.config.summarizer.do_summary = st.checkbox(
+                "Do summary", value=st.session_state.agent.config.summarizer.do_summary
             )
-        st.markdown("**Other Flags**")
-        col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
-        with col1:
-            st.session_state.agent.flags.use_plan = st.checkbox(
-                "use_plan", value=st.session_state.agent.flags.use_plan
+            st.session_state.agent.config.summarizer.high_details = st.checkbox(
+                "Summarize with high details",
+                value=st.session_state.agent.config.summarizer.high_details,
             )
-            st.session_state.agent.flags.use_hints = st.checkbox(
-                "use_hints", value=st.session_state.agent.flags.use_hints
+
+            # General Hints flags
+            st.session_state.agent.config.general_hints.use_hints = st.checkbox(
+                "Use general hints", value=st.session_state.agent.config.general_hints.use_hints
             )
-        with col2:
-            st.session_state.agent.flags.use_criticise = st.checkbox(
-                "use_criticise", value=st.session_state.agent.flags.use_criticise
+
+            # Task Hint flags
+            st.session_state.agent.config.task_hint.use_task_hint = st.checkbox(
+                "Use task hint", value=st.session_state.agent.config.task_hint.use_task_hint
             )
-            st.session_state.agent.flags.be_cautious = st.checkbox(
-                "be_cautious", value=st.session_state.agent.flags.be_cautious
+
+            # general
+            st.session_state.agent.config.keep_last_n_obs = st.number_input(
+                "Keep last n obs", value=st.session_state.agent.config.keep_last_n_obs
             )
-        with col3:
-            st.session_state.agent.flags.use_thinking = st.checkbox(
-                "use_thinking", value=st.session_state.agent.flags.use_thinking
+            st.session_state.agent.config.multiaction = st.checkbox(
+                "Multiaction", value=st.session_state.agent.config.multiaction
             )
-            st.session_state.agent.flags.enable_chat = st.checkbox(
-                "enable_chat", value=st.session_state.agent.flags.enable_chat
+            st.session_state.agent.config.action_subsets = st.text_area(
+                "Action subsets", value=st.session_state.agent.config.action_subsets
             )
-        with col4:
-            st.session_state.agent.flags.use_memory = st.checkbox(
-                "use_memory", value=st.session_state.agent.flags.use_memory
-            )
-        with col5:
-            st.session_state.agent.flags.use_abstract_example = st.checkbox(
-                "use_abstract_example", value=st.session_state.agent.flags.use_abstract_example
-            )
-        with col6:
-            st.session_state.agent.flags.use_concrete_example = st.checkbox(
-                "use_concrete_example", value=st.session_state.agent.flags.use_concrete_example
-            )
-        extra_instructions = st.text_area(
-            "extra_instructions", value=st.session_state.agent.flags.extra_instructions
-        )
-        if extra_instructions == "":
-            extra_instructions = None
-        st.session_state.agent.flags.extra_instructions = extra_instructions
 
 
 def set_go_back_to_step_n_section():

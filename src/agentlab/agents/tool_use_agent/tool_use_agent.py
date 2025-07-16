@@ -508,7 +508,25 @@ GPT_4_1 = OpenAIResponseModelArgs(
     vision_support=True,
 )
 
+AZURE_GPT_4_1 = AzureOpenAIResponseModelArgs(
+    model_name="gpt-4.1",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
 GPT_4_1_MINI = OpenAIResponseModelArgs(
+    model_name="gpt-4.1-mini",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
+AZURE_GPT_4_1_MINI = AzureOpenAIResponseModelArgs(
     model_name="gpt-4.1-mini",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
