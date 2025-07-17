@@ -896,9 +896,9 @@ def set_prompt_modifier():
             st.session_state.agent.config.multiaction = st.checkbox(
                 "Multiaction", value=st.session_state.agent.config.multiaction
             )
-            st.session_state.agent.config.action_subsets = st.text_area(
-                "Action subsets", value=st.session_state.agent.config.action_subsets
-            )
+            # st.session_state.agent.config.action_subsets = st.text_area(
+            #     "Action subsets", value=st.session_state.agent.config.action_subsets
+            # )
 
 
 def set_go_back_to_step_n_section():
