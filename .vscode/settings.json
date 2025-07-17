@@ -19,4 +19,12 @@
         "**/.git/subtree-cache/**": true,
         "**/node_modules/*/**": true
     },
+    "python.defaultInterpreterPath": "/home/toolkit/.conda/envs/ui-assist/bin/python",
+    "terminal.integrated.profiles.linux": {
+        "zsh": {
+            "path": "/usr/bin/zsh",
+            "icon": "terminal-linux"
+        }
+    },
+    "terminal.integrated.defaultProfile.linux": "zsh",
 }

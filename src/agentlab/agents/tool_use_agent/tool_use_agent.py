@@ -443,8 +443,18 @@ class ToolUseAgent(bgym.Agent):
 
             if self.config.multiaction:
                 sys_msg = SYS_MSG + "\nYou can take multiple actions in a single step, if needed."
+                # sys_msg = (
+                #     SYS_MSG
+                #     + "\nYou can take multiple recoverable actions in a single step, if needed, but make sure to never include unrecoverable actions (such as submitting a form, a request, etc.) in the same step. Always wait to observe that all your previous actions resulted in the expected outcome before taking a unrecoverable action."
+                # )
             else:
                 sys_msg = SYS_MSG + "\nYou can only take one action at a time."
+                # sys_msg = (
+                #     SYS_MSG
+                #     + "\nYou can only take one action at a time. Do not try to take multiple actions in a single step. Only generate a single action."
+                # )
+            # sys_msg = SYS_MSG
+
             self.config.goal.apply(self.llm, self.discussion, obs, sys_msg)
 
             self.config.summarizer.apply_init(self.llm, self.discussion)
@@ -458,6 +468,7 @@ class ToolUseAgent(bgym.Agent):
         self.config.summarizer.apply(self.llm, self.discussion)
 
         messages = self.discussion.flatten()
+        # messages.append(self.llm.msg.user().add_text("\nYou can only take one action at a time."))
         response: LLMOutput = self.llm(
             APIPayload(
                 messages=messages,
