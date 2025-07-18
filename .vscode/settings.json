@@ -7,8 +7,8 @@
             "source.fixAll": "always",
         },
     },
-    "python.analysis.languageServerMode": "full",
-    "python.analysis.typeCheckingMode": "standard",
+    // "python.analysis.languageServerMode": "full",
+    // "python.analysis.typeCheckingMode": "standard",
     "python.testing.pytestArgs": [
         "tests"
     ],
