@@ -1,9 +1,11 @@
 from agentlab.llm.chat_api import (
+    AnthropicModelArgs,
     AzureModelArgs,
     OpenAIModelArgs,
     OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
+from openai import NOT_GIVEN
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -37,6 +39,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=200_000,
         max_new_tokens=100_000,
         vision_support=False,
+    ),
+    "openai/o3-2025-04-16": OpenAIModelArgs(
+        model_name="o3-2025-04-16",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=None,
+        temperature=1,
+        vision_support=True,
     ),
     "openai/gpt-4o-mini-2024-07-18": OpenAIModelArgs(
         model_name="gpt-4o-mini-2024-07-18",
@@ -114,6 +124,17 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=128_000,
         max_new_tokens=16_384,
         vision_support=True,
+    ),
+    # ---------------- Anthropic ----------------#
+    "anthropic/claude-3-7-sonnet-20250219": AnthropicModelArgs(
+        model_name="claude-3-7-sonnet-20250219",
+        max_new_tokens=16_384,
+        temperature=1e-1,
+    ),
+    "anthropic/claude-sonnet-4-20250514": AnthropicModelArgs(
+        model_name="claude-sonnet-4-20250514",
+        max_new_tokens=16_384,
+        temperature=1e-1,
     ),
     # ---------------- OSS LLMs ----------------#
     "meta-llama/Meta-Llama-3-70B-Instruct": SelfHostedModelArgs(
