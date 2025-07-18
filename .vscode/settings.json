@@ -3,12 +3,12 @@
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "always",
-            "source.fixAll": "always",
+            "source.organizeImports": "explicit",
+            "source.fixAll": "never",
         },
     },
-    "python.analysis.languageServerMode": "full",
-    "python.analysis.typeCheckingMode": "standard",
+    // "python.analysis.languageServerMode": "full",
+    // "python.analysis.typeCheckingMode": "standard",
     "python.testing.pytestArgs": [
         "tests"
     ],
