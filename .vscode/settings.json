@@ -3,8 +3,8 @@
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "always",
-            "source.fixAll": "always",
+            "source.organizeImports": "explicit",
+            "source.fixAll": "never",
         },
     },
     // "python.analysis.languageServerMode": "full",

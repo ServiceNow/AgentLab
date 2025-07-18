@@ -299,7 +299,6 @@ def overlay_rectangle(
 
     if dashed:
         # Draw dashed rectangle
-        print("Drawing dashed rectangle")
         linedashed(draw, x, y, x + w, y, color, width)
         linedashed(draw, x + w, y, x + w, y + h, color, width)
         linedashed(draw, x + w, y + h, x, y + h, color, width)
