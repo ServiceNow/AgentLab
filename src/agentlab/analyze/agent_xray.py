@@ -922,6 +922,9 @@ def get_episode_info(info: Info):
 
 {code(step_info.task_info)}
 
+**Terminated or Truncated:**
+{code(f"Terminated: {step_info.terminated}, Truncated: {step_info.truncated}")}
+
 **exp_dir:**
 
 <small style="line-height: 1; margin: 0; padding: 0;">{code(exp_dir_str)}</small>"""
@@ -1243,8 +1246,17 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
         warning("No step info to plot")
         return None
 
-    # this allows to pop labels to make sure we don't use more than 1 for the legend
-    labels = ["reset", "env", "agent", "exec action", "action error"]
+    # Updated labels to include new profiling stages
+    labels = [
+        "reset",
+        "env",
+        "agent",
+        "exec action",
+        "action error",
+        "wait for page",
+        "validation",
+        "get observation",
+    ]
     labels = {e: e for e in labels}
 
     colors = plt.get_cmap("tab20c").colors
@@ -1253,6 +1265,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     all_times = []
     step_times = []
     for i, step_info in progress_fn(list(enumerate(step_info_list)), desc="Building plot."):
+        assert isinstance(step_info, StepInfo), f"Expected StepInfo, got {type(step_info)}"
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
@@ -1273,6 +1286,39 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             # action
             label = labels.pop("exec action", None)
             add_patch(ax, prof.action_exec_start, prof.action_exec_stop, colors[3], label)
+
+            # NEW: Add wait for page loading visualization
+            if (
+                hasattr(prof, "wait_for_page_loading_start")
+                and prof.wait_for_page_loading_start > 0
+            ):
+                add_patch(
+                    ax,
+                    prof.wait_for_page_loading_start,
+                    prof.wait_for_page_loading_stop,
+                    colors[19],
+                    labels.pop("wait for page", None),
+                )
+
+            # NEW: Add validation visualization
+            if hasattr(prof, "validation_start") and prof.validation_start > 0:
+                add_patch(
+                    ax,
+                    prof.validation_start,
+                    prof.validation_stop,
+                    colors[8],
+                    labels.pop("validation", None),
+                )
+
+            # NEW: Add get observation visualization
+            if hasattr(prof, "get_observation_start") and prof.get_observation_start > 0:
+                add_patch(
+                    ax,
+                    prof.get_observation_start,
+                    prof.get_observation_stop,
+                    colors[12],
+                    labels.pop("get observation", None),
+                )
 
             try:
                 next_step_error = step_info_list[i + 1].obs["last_action_error"]
@@ -1340,7 +1386,6 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
 
     ax.set_ylim(0, 1)
     ax.set_xlim(0, max(all_times) + 1)
-    # plt.gca().autoscale()
 
     ax.set_xlabel("Time")
     ax.set_yticks([])
@@ -1349,7 +1394,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, 1.2),
-        ncol=5,
+        ncol=8,  # Updated to accommodate new labels
         frameon=True,
     )
 
