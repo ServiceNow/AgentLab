@@ -9,7 +9,7 @@ from typing import Optional
 import anthropic
 import openai
 from huggingface_hub import InferenceClient
-from openai import AzureOpenAI, OpenAI
+from openai import NOT_GIVEN, AzureOpenAI, OpenAI
 
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
@@ -348,6 +348,8 @@ class OpenAIChatModel(ChatModel):
         min_retry_wait_time=60,
         log_probs=False,
     ):
+        if max_tokens is None:
+            max_tokens = NOT_GIVEN
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -482,13 +484,11 @@ class AnthropicChatModel(AbstractChatModel):
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
-        log_probs=False,
     ):
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retry = max_retry
-        self.log_probs = log_probs
 
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
@@ -544,5 +544,4 @@ class AnthropicModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            log_probs=self.log_probs,
         )
