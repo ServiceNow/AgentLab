@@ -14,6 +14,7 @@ def exp_result_to_html(
     axtree_open: bool = False,
     html_open: bool = False,
     prompt_open: bool = False,
+    embed_images: bool = True,  # New parameter
 ) -> str:
     """
     Convert an ExpResult to HTML with collapsible sections.
@@ -25,6 +26,7 @@ def exp_result_to_html(
         axtree_open: Whether AXTree sections start expanded (default: False)
         html_open: Whether HTML sections start expanded (default: False)
         prompt_open: Whether Prompt sections start expanded (default: False)
+        embed_images: Whether to embed images as base64 or use file paths (default: True)
 
     Returns:
         str: HTML string with collapsible episode visualization
@@ -36,7 +38,7 @@ def exp_result_to_html(
     # Build HTML structure
     html_parts = []
 
-    # Add CSS for styling
+    # Add CSS for styling (unchanged)
     html_parts.append(
         """
     <style>
@@ -169,8 +171,6 @@ def exp_result_to_html(
         if step_info.action is None and i == 0:
             continue  # Skip initial reset step if no action
 
-        # html_parts.append('<div class="step-separator"></div>')
-
         # Step container with collapsible wrapper
         step_open_attr = "open" if steps_open else ""
         html_parts.append(f"<details {step_open_attr}>")
@@ -178,7 +178,7 @@ def exp_result_to_html(
         html_parts.append('<div class="step-content">')
 
         # Screenshot (flat in step)
-        screenshot_html = _get_screenshot_html(exp_result, i)
+        screenshot_html = _get_screenshot_html(exp_result, i, embed_images)
         html_parts.append(screenshot_html)
 
         # Action (flat in step)
@@ -195,7 +195,7 @@ def exp_result_to_html(
             )
 
         # SOM Screenshot (nested collapsible)
-        som_screenshot_html = _get_som_screenshot_html(exp_result, i, som_open)
+        som_screenshot_html = _get_som_screenshot_html(exp_result, i, som_open, embed_images)
         if som_screenshot_html:
             html_parts.append(som_screenshot_html)
 
@@ -255,30 +255,48 @@ def exp_result_to_html(
     return "".join(html_parts)
 
 
-def _get_screenshot_html(exp_result, step: int) -> str:
+def _get_screenshot_html(exp_result, step: int, embed_images: bool) -> str:
     """Get HTML for main screenshot at given step."""
     try:
-        screenshot = exp_result.get_screenshot(step, som=False)
-        return _image_to_html(screenshot, f"Screenshot {step}")
+        if embed_images:
+            screenshot = exp_result.get_screenshot(step, som=False)
+            return _image_to_html(screenshot, f"Screenshot {step}")
+        else:
+            screenshot_path = exp_result.get_screenshot_path(step, som=False)
+            return _path_to_html(screenshot_path, f"Screenshot {step}")
     except (FileNotFoundError, IndexError):
         return "<p>Screenshot not available</p>"
 
 
-def _get_som_screenshot_html(exp_result, step: int, som_open: bool) -> str:
+def _get_som_screenshot_html(exp_result, step: int, som_open: bool, embed_images: bool) -> str:
     """Get HTML for SOM screenshot if available."""
     try:
-        screenshot_som = exp_result.get_screenshot(step, som=True)
-        if screenshot_som:
-            som_open_attr = "open" if som_open else ""
-            som_html = _image_to_html(screenshot_som, f"SOM Screenshot {step}")
-            return f"""
-            <details class="nested-details" {som_open_attr}>
-                <summary>Screenshot_som[{step}]</summary>
-                <div class="content">
-                    {som_html}
-                </div>
-            </details>
-            """
+        if embed_images:
+            screenshot_som = exp_result.get_screenshot(step, som=True)
+            if screenshot_som:
+                som_open_attr = "open" if som_open else ""
+                som_html = _image_to_html(screenshot_som, f"SOM Screenshot {step}")
+                return f"""
+                <details class="nested-details" {som_open_attr}>
+                    <summary>Screenshot_som[{step}]</summary>
+                    <div class="content">
+                        {som_html}
+                    </div>
+                </details>
+                """
+        else:
+            screenshot_path = exp_result.get_screenshot_path(step, som=True)
+            if screenshot_path and screenshot_path.exists():
+                som_open_attr = "open" if som_open else ""
+                som_html = _path_to_html(screenshot_path, f"SOM Screenshot {step}")
+                return f"""
+                <details class="nested-details" {som_open_attr}>
+                    <summary>Screenshot_som[{step}]</summary>
+                    <div class="content">
+                        {som_html}
+                    </div>
+                </details>
+                """
     except (FileNotFoundError, IndexError):
         pass
     return ""
@@ -297,6 +315,17 @@ def _image_to_html(image, alt_text: str) -> str:
     return f'<img src="data:image/png;base64,{img_str}" alt="{alt_text}" class="screenshot">'
 
 
+def _path_to_html(image_path, alt_text: str) -> str:
+    """Convert image path to HTML img tag."""
+    if image_path is None or not image_path.exists():
+        return f"<p>{alt_text} not available</p>"
+
+    # Convert to absolute path and use file:// protocol
+    abs_path = image_path.resolve()
+    return f'<img src="file://{abs_path}" alt="{alt_text}" class="screenshot">'
+
+
+# Rest of the helper functions remain unchanged...
 def _format_goal(goal) -> str:
     """Format goal object like xray does - using code blocks."""
     if goal is None:
@@ -391,7 +420,6 @@ def _escape_html(text: str) -> str:
 
 
 if __name__ == "__main__":
-    from pathlib import Path
 
     from agentlab.experiments.exp_utils import RESULTS_DIR
 
@@ -403,7 +431,7 @@ if __name__ == "__main__":
     print(f"Using first exp_dir in most recent study:\n{exp_dir}")
     exp_result = ExpResult(exp_dir=exp_dir)
 
-    page = exp_result_to_html(exp_result)
+    page = exp_result_to_html(exp_result, embed_images=False)
 
     output_file = exp_dir / "episode.html"
     print(f"Writing HTML to\n{output_file}")
