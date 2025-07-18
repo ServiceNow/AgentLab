@@ -14,7 +14,7 @@ def exp_result_to_html(
     axtree_open: bool = False,
     html_open: bool = False,
     prompt_open: bool = False,
-    embed_images: bool = True,  # New parameter
+    embed_images: bool = True,
 ) -> str:
     """
     Convert an ExpResult to HTML with collapsible sections.
