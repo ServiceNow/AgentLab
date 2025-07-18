@@ -16,7 +16,7 @@ import numpy as np
 import openai
 import tiktoken
 import yaml
-from langchain.schema import BaseMessage
+from langchain.schema import BaseMessage as LangchainBaseMessage
 from langchain_community.adapters.openai import convert_message_to_dict
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
@@ -25,14 +25,14 @@ if TYPE_CHECKING:
     from agentlab.llm.chat_api import ChatModel
 
 
-def messages_to_dict(messages: list[dict] | list[BaseMessage]) -> dict:
+def messages_to_dict(messages: list[dict] | list[LangchainBaseMessage]) -> dict:
     new_messages = Discussion()
     for m in messages:
         if isinstance(m, dict):
             new_messages.add_message(m)
         elif isinstance(m, str):
             new_messages.add_message({"role": "<unknown role>", "content": m})
-        elif isinstance(m, BaseMessage):
+        elif isinstance(m, LangchainBaseMessage):
             new_messages.add_message(convert_message_to_dict(m))
         else:
             raise ValueError(f"Unknown message type: {type(m)}")
@@ -888,7 +888,6 @@ class Discussion:
 
 
 if __name__ == "__main__":
-
     # model_to_download = "THUDM/agentlm-70b"
     model_to_download = "databricks/dbrx-instruct"
     save_dir = "/mnt/ui_copilot/data_rw/base_models/"
