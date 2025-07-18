@@ -726,14 +726,20 @@ class ExpResult:
     def get_screenshot(self, step: int, som=False) -> Image:
         key = (step, som)
         if self._screenshots.get(key, None) is None:
-            file_name = f"screenshot_{'som_' if som else ''}step_{step}"
-            try:
-                with Image.open(self.exp_dir / (file_name + ".png")) as img:
-                    self._screenshots[key] = img.copy()
-            except FileNotFoundError:
-                with Image.open(self.exp_dir / (file_name + ".jpg")) as img:
-                    self._screenshots[key] = img.copy()
+            file_path = self.get_screenshot_path(step, som=som)
+            self._screenshots[key] = Image.open(file_path).convert("RGB")
         return self._screenshots[key]
+
+    def get_screenshot_path(self, step: int, som=False) -> Path:
+        """Return the path to the screenshot file."""
+        file_name = f"screenshot_{'som_' if som else ''}step_{step}"
+        for ext in [".png", ".jpg"]:
+            file_path = self.exp_dir / (file_name + ext)
+            if file_path.exists():
+                return file_path
+        raise FileNotFoundError(
+            f"No screenshot found for step {step} (som={som}) in {self.exp_dir}"
+        )
 
     def get_screenshots(self, som=False):
         files = list(self.exp_dir.glob("screenshot_step_*"))

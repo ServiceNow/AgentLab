@@ -1,4 +1,5 @@
 import base64
+import html
 import os
 import traceback
 from copy import deepcopy
@@ -18,6 +19,7 @@ from openai.types.responses import ResponseFunctionToolCall
 from PIL import Image
 
 from agentlab.analyze import inspect_results
+from agentlab.analyze.episode_to_html import exp_result_to_html
 from agentlab.analyze.overlay_utils import annotate_action
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpResult, StepInfo
@@ -25,8 +27,7 @@ from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
-from agentlab.llm.response_api import MessageBuilder
-from agentlab.llm.response_api import ToolCalls
+from agentlab.llm.response_api import MessageBuilder, ToolCalls
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -349,6 +350,9 @@ clicking the refresh button.
                     preview=True,
                 )
 
+            with gr.Tab("Episode") as tab_episode:
+                episode = gr.HTML()
+
             with gr.Tab("DOM HTML") as tab_html:
                 html_code = gr.Code(language="html", **code_args)
 
@@ -458,6 +462,7 @@ clicking the refresh button.
             outputs=[screenshot_gallery],
         )
         screenshot_gallery.select(fn=gallery_step_change, inputs=episode_id, outputs=step_id)
+        episode_id.change(fn=if_active("Episode")(update_episode), outputs=episode)
         step_id.change(fn=if_active("DOM HTML")(update_html), outputs=html_code)
         step_id.change(
             fn=if_active("Pruned DOM HTML")(update_pruned_html), outputs=pruned_html_code
@@ -486,6 +491,7 @@ clicking the refresh button.
         tab_screenshot_gallery.select(
             fn=update_screenshot_gallery, inputs=som_or_not, outputs=[screenshot_gallery]
         )
+        tab_episode.select(fn=update_episode, outputs=episode)
         tab_html.select(fn=update_html, outputs=html_code)
         tab_pruned_html.select(fn=update_pruned_html, outputs=pruned_html_code)
         tab_axtree.select(fn=update_axtree, outputs=axtree_code)
@@ -647,6 +653,18 @@ def gallery_step_change(evt: gr.SelectData, episode_id: EpisodeId):
     global info
     info.step = evt.index
     return StepId(episode_id=episode_id, step=evt.index)
+
+
+# def update_episode():
+#     # get exp_results for the given episode_id
+#     return exp_result_to_html(info.exp_result)
+def update_episode():
+    html_content = exp_result_to_html(info.exp_result)
+
+    # Use srcdoc instead of data URL
+    return f"""<iframe srcdoc="{html.escape(html_content, quote=True)}" 
+                      style="width: 100%; height: 800px; border: none; background-color: white;">
+              </iframe>"""
 
 
 def update_html():
