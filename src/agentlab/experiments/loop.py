@@ -20,7 +20,7 @@ import gymnasium as gym
 import numpy as np
 from browsergym.core.chat import Chat
 from browsergym.experiments.agent import Agent
-from browsergym.experiments.utils import count_messages_token, count_tokens
+from browsergym.experiments.utils import count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
 from tqdm import tqdm
@@ -48,7 +48,7 @@ class EnvArgs(DataClassJsonMixin):
     slow_mo: Optional[int] = None  # use default value from BrowserGym
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
-    pre_observation_delay: float = 0.5  # seconds, wait for JS events to be fired
+    pre_observation_delay: float = None  # seconds, wait for JS events to be fired
 
     def make_env(
         self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True
