@@ -2,10 +2,15 @@ import os
 import uuid
 from pathlib import Path
 
-from tapeagents.steps import ImageObservation
+try:
+    from tapeagents.steps import ImageObservation
 
-from agentlab.agents.tapeagent.agent import TapeAgent, TapeAgentArgs, load_config
-from agentlab.benchmarks.gaia import GaiaBenchmark, GaiaQuestion
+    from agentlab.agents.tapeagent.agent import TapeAgent, TapeAgentArgs, load_config
+    from agentlab.benchmarks.gaia import GaiaBenchmark, GaiaQuestion
+except ModuleNotFoundError:
+    import pytest
+
+    pytest.skip("Skipping test due to missing dependencies", allow_module_level=True)
 
 
 def mock_dataset() -> dict:
