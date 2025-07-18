@@ -9,7 +9,7 @@ from typing import Optional
 import anthropic
 import openai
 from huggingface_hub import InferenceClient
-from openai import AzureOpenAI, OpenAI
+from openai import NOT_GIVEN, AzureOpenAI, OpenAI
 
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
@@ -348,6 +348,8 @@ class OpenAIChatModel(ChatModel):
         min_retry_wait_time=60,
         log_probs=False,
     ):
+        if max_tokens is None:
+            max_tokens = NOT_GIVEN
         super().__init__(
             model_name=model_name,
             api_key=api_key,
