@@ -725,7 +725,7 @@ def set_demo_mode(env_args_list: list[EnvArgs]):
         env_args.slow_mo = 1000
 
 
-def _convert_env_args(env_args_list):
+def _convert_env_args(env_args_list) -> list[EnvArgs]:
     """Return a list where every element is the *new* EnvArgs.
 
     For backward compatibility, we need to convert the old EnvArgs to the new one.
