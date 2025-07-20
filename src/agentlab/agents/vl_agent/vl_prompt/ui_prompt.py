@@ -464,9 +464,9 @@ Answer:""",
                 x, y = literal_eval(answer_text.strip())[0]["point"]
             else:
                 x, y = literal_eval(answer_text.strip())
+            x, y = self.location_adapter(self.current_screenshot, int(x), int(y))
         except:
             raise ParseError(f"Invalid answer: {answer_text}")
-        x, y = self.location_adapter(self.current_screenshot, int(x), int(y))
         return {"auxiliary_location": f"({x}, {y})", "auxiliary_response": answer_text}
 
 
