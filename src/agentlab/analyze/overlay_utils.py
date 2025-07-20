@@ -1,9 +1,11 @@
 import ast
 import inspect
+import math
 from dataclasses import dataclass
 from typing import Any, Union
 
 import matplotlib.pyplot as plt
+import PIL
 from browsergym.core.action.highlevel import ACTION_SUBSETS
 from PIL import Image, ImageDraw
 
@@ -289,15 +291,51 @@ def overlay_rectangle(
     bbox: tuple[float, float, float, float],
     color: Union[str, tuple[int, int, int]] = "red",
     width: int = 1,
+    dashed: bool = True,
 ) -> Image.Image:
     draw = ImageDraw.Draw(img)
 
     x, y, w, h = bbox
 
-    # Draw rectangle outline
-    draw.rectangle([x, y, x + w, y + h], outline=color, width=width)
+    if dashed:
+        # Draw dashed rectangle
+        linedashed(draw, x, y, x + w, y, color, width)
+        linedashed(draw, x + w, y, x + w, y + h, color, width)
+        linedashed(draw, x + w, y + h, x, y + h, color, width)
+        linedashed(draw, x, y + h, x, y, color, width)
+    else:
+        draw.rectangle([x, y, x + w, y + h], outline=color, width=width)
 
     return img
+
+
+# Adapted from https://stackoverflow.com/questions/51908563/dotted-or-dashed-line-with-python-pillow/58885306#58885306
+def linedashed(
+    draw: PIL.ImageDraw.Draw, x0, y0, x1, y1, fill, width, dash_length=4, nodash_length=8
+):
+    line_dx = x1 - x0  # delta x (can be negative)
+    line_dy = y1 - y0  # delta y (can be negative)
+    line_length = math.hypot(line_dx, line_dy)  # line length (positive)
+    if line_length == 0:
+        return  # Avoid division by zero in case the line length is 0
+    pixel_dx = line_dx / line_length  # x add for 1px line length
+    pixel_dy = line_dy / line_length  # y add for 1px line length
+    dash_start = 0
+    while dash_start < line_length:
+        dash_end = dash_start + dash_length
+        if dash_end > line_length:
+            dash_end = line_length
+        draw.line(
+            (
+                round(x0 + pixel_dx * dash_start),
+                round(y0 + pixel_dy * dash_start),
+                round(x0 + pixel_dx * dash_end),
+                round(y0 + pixel_dy * dash_end),
+            ),
+            fill=fill,
+            width=width,
+        )
+        dash_start += dash_length + nodash_length
 
 
 def annotate_action(

@@ -17,6 +17,7 @@ from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
+from agentlab.benchmarks.abstract_env import AbstractEnvArgs
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import (
@@ -725,7 +726,7 @@ def set_demo_mode(env_args_list: list[EnvArgs]):
         env_args.slow_mo = 1000
 
 
-def _convert_env_args(env_args_list):
+def _convert_env_args(env_args_list) -> list[EnvArgs]:
     """Return a list where every element is the *new* EnvArgs.
 
     For backward compatibility, we need to convert the old EnvArgs to the new one.
@@ -744,7 +745,7 @@ def _convert_env_args(env_args_list):
     new_list = []
     for ea in env_args_list:
         # already new → keep as‑is
-        if isinstance(ea, EnvArgs):
+        if isinstance(ea, (EnvArgs, AbstractEnvArgs)):
             new_list.append(ea)
         # old → convert
         elif isinstance(ea, BGymEnvArgs):

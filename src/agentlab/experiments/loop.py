@@ -20,12 +20,16 @@ import gymnasium as gym
 import numpy as np
 from browsergym.core.chat import Chat
 from browsergym.experiments.agent import Agent
-from browsergym.experiments.utils import count_messages_token, count_tokens
+from browsergym.experiments.utils import count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
 from tqdm import tqdm
 
-from agentlab.agents.tapeagent import TapeAgent, save_tape
+try:
+    from agentlab.agents.tapeagent import TapeAgent, save_tape
+except ImportError:
+    TapeAgent = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +48,7 @@ class EnvArgs(DataClassJsonMixin):
     slow_mo: Optional[int] = None  # use default value from BrowserGym
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
+    pre_observation_delay: float = None  # seconds, wait for JS events to be fired
 
     def make_env(
         self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True
@@ -67,6 +72,8 @@ class EnvArgs(DataClassJsonMixin):
             extra_kwargs["viewport"] = self.viewport
         if self.slow_mo is not None:
             extra_kwargs["slow_mo"] = self.slow_mo
+        if self.pre_observation_delay is not None:
+            extra_kwargs["pre_observation_delay"] = self.pre_observation_delay
         if self.storage_state:
             extra_kwargs["pw_context_kwargs"] = {"storage_state": self.storage_state}
         if self.task_kwargs is not None:
@@ -138,6 +145,12 @@ class StepTimestamps:
     env_stop: float = 0
     agent_start: float = 0
     agent_stop: float = 0
+    wait_for_page_loading_start: float = 0
+    wait_for_page_loading_stop: float = 0
+    validation_start: float = 0
+    validation_stop: float = 0
+    get_observation_start: float = 0
+    get_observation_stop: float = 0
 
 
 @dataclass
@@ -195,6 +208,12 @@ class StepInfo:
         t.action_exec_start = env_info["action_exec_start"]  # start
         t.action_exect_after_timeout = env_info["action_exec_stop"]
         t.action_exec_stop = env_info["action_exec_stop"] - env_info["action_exec_timeout"]
+        t.wait_for_page_loading_start = env_info.get("wait_for_page_loading_start", None)
+        t.wait_for_page_loading_stop = env_info.get("wait_for_page_loading_stop", None)
+        t.validation_start = env_info.get("validation_start", None)
+        t.validation_stop = env_info.get("validation_stop", None)
+        t.get_observation_start = env_info.get("get_observation_start", None)
+        t.get_observation_stop = env_info.get("get_observation_stop", None)
 
         if obs_preprocessor:
             self.obs = obs_preprocessor(self.obs)
@@ -443,6 +462,10 @@ class ExpArgs:
                 logger.debug("Sending action to environment.")
                 step_info.from_step(env, action, obs_preprocessor=agent.obs_preprocessor)
                 logger.debug("Environment stepped.")
+                if step_info.is_done:
+                    logger.debug(
+                        f"Episode done: terminated: {step_info.terminated}, truncated: {step_info.truncated}."
+                    )
 
         except Exception as e:
             err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
@@ -474,7 +497,7 @@ class ExpArgs:
                     err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
                 logger.info("Saving experiment info.")
                 self.save_summary_info(episode_info, Path(self.exp_dir), err_msg, stack_trace)
-                if isinstance(agent, TapeAgent):
+                if TapeAgent is not None and isinstance(agent, TapeAgent):
                     task = getattr(env, "task", {})
                     save_tape(self.exp_dir, episode_info, task, agent.final_tape)
             except Exception as e:
@@ -703,14 +726,20 @@ class ExpResult:
     def get_screenshot(self, step: int, som=False) -> Image:
         key = (step, som)
         if self._screenshots.get(key, None) is None:
-            file_name = f"screenshot_{'som_' if som else ''}step_{step}"
-            try:
-                with Image.open(self.exp_dir / (file_name + ".png")) as img:
-                    self._screenshots[key] = img.copy()
-            except FileNotFoundError:
-                with Image.open(self.exp_dir / (file_name + ".jpg")) as img:
-                    self._screenshots[key] = img.copy()
+            file_path = self.get_screenshot_path(step, som=som)
+            self._screenshots[key] = Image.open(file_path).convert("RGB")
         return self._screenshots[key]
+
+    def get_screenshot_path(self, step: int, som=False) -> Path:
+        """Return the path to the screenshot file."""
+        file_name = f"screenshot_{'som_' if som else ''}step_{step}"
+        for ext in [".png", ".jpg"]:
+            file_path = self.exp_dir / (file_name + ext)
+            if file_path.exists():
+                return file_path
+        raise FileNotFoundError(
+            f"No screenshot found for step {step} (som={som}) in {self.exp_dir}"
+        )
 
     def get_screenshots(self, som=False):
         files = list(self.exp_dir.glob("screenshot_step_*"))

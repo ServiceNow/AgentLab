@@ -13,7 +13,7 @@ from langchain_community.callbacks import bedrock_anthropic_callback, openai_inf
 
 TRACKER = threading.local()
 
-ANTHROPHIC_CACHE_PRICING_FACTOR = {
+ANTHROPIC_CACHE_PRICING_FACTOR = {
     "cache_read_tokens": 0.1,  # Cost for 5 min ephemeral cache. See Pricing Here: https://docs.anthropic.com/en/docs/about-claude/pricing#model-pricing
     "cache_write_tokens": 1.25,
 }
@@ -151,18 +151,22 @@ class TrackAPIPricingMixin:
     def reset_stats(self):
         self.stats = Stats()
 
-    def __init__(self, *args, **kwargs):
-        pricing_api = kwargs.pop("pricing_api", None)
+    def init_pricing_tracker(
+        self, pricing_api=None
+    ):  # TODO: Use this function in the base class init instead of having a init in the Mixin class.
         self._pricing_api = pricing_api
-        super().__init__(*args, **kwargs)
         self.set_pricing_attributes()
         self.reset_stats()
 
     def __call__(self, *args, **kwargs):
         """Call the API and update the pricing tracker."""
+        # 'self' here calls ._call_api() method of the subclass
         response = self._call_api(*args, **kwargs)
-
         usage = dict(getattr(response, "usage", {}))
+        if "prompt_tokens_details" in usage:
+            usage["cached_tokens"] = usage["prompt_tokens_details"].cached_tokens
+        if "input_tokens_details" in usage:
+            usage["cached_tokens"] = usage["input_tokens_details"].cached_tokens
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
         usage |= {"effective_cost": self.get_effective_cost(response)}
@@ -270,8 +274,8 @@ class TrackAPIPricingMixin:
         cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
         cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
 
-        cache_read_cost = self.input_cost * ANTHROPHIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
-        cache_write_cost = self.input_cost * ANTHROPHIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+        cache_read_cost = self.input_cost * ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
+        cache_write_cost = self.input_cost * ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
 
         # Calculate the effective cost
         effective_cost = (
@@ -280,6 +284,10 @@ class TrackAPIPricingMixin:
             + cache_read_tokens * cache_read_cost
             + cache_write_tokens * cache_write_cost
         )
+        if effective_cost < 0:
+            logging.warning(
+                "Anthropic: Negative effective cost detected.(Impossible! Likely a bug)"
+            )
         return effective_cost
 
     def get_effective_cost_from_openai_api(self, response) -> float:
@@ -298,23 +306,35 @@ class TrackAPIPricingMixin:
         Returns:
             float: The effective cost calculated from the response.
         """
-        usage = getattr(response, "usage", {})
-        prompt_token_details = getattr(response, "prompt_tokens_details", {})
-
-        total_input_tokens = getattr(
-            prompt_token_details, "prompt_tokens", 0
-        )  # Cache read tokens + new input tokens
-        output_tokens = getattr(usage, "completion_tokens", 0)
-        cache_read_tokens = getattr(prompt_token_details, "cached_tokens", 0)
-
-        non_cached_input_tokens = total_input_tokens - cache_read_tokens
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            logging.warning("No usage information found in the response. Defaulting cost to 0.0.")
+            return 0.0
+        api_type = "chatcompletion" if hasattr(usage, "prompt_tokens_details") else "response"
+        if api_type == "chatcompletion":
+            total_input_tokens = usage.prompt_tokens  # (cache read tokens + new input tokens)
+            output_tokens = usage.completion_tokens
+            cached_input_tokens = usage.prompt_tokens_details.cached_tokens
+            new_input_tokens = total_input_tokens - cached_input_tokens
+        elif api_type == "response":
+            total_input_tokens = usage.input_tokens  # (cache read tokens + new input tokens)
+            output_tokens = usage.output_tokens
+            cached_input_tokens = usage.input_tokens_details.cached_tokens
+            new_input_tokens = total_input_tokens - cached_input_tokens
+        else:
+            logging.warning(f"Unsupported API type: {api_type}. Defaulting cost to 0.0.")
+            return 0.0
         cache_read_cost = self.input_cost * OPENAI_CACHE_PRICING_FACTOR["cache_read_tokens"]
-
         effective_cost = (
-            self.input_cost * non_cached_input_tokens
-            + cache_read_tokens * cache_read_cost
+            self.input_cost * new_input_tokens
+            + cached_input_tokens * cache_read_cost
             + self.output_cost * output_tokens
         )
+        if effective_cost < 0:
+            logging.warning(
+                f"OpenAI: Negative effective cost detected.(Impossible! Likely a bug). "
+                f"New input tokens: {total_input_tokens}"
+            )
         return effective_cost
 
 

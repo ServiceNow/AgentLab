@@ -1,4 +1,5 @@
 import base64
+import html
 import os
 import traceback
 from copy import deepcopy
@@ -18,6 +19,7 @@ from openai.types.responses import ResponseFunctionToolCall
 from PIL import Image
 
 from agentlab.analyze import inspect_results
+from agentlab.analyze.episode_to_html import exp_result_to_html
 from agentlab.analyze.overlay_utils import annotate_action
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpResult, StepInfo
@@ -25,7 +27,7 @@ from agentlab.experiments.study import get_most_recent_study
 from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
-from agentlab.llm.response_api import MessageBuilder
+from agentlab.llm.response_api import MessageBuilder, ToolCalls
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -348,6 +350,9 @@ clicking the refresh button.
                     preview=True,
                 )
 
+            with gr.Tab("Episode") as tab_episode:
+                episode = gr.HTML()
+
             with gr.Tab("DOM HTML") as tab_html:
                 html_code = gr.Code(language="html", **code_args)
 
@@ -457,6 +462,7 @@ clicking the refresh button.
             outputs=[screenshot_gallery],
         )
         screenshot_gallery.select(fn=gallery_step_change, inputs=episode_id, outputs=step_id)
+        episode_id.change(fn=if_active("Episode")(update_episode), outputs=episode)
         step_id.change(fn=if_active("DOM HTML")(update_html), outputs=html_code)
         step_id.change(
             fn=if_active("Pruned DOM HTML")(update_pruned_html), outputs=pruned_html_code
@@ -485,6 +491,7 @@ clicking the refresh button.
         tab_screenshot_gallery.select(
             fn=update_screenshot_gallery, inputs=som_or_not, outputs=[screenshot_gallery]
         )
+        tab_episode.select(fn=update_episode, outputs=episode)
         tab_html.select(fn=update_html, outputs=html_code)
         tab_pruned_html.select(fn=update_pruned_html, outputs=pruned_html_code)
         tab_axtree.select(fn=update_axtree, outputs=axtree_code)
@@ -601,7 +608,13 @@ def get_screenshot(
         if annotate:
             action_str = step_info.action
             properties = step_info.obs.get("extra_element_properties", None)
-            action_colored = annotate_action(img, action_string=action_str, properties=properties)
+            try:
+                action_colored = annotate_action(
+                    img, action_string=action_str, properties=properties
+                )
+            except Exception as e:
+                warning(f"Failed to annotate action: {e}")
+                action_colored = action_str
         else:
             action_colored = None
         return img, action_colored
@@ -642,6 +655,18 @@ def gallery_step_change(evt: gr.SelectData, episode_id: EpisodeId):
     return StepId(episode_id=episode_id, step=evt.index)
 
 
+# def update_episode():
+#     # get exp_results for the given episode_id
+#     return exp_result_to_html(info.exp_result)
+def update_episode():
+    html_content = exp_result_to_html(info.exp_result)
+
+    # Use srcdoc instead of data URL
+    return f"""<iframe srcdoc="{html.escape(html_content, quote=True)}" 
+                      style="width: 100%; height: 800px; border: none; background-color: white;">
+              </iframe>"""
+
+
 def update_html():
     return get_obs(key="dom_txt", default="No DOM HTML")
 
@@ -667,6 +692,9 @@ def dict_to_markdown(d: dict):
         str: A markdown-formatted string representation of the dictionary.
     """
     if not isinstance(d, dict):
+        if isinstance(d, ToolCalls):
+            # ToolCalls rendered by to_markdown method.
+            return ""
         warning(f"Expected dict, got {type(d)}")
         return repr(d)
     if not d:
@@ -702,7 +730,7 @@ def dict_msg_to_markdown(d: dict):
             case "text":
                 parts.append(f"\n```\n{item['text']}\n```\n")
             case "tool_use":
-                tool_use = _format_tool_call(item["name"], item["input"], item["call_id"])
+                tool_use = _format_tool_call(item["name"], item["input"], item["id"])
                 parts.append(f"\n```\n{tool_use}\n```\n")
             case _:
                 parts.append(f"\n```\n{str(item)}\n```\n")
@@ -915,6 +943,9 @@ def get_episode_info(info: Info):
 **Task info:**
 
 {code(step_info.task_info)}
+
+**Terminated or Truncated:**
+{code(f"Terminated: {step_info.terminated}, Truncated: {step_info.truncated}")}
 
 **exp_dir:**
 
@@ -1158,7 +1189,7 @@ def get_directory_contents(results_dir: Path):
                 most_recent_summary = max(summary_files, key=os.path.getctime)
                 summary_df = pd.read_csv(most_recent_summary)
 
-                if len(summary_df) == 0 or summary_df["avg_reward"].isna().all():
+                if len(summary_df) == 0:
                     continue  # skip if all avg_reward are NaN
 
                 # get row with max avg_reward
@@ -1237,8 +1268,17 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
         warning("No step info to plot")
         return None
 
-    # this allows to pop labels to make sure we don't use more than 1 for the legend
-    labels = ["reset", "env", "agent", "exec action", "action error"]
+    # Updated labels to include new profiling stages
+    labels = [
+        "reset",
+        "env",
+        "agent",
+        "exec action",
+        "action error",
+        "wait for page",
+        "validation",
+        "get observation",
+    ]
     labels = {e: e for e in labels}
 
     colors = plt.get_cmap("tab20c").colors
@@ -1247,6 +1287,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     all_times = []
     step_times = []
     for i, step_info in progress_fn(list(enumerate(step_info_list)), desc="Building plot."):
+        assert isinstance(step_info, StepInfo), f"Expected StepInfo, got {type(step_info)}"
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
@@ -1267,6 +1308,39 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             # action
             label = labels.pop("exec action", None)
             add_patch(ax, prof.action_exec_start, prof.action_exec_stop, colors[3], label)
+
+            # NEW: Add wait for page loading visualization
+            if (
+                hasattr(prof, "wait_for_page_loading_start")
+                and prof.wait_for_page_loading_start > 0
+            ):
+                add_patch(
+                    ax,
+                    prof.wait_for_page_loading_start,
+                    prof.wait_for_page_loading_stop,
+                    colors[19],
+                    labels.pop("wait for page", None),
+                )
+
+            # NEW: Add validation visualization
+            if hasattr(prof, "validation_start") and prof.validation_start > 0:
+                add_patch(
+                    ax,
+                    prof.validation_start,
+                    prof.validation_stop,
+                    colors[8],
+                    labels.pop("validation", None),
+                )
+
+            # NEW: Add get observation visualization
+            if hasattr(prof, "get_observation_start") and prof.get_observation_start > 0:
+                add_patch(
+                    ax,
+                    prof.get_observation_start,
+                    prof.get_observation_stop,
+                    colors[12],
+                    labels.pop("get observation", None),
+                )
 
             try:
                 next_step_error = step_info_list[i + 1].obs["last_action_error"]
@@ -1327,14 +1401,13 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 horizontalalignment="right",
                 rotation=0,
                 clip_on=True,
-                antialiased=True,
+                # antialiased=True,
                 fontweight=1000,
                 backgroundcolor=color,
             )
 
     ax.set_ylim(0, 1)
     ax.set_xlim(0, max(all_times) + 1)
-    # plt.gca().autoscale()
 
     ax.set_xlabel("Time")
     ax.set_yticks([])
@@ -1343,7 +1416,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, 1.2),
-        ncol=5,
+        ncol=8,  # Updated to accommodate new labels
         frameon=True,
     )
 
