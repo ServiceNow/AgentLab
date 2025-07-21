@@ -21,3 +21,25 @@ July 13,workarena.servicenow.create-hardware-asset,385,gpt-4.1,ToolUse-gpt-4.1,W
 July 13,workarena.servicenow.create-hardware-asset,385,gpt-4.1,ToolUse-gpt-4.1,WorkArena-L1,WorkArena-L1,allac,Filling form in WorkArena,"Before clicking submit, make sure that all fields are filled properly. Then click submit."
 July 13,workarena.servicenow.create-hardware-asset,385,gpt-4.1,ToolUse-gpt-4.1,WorkArena-L1,WorkArena-L1,allac,Filling form in WorkArena,Avoid back and forth from tabs to tabs to reduce the number of actions
 July 14,workarena.servicenow.create-hardware-asset,385,gpt-4.1,ToolUse-gpt-4.1,WorkArena-L1,WorkArena-L1,allac,Filling form in WorkArena,When you see auto-complete make sure to select an element from that list
+July 16,workarena.servicenow.sort-asset-list,406,gpt-4-1,ToolUseAgent-gpt-4-1,workarena,workarena,patricebechard,Sorting lists in ServiceNow,"1. **Navigate to Your Table/List**
+
+   * For example, go to **Incident > All** or any other table you want to view.
+
+2. **Sort by One or Multiple Columns**
+
+   * `click` on the ""show / hide filter"" button (funnel icon) at the top left of the page to open the filter row.
+   * Repeat the following steps for each column you want to sort by:
+     * `click` on the ""Add Sort"" button to add a new sort filter. This will create a new ordering filter row with two comboboxes under the heading ""Order results by the following fields"".
+     * `fill` the first combobox with the appropriate field name you want to sort by. MAKE SURE to use the exact field name provided.
+     * `press` Enter after typing the field name. It is VERY IMPORTANT that you do this before doing anything else. DO NOT click on the run filter button before having confirmed your choice by explicitly pressing ENTER.
+     * `select_option` for the appropriate ordering between ascending (a to z) or descending (z to a) in the second combobox.
+   * Once all sort filters have been added, `click` the ""Run filter"" button to apply the sort.
+
+Notes:
+   * NEVER directly sort the columns using the table header.
+   * NEVER add columns via the Personalize List menu.
+
+3. **Resetting or Clearing Sorting**
+
+   * To reset sorting, click another column, or click again to toggle.
+   * In the filter bar, you may see a ""Sorted by..."" indicator—clear or change it as needed."

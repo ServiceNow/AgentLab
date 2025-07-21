@@ -25,7 +25,7 @@ from agentlab.agents.tool_use_agent.tool_use_agent import (
 )
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.loop import ExpArgs, StepInfo, save_package_versions
-from agentlab.llm.llm_utils import Discussion
+from agentlab.llm.response_api import LLMOutput
 from bgym import DEFAULT_BENCHMARKS
 from dotenv import load_dotenv
 from transformers import AutoTokenizer
@@ -188,7 +188,12 @@ def step_agent_history(action, action_info):
     st.session_state.action_history.append(action)
     st.session_state.action_info_history.append(action_info)
     st.session_state.thought_history.append(action_info.think)
-    st.session_state.prompt_history.append(get_prompt(action_info))
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.prompt_history.append(get_prompt(action_info))
+    elif isinstance(st.session_state.agent, ToolUseAgent):
+        st.session_state.prompt_history.append(
+            "\n".join([elem.to_markdown() for elem in st.session_state.agent.discussion.flatten()])
+        )
 
     # HACK: memory history can only be obtained via the agent
     if isinstance(st.session_state.agent, GenericAgent):
@@ -229,10 +234,31 @@ def revert_agent_history():
 
 def revert_agent_state():
     logger.info("Reverting agent state")
-    st.session_state.agent.obs_history.pop()
-    st.session_state.agent.actions.pop()
-    st.session_state.agent.thoughts.pop()
-    st.session_state.agent.memories.pop()
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.agent.obs_history.pop()
+        st.session_state.agent.actions.pop()
+        st.session_state.agent.thoughts.pop()
+        st.session_state.agent.memories.pop()
+    elif isinstance(st.session_state.agent, ToolUseAgent):
+        num_groups = len(st.session_state.agent.discussion.groups)
+        if num_groups == 3:
+            # start from blank state
+            st.session_state.agent.discussion.groups = []
+            st.session_state.agent.last_response = LLMOutput()
+            st.session_state.agent._responses = []
+        elif num_groups > 3:
+            # get rid of the last group (last action), and remove everything from the other previous group except for the action
+            st.session_state.agent.discussion.groups.pop()
+            last_group = copy.deepcopy(st.session_state.agent.discussion.groups[-1])
+            last_group.summary = None
+            last_group.messages = last_group.messages[:0]  # remove everything from last group
+            st.session_state.agent.discussion.groups[-1] = last_group
+            st.session_state.agent._responses.pop()
+            st.session_state.agent.last_response = copy.deepcopy(
+                st.session_state.agent._responses[-1]
+            )
+        else:
+            raise Exception("Invalid number of groups")
 
 
 def restore_env_history(step: int):
@@ -534,9 +560,17 @@ def load_session(exp_files):
         st.session_state.action_history.append(step_info.action)
         st.session_state.action_info_history.append(step_info.agent_info)
         st.session_state.thought_history.append(step_info.agent_info.get("think", None))
-        st.session_state.prompt_history.append(get_prompt(step_info.agent_info))
         if isinstance(st.session_state.agent, GenericAgent):
             st.session_state.memory_history.append(step_info.agent_info.get("memory", None))
+            st.session_state.prompt_history.append(get_prompt(step_info.agent_info))
+        elif isinstance(st.session_state.agent, ToolUseAgent):
+            st.session_state.prompt_history.append(
+                "\n".join(
+                    [elem.to_markdown() for elem in st.session_state.agent.discussion.flatten()]
+                )
+            )
+        else:
+            raise ValueError(f"Unknown agent type: {type(st.session_state.agent)}")
         st.session_state.obs_history.append(step_info.obs)
         st.session_state.reward_history.append(step_info.reward)
         st.session_state.terminated_history.append(step_info.terminated)
@@ -573,7 +607,8 @@ def clean_session():
 def prepare_agent():
     st.session_state.agent_args.prepare()
     st.session_state.agent = st.session_state.agent_args.make_agent()
-    st.session_state.agent.set_task_name(st.session_state.task)
+    if isinstance(st.session_state.agent, ToolUseAgent):
+        st.session_state.agent.set_task_name(st.session_state.task)
 
 
 def set_environment_info():
@@ -863,9 +898,9 @@ def set_prompt_modifier():
             st.session_state.agent.config.obs.use_tabs = st.checkbox(
                 "Use tabs", value=st.session_state.agent.config.obs.use_tabs
             )
-            st.session_state.agent.config.obs.add_mouse_pointer = st.checkbox(
-                "Add mouse pointer", value=st.session_state.agent.config.obs.add_mouse_pointer
-            )
+            # st.session_state.agent.config.obs.add_mouse_pointer = st.checkbox(
+            #     "Add mouse pointer", value=st.session_state.agent.config.obs.add_mouse_pointer
+            # )
             st.session_state.agent.config.obs.use_zoomed_webpage = st.checkbox(
                 "Use zoomed webpage", value=st.session_state.agent.config.obs.use_zoomed_webpage
             )
@@ -1107,7 +1142,14 @@ def set_axtree_tab():
 
 
 def set_prompt_tab():
-    st.code(st.session_state.prompt_history[-1], language=None, wrap_lines=True)
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.code(st.session_state.prompt_history[-1], language=None, wrap_lines=True)
+    elif isinstance(st.session_state.agent, ToolUseAgent):
+        st.markdown(st.session_state.prompt_history[-1])
+
+        st.markdown(f"## Last summary:\n{st.session_state.agent.discussion.get_last_summary()}")
+    else:
+        raise ValueError(f"Unknown agent type: {type(st.session_state.agent)}")
 
 
 def set_previous_steps_tab():

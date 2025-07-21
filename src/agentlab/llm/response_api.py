@@ -589,29 +589,26 @@ class AzureOpenAIResponseModel(OpenAIResponseModel):
     def __init__(
         self,
         model_name: str,
+        base_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        temperature: float = 0.5,
-        max_tokens: int = 100,
-        extra_kwargs: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        temperature: float | None = None,
+        max_tokens: int | None = 100,
     ):
         api_key = os.getenv("AZURE_OPENAI_API_KEY")
-        self.tools = kwargs.pop("tools", None)
-        logging.info(f"Tools: {self.tools}")
-        super().__init__(
-            model_name=model_name,
-            api_key=api_key,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            extra_kwargs=extra_kwargs,
-            **kwargs,
+        base_url = urljoin(os.getenv("AZURE_OPENAI_ENDPOINT"), "openai/v1")
+        self.action_space_as_tools = True  # this should be a config
+        super().__init__(  # This is passed to BaseModel
+            model_name=model_name, api_key=api_key, temperature=temperature, max_tokens=max_tokens
         )
-        # azure client takes extra kwargs
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url=urljoin(os.getenv("AZURE_OPENAI_ENDPOINT"), "openai/v1"),
-            default_query={"api-version": "preview"},
-        )
+        client_args = {}
+        if base_url is not None:
+            client_args["base_url"] = base_url
+        if api_key is not None:
+            client_args["api_key"] = api_key
+        client_args["default_query"] = {"api-version": "preview"}
+        self.client = OpenAI(**client_args)
+        # Init pricing tracker after super() so that all attributes have been set.
+        self.init_pricing_tracker(pricing_api="openai")  # Use the PricingMixin
 
 
 class OpenAIChatCompletionModel(BaseModelWithPricing):
@@ -958,9 +955,6 @@ class AzureOpenAIResponseModelArgs(OpenAIResponseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            extra_kwargs=extra_kwargs,
-            pricing_api="openai",
-            **kwargs,
         )
 
 
