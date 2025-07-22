@@ -1,7 +1,6 @@
 import os
 import json
 import random
-from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional
 from pathlib import Path
 import pandas as pd
@@ -21,27 +20,7 @@ from agentlab.agents import dynamic_prompting as dp
 import logging
 from agentlab.agents.generic_agent.generic_agent import GenericAgent
 from agentlab.llm.llm_utils import ParseError, get_tokenizer
-
-@dataclass
-class HintPromptConfig:
-    exclude_axtree: bool = False
-    exclude_actions: bool = False
-    exclude_think: bool = False
-    exclude_reward: bool = False
-    n_traces_to_hinter: int = 1
-    n_hints_per_task: int = 1
-    use_step_zoom: bool = False  # New flag for step-zoom mechanism
-
-@dataclass
-class JephHinterConfig:
-    traces_folder: str = "/Users/had.nekoeiqachkanloo/"
-    max_traces: int = 100
-    hint_db_path: str = "hint_db.csv"
-    agent_name: str = "JephHinter"
-    user_name: str = "auto"
-    source: str = "jeph_hinter"
-    domain_name: str = ""
-    hint_prompt_config: HintPromptConfig = field(default_factory=HintPromptConfig)
+from agentlab_configs import HintPromptConfig, JephHinterConfig, MineHintsConfig
 
 class SimpleDiscussion:
     """Minimal message grouping for hint prompting."""
@@ -460,64 +439,58 @@ class JephHinter(bgym.Agent):
         raise NotImplementedError("JephHinter does not implement get_action; use build_hint_db instead.")
 
 
-# Example usage with OpenAI API
+class MineHints:
+    """
+    Class to mine hints from execution traces using JephHinter.
+    """
+    def __init__(self, config: MineHintsConfig):
+        self.config = config
+        self.root_dir = config.root_dir
+        self.output_path = config.output_path or f"{self.root_dir}/hint_db_updated.csv"
+        self.exclude_axtree = config.exclude_axtree
+        self.exclude_actions = config.exclude_actions
+        self.exclude_think = config.exclude_think
+        self.exclude_reward = config.exclude_reward
+        self.n_traces = config.n_traces
+        self.n_hints_per_task = config.n_hints_per_task
+        self.use_step_zoom = config.use_step_zoom
+        self._setup_model_and_config()
+    def _setup_model_and_config(self):
+        self.model_args = OpenAIResponseModelArgs(
+            model_name="gpt-4o",
+            max_total_tokens=128_000,
+            max_input_tokens=128_000,
+            max_new_tokens=16_384,
+            vision_support=False,
+        )
+        hint_prompt_config = HintPromptConfig(
+            exclude_axtree=self.exclude_axtree,
+            exclude_actions=self.exclude_actions,
+            exclude_think=self.exclude_think,
+            exclude_reward=self.exclude_reward,
+            n_traces_to_hinter=self.n_traces,
+            n_hints_per_task=self.n_hints_per_task,
+            use_step_zoom=self.use_step_zoom,
+        )
+        self.jeph_config = JephHinterConfig(
+            traces_folder=self.root_dir,
+            max_traces=100,
+            hint_db_path="/hint_db.csv",
+            agent_name="gpt-4o",
+            user_name="auto",
+            source="jeph_hinter",
+            domain_name="miniwob",
+            hint_prompt_config=hint_prompt_config,
+        )
+    def run(self):
+        print(f"Starting hint mining from: {self.root_dir}")
+        print(f"Output will be saved to: {self.output_path}")
+        agent = JephHinter(model_args=self.model_args, config=self.jeph_config)
+        agent.build_hint_db(output_path=self.output_path)
+        print("Hint database update complete.")
+
+# Example usage
 if __name__ == "__main__":
-    import os
-    import argparse
-    from agentlab.llm.response_api import OpenAIResponseModelArgs
-    
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run JephHinter to generate hints from traces')
-    parser.add_argument('--root-dir', type=str, 
-                       default="/Users/had.nekoeiqachkanloo/hadi/AgentLab_deep_debug/agentlab_results_miniwib/agentlab_results_miniwib10",
-                       help='Root directory containing trace files')
-    parser.add_argument('--output-path', type=str,
-                       default=None,
-                       help='Output path for hint database (defaults to root_dir/hint_db.csv)')
-    parser.add_argument('--exclude-axtree', action='store_true', default=False, help='Exclude axtree in the hint prompt')
-    parser.add_argument('--exclude-actions', action='store_true', default=False, help='Exclude actions in the hint prompt')
-    parser.add_argument('--exclude-think', action='store_true', default=False, help='Exclude think in the hint prompt')
-    parser.add_argument('--exclude-reward', action='store_true', default=False, help='Exclude reward in the hint prompt')
-    parser.add_argument('--n-traces', type=int, default=2, help='Number of traces to use for hint generation (1=single, 2=failed+successful pair, >2=random sample)')
-    parser.add_argument('--n-hints-per-task', type=int, default=1, help='Number of hints to generate per task')
-    parser.add_argument('--use-step-zoom', action='store_true', default=False, help='Use step-zoom mechanism for hint generation (summarize then judge)')
-
-    args = parser.parse_args()
-
-   # Initialize the model arguments
-    model_args = OpenAIResponseModelArgs(
-        model_name="gpt-4o",
-        max_total_tokens=128_000,
-        max_input_tokens=128_000,
-        max_new_tokens=16_384,
-        vision_support=False,
-    )
-
-    # Configure the JephHinter agent
-    root_dir = args.root_dir
-    hint_prompt_config = HintPromptConfig(
-        exclude_axtree=args.exclude_axtree,
-        exclude_actions=args.exclude_actions,
-        exclude_think=args.exclude_think,
-        exclude_reward=args.exclude_reward,
-        n_traces_to_hinter=args.n_traces,
-        n_hints_per_task=args.n_hints_per_task,
-        use_step_zoom=args.use_step_zoom,
-    )
-    config = JephHinterConfig(
-        traces_folder=root_dir,
-        max_traces=100,
-        hint_db_path="/hint_db.csv",
-        agent_name="gpt-4o",
-        user_name="auto",
-        source="jeph_hinter",
-        domain_name="miniwob",
-        hint_prompt_config=hint_prompt_config,
-    )
-
-    # Create and run the agent
-    agent = JephHinter(model_args=model_args, config=config)
-    output_path = args.output_path or f"{root_dir}/hint_db_updated.csv"
-    agent.build_hint_db(output_path=output_path)
-    
-    print("Hint database update complete.")
+    config = MineHintsConfig()
+    mine_hints = MineHints(config)
+    mine_hints.run()
