@@ -1,5 +1,6 @@
 import os
 import json
+import random
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional
 from pathlib import Path
@@ -13,6 +14,7 @@ from functools import partial
 
 import bgym
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.experiments.loop import StepInfo
 from agentlab.llm.response_api import MessageBuilder, OpenAIResponseModelArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import MainPrompt
 from agentlab.agents import dynamic_prompting as dp
@@ -22,16 +24,19 @@ from agentlab.llm.llm_utils import ParseError, get_tokenizer
 
 @dataclass
 class HintPromptConfig:
-    include_axtree: bool = False
-    include_actions: bool = False
-    include_think: bool = False
-    include_reward: bool = False
+    exclude_axtree: bool = False
+    exclude_actions: bool = False
+    exclude_think: bool = False
+    exclude_reward: bool = False
+    n_traces_to_hinter: int = 1
+    n_hints_per_task: int = 1
+    use_step_zoom: bool = False  # New flag for step-zoom mechanism
 
 @dataclass
 class JephHinterConfig:
     traces_folder: str = "/Users/had.nekoeiqachkanloo/"
     max_traces: int = 100
-    hint_db_path: str = "hint_db_updated.csv"
+    hint_db_path: str = "hint_db.csv"
     agent_name: str = "JephHinter"
     user_name: str = "auto"
     source: str = "jeph_hinter"
@@ -102,39 +107,75 @@ def extract_trace_info(step_data):
     
     return trace_info
 
-def construct_hint_prompt(trace_info, task_name, hint_prompt_config: HintPromptConfig):
+def _format_trace_steps(trace_info: list, hint_prompt_config: HintPromptConfig):
+    """Helper function to format trace steps into prompt parts."""
+    prompt_parts = []
+    for i, step in enumerate(trace_info):
+        prompt_parts.append(f"\nStep {i+1}:")
+        if not hint_prompt_config.exclude_axtree and step.get('axtree_txt'):
+            prompt_parts.append(f"AXTree: {step['axtree_txt']}")
+        if not hint_prompt_config.exclude_think and step.get('think'):
+            prompt_parts.append(f"Agent's reasoning: {step['think']}")
+        if not hint_prompt_config.exclude_actions and step.get('action'):
+            prompt_parts.append(f"Action taken: {step['action']}")
+        if step.get('error'):
+            prompt_parts.append(f"Error encountered: {step['error']}")
+        if not hint_prompt_config.exclude_reward:
+            prompt_parts.append(f"Current reward: {step['reward']}")
+    return prompt_parts
+
+def construct_hint_prompt(trace_info_list, task_name, hint_prompt_config: HintPromptConfig):
     """Construct a comprehensive prompt for hint generation based on trace analysis."""
     prompt_parts = []
     
     # Add system instruction
     prompt_parts.append(f"Task: {task_name}")
-    prompt_parts.append("\n=== EXECUTION TRACE ===")
-    cum_reward = 0
-    # Add trace information
-    for i, step in enumerate(trace_info):
-        prompt_parts.append(f"\nStep {i+1}:")
-        if hint_prompt_config.include_axtree and step.get('axtree_txt'):
-            prompt_parts.append(f"AXTree: {step['axtree_txt']}")
-        if hint_prompt_config.include_think and step.get('think'):
-            prompt_parts.append(f"Agent's reasoning: {step['think']}")
-        if hint_prompt_config.include_actions and step.get('action'):
-            prompt_parts.append(f"Action taken: {step['action']}")
-        if step.get('error'):
-            prompt_parts.append(f"Error encountered: {step['error']}")
-        if hint_prompt_config.include_reward:
-            prompt_parts.append(f"Current reward: {step['reward']}")
-        if hint_prompt_config.include_reward:
-            cum_reward += step['reward']
-
-    if hint_prompt_config.include_reward:
-        if cum_reward == 1:
-            prompt_parts.append(f"\nThis was a succeful trace.")
-        else:
-            prompt_parts.append(f"\nThis was a failed trace.")
     
-    # Add analysis request
-    prompt_parts.append("\n=== HINT GENERATION ===")
-    prompt_parts.append("Based on this trace, provide a concise, actionable hint that would help an agent avoid common mistakes and succeed at this task.")
+    # Determine the scenario based on the number and type of traces
+    if len(trace_info_list) == 1:
+        # Single trace scenario
+        trace_info = trace_info_list[0]
+        prompt_parts.append("\n=== EXECUTION TRACE ===")
+        prompt_parts.extend(_format_trace_steps(trace_info, hint_prompt_config))
+        
+        # Add outcome summary
+        if not hint_prompt_config.exclude_reward:
+            cum_reward = sum(step.get('reward', 0) for step in trace_info)
+            if cum_reward > 0:
+                prompt_parts.append(f"\nThis was a successful trace.")
+            else:
+                prompt_parts.append(f"\nThis was a failed trace.")
+        
+        # Add analysis request for single trace
+        prompt_parts.append("\n=== HINT GENERATION ===")
+        prompt_parts.append("Based on this trace, provide a concise, actionable hint that would help an agent avoid common mistakes and succeed at this task.")
+        
+    elif len(trace_info_list) == 2:
+        # Failed and successful trace pair scenario
+        for trace_idx, trace_info in enumerate(trace_info_list):
+            cum_reward = sum(step.get('reward', 0) for step in trace_info)
+            outcome = "SUCCESSFUL" if cum_reward > 0 else "FAILED"
+            prompt_parts.append(f"\n--- Trace {trace_idx + 1} ({outcome}) ---")
+            prompt_parts.extend(_format_trace_steps(trace_info, hint_prompt_config))
+        # Add analysis request for comparison
+        prompt_parts.append("\n=== HINT GENERATION ===")
+        prompt_parts.append("Compare the failed and successful traces above. Provide a concise, actionable hint that explains the key differences and what the agent should do to succeed.")
+        
+    else:
+        # Random set of traces scenario
+        prompt_parts.append(f"\n=== MULTIPLE EXECUTION TRACES ({len(trace_info_list)} traces) ===")
+        
+        for trace_idx, trace_info in enumerate(trace_info_list):
+            cum_reward = sum(step.get('reward', 0) for step in trace_info)
+            outcome = "SUCCESSFUL" if cum_reward > 0 else "FAILED"
+            prompt_parts.append(f"\n--- Trace {trace_idx + 1} ({outcome}) ---")
+            prompt_parts.extend(_format_trace_steps(trace_info, hint_prompt_config))
+        
+        # Add analysis request for multiple traces
+        prompt_parts.append("\n=== HINT GENERATION ===")
+        prompt_parts.append("Based on the multiple traces above, provide a concise, actionable hint that identifies common patterns, successful strategies, and key insights for completing this task.")
+    
+    # Common instructions for all scenarios
     prompt_parts.append("IMPORTANT: Keep your hint SHORT (1-2 sentences maximum) and write it as a SINGLE LINE without line breaks.")
     prompt_parts.append("Focus on:")
     prompt_parts.append("- Common pitfalls or errors to avoid")
@@ -143,6 +184,94 @@ def construct_hint_prompt(trace_info, task_name, hint_prompt_config: HintPromptC
     prompt_parts.append("- Step-by-step guidance if applicable")
     
     return "\n".join(prompt_parts)
+
+def summarize_trace_for_important_steps(trace_info, summarizer_llm, msg_builder, hint_prompt_config):
+    """
+    Use an LLM to summarize the full trace and select the most important step(s).
+    Returns a list of step indices (0-based) to zoom in on.
+    """
+    # Build a summary prompt
+    prompt_parts = []
+    prompt_parts.append("You are a trace summarizer. Given the following execution trace, identify the step or steps that are most important for understanding success or failure. Return the step numbers (starting from 1) and a brief reason why they are important.")
+    prompt_parts.append("\n=== EXECUTION TRACE ===")
+    for i, step in enumerate(trace_info):
+        # Use _format_trace_steps for consistent formatting
+        prompt_parts.extend(_format_trace_steps([step], hint_prompt_config))
+    prompt_parts.append("\n=== STEP SELECTION ===")
+    prompt_parts.append("List the most important step numbers (comma separated) and a brief reason for each.")
+    summary_prompt = "\n".join(prompt_parts)
+
+    discussion = SimpleDiscussion()
+    sys_msg = msg_builder.system().add_text("You are a trace summarizer.")
+    discussion.append(sys_msg)
+    user_msg = msg_builder.user().add_text(summary_prompt)
+    discussion.append(user_msg)
+    from agentlab.llm.response_api import APIPayload
+    payload = APIPayload(messages=discussion.flatten())
+    response = summarizer_llm(payload)
+    # Parse step numbers from response.think or str(response)
+    import re
+    text = response.think if hasattr(response, "think") else str(response)
+    # Look for numbers (steps) in the response
+    step_nums = re.findall(r"Step\s*(\d+)", text)
+    if not step_nums:
+        # fallback: look for any numbers
+        step_nums = re.findall(r"\b(\d+)\b", text)
+    # Convert to 0-based indices
+    indices = [int(num)-1 for num in step_nums if num.isdigit() and 0 < int(num) <= len(trace_info)]
+    # If nothing found, fallback to last step
+    if not indices:
+        indices = [len(trace_info)-1]
+    return indices
+
+def construct_hint_prompt_step_zoom(trace_info, important_indices, task_name, hint_prompt_config):
+    """
+    Construct a prompt focusing on the most important step(s) for the judge model.
+    """
+    prompt_parts = []
+    prompt_parts.append(f"Task: {task_name}")
+    prompt_parts.append("\n=== ZOOMED-IN STEPS ===")
+    for idx in important_indices:
+        if 0 <= idx < len(trace_info):
+            step = trace_info[idx]
+            prompt_parts.extend(_format_trace_steps([step], hint_prompt_config))
+    prompt_parts.append("\n=== HINT GENERATION ===")
+    prompt_parts.append("Based on the most important step(s) above, provide a concise, actionable hint that would help an agent avoid common mistakes and succeed at this task. IMPORTANT: Keep your hint SHORT (1-2 sentences maximum) and write it as a SINGLE LINE without line breaks.")
+    return "\n".join(prompt_parts)
+
+def _select_traces_for_hint(traces, n_traces_to_hinter):
+    """Select traces for hint generation based on the scenario."""
+    if n_traces_to_hinter == 1:
+        # Single trace scenario
+        return [random.choice(traces)["trace_info"]]
+    
+    elif n_traces_to_hinter == 2:
+        # Two traces scenario - ideally one failed and one successful
+        successful_traces = []
+        failed_traces = []
+        
+        for trace in traces:
+            cum_reward = sum(step.get('reward', 0) for step in trace["trace_info"])
+            if cum_reward > 0:
+                successful_traces.append(trace)
+            else:
+                failed_traces.append(trace)
+        
+        selected_traces = []
+        
+        if successful_traces and failed_traces:
+            selected_traces = [random.choice(successful_traces), random.choice(failed_traces)]
+        else:
+            pool = successful_traces or failed_traces or traces
+            selected_traces = random.sample(pool, min(2, len(pool)))
+        return [trace["trace_info"] for trace in selected_traces]
+    
+    else:
+        # Random set of traces scenario
+        n_available = len(traces)
+        n_to_sample = min(n_traces_to_hinter, n_available)
+        selected_traces = random.sample(traces, n_to_sample)
+        return [trace["trace_info"] for trace in selected_traces]
 
 class JephHinter(bgym.Agent):
     """
@@ -172,28 +301,35 @@ class JephHinter(bgym.Agent):
         for step in step_data:
             # Extract experiment path from file path
             file_path = step["file"]
+            print("loading file", file_path)
             # Extract task name and seed from path (assuming structure like .../task_name_seed/step_*.pkl.gz)
             path_parts = file_path.split(os.sep)
             task_name = "unknown_task"
             seed = "unknown_seed"
             
             for part in path_parts:
-                if "miniwob." in part or "webarena." in part:
-                    # Extract task name from format like "miniwob.drag-items-grid_17"
+                if "miniwob." in part or "workarena." in part:
+                    # Handle new format: "miniwob.use-colorwheel-2_1" or "workarena.servicenow.sort-user-list_85"
                     if "miniwob." in part:
-                        task_parts = part.split("miniwob.")[1].split("_")
-                        task_name = "miniwob." + task_parts[0]  # Extract "drag-items-grid"
-                        if len(task_parts) > 1:
-                            seed = task_parts[1]  # Extract "17"
-                    elif "webarena." in part:
-                        task_parts = part.split("webarena.")[1].split("_")
-                        task_name = "webarena." + task_parts[0]  # Extract task name
-                        if len(task_parts) > 1:
-                            seed = task_parts[1]  # Extract seed
+                        prefix = "miniwob."
+                    else:  # workarena.
+                        prefix = "workarena."
+                    
+                    # Extract everything after the prefix and split by last underscore
+                    task_part = part.split(prefix)[1]
+                    # Find the first underscore to separate task name from seed
+                    first_underscore_idx = task_part.find("_")
+                    if first_underscore_idx != -1:
+                        task_name = prefix + task_part[:first_underscore_idx]
+                        seed = task_part[first_underscore_idx + 1:]
+                    else:
+                        task_name = prefix + task_part
+                        seed = "unknown_seed"
                     break
             
             # Create unique key for task+seed combination
             experiment_key = f"{task_name}_{seed}"
+            print("experiment_key", experiment_key)
             if experiment_key not in experiments:
                 experiments[experiment_key] = {
                     "task_name": task_name,
@@ -238,60 +374,74 @@ class JephHinter(bgym.Agent):
                 key = (row.get("task_name", ""), row.get("hint", ""))
                 existing.add(key)
         
-        new_rows = []
+        # Group traces by task name
+        tasks_traces = {}
         for trace in self.traces:
             task_name = trace.get("task_name", "unknown_task")
-            trace_info = trace.get("trace_info", [])
-            
-            if not trace_info:
+            if task_name not in tasks_traces:
+                tasks_traces[task_name] = []
+            tasks_traces[task_name].append(trace)
+        
+        new_rows = []
+        for task_name, task_traces in tasks_traces.items():
+            if not task_traces:
                 continue
-            
-            # Construct comprehensive prompt for hint generation
-            hint_prompt = construct_hint_prompt(
-                trace_info, task_name,
-                hint_prompt_config=self.config.hint_prompt_config
-            )
-            
-            # Use LLM to generate a hint
-            discussion = SimpleDiscussion()
-            sys_msg = self.msg_builder.system().add_text(
-                "You are a hint-generating agent. Analyze the following execution trace and propose a helpful hint that is not only useful for this specific task, but is also generalizable to other goals and, ideally, to other tasks. Focus on extracting strategies or principles that could help in similar situations, rather than task-specific details."
-            )
-            discussion.append(sys_msg)
-            trace_msg = self.msg_builder.user().add_text(hint_prompt)
-            discussion.append(trace_msg)
-            
-            response = self.llm(messages=discussion.flatten())
-            hint = response.think if hasattr(response, "think") else str(response)
-            
-            # Clean up hint to ensure it's short and single-line
-            hint = hint.strip()
-            # Remove line breaks and extra whitespace
-            hint = " ".join(hint.split())
-            # Truncate if too long (keep under 200 characters)
-            if len(hint) > 200:
-                hint = hint[:197] + "..."
-            
-            # Check for duplicates
-            key = (task_name, hint)
-            if key in existing:
-                continue
-            
-            # Create new row
-            row = {
-                "time_stamp": datetime.now().strftime("%b %d"),
-                "task_name": task_name,
-                "task_seed": trace.get("seed", "unknown_seed"),
-                "base_llm": getattr(self.model_args, "model_name", "unknown_llm"),
-                "agent_name": self.config.agent_name,
-                "domain_name": self.config.domain_name,
-                "user_name": self.config.user_name,
-                "source": self.config.source,
-                "semantic_keys": f"trace_analysis_{len(trace_info)}_steps",
-                "hint": hint,
-            }
-            new_rows.append(row)
-            existing.add(key)
+            n_traces_to_hinter = self.config.hint_prompt_config.n_traces_to_hinter
+            n_hints_per_task = getattr(self.config.hint_prompt_config, 'n_hints_per_task', 1)
+            hints_for_this_task = set()
+            for _ in range(n_hints_per_task):
+                selected_trace_infos = _select_traces_for_hint(task_traces, n_traces_to_hinter)
+                if not selected_trace_infos:
+                    continue
+                # If step-zoom is enabled and only one trace is selected, use the new mechanism
+                if self.config.hint_prompt_config.use_step_zoom and len(selected_trace_infos) == 1:
+                    trace_info = selected_trace_infos[0]
+                    # Use the same LLM for summarizer and judge for now, or allow config
+                    summarizer_llm = self.llm
+                    msg_builder = self.msg_builder
+                    important_indices = summarize_trace_for_important_steps(trace_info, summarizer_llm, msg_builder, self.config.hint_prompt_config)
+                    print("Importany indices: ", important_indices)
+                    hint_prompt = construct_hint_prompt_step_zoom(trace_info, important_indices, task_name, self.config.hint_prompt_config)
+                else:
+                    hint_prompt = construct_hint_prompt(
+                        selected_trace_infos, task_name,
+                        hint_prompt_config=self.config.hint_prompt_config
+                    )
+                discussion = SimpleDiscussion()
+                sys_msg = self.msg_builder.system().add_text(
+                    "You are a hint-generating agent. Analyze the following execution trace and propose a helpful hint that is not only useful for this specific task, but is also generalizable to other goals and, ideally, to other tasks. Focus on extracting strategies or principles that could help in similar situations, rather than task-specific details."
+                )
+                discussion.append(sys_msg)
+                trace_msg = self.msg_builder.user().add_text(hint_prompt)
+                discussion.append(trace_msg)
+                from agentlab.llm.response_api import APIPayload
+                payload = APIPayload(messages=discussion.flatten())
+                response = self.llm(payload)
+                hint = response.think if hasattr(response, "think") else str(response)
+                hint = hint.strip()
+                hint = " ".join(hint.split())
+                if len(hint) > 300:
+                    hint = hint[:297] + "..."
+                key = (task_name, hint)
+                if key in existing or hint in hints_for_this_task:
+                    continue
+                first_trace = task_traces[0]
+                total_steps = sum(len(trace_info) for trace_info in selected_trace_infos)
+                row = {
+                    "time_stamp": datetime.now().strftime("%b %d"),
+                    "task_name": task_name,
+                    "task_seed": first_trace.get("seed", "unknown_seed"),
+                    "base_llm": getattr(self.model_args, "model_name", "unknown_llm"),
+                    "agent_name": self.config.agent_name,
+                    "domain_name": self.config.domain_name,
+                    "user_name": self.config.user_name,
+                    "source": self.config.source,
+                    "semantic_keys": f"trace_analysis_{len(selected_trace_infos)}_traces_{total_steps}_steps",
+                    "hint": hint,
+                }
+                new_rows.append(row)
+                existing.add(key)
+                hints_for_this_task.add(hint)
         
         # Append new rows and save
         if new_rows:
@@ -319,25 +469,22 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Run JephHinter to generate hints from traces')
     parser.add_argument('--root-dir', type=str, 
-                       default="/Users/had.nekoeiqachkanloo/hadi/AgentLab/agentlab_results_no_hint_miniwob10",
+                       default="/Users/had.nekoeiqachkanloo/hadi/AgentLab_deep_debug/agentlab_results_miniwib/agentlab_results_miniwib10",
                        help='Root directory containing trace files')
     parser.add_argument('--output-path', type=str,
                        default=None,
-                       help='Output path for hint database (defaults to root_dir/hint_db_updated.csv)')
-    parser.add_argument('--openai-key', type=str,
-                       default="OPENAI_KEY",
-                       help='OpenAI API key')
-    parser.add_argument('--include-axtree', action='store_true', help='Include axtree in the hint prompt')
-    parser.add_argument('--include-actions', action='store_true', help='Include actions in the hint prompt')
-    parser.add_argument('--include-think', action='store_true', help='Include think in the hint prompt')
-    parser.add_argument('--include-reward', action='store_true', help='Include reward in the hint prompt')
+                       help='Output path for hint database (defaults to root_dir/hint_db.csv)')
+    parser.add_argument('--exclude-axtree', action='store_true', default=False, help='Exclude axtree in the hint prompt')
+    parser.add_argument('--exclude-actions', action='store_true', default=False, help='Exclude actions in the hint prompt')
+    parser.add_argument('--exclude-think', action='store_true', default=False, help='Exclude think in the hint prompt')
+    parser.add_argument('--exclude-reward', action='store_true', default=False, help='Exclude reward in the hint prompt')
+    parser.add_argument('--n-traces', type=int, default=2, help='Number of traces to use for hint generation (1=single, 2=failed+successful pair, >2=random sample)')
+    parser.add_argument('--n-hints-per-task', type=int, default=1, help='Number of hints to generate per task')
+    parser.add_argument('--use-step-zoom', action='store_true', default=False, help='Use step-zoom mechanism for hint generation (summarize then judge)')
 
     args = parser.parse_args()
-    
-    # Set your OpenAI API key
-    os.environ["OPENAI_API_KEY"] = args.openai_key
 
-    # Initialize the model arguments
+   # Initialize the model arguments
     model_args = OpenAIResponseModelArgs(
         model_name="gpt-4o",
         max_total_tokens=128_000,
@@ -349,10 +496,13 @@ if __name__ == "__main__":
     # Configure the JephHinter agent
     root_dir = args.root_dir
     hint_prompt_config = HintPromptConfig(
-        include_axtree=args.include_axtree,
-        include_actions=args.include_actions,
-        include_think=args.include_think,
-        include_reward=args.include_reward,
+        exclude_axtree=args.exclude_axtree,
+        exclude_actions=args.exclude_actions,
+        exclude_think=args.exclude_think,
+        exclude_reward=args.exclude_reward,
+        n_traces_to_hinter=args.n_traces,
+        n_hints_per_task=args.n_hints_per_task,
+        use_step_zoom=args.use_step_zoom,
     )
     config = JephHinterConfig(
         traces_folder=root_dir,

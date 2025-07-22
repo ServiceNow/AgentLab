@@ -24,6 +24,8 @@ from agentlab.agents.generic_agent import (
 )
 from browsergym.experiments.benchmark.utils import make_env_args_list_from_repeat_tasks
 from browsergym.experiments.benchmark.metadata.utils import task_list_from_metadata, task_metadata
+from bgym import DEFAULT_BENCHMARKS
+
 import numpy as np
 
 from agentlab.experiments.study import Study
@@ -43,8 +45,8 @@ parser.add_argument('--hint-db-path', type=str,
 args = parser.parse_args()
 
 # Set environment variables from command line arguments
-os.environ["AGENTLAB_EXP_ROOT"] = os.path.expandvars(args.exp_root)
-
+# os.environ["AGENTLAB_EXP_ROOT"] = os.path.expandvars(args.exp_root)
+# print(f"AGENTLAB_EXP_ROOT is set to: {os.environ['AGENTLAB_EXP_ROOT']}")
 logging.getLogger().setLevel(logging.INFO)
 
 # choose your agent or provide a new agent
@@ -77,10 +79,17 @@ if not os.path.exists(args.hint_db_path):
 
 AGENT_CONFIG.config.task_hint.hint_db_rel_path = args.hint_db_path
 agent_args = cast(list, [AGENT_CONFIG])
+agent_args[0].config.task_hint.use_task_hint = args.use_task_hint
 
-from bgym import DEFAULT_BENCHMARKS
+# ## select the benchmark to run on
+# benchmark = "miniwob_tiny_test"
+benchmark = "miniwob"
+# benchmark = "workarena_l1"
+# benchmark = "workarena_l2"
+# benchmark = "workarena_l3"
+# benchmark = "webarena"
 
-benchmark = DEFAULT_BENCHMARKS["miniwob"]()
+benchmark = DEFAULT_BENCHMARKS[benchmark]()
 benchmark.env_args_list = make_env_args_list_from_repeat_tasks(
     task_list=task_list_from_metadata(metadata=task_metadata("miniwob")),
     max_steps=10,
@@ -88,19 +97,27 @@ benchmark.env_args_list = make_env_args_list_from_repeat_tasks(
     seeds_rng=np.random.RandomState(42),
 )
 
-# Filter to get 5 seeds for each task instead of just 5 total experiments
+# # Filter to get 5 seeds for each task instead of just 5 total experiments
 selected_tasks = [
-    "miniwob.use-colorwheel-2",
-    "miniwob.count-shape", 
+    "miniwob.book-flight",
+    "miniwob.count-shape",
     "miniwob.form-sequence-2",
+    "miniwob.number-checkboxes",
+    "miniwob.search-engine",
+    "miniwob.stock-market",
+    "miniwob.use-colorwheel-2",
+    "miniwob.bisect-angle",
+    "miniwob.click-menu",
     "miniwob.click-scroll-list",
     "miniwob.daily-calendar",
     "miniwob.drag-items-grid",
     "miniwob.grid-coordinate",
     "miniwob.hot-cold",
     "miniwob.right-angle",
-    "miniwob.social-media-all"
+    "miniwob.social-media-all",
 ]
+
+# selected_tasks = ["workarena.servicenow.order-ipad-pro"]
 
 # Get all experiments for the selected tasks
 filtered_env_args = []
@@ -116,7 +133,7 @@ filtered_env_args.sort(key=lambda x: (x.task_name, x.task_seed))
 final_env_args = []
 current_task = None
 current_task_count = 0
-max_seeds_per_task = 10
+max_seeds_per_task = 5
 
 for env_args in filtered_env_args:
     if env_args.task_name != current_task:
@@ -137,14 +154,6 @@ for env_args in benchmark.env_args_list:
     env_args.headless = True # for seeing the task
 
 
-# ## select the benchmark to run on
-# benchmark = "miniwob_tiny_test"
-# benchmark = "miniwob"
-# benchmark = "workarena_l1"
-# benchmark = "workarena_l2"
-# benchmark = "workarena_l3"
-# benchmark = "webarena"
-
 # Set reproducibility_mode = True for reproducibility
 # this will "ask" agents to be deterministic. Also, it will prevent you from launching if you have
 # local changes. For your custom agents you need to implement set_reproducibility_mode
@@ -155,10 +164,8 @@ reproducibility_mode = False
 relaunch = False
 
 ## Number of parallel jobs
-n_jobs = 6  # Make sure to use 1 job when debugging in VSCode
+n_jobs = 5  # Make sure to use 1 job when debugging in VSCode
 # n_jobs = -1  # to use all available cores
-
-agent_args[0].config.task_hint.use_task_hint = args.use_task_hint
 
 if __name__ == "__main__":  # necessary for dask backend
 
