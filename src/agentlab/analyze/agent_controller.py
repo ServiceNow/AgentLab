@@ -164,7 +164,12 @@ def reset_agent_history():
 
 def reset_agent_state():
     logger.info("Resetting agent state")
-    st.session_state.agent.reset()
+    if isinstance(st.session_state.agent, GenericAgent):
+        st.session_state.agent.reset()
+    else:
+        st.session_state.agent.discussion.groups = []
+        st.session_state.agent.last_response = LLMOutput()
+        st.session_state.agent._responses = []
 
 
 def step_env_history(obs, response_json):
@@ -243,9 +248,7 @@ def revert_agent_state():
         num_groups = len(st.session_state.agent.discussion.groups)
         if num_groups == 3:
             # start from blank state
-            st.session_state.agent.discussion.groups = []
-            st.session_state.agent.last_response = LLMOutput()
-            st.session_state.agent._responses = []
+            reset_agent_state()
         elif num_groups > 3:
             # get rid of the last group (last action), and remove everything from the other previous group except for the action
             st.session_state.agent.discussion.groups.pop()

@@ -593,7 +593,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
     keep_last_n_obs=None,
-    multiaction=True,  # whether to use multi-action or not
+    multiaction=False,  # whether to use multi-action or not
     action_subsets=("bid",),
     # action_subsets=("coord"),
     # action_subsets=("coord", "bid"),
