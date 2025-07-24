@@ -164,9 +164,15 @@ class TrackAPIPricingMixin:
         response = self._call_api(*args, **kwargs)
         usage = dict(getattr(response, "usage", {}))
         if "prompt_tokens_details" in usage:
-            usage["cached_tokens"] = usage["prompt_tokens_details"].cached_tokens
+            try:
+                usage["cached_tokens"] = usage["prompt_tokens_details"].cached_tokens
+            except AttributeError:
+                pass
         if "input_tokens_details" in usage:
-            usage["cached_tokens"] = usage["input_tokens_details"].cached_tokens
+            try:
+                usage["cached_tokens"] = usage["input_tokens_details"].cached_tokens
+            except AttributeError:
+                pass
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
         usage |= {"effective_cost": self.get_effective_cost(response)}
@@ -314,12 +320,18 @@ class TrackAPIPricingMixin:
         if api_type == "chatcompletion":
             total_input_tokens = usage.prompt_tokens  # (cache read tokens + new input tokens)
             output_tokens = usage.completion_tokens
-            cached_input_tokens = usage.prompt_tokens_details.cached_tokens
+            try:
+                cached_input_tokens = usage.prompt_tokens_details.cached_tokens
+            except AttributeError:
+                cached_input_tokens = 0
             new_input_tokens = total_input_tokens - cached_input_tokens
         elif api_type == "response":
             total_input_tokens = usage.input_tokens  # (cache read tokens + new input tokens)
             output_tokens = usage.output_tokens
-            cached_input_tokens = usage.input_tokens_details.cached_tokens
+            try:
+                cached_input_tokens = usage.input_tokens_details.cached_tokens
+            except AttributeError:
+                cached_input_tokens = 0
             new_input_tokens = total_input_tokens - cached_input_tokens
         else:
             logging.warning(f"Unsupported API type: {api_type}. Defaulting cost to 0.0.")
