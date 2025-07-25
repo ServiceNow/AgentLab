@@ -1,10 +1,13 @@
 import fnmatch
 import json
+import logging
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from copy import copy
 from dataclasses import asdict, dataclass, field
+from email.policy import default
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import bgym
 import pandas as pd
@@ -33,6 +36,8 @@ from agentlab.llm.response_api import (
     ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -296,6 +301,10 @@ class Summarizer(Block):
 class TaskHint(Block):
     use_task_hint: bool = True
     hint_db_rel_path: str = "hint_db.csv"
+    hint_retrieval_mode: Literal["direct", "llm"] = "direct"  # direct or retrieval
+    llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
+You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
+Choose hint for the task and return only its numbers, e.g. 1. If you don't know the answer, return -1."""
 
     def _init(self):
         """Initialize the block."""
@@ -306,9 +315,8 @@ class TaskHint(Block):
         if not self.use_task_hint:
             return
 
-        task_hints = self.hint_db[
-            self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
-        ]
+        goal = "\n".join([c.get("text", "") for c in discussion.groups[0].messages[1].content])
+        task_hints = self.choose_hints(llm, task_name, goal)
 
         hints = []
         for hint in task_hints["hint"]:
@@ -324,6 +332,44 @@ class TaskHint(Block):
             msg = llm.msg.user().add_text(hints_str)
 
             discussion.append(msg)
+
+    def choose_hints(self, llm, task_name: str, goal: str) -> pd.DataFrame:
+        """Choose hints based on the task name."""
+        if self.hint_retrieval_mode == "llm":
+            return self.choose_hints_llm(llm, goal)
+        elif self.hint_retrieval_mode == "direct":
+            return self.choose_hints_direct(task_name)
+        else:
+            raise ValueError(f"Unknown hint retrieval mode: {self.hint_retrieval_mode}")
+
+    def choose_hints_llm(self, llm, goal: str) -> pd.DataFrame:
+        """Choose hints using LLM to filter the hints."""
+        topic_to_hints = defaultdict(list)
+        for i, row in self.hint_db.iterrows():
+            topic_to_hints[row["semantic_keys"]].append(i)
+        hint_topics = list(topic_to_hints.keys())
+        topics = "\n".join([f"{i}. {h}" for i, h in enumerate(hint_topics)])
+        prompt = self.llm_prompt.format(goal=goal, topics=topics)
+        response = llm(APIPayload(messages=[llm.msg.user().add_text(prompt)]))
+        try:
+            hint_topic_idx = json.loads(response.think)
+            if hint_topic_idx < 0 or hint_topic_idx >= len(hint_topics):
+                logger.error(f"Wrong LLM hint id response: {response.think}, return no hints")
+                return pd.DataFrame(columns=self.hint_db.columns)
+            hint_topic = hint_topics[hint_topic_idx]
+            hint_indices = topic_to_hints[hint_topic]
+            df = self.hint_db.iloc[hint_indices].copy()
+            df = df.drop_duplicates(subset=["hint"], keep="first")  # leave only unique hints
+            logger.debug(f"LLM hint topic {hint_topic_idx}, chosen hints: {df['hint'].tolist()}")
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse LLM hint id response: {response.think}, return no hints")
+            df = pd.DataFrame(columns=self.hint_db.columns)
+        return df
+
+    def choose_hints_direct(self, task_name: str) -> pd.DataFrame:
+        return self.hint_db[
+            self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
+        ]
 
 
 @dataclass
@@ -583,7 +629,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     ),
     summarizer=Summarizer(do_summary=True),
     general_hints=GeneralHints(use_hints=False),
-    task_hint=TaskHint(use_task_hint=True),
+    task_hint=TaskHint(use_task_hint=True, hint_retrieval_mode="llm"),
     keep_last_n_obs=None,
     multiaction=True,  # whether to use multi-action or not
     # action_subsets=("bid",),
