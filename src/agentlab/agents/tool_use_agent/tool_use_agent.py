@@ -101,8 +101,10 @@ class StructuredDiscussion:
                 messages.extend(group.messages)
             # Mark all summarized messages for caching
             if i == len(self.groups) - keep_last_n_obs:
-                if not isinstance(messages[i], ToolCalls):
-                    messages[i].mark_all_previous_msg_for_caching()
+                for msg in messages:  # unset previous cache breakpoints
+                    msg._cache_breakpoint = False
+                # set new cache breakpoint
+                messages[i].mark_all_previous_msg_for_caching()
         return messages
 
     def set_last_summary(self, summary: MessageBuilder):
