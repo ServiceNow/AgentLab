@@ -14,6 +14,6 @@ OPENAI_CUA_AGENT_ARGS = OpenAIComputerUseAgentArgs(
         subsets=("chat", "coord"),
         demo_mode=None,
     ),
-    enable_safety_checks=False, 
-    implicit_agreement=True
+    enable_safety_checks=False,
+    implicit_agreement=True,
 )
