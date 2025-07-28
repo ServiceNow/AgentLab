@@ -1,13 +1,14 @@
-from dataclasses import dataclass
 import logging
-
-from bgym import HighLevelActionSetArgs
-from browsergym.experiments import AbstractAgentArgs, Agent, AgentInfo
-from agentlab.llm.llm_utils import image_to_jpg_base64_url
+import os
+from dataclasses import dataclass
 
 import openai
+from bgym import HighLevelActionSetArgs
+from browsergym.experiments import AbstractAgentArgs, Agent, AgentInfo
 
-client = openai.OpenAI()
+from agentlab.llm.llm_utils import image_to_jpg_base64_url
+
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 @dataclass
@@ -75,9 +76,10 @@ class OpenAIComputerUseAgent(Agent):
 
         self.action_set = action_set.make_action_set()
 
-        assert not self.enable_safety_checks and (
-            self.action_set.demo_mode is not None or self.action_set.demo_mode != "off"
-        ), "Safety checks are enabled but no demo mode is set. Please set demo_mode to 'all_blue' or 'off'."
+        assert not (
+            self.enable_safety_checks
+            and (self.action_set.demo_mode is None or self.action_set.demo_mode == "off")
+        ), "Safety checks are enabled but no demo mode is set. Please set demo_mode to 'all_blue'."
 
         self.computer_calls = []
         self.pending_checks = []
@@ -118,15 +120,21 @@ class OpenAIComputerUseAgent(Agent):
 
             case "keypress":
                 keys = action.keys
+                to_press = ""
                 for k in keys:
                     if k.lower() == "enter":
-                        return "keyboard_press('Enter')"
+                        to_press = "Enter"
                     elif k.lower() == "space":
-                        return "keyboard_press(' ')"
+                        to_press = " "
                     elif k.lower() == "ctrl":
-                        return "keyboard_press('Ctrl')"
+                        to_press = "Ctrl"
+                    elif k.lower() == "shift":
+                        to_press = "Shift"
+                    elif k.lower() == "alt":
+                        to_press = "Alt"
                     else:
-                        return f"keyboard_press('{k}')"
+                        to_press += f"+{k}"
+                return f"keyboard_press('{to_press}')"
 
             case "type":
                 text = action.text
@@ -150,7 +158,7 @@ class OpenAIComputerUseAgent(Agent):
                 return "noop()"
 
             case _:
-                logging.error(f"No action found for {action_type}. Please check the action type.")
+                logging.debug(f"No action found for {action_type}. Please check the action type.")
                 return None
 
         return action
@@ -206,7 +214,7 @@ Task:
         screenshot_base64 = image_to_jpg_base64_url(obs["screenshot"])
 
         if not self.initialized:
-            print("Initializing OpenAI Computer Use Agent with goal:", goal)
+            logging.debug("Initializing OpenAI Computer Use Agent with goal:", goal)
             response = self.start_session(goal, screenshot_base64)
             for item in response.output:
                 if item.type == "reasoning":
@@ -222,7 +230,6 @@ Task:
             if not self.enable_safety_checks:
                 # Bypass safety checks
                 self.pending_checks = computer_call.pending_safety_checks
-                print(f"Pending safety checks: {self.pending_checks}")
             action = self.parse_action_to_bgym(computer_call.action)
             self.last_call_id = computer_call.call_id
             return action, self.agent_info
@@ -245,7 +252,9 @@ Task:
                 self.inputs.append(self.answer_assistant)
                 self.answer_assistant = None
 
+            self.agent_info.chat_messages = str(self.inputs)
             response = self.call_api(self.inputs, self.previous_response_id)
+            self.inputs = []  # Clear inputs for the next call
             self.previous_response_id = response.id
 
             self.computer_calls = [item for item in response.output if item.type == "computer_call"]
