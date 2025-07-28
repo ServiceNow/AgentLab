@@ -304,7 +304,7 @@ class TaskHint(Block):
     hint_retrieval_mode: Literal["direct", "llm"] = "direct"  # direct or retrieval
     llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
 You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
-Choose hint for the task and return only its numbers, e.g. 1. If you don't know the answer, return -1."""
+Choose hint topic for the task and return only its number, e.g. 1. If you don't know the answer, return -1."""
 
     def _init(self):
         """Initialize the block."""
