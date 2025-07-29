@@ -226,6 +226,50 @@ image to select a step and observe the action taken by the agent.
 
 **⚠️ Note**: Gradio is still developing, and unexpected behavior has been frequently noticed. Version 5.5 seems to work properly so far. If you're not sure that the proper information is displaying, refresh the page and select your experiment again.
 
+### AgentLab Server and AgentLab Controller
+
+https://github.com/user-attachments/assets/9a498c99-453a-4d7c-89fc-13e18db8dad6
+
+The AgentLab Server and Controller are two components that work together to control and debug an agent deployed in an environment.
+
+#### Prerequisites
+
+First, set a `.env` file at the root of the repo with the following content:
+
+```bash
+# LLM Creds (Azure as an example)
+AZURE_OPENAI_ENDPOINT=<YOUR_AZURE_OPENAI_ENDPOINT>
+AZURE_OPENAI_API_KEY=<YOUR_AZURE_OPENAI_API_KEY>
+AZURE_OPENAI_API_VERSION=<YOUR_AZURE_OPENAI_API_KEY>
+
+# ServiceNow dev instance creds
+SNOW_INSTANCE_URL=https://<your_servicenow_dev_instance>.service-now.com/
+SNOW_INSTANCE_UNAME="admin"
+SNOW_INSTANCE_PWD=<password>
+
+# MiniWob
+MINIWOB_URL="file:///path/to/BrowserGym/miniwob-plusplus/miniwob/html/miniwob/" 
+```
+
+#### Launch the server
+
+The AgentLab Server is responsible for hosting and enabling interaction with the environment. It is a lightweight FastAPI server that handles the BrowserGym environment and provides a REST API for the controller.
+
+To launch the server, open a terminal and run (you will need to keep this terminal open for the next step):
+
+```bash
+agentlab-server
+```
+
+#### Launch the controller
+
+The AgentLab Controller is a streamlit app responsible for controlling the agent and how it interacts with the environment hosted on the server.
+
+To launch the controller, open a new terminal and run:
+
+```bash
+agentlab-controller
+```
 
 ## 🏆 Leaderboard
 
