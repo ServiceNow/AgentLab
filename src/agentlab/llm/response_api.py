@@ -27,6 +27,7 @@ It includes:
     3. Factory classes (inherits from BaseModelArgs) for creating instances of LLM Response models.
 """
 
+logger = logging.getLogger(__name__)
 
 ContentItem = Dict[str, Any]
 Message = Dict[str, Union[str, List[ContentItem]]]
@@ -388,10 +389,13 @@ class APIPayload:
     cache_complete_prompt: bool = (
         False  # If True, will cache the complete prompt in the last message.
     )
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
 
     def __post_init__(self):
         if self.tool_choice and self.force_call_tool:
             raise ValueError("tool_choice and force_call_tool are mutually exclusive")
+        if self.reasoning_effort is not None:
+            logger.info('In agentlab reasoning_effort is used by LiteLLM API only. We will eventually shift to LiteLLM API for all LLMs.')
 
 
 # # Base class for all API Endpoints
