@@ -288,9 +288,13 @@ if __name__ == "__main__":
     Some simple tests to run the LiteLLMModel with different models.
     """
 
+    import os
+
     from agentlab.agents.tool_use_agent import DEFAULT_PROMPT_CONFIG, ToolUseAgentArgs
     from agentlab.experiments.study import Study
     from agentlab.llm.litellm_api import LiteLLMModelArgs
+
+    os.environ["LITELLM_LOG"] = "WARNING"
 
     def get_agent(model_name: str) -> ToolUseAgentArgs:
         return ToolUseAgentArgs(
