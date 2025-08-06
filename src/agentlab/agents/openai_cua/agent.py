@@ -25,6 +25,7 @@ class OpenAIComputerUseAgentArgs(AbstractAgentArgs):
     environment: str = "browser"
     reasoning_summary: str = "concise"
     truncation: str = "auto"  # Always set to "auto" for OpenAI API
+    wait_time: int = 2000 # wait for 2 seconds for noop() actions
     action_set: HighLevelActionSetArgs = None
     enable_safety_checks: bool = False  # Optional, default to False, only use in demo mode
     implicit_agreement: bool = True  # Whether to require explicit agreement for actions or not
@@ -48,6 +49,7 @@ class OpenAIComputerUseAgentArgs(AbstractAgentArgs):
             environment=self.environment,
             reasoning_summary=self.reasoning_summary,
             truncation=self.truncation,
+            wait_time=self.wait_time,
             action_set=self.action_set,
             enable_safety_checks=self.enable_safety_checks,
             implicit_agreement=self.implicit_agreement,
@@ -63,6 +65,7 @@ class OpenAIComputerUseAgent(Agent):
         display_height: int,
         environment: str,
         reasoning_summary: str,
+        wait_time: int,
         truncation: str,
         action_set: HighLevelActionSetArgs,
         enable_safety_checks: bool = False,
@@ -71,6 +74,7 @@ class OpenAIComputerUseAgent(Agent):
         self.model = model
         self.reasoning_summary = reasoning_summary
         self.truncation = truncation
+        self.wait_time = wait_time
         self.enable_safety_checks = enable_safety_checks
         self.implicit_agreement = implicit_agreement
 
@@ -85,9 +89,8 @@ class OpenAIComputerUseAgent(Agent):
         self.pending_checks = []
         self.previous_response_id = None
         self.last_call_id = None
-        self.initialized = False  # Set to True to call the API on the first get_action
-        self.answer_assistant = None  # Store the user answer to send to the assistant
-        self.agent_info = AgentInfo()
+        self.initialized = False 
+        self.user_answer = None  # Store the user answer to send to the assistant
 
         self.tools = [
             {
@@ -97,6 +100,15 @@ class OpenAIComputerUseAgent(Agent):
                 "environment": environment,
             }
         ]
+        self.inputs = []
+    
+    def reset(self):
+        self.computer_calls = []
+        self.pending_checks = []
+        self.previous_response_id = None
+        self.last_call_id = None
+        self.initialized = False
+        self.user_answer = None  # Store the user answer to send to the assistant
         self.inputs = []
 
     def parse_action_to_bgym(self, action) -> str:
@@ -163,6 +175,15 @@ class OpenAIComputerUseAgent(Agent):
 
         return action
 
+    def handle_safety_checks(self):
+        """Implement this function to handle safety checks.
+        self.pending_checks = computer_call.pending_safety_checks
+        for check in self.pending_checks:
+            do_something_to_acknowledge_check(check)
+        """
+        # TODO: allow user to handle safety checks when demo mode is enabled
+        pass
+
     def start_session(self, goal: str, screenshot_base64: str):
         """
         Call the OpenAI API with the provided goal and screenshot to initiate a session.
@@ -181,41 +202,46 @@ Please perform the following task, I can confirm it is safe and you can proceed 
 Task: 
 {goal}
 """
-
+        inputs = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": instruction},
+                    {"type": "input_image", "image_url": f"{screenshot_base64}"},
+                ],
+            }
+        ]
         response = self.call_api(
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "input_text", "text": instruction},
-                        {"type": "input_image", "image_url": f"{screenshot_base64}"},
-                    ],
-                }
-            ],
+            input=inputs
             reasoning={
                 "summary": self.reasoning_summary,
-            },
+            }
         )
-        return response
+        agent_info = AgentInfo(
+            think=self.reasoning_summary if self.reasoning_summary else None,
+            chat_messages=inputs
+        )
+        return response, agent_info
 
-    def call_api(self, input: list, previous_response_id=None, **kwargs):
+    def call_api(self, inputs: list, previous_response_id=None, **kwargs):
         response = client.responses.create(
             model=self.model,
             previous_response_id=previous_response_id,
             tools=self.tools,
-            input=input,
+            input=inputs,
             truncation=self.truncation,  # Always set to "auto"
             **kwargs,
         )
         return response
 
     def get_action(self, obs):
+        agent_info = AgentInfo()
         goal = obs["goal"]
         screenshot_base64 = image_to_jpg_base64_url(obs["screenshot"])
 
         if not self.initialized:
             logging.debug("Initializing OpenAI Computer Use Agent with goal:", goal)
-            response = self.start_session(goal, screenshot_base64)
+            response, agent_info = self.start_session(goal, screenshot_base64)
             for item in response.output:
                 if item.type == "reasoning":
                     self.agent_info.think = item.summary[0].text if item.summary else None
@@ -248,11 +274,11 @@ Task:
                 }
             )
 
-            if self.answer_assistant:
-                self.inputs.append(self.answer_assistant)
-                self.answer_assistant = None
+            if self.user_answer:
+                self.inputs.append(self.user_answer)
+                self.user_answer = None
 
-            self.agent_info.chat_messages = str(self.inputs)
+            agent_info.chat_messages = str(self.inputs)
             response = self.call_api(self.inputs, self.previous_response_id)
             self.inputs = []  # Clear inputs for the next call
             self.previous_response_id = response.id
@@ -262,17 +288,17 @@ Task:
                 logging.debug(f"No computer call found. Output from model: {response.output}")
                 for item in response.output:
                     if item.type == "reasoning":
-                        self.agent_info.think = item.summary[0].text if item.summary else None
+                        agent_info.think = item.summary[0].text if item.summary else None
                     if hasattr(item, "role") and item.role == "assistant":
                         # Assume assitant asked for user confirmation
                         # Always answer with: Yes, continue.
-                        self.answer_assistant = {
+                        self.user_answer = {
                             "role": "user",
                             "content": [{"type": "input_text", "text": "Yes, continue."}],
                         }
-                        return f"send_msg_to_user('{item.content[0].text}')", self.agent_info
+                        return f"send_msg_to_user('{item.content[0].text}')", agent_info
                 logging.debug("No action found in the response. Returning None.")
-                return None, self.agent_info
+                return None, agent_info
 
             computer_call = self.computer_calls.pop(0)
             self.last_call_id = computer_call.call_id
@@ -282,15 +308,11 @@ Task:
                 # Bypass safety checks
                 self.pending_checks = computer_call.pending_safety_checks
             else:
-                pass
-                # TODO: Handle safety checks if enabled in demo mode
-                # self.pending_checks = computer_call.pending_safety_checks
-                # for check in self.pending_checks:
-                #     do_something_to_acknowledge_check(check)
+                self.handle_safety_checks()
 
             for item in response.output:
                 if item.type == "reasoning":
                     self.agent_info.think = item.summary[0].text if item.summary else None
                     break
 
-            return action, self.agent_info
+            return action, agent_info
