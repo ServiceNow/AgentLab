@@ -138,7 +138,7 @@ class OpenAIComputerUseAgent(Agent):
 
             case "type":
                 text = action.text
-                return f"keyboard_insert_text('{text}')"
+                return f"keyboard_type('{text}')"
 
             case "drag":
                 from_x, from_y = action.path[0].x, action.path[0].y
