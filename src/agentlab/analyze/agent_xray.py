@@ -1312,6 +1312,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             # NEW: Add wait for page loading visualization
             if (
                 hasattr(prof, "wait_for_page_loading_start")
+                and prof.wait_for_page_loading_start is not None
                 and prof.wait_for_page_loading_start > 0
             ):
                 add_patch(
@@ -1323,7 +1324,11 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 )
 
             # NEW: Add validation visualization
-            if hasattr(prof, "validation_start") and prof.validation_start > 0:
+            if (
+                hasattr(prof, "validation_start")
+                and prof.validation_start is not None
+                and prof.validation_start > 0
+            ):
                 add_patch(
                     ax,
                     prof.validation_start,
@@ -1333,7 +1338,11 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 )
 
             # NEW: Add get observation visualization
-            if hasattr(prof, "get_observation_start") and prof.get_observation_start > 0:
+            if (
+                hasattr(prof, "get_observation_start")
+                and prof.get_observation_start is not None
+                and prof.get_observation_start > 0
+            ):
                 add_patch(
                     ax,
                     prof.get_observation_start,
