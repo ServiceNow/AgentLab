@@ -270,4 +270,25 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=2000,
         temperature=1e-1,
     ),
+    "openrouter/openai/gpt-5-nano": OpenRouterModelArgs(
+        model_name="openai/gpt-5-nano",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1, 
+    ),
+    "openrouter/openai/gpt-5-mini": OpenRouterModelArgs(
+        model_name="openai/gpt-5-mini",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1, 
+    ),
+    "openrouter/openai/gpt-5-chat": OpenRouterModelArgs(
+        model_name="openai/gpt-5-chat",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1, 
+    ),
 }
