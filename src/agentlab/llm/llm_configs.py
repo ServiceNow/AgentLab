@@ -94,6 +94,20 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=64_000,
         temperature=1e-1,
     ),
+    "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-nano-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1, # temperature param not supported by gpt-5
+    ),
+    "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-mini-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1, # temperature param not supported by gpt-5
+    ),
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
         deployment_name="gpt-35-turbo",
@@ -240,6 +254,20 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=64_000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-oss-120b": OpenRouterModelArgs(
+        model_name="openai/gpt-oss-120b",
+        max_total_tokens=131_072,
+        max_input_tokens=131_072 - 2000,
+        max_new_tokens=2000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-oss-20b": OpenRouterModelArgs(
+        model_name="openai/gpt-oss-20b",
+        max_total_tokens=131_072,
+        max_input_tokens=131_072 - 2000,
+        max_new_tokens=2000,
         temperature=1e-1,
     ),
 }
