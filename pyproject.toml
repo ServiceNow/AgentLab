@@ -49,9 +49,10 @@ dependencies = [
     "python-slugify",
     "pillow",
     "gymnasium>=0.27",
-    "torch==2.2.2",
+    "torch>=2.2.2",
     "safetensors>=0.4.0",
     "transformers>=4.38.2",
+    "anthropic>=0.62.0",
 ]
 
 [project.optional-dependencies]
