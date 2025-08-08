@@ -43,6 +43,7 @@ wheels = [
 name = "agentlab"
 source = { editable = "." }
 dependencies = [
+    { name = "anthropic" },
     { name = "browsergym", version = "0.13.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "browsergym", version = "0.14.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.13') or platform_machine != 'x86_64' or sys_platform != 'linux'" },
     { name = "contexttimer" },
@@ -87,6 +88,7 @@ tapeagents = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.62.0" },
     { name = "black", extras = ["jupyter"], marker = "extra == 'dev'", specifier = ">=24.2.0" },
     { name = "blacken-docs", marker = "extra == 'dev'" },
     { name = "browsergym", specifier = ">=0.7.1" },
@@ -117,7 +119,7 @@ requires-dist = [
     { name = "safetensors", specifier = ">=0.4.0" },
     { name = "tapeagents", extras = ["converters"], marker = "extra == 'tapeagents'" },
     { name = "tiktoken" },
-    { name = "torch", specifier = "==2.2.2" },
+    { name = "torch", specifier = ">=2.2.2" },
     { name = "transformers", specifier = ">=4.38.2" },
 ]
 provides-extras = ["dev", "tapeagents"]
