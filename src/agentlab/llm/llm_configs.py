@@ -20,6 +20,22 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
+    "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-nano-2025-08-07",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+    ),
+    "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-mini-2025-08-07",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+    ),
     "openai/gpt-4.1-mini-2025-04-14": OpenAIModelArgs(
         model_name="gpt-4.1-mini-2025-04-14",
         max_total_tokens=128_000,

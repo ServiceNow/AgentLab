@@ -515,7 +515,7 @@ GPT_5_mini = OpenAIChatModelArgs(
     max_total_tokens=400_000,
     max_input_tokens=400_000 - 4_000,
     max_new_tokens=4_000,
-    temperature=1, # Only temperature 1 works for gpt-5-mini
+    temperature=1,  # Only temperature 1 works for gpt-5-mini
     vision_support=True,
 )
 
@@ -525,7 +525,7 @@ GPT_5_nano = OpenAIChatModelArgs(
     max_total_tokens=400_000,
     max_input_tokens=400_000 - 4_000,
     max_new_tokens=4_000,
-    temperature=1,   # Only temperature 1 works for gpt-5-nano
+    temperature=1,  # Only temperature 1 works for gpt-5-nano
     vision_support=True,
 )
 
@@ -598,7 +598,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
     keep_last_n_obs=None,
-    multiaction=True,  # whether to use multi-action or not
+    multiaction=False,  # whether to use multi-action or not
     # action_subsets=("bid",),
     action_subsets=("coord"),
     # action_subsets=("coord", "bid"),
