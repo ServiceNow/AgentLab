@@ -31,7 +31,8 @@ source .venv/bin/activate
 ### Add OpenAI API Key
 Add your key to your `.bashrc` or `.zshrc`.
 ```bash
-export OPENAI_API_KEY="<content_of_the_key>"
+echo 'export OPENAI_API_KEY="<REPLACE_THIS_BY_YOUR_KEY>"' >> ~/.bashrc
+source ~/.bashrc
 ```
 You can use other providers like Anthropic, OpenRouter, self hosted via vLLM. But you need to modify the config in the code.
 
