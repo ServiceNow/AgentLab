@@ -1,3 +1,5 @@
+from openai import NOT_GIVEN
+
 from agentlab.llm.chat_api import (
     AnthropicModelArgs,
     AzureModelArgs,
@@ -5,7 +7,6 @@ from agentlab.llm.chat_api import (
     OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
-from openai import NOT_GIVEN
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -99,14 +100,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=400_000,
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
-        temperature=1, # temperature param not supported by gpt-5
+        temperature=1,  # temperature param not supported by gpt-5
     ),
     "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
         model_name="gpt-5-mini-2025-08-07",
         max_total_tokens=400_000,
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
-        temperature=1, # temperature param not supported by gpt-5
+        temperature=1,  # temperature param not supported by gpt-5
     ),
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
@@ -275,20 +276,27 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=400_000,
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
-        temperature=1e-1, 
+        temperature=1e-1,
     ),
     "openrouter/openai/gpt-5-mini": OpenRouterModelArgs(
         model_name="openai/gpt-5-mini",
         max_total_tokens=400_000,
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
-        temperature=1e-1, 
+        temperature=1e-1,
     ),
     "openrouter/openai/gpt-5-chat": OpenRouterModelArgs(
         model_name="openai/gpt-5-chat",
         max_total_tokens=400_000,
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
-        temperature=1e-1, 
+        temperature=1e-1,
+    ),
+    "openrouter/openai/o3-mini": OpenRouterModelArgs(
+        model_name="openai/o3-mini",
+        max_total_tokens=200_000,
+        max_input_tokens=100_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1,
     ),
 }
