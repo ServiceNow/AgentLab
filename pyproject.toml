@@ -54,6 +54,7 @@ dependencies = [
     "transformers>=4.38.2",
     "anthropic>=0.62.0",
     "litellm>=1.75.3",
+    "python-dotenv>=1.1.1",
 ]
 
 [project.optional-dependencies]
@@ -94,6 +95,12 @@ exclude = '''
   | dist
 )/
 '''
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.30.1",
+    "pip>=25.2",
+]
 
 
 [project.scripts]
