@@ -306,9 +306,16 @@ AGENT_LLAMA4_17B_INSTRUCT = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-4-maverick"],
     flags=BASE_FLAGS,
 )
+GPT5_MINI_FLAGS = BASE_FLAGS.copy()
+GPT5_MINI_FLAGS.action = dp.ActionFlags(  # action should not be str to work with agentlab-assistant
+        action_set=HighLevelActionSetArgs(
+            subsets=["bid"],
+            multiaction=False,
+        ))
+
 AGENT_GPT5_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-mini-2025-08-07"],
-    flags=BASE_FLAGS,
+    flags=GPT5_MINI_FLAGS,
 )
 
 DEFAULT_RS_FLAGS = GenericPromptFlags(
