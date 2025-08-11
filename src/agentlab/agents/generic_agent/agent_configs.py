@@ -306,6 +306,10 @@ AGENT_LLAMA4_17B_INSTRUCT = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-4-maverick"],
     flags=BASE_FLAGS,
 )
+AGENT_GPT5_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-mini-2025-08-07"],
+    flags=BASE_FLAGS,
+)
 
 DEFAULT_RS_FLAGS = GenericPromptFlags(
     flag_group="default_rs",

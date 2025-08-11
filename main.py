@@ -17,6 +17,7 @@ from agentlab.agents.generic_agent import (
     AGENT_o3_MINI,
     AGENT_37_SONNET,
     AGENT_CLAUDE_SONNET_35,
+    AGENT_GPT5_MINI,
 )
 from agentlab.experiments.study import Study
 
