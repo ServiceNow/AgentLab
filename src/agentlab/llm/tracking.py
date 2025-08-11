@@ -10,6 +10,7 @@ from typing import Optional
 
 import requests
 from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
+import litellm
 
 TRACKER = threading.local()
 
@@ -202,9 +203,15 @@ class TrackAPIPricingMixin:
             self.input_cost = float(model_costs["prompt"])
             self.output_cost = float(model_costs["completion"])
         else:
-            logging.warning(f"Model {self.model_name} not found in the pricing information.")
-            self.input_cost = 0.0
-            self.output_cost = 0.0
+            # use litellm to get model info if not found in the pricing dict
+            try:
+                model_info = litellm.get_model_info(self.model_name)
+                self.input_cost = float(model_info.get("input_cost_per_token", 0.0))
+                self.output_cost = float(model_info.get("output_cost_per_token", 0.0))
+            except Exception as e:
+                logging.warning(f"Failed to fetch pricing for {self.model_name}: {e}")
+                self.input_cost = 0.0
+                self.output_cost = 0.0
 
     def update_pricing_tracker(self, raw_response) -> None:
         """Update the pricing tracker with the input and output tokens and cost."""
