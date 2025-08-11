@@ -1,8 +1,8 @@
 ### Launch experiment
 * See the `launch_experiments.ipynb` to setup miniwob benchmark.
-* Export MINIWOB_URL in your envronment variables.
+* Export MINIWOB_URL in your environment variables.
 * Run the following command from **AgentLab** directory `uv run tutorials/2_eval_on_miniwob/experiment.py`.
-* This should launch your agent on 4 miniwob tasks in paralel and save results to `$HOME/agentlab_results`.
+* This should launch your agent on 4 miniwob tasks in parallel and save results to `$HOME/agentlab_results`.
 
 
 ### Visualize experiments in XRay
@@ -11,8 +11,8 @@
 * Navigate around XRay to visualize the agent's behavior
 
 ### (optional) Load your results in a notebook
-Optionnaly load the results in `inspect_results.ipynb`.
-This will help understanding the content of results
+Optionally load the results in `inspect_results.ipynb`.
+This will help understand the content of results
 
 ### Change the experiment
 go back to `experiment.py` and uncomment the line 
