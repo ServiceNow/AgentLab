@@ -510,6 +510,25 @@ GPT_4_1 = OpenAIResponseModelArgs(
     vision_support=True,
 )
 
+GPT_5_mini = OpenAIResponseModelArgs(
+    model_name="gpt-5-mini",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
+GPT_5_nano = OpenAIResponseModelArgs(
+    model_name="gpt-5-nano",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
+
 GPT_4_1_MINI = OpenAIResponseModelArgs(
     model_name="gpt-4.1-mini",
     max_total_tokens=200_000,
@@ -590,7 +609,7 @@ AGENT_CONFIG = ToolUseAgentArgs(
 )
 
 OAI_AGENT = ToolUseAgentArgs(
-    model_args=GPT_4_1,
+    model_args=GPT_5_mini,
     config=DEFAULT_PROMPT_CONFIG,
 )
 
