@@ -581,6 +581,13 @@ GPT4_1_OPENROUTER_MODEL = OpenRouterModelArgs(
     temperature=None,  # O3 does not support temperature
     vision_support=True,
 )
+GPT5_1_NANO = OpenAIChatModelArgs(
+    model_name="gpt-5-nano-2025-08-07",
+    max_total_tokens=400_000,
+    max_input_tokens=400_000 - 4_000,
+    max_new_tokens=4_000,
+    temperature=1,
+)
 
 DEFAULT_PROMPT_CONFIG = PromptConfig(
     tag_screenshot=True,
@@ -610,6 +617,10 @@ AGENT_CONFIG = ToolUseAgentArgs(
 
 OAI_AGENT = ToolUseAgentArgs(
     model_args=GPT_5_mini,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+GPT5_1_NANO_AGENT = ToolUseAgentArgs(
+    model_args=GPT5_1_NANO,
     config=DEFAULT_PROMPT_CONFIG,
 )
 
