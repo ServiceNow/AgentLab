@@ -21,8 +21,13 @@ This command will:
 - Set up the Python environment
 - Install Playwright and its browser dependencies
 
+### 3. Activate the Python Environment
+Activate the environment created by uv:
 
-### Launch assistant
+```bash
+source .venv/bin/activate
+```
+### 4. Launch assistant
 ```bash
 agentlab-assistant
 ```
