@@ -1,8 +1,4 @@
-# Welcome to the Tutorial: Creating Your First Web Agent!
-
-In this tutorial, we'll guide you through creating your first web agent. We'll start by setting up our Python environment using **uv**, a fast Python package and project manager.
-
-## Prerequisites
+# Installing AgentLab and using the assistant
 
 ### 1. Install uv
 Simply run this: 
@@ -25,7 +21,6 @@ This command will:
 - Set up the Python environment
 - Install Playwright and its browser dependencies
 
-Let's get started building your web agent!
 
 ### Launch assistant
 ```bash

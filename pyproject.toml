@@ -65,9 +65,9 @@ dev = [
     "pytest-xdist",
     "pytest-playwright",
 ]
-tapeagents = [
-    "tapeagents[converters]",
-]
+# tapeagents = [
+#     "tapeagents[converters]",
+# ]
 
 [project.urls]
 "Homepage" = "https://github.com/ServiceNow/AgentLab"
