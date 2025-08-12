@@ -242,4 +242,33 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=64_000,
         temperature=1e-1,
     ),
+    ### Azure
+    "azure/gpt-4o-mini": AzureModelArgs(
+        model_name="gpt-4o-mini",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
+    "azure/gpt-4o": AzureModelArgs(
+        model_name="gpt-4o",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
+    "azure/gpt-4.1": AzureModelArgs(
+        model_name="gpt-4.1",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
+    "azure/gpt-4.1-mini": AzureModelArgs(
+        model_name="gpt-4.1-mini",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
 }

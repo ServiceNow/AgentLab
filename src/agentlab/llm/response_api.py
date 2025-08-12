@@ -4,20 +4,17 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Union
+from urllib.parse import urljoin
 
 import openai
+from agentlab.llm.llm_utils import image_to_png_base64_url
 from anthropic import Anthropic
 from anthropic.types import Completion
 from anthropic.types import Message as AnthrophicMessage
 from openai import OpenAI
 
-from agentlab.llm.llm_utils import image_to_png_base64_url
-
 from .base_api import BaseModelArgs
-from .llm_utils import (
-    call_anthropic_api_with_retries,
-    call_openai_api_with_retries,
-)
+from .llm_utils import call_anthropic_api_with_retries, call_openai_api_with_retries
 from .tracking import TrackAPIPricingMixin
 
 """This module contains utlity classes for building input messages and interacting with LLM APIs. 
@@ -594,6 +591,32 @@ class OpenAIResponseModel(BaseModelWithPricing):
         pass
 
 
+class AzureOpenAIResponseModel(OpenAIResponseModel):
+    def __init__(
+        self,
+        model_name: str,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = 100,
+    ):
+        api_key = os.getenv("AZURE_OPENAI_API_KEY")
+        base_url = urljoin(os.getenv("AZURE_OPENAI_ENDPOINT"), "openai/v1")
+        self.action_space_as_tools = True  # this should be a config
+        super().__init__(  # This is passed to BaseModel
+            model_name=model_name, api_key=api_key, temperature=temperature, max_tokens=max_tokens
+        )
+        client_args = {}
+        if base_url is not None:
+            client_args["base_url"] = base_url
+        if api_key is not None:
+            client_args["api_key"] = api_key
+        client_args["default_query"] = {"api-version": "preview"}
+        self.client = OpenAI(**client_args)
+        # Init pricing tracker after super() so that all attributes have been set.
+        self.init_pricing_tracker(pricing_api="openai")  # Use the PricingMixin
+
+
 class OpenAIChatCompletionModel(BaseModelWithPricing):
     def __init__(
         self,
@@ -924,6 +947,21 @@ class OpenAIResponseModelArgs(BaseModelArgs):
 
     def get_message_builder(self) -> MessageBuilder:
         return OpenAIResponseAPIMessageBuilder
+
+
+@dataclass
+class AzureOpenAIResponseModelArgs(OpenAIResponseModelArgs):
+    """Serializable object for instantiating a generic chat model with an Azure OpenAI
+    model."""
+
+    api = "openai"
+
+    def make_model(self, extra_kwargs=None, **kwargs):
+        return AzureOpenAIResponseModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
 
 
 @dataclass

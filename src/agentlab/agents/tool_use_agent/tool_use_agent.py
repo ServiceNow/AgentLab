@@ -8,15 +8,6 @@ from typing import Any
 
 import bgym
 import pandas as pd
-from bgym import Benchmark as BgymBenchmark
-from browsergym.core.observation import extract_screenshot
-from browsergym.utils.obs import (
-    flatten_axtree_to_str,
-    flatten_dom_to_str,
-    overlay_som,
-    prune_html,
-)
-
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
 from agentlab.benchmarks.osworld import OSWorldActionSet
@@ -24,6 +15,7 @@ from agentlab.llm.base_api import BaseModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     APIPayload,
+    AzureOpenAIResponseModelArgs,
     ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
@@ -33,6 +25,14 @@ from agentlab.llm.response_api import (
     ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
+from bgym import Benchmark as BgymBenchmark
+from browsergym.core.observation import extract_screenshot
+from browsergym.utils.obs import (
+    flatten_axtree_to_str,
+    flatten_dom_to_str,
+    overlay_som,
+    prune_html,
+)
 
 
 @dataclass
@@ -43,8 +43,8 @@ class Block(ABC):
 
     def make(self) -> "Block":
         """Returns a copy so the init can start adding some stuff to `self` without changing the
-        original datatclass that should only contain a config.
-        The aim is avoid having 2 calss definition for each block, e.g. Block and BlockArgs.
+        original dataclass that should only contain a config.
+        The aim is avoid having 2 class definitions for each block, e.g. Block and BlockArgs.
 
         Returns:
             Block: A copy of the current block instance with initialization applied.
@@ -389,7 +389,6 @@ class ToolUseAgent(bgym.Agent):
             self.config.action_subsets, multiaction=self.config.multiaction  # type: ignore
         )
         self.tools = self.action_set.to_tool_description(api=model_args.api)
-
         self.call_ids = []
 
         self.llm = model_args.make_model()
@@ -510,7 +509,25 @@ GPT_4_1 = OpenAIResponseModelArgs(
     vision_support=True,
 )
 
+AZURE_GPT_4_1 = AzureOpenAIResponseModelArgs(
+    model_name="gpt-4.1",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
 GPT_4_1_MINI = OpenAIResponseModelArgs(
+    model_name="gpt-4.1-mini",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=0.1,
+    vision_support=True,
+)
+
+AZURE_GPT_4_1_MINI = AzureOpenAIResponseModelArgs(
     model_name="gpt-4.1-mini",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
@@ -578,9 +595,9 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
     keep_last_n_obs=None,
-    multiaction=True,  # whether to use multi-action or not
-    # action_subsets=("bid",),
-    action_subsets=("coord"),
+    multiaction=False,  # whether to use multi-action or not
+    action_subsets=("bid",),
+    # action_subsets=("coord"),
     # action_subsets=("coord", "bid"),
 )
 
