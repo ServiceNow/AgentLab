@@ -26,7 +26,13 @@ def _get_benchmark_version(
     benchmark_name = benchmark.name
 
     if hasattr(benchmark, "get_version"):
-        return benchmark.get_version()
+        try:
+            return benchmark.get_version()
+        except ValueError as e:
+            if allow_bypass_benchmark_version:
+                return "bypassed"
+            else:
+                raise e
 
     # in between 2 pull requests
     if benchmark_name.startswith("miniwob"):
