@@ -15,6 +15,7 @@ git clone https://github.com/ServiceNow/AgentLab.git
 cd AgentLab
 uv run playwright install
 ```
+> **Note**: Sometimes, playwright may prompt you to install additional dependencies using `playwright install-deps`.
 
 This command will:
 - Automatically detect and install all required dependencies (including bgym and agentlab)
