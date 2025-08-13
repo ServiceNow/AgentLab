@@ -798,5 +798,5 @@ def test_tool_call_to_python_code():
 
 
 if __name__ == "__main__":
-    # test_tool_call_to_python_code()
+    test_tool_call_to_python_code()
     # test_openai_chat_completion_model_parse_and_cost()
