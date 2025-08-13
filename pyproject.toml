@@ -98,6 +98,7 @@ exclude = '''
 
 [dependency-groups]
 dev = [
+    "darglint>=1.8.1",
     "ipykernel>=6.30.1",
     "pip>=25.2",
 ]
