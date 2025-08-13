@@ -735,7 +735,7 @@ def dict_msg_to_markdown(d: dict):
             case _:
                 parts.append(f"\n```\n{str(item)}\n```\n")
 
-    markdown = f"### {d["role"].capitalize()}\n"
+    markdown = f"### {d['role'].capitalize()}\n"
     markdown += "\n".join(parts)
     return markdown
 
