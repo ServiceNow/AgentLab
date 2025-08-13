@@ -178,9 +178,9 @@ class TrackAPIPricingMixin:
         # 'self' here calls ._call_api() method of the subclass
         response = self._call_api(*args, **kwargs)
         usage = dict(getattr(response, "usage", {}))
-        if "prompt_tokens_details" in usage:
+        if "prompt_tokens_details" in usage and usage["prompt_tokens_details"]:
             usage["cached_tokens"] = usage["prompt_tokens_details"].cached_tokens
-        if "input_tokens_details" in usage:
+        if "input_tokens_details" in usage and usage["input_tokens_details"]:
             usage["cached_tokens"] = usage["input_tokens_details"].cached_tokens
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
@@ -332,12 +332,16 @@ class TrackAPIPricingMixin:
         if api_type == "chatcompletion":
             total_input_tokens = usage.prompt_tokens  # (cache read tokens + new input tokens)
             output_tokens = usage.completion_tokens
-            cached_input_tokens = usage.prompt_tokens_details.cached_tokens
+            cached_input_tokens = (
+                usage.prompt_tokens_details.cached_tokens if usage.prompt_tokens_details else 0
+            )
             new_input_tokens = total_input_tokens - cached_input_tokens
         elif api_type == "response":
             total_input_tokens = usage.input_tokens  # (cache read tokens + new input tokens)
             output_tokens = usage.output_tokens
-            cached_input_tokens = usage.input_tokens_details.cached_tokens
+            cached_input_tokens = (
+                usage.input_tokens_details.cached_tokens if usage.input_tokens_details else 0
+            )
             new_input_tokens = total_input_tokens - cached_input_tokens
         else:
             logging.warning(f"Unsupported API type: {api_type}. Defaulting cost to 0.0.")
