@@ -41,3 +41,15 @@ You can use other providers like Anthropic, OpenRouter, self hosted via vLLM. Bu
 ```bash
 agentlab-assistant
 ```
+NOTE: our agents are not designed for user experience, but for benchmark performance. 
+
+### Modify starting url and play with the code
+Note that CAPTCHA to prevent agents are becoming more frequent, try a different starting url.
+
+```bash
+agentlab-assistant --start_url=https://duckduckgo.com/
+```
+
+Or modify the assistant script: [`src/agentlab/ui_assistant.py`](../../src/agentlab/ui_assistant.py)
+
+

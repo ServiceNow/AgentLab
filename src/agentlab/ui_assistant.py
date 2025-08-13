@@ -43,7 +43,7 @@ def main():
         "--agent_config",
         type=str,
         default="agentlab.agents.generic_agent.AGENT_GPT5_MINI",
-        help="""Python path to the agent config. Defaults to : "agentlab.agents.generic_agent.AGENT_4o".""",
+        help="""Python path to the agent config. Defaults to : "agentlab.agents.generic_agent.AGENT_GPT5_MINI".""",
     )
     parser.add_argument(
         "--start_url",
