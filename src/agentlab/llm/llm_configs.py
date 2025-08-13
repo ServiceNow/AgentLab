@@ -1,3 +1,5 @@
+from openai import NOT_GIVEN
+
 from agentlab.llm.chat_api import (
     AnthropicModelArgs,
     AzureModelArgs,
@@ -5,7 +7,6 @@ from agentlab.llm.chat_api import (
     OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
-from openai import NOT_GIVEN
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -19,6 +20,22 @@ CLOSED_SOURCE_APIS = [
 ]
 
 CHAT_MODEL_ARGS_DICT = {
+    "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-nano-2025-08-07",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+    ),
+    "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-mini-2025-08-07",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+    ),
     "openai/gpt-4.1-mini-2025-04-14": OpenAIModelArgs(
         model_name="gpt-4.1-mini-2025-04-14",
         max_total_tokens=128_000,
@@ -93,6 +110,20 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=128_000,
         max_new_tokens=64_000,
         temperature=1e-1,
+    ),
+    "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-nano-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1,  # temperature param not supported by gpt-5
+    ),
+    "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-mini-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1,  # temperature param not supported by gpt-5
     ),
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
@@ -240,6 +271,48 @@ CHAT_MODEL_ARGS_DICT = {
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=64_000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-oss-120b": OpenRouterModelArgs(
+        model_name="openai/gpt-oss-120b",
+        max_total_tokens=131_072,
+        max_input_tokens=131_072 - 2000,
+        max_new_tokens=2000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-oss-20b": OpenRouterModelArgs(
+        model_name="openai/gpt-oss-20b",
+        max_total_tokens=131_072,
+        max_input_tokens=131_072 - 2000,
+        max_new_tokens=2000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-5-nano": OpenRouterModelArgs(
+        model_name="openai/gpt-5-nano",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-5-mini": OpenRouterModelArgs(
+        model_name="openai/gpt-5-mini",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/gpt-5-chat": OpenRouterModelArgs(
+        model_name="openai/gpt-5-chat",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1e-1,
+    ),
+    "openrouter/openai/o3-mini": OpenRouterModelArgs(
+        model_name="openai/o3-mini",
+        max_total_tokens=200_000,
+        max_input_tokens=100_000 - 4_000,
+        max_new_tokens=4_000,
         temperature=1e-1,
     ),
 }

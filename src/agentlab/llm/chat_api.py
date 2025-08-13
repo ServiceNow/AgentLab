@@ -292,7 +292,7 @@ class ChatModel(AbstractChatModel):
                     messages=messages,
                     n=n_samples,
                     temperature=temperature,
-                    max_tokens=self.max_tokens,
+                    max_completion_tokens=self.max_tokens,
                     logprobs=self.log_probs,
                 )
 
