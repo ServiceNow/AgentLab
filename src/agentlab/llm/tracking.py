@@ -5,12 +5,12 @@ import threading
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import cache
+from functools import cache, partial
 from typing import Optional
 
 import requests
 from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
-import litellm
+from litellm import completion_cost, get_model_info
 
 TRACKER = threading.local()
 
@@ -142,6 +142,21 @@ def get_pricing_anthropic():
     return res
 
 
+def get_pricing_litellm(model_name):
+    """Returns a dictionary of model pricing for a LiteLLM model."""
+    try:
+        info = get_model_info(model_name)
+    except Exception as e:
+        logging.error(f"Error fetching model info for {model_name}: {e} from litellm")
+        info = {}
+    return {
+        model_name: {
+            "prompt": info.get("input_cost_per_token", 0.0),
+            "completion": info.get("output_cost_per_token", 0.0),
+        }
+    }
+
+
 class TrackAPIPricingMixin:
     """Mixin class to handle pricing information for different models.
     This populates the tracker.stats used by the cost_tracker_decorator
@@ -152,9 +167,8 @@ class TrackAPIPricingMixin:
     def reset_stats(self):
         self.stats = Stats()
 
-    def init_pricing_tracker(
-        self, pricing_api=None
-    ):  # TODO: Use this function in the base class init instead of having a init in the Mixin class.
+    def init_pricing_tracker(self, pricing_api=None):
+        """Initialize the pricing tracker with the given API."""
         self._pricing_api = pricing_api
         self.set_pricing_attributes()
         self.reset_stats()
@@ -186,6 +200,7 @@ class TrackAPIPricingMixin:
             "openai": get_pricing_openai,
             "anthropic": get_pricing_anthropic,
             "openrouter": get_pricing_openrouter,
+            "litellm": partial(get_pricing_litellm, self.model_name),
         }
         pricing_fn = pricing_fn_map.get(self._pricing_api, None)
         if pricing_fn is None:
@@ -205,7 +220,7 @@ class TrackAPIPricingMixin:
         else:
             # use litellm to get model info if not found in the pricing dict
             try:
-                model_info = litellm.get_model_info(self.model_name)
+                model_info = get_model_info(self.model_name)
                 self.input_cost = float(model_info.get("input_cost_per_token", 0.0))
                 self.output_cost = float(model_info.get("output_cost_per_token", 0.0))
             except Exception as e:
@@ -255,6 +270,8 @@ class TrackAPIPricingMixin:
             return self.get_effective_cost_from_antrophic_api(response)
         elif self._pricing_api == "openai":
             return self.get_effective_cost_from_openai_api(response)
+        elif self._pricing_api == "litellm":
+            return completion_cost(response)
         else:
             logging.warning(
                 f"Unsupported provider: {self._pricing_api}. No effective cost calculated."
