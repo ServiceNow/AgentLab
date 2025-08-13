@@ -27,3 +27,5 @@ ray[default]
 python-slugify
 pillow
 gymnasium>=0.27
+sentence-transformers>=5.0.0
+python-dotenv>=1.1.1
