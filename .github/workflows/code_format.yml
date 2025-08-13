@@ -18,17 +18,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.11'
-          cache: 'pip' # caching pip dependencies
+          enable-cache: true
 
-      - name: Pip install
-        run: pip install -r requirements.txt
+      - name: Set up Python
+        run: uv python install 3.11
 
-      - name: Pip list
-        run: pip list
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: List packages
+        run: uv pip list
 
       - name: Code Formatting
-        run: black . --check --diff
+        run: uv run black . --check --diff

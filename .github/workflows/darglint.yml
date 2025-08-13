@@ -22,12 +22,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip' # caching pip dependencies
 
-      - name: Pip install
+      - name: Install darglint
         run: pip install darglint
 
-      - name: Pip list
+      - name: List packages
         run: pip list
 
       - name: Darglint checks
