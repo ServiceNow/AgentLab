@@ -36,9 +36,7 @@ def create_mock_openai_chat_completion(
             )
             tool_call_mock.id = tc["id"]
             tool_call_mock.type = tc["type"]
-            tool_call_mock.function = MagicMock(
-                spec=openai.types.chat.chat_completion_message_tool_call.Function
-            )
+            tool_call_mock.function = MagicMock()
             tool_call_mock.function.name = tc["function"]["name"]
             tool_call_mock.function.arguments = tc["function"]["arguments"]
             message.tool_calls.append(tool_call_mock)
@@ -800,4 +798,5 @@ def test_tool_call_to_python_code():
 
 
 if __name__ == "__main__":
-    test_tool_call_to_python_code()
+    # test_tool_call_to_python_code()
+    # test_openai_chat_completion_model_parse_and_cost()
