@@ -1,7 +1,6 @@
-### Launch experiment
-* See the `launch_experiments.ipynb` to setup miniwob benchmark.
-* Export MINIWOB_URL in your environment variables.
-* Run the following command from **AgentLab** directory `uv run tutorials/2_eval_on_miniwob/experiment.py`.
+### Launch tutorial experiment
+* Activate the python env `source .venv/bin/activate`
+* Run the following command from **AgentLab** directory `python tutorials/2_eval_on_miniwob/experiment.py`.
 * This should launch your agent on 4 miniwob tasks in parallel and save results to `$HOME/agentlab_results`.
 
 
