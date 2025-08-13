@@ -32,7 +32,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install AgentLab
-        run: uv sync --frozen
+        run: uv sync --frozen --extra dev
 
       - name: List packages
         run: uv pip list
