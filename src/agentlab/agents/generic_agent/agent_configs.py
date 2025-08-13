@@ -308,10 +308,11 @@ AGENT_LLAMA4_17B_INSTRUCT = GenericAgentArgs(
 )
 GPT5_MINI_FLAGS = BASE_FLAGS.copy()
 GPT5_MINI_FLAGS.action = dp.ActionFlags(  # action should not be str to work with agentlab-assistant
-        action_set=HighLevelActionSetArgs(
-            subsets=["bid"],
-            multiaction=False,
-        ))
+    action_set=HighLevelActionSetArgs(
+        subsets=["bid"],
+        multiaction=False,
+    )
+)
 
 AGENT_GPT5_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-mini-2025-08-07"],
