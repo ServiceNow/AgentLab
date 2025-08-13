@@ -13,6 +13,7 @@ Once uv is installed, run the following command:
 ```bash
 git clone https://github.com/ServiceNow/AgentLab.git
 cd AgentLab
+git checkout tutorial
 uv run playwright install
 ```
 > **Note**: Sometimes, playwright may prompt you to install additional dependencies using `playwright install-deps`.
