@@ -11,8 +11,8 @@ from agentlab.agents.generic_agent.tmlr_config import (
 from agentlab.benchmarks.setup_benchmark import ensure_benchmark
 from agentlab.experiments.study import Study
 
-project_dir = Path(__file__).parents[2]
 # This ensures MiniWob assets are downloaded and sets the MINIWOB_URL .env in the project dir.
+project_dir = Path(__file__).parents[2]
 ensure_benchmark("miniwob", project_root=project_dir)
 load_dotenv(project_dir.joinpath(".env"), override=False)  # load .env variables
 
