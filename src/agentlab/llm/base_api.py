@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import List, Optional
 
 
 class AbstractChatModel(ABC):
@@ -22,6 +23,8 @@ class BaseModelArgs(ABC):
     temperature: float = 0.1
     vision_support: bool = False
     log_probs: bool = False
+    top_p: float = 1.0 # Added top_p
+    stop_sequences: Optional[List[str]] = None # Added stop_sequences
 
     @abstractmethod
     def make_model(self) -> AbstractChatModel:

@@ -92,7 +92,9 @@ def poll_for_timeout(tasks: dict[str, ray.ObjectRef], timeout: float, poll_inter
 def get_elapsed_time(task_ref: ray.ObjectRef):
     task_id = task_ref.task_id().hex()
     task_info = state.get_task(task_id, address="auto")
-    if task_info and task_info.start_time_ms is not None:
+    if isinstance(task_info, list) and len(task_info) > 0:
+        task_info = task_info[0]
+    if task_info and hasattr(task_info, 'start_time_ms') and task_info.start_time_ms is not None:
         start_time_s = task_info.start_time_ms / 1000.0  # Convert ms to s
         current_time_s = time.time()
         elapsed_time = current_time_s - start_time_s

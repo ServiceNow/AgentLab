@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import signal
@@ -27,6 +28,14 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 def run_exp(exp_arg: ExpArgs, *dependencies, avg_step_timeout=60):
     """Run exp_args.run() with a timeout and handle dependencies."""
+    # Ensure event loop is available for Ray workers (fixes Playwright selector issues)
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        # No event loop exists in this worker process, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
     # episode_timeout = _episode_timeout(exp_arg, avg_step_timeout=avg_step_timeout)
     # logger.warning(f"Running {exp_arg.exp_id} with timeout of {episode_timeout} seconds.")
     # with timeout_manager(seconds=episode_timeout):

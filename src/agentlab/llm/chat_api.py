@@ -125,10 +125,18 @@ class AzureModelArgs(BaseModelArgs):
 class SelfHostedModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with a self-hosted model."""
 
-    model_url: str = None
+    model_url_base: str = "http://localhost"  # Changed from model_url
+    port_num: int = 8000  # Added port_num
+    api_path: str = "/v1"  # Added api_path for flexibility
     token: str = None
-    backend: str = "huggingface"
+    backend: str = "vllm"
     n_retry_server: int = 4
+    chat_template: str = None  # Add chat_template parameter
+
+    @property
+    def model_url(self) -> str:
+        """Construct the full model URL."""
+        return f"{self.model_url_base}:{self.port_num}{self.api_path}"
 
     def make_model(self):
         if self.backend == "huggingface":
@@ -153,10 +161,14 @@ class SelfHostedModelArgs(BaseModelArgs):
                 temperature=self.temperature,
                 max_tokens=self.max_new_tokens,
                 n_retry_server=self.n_retry_server,
+                base_url=self.model_url,  # Pass constructed URL
+                top_p=self.top_p,  # Pass top_p
+                stop_sequences=self.stop_sequences,  # Pass stop_sequences
+                log_probs=self.log_probs,  # Pass log_probs
+                chat_template=self.chat_template  # Pass chat_template
             )
         else:
             raise ValueError(f"Backend {self.backend} is not supported")
-
 
 @dataclass
 class ChatModelArgs(BaseModelArgs):
@@ -237,6 +249,8 @@ class ChatModel(AbstractChatModel):
         client_args=None,
         pricing_func=None,
         log_probs=False,
+        top_p=1.0,  # Added top_p
+        stop_sequences=None,  # Added stop_sequences
     ):
         assert max_retry > 0, "max_retry should be greater than 0"
 
@@ -246,6 +260,8 @@ class ChatModel(AbstractChatModel):
         self.max_retry = max_retry
         self.min_retry_wait_time = min_retry_wait_time
         self.log_probs = log_probs
+        self.top_p = top_p  # Store top_p
+        self.stop_sequences = stop_sequences  # Store stop_sequences
 
         # Get the API key from the environment variable if not provided
         if api_key_env_var:
@@ -269,6 +285,9 @@ class ChatModel(AbstractChatModel):
             self.output_cost = 0.0
 
         client_args = client_args or {}
+        # Ensure base_url from client_args takes precedence if provided directly
+        if "base_url" not in client_args and hasattr(self, "base_url") and self.base_url:
+            client_args["base_url"] = self.base_url
         self.client = client_class(
             api_key=api_key,
             **client_args,
@@ -323,8 +342,12 @@ class ChatModel(AbstractChatModel):
 
         if n_samples == 1:
             res = AIMessage(completion.choices[0].message.content)
-            if self.log_probs:
-                res["log_probs"] = completion.choices[0].log_probs
+            if (
+                self.log_probs
+                and hasattr(completion.choices[0], "logprobs")
+                and completion.choices[0].logprobs
+            ):
+                res["log_probs"] = completion.choices[0].logprobs  # Adjusted access
             return res
         else:
             return [AIMessage(c.message.content) for c in completion.choices]
@@ -458,7 +481,19 @@ class VLLMChatModel(ChatModel):
         max_tokens=100,
         n_retry_server=4,
         min_retry_wait_time=60,
+        base_url="http://0.0.0.0:8000/v1",  # Added to accept custom URL
+        top_p=1.0,  # Added to accept top_p
+        stop_sequences=None,  # Added to accept stop_sequences
+        log_probs=False,  # Added to accept log_probs
+        chat_template=None,  # Add chat_template parameter
     ):
+        # Prepare client arguments
+        client_args = {"base_url": base_url}
+        
+        # Add chat template to headers if provided
+        if chat_template:
+            client_args["default_headers"] = {"x-chat-template": chat_template}
+        
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -466,8 +501,29 @@ class VLLMChatModel(ChatModel):
             max_tokens=max_tokens,
             max_retry=n_retry_server,
             min_retry_wait_time=min_retry_wait_time,
-            api_key_env_var="VLLM_API_KEY",
+            api_key_env_var="VLLM_API_KEY", 
             client_class=OpenAI,
-            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            client_args=client_args,
             pricing_func=None,
+            top_p=top_p,  # Pass top_p to parent
+            stop_sequences=stop_sequences,  # Pass stop_sequences to parent
+            log_probs=log_probs,  # Pass log_probs to parent
         )
+
+if __name__ == "__main__":
+    # VLLM model example with selfhosted model
+    model_args = SelfHostedModelArgs(
+        model_name="/mnt/colab_public/boileo/output/training_20250424_214711",
+        backend="vllm",
+        # Llama 3.1 chat template
+    )
+    model = model_args.make_model()
+    print(
+        model(
+            [
+                make_system_message("You are a helpful assistant."),
+                make_user_message("What is the capital of France?"),
+            ]
+        )
+    )
+    a = 1
