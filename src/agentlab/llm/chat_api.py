@@ -292,7 +292,7 @@ class ChatModel(AbstractChatModel):
                     messages=messages,
                     n=n_samples,
                     temperature=temperature,
-                    max_tokens=self.max_tokens,
+                    max_completion_tokens=self.max_tokens,
                     logprobs=self.log_probs,
                 )
 
@@ -359,7 +359,7 @@ class OpenAIChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             api_key_env_var="OPENAI_API_KEY",
             client_class=OpenAI,
-            pricing_func=tracking.get_pricing_openai,
+            pricing_func=partial(tracking.get_pricing_litellm, model_name=model_name),
             log_probs=log_probs,
         )
 
