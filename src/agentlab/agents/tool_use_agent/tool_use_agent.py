@@ -1,6 +1,9 @@
 import fnmatch
 import json
 import logging
+import os
+import random
+import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from copy import copy
@@ -9,7 +12,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 import bgym
+import numpy as np
 import pandas as pd
+import requests
 from bgym import Benchmark as BgymBenchmark
 from browsergym.core.observation import extract_screenshot
 from browsergym.utils.obs import (
@@ -18,7 +23,6 @@ from browsergym.utils.obs import (
     overlay_som,
     prune_html,
 )
-from sentence_transformers import SentenceTransformer
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
@@ -181,7 +185,6 @@ class Obs(Block):
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
-
         obs_msg = llm.msg.user()
         tool_calls = last_llm_output.tool_calls
         if self.use_last_error:
@@ -306,6 +309,7 @@ class TaskHint(Block):
     hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
     top_n: int = 4  # Number of top hints to return when using embedding retrieval
     embedder_model: str = "Qwen/Qwen3-Embedding-0.6B"  # Model for embedding hints
+    embedder_server: str = "http://localhost:5000"
     llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
 You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
 Choose hint topic for the task and return only its number, e.g. 1. If you don't know the answer, return -1."""
@@ -318,20 +322,26 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
             hint_db_path = Path(__file__).parent / self.hint_db_rel_path
         self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
         if self.hint_retrieval_mode == "emb":
-            logger.info("Load sentence transformer model for hint embeddings.")
-            self.emb_model = SentenceTransformer(
-                "Qwen/Qwen3-Embedding-0.6B", model_kwargs={"torch_dtype": "bfloat16"}
-            )
             self.encode_hints()
+
+    def oai_embed(self, text: str):
+        response = self._oai_emb.create(input=text, model="text-embedding-3-small")
+        return response.data[0].embedding
 
     def encode_hints(self):
         self.uniq_hints = self.hint_db.drop_duplicates(subset=["hint"], keep="first")
         logger.info(
-            f"Encoding {len(self.uniq_hints)} unique hints using {self.embedder_model} model."
+            f"Encoding {len(self.uniq_hints)} unique hints with semantic keys using {self.embedder_model} model."
         )
-        self.hint_embeddings = self.emb_model.encode(
-            self.uniq_hints["hint"].tolist(), prompt="task hint"
-        )
+        hints = self.uniq_hints["hint"].tolist()
+        semantic_keys = self.uniq_hints["semantic_keys"].tolist()
+        lines = [f"{k}: {h}" for h, k in zip(hints, semantic_keys)]
+        emb_path = f"{self.hint_db_rel_path}.embs.npy"
+        assert os.path.exists(emb_path), f"Embedding file not found: {emb_path}"
+        logger.info(f"Loading hint embeddings from: {emb_path}")
+        emb_dict = np.load(emb_path, allow_pickle=True).item()
+        self.hint_embeddings = np.array([emb_dict[k] for k in lines])
+        logger.info(f"Loaded hint embeddings shape: {self.hint_embeddings.shape}")
 
     def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
         if not self.use_task_hint:
@@ -393,13 +403,49 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
 
     def choose_hints_emb(self, goal: str) -> list[str]:
         """Choose hints using embeddings to filter the hints."""
-        goal_embeddings = self.emb_model.encode([goal], prompt="task description")
-        similarities = self.emb_model.similarity(goal_embeddings, self.hint_embeddings)
+        goal_embeddings = self._encode([goal], prompt="task description")
+        similarities = self._similarity(goal_embeddings.tolist(), self.hint_embeddings.tolist())
         top_indices = similarities.argsort()[0][-self.top_n :].tolist()
         logger.info(f"Top hint indices based on embedding similarity: {top_indices}")
         hints = self.uniq_hints.iloc[top_indices]
         logger.info(f"Embedding-based hints chosen: {hints}")
         return hints["hint"].tolist()
+
+    def _encode(self, texts: list[str], prompt: str = "", timeout: int = 10, max_retries: int = 5):
+        """Call the encode API endpoint with timeout and retries"""
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    f"{self.embedder_server}/encode",
+                    json={"texts": texts, "prompt": prompt},
+                    timeout=timeout,
+                )
+                embs = response.json()["embeddings"]
+                return np.asarray(embs)
+            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                if attempt == max_retries - 1:
+                    raise e
+                time.sleep(random.uniform(1, timeout))
+                continue
+
+    def _similarity(
+        self, texts1: list[str], texts2: list[str], timeout: int = 2, max_retries: int = 5
+    ):
+        """Call the similarity API endpoint with timeout and retries"""
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    f"{self.embedder_server}/similarity",
+                    json={"texts1": texts1, "texts2": texts2},
+                    timeout=timeout,
+                )
+                similarities = response.json()["similarities"]
+                return np.asarray(similarities)
+            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                if attempt == max_retries - 1:
+                    raise e
+                time.sleep(random.uniform(1, timeout))
+                continue
 
     def choose_hints_direct(self, task_name: str) -> list[str]:
         hints = self.hint_db[
@@ -466,7 +512,8 @@ class ToolUseAgent(bgym.Agent):
         self.model_args = model_args
         self.config = config
         self.action_set: bgym.AbstractActionSet = action_set or bgym.HighLevelActionSet(
-            self.config.action_subsets, multiaction=self.config.multiaction  # type: ignore
+            self.config.action_subsets,
+            multiaction=self.config.multiaction,  # type: ignore
         )
         self.tools = self.action_set.to_tool_description(api=model_args.api)
 
@@ -656,7 +703,7 @@ GPT_5 = OpenAIChatModelArgs(
     model_name="gpt-5",
     max_total_tokens=200_000,
     max_input_tokens=200_000,
-    max_new_tokens=2_000,
+    max_new_tokens=8_000,
     temperature=None,
     vision_support=True,
 )
