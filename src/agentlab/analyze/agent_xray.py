@@ -101,42 +101,9 @@ class Info:
         if self.result_df is None or episode_id.task_name is None or episode_id.seed is None:
             self.exp_result = None
 
-        # Prefer selecting by explicit row index if available
-        if episode_id.row_index is not None:
-            tmp_df = self.result_df.reset_index(inplace=False)
-            tmp_df["_row_index"] = tmp_df.index
-            sub_df = tmp_df[tmp_df["_row_index"] == episode_id.row_index]
-            if len(sub_df) == 0:
-                self.exp_result = None
-                raise ValueError(f"Could not find episode for row_index: {episode_id.row_index}")
-            if len(sub_df) > 1:
-                warning(
-                    f"Found multiple rows for row_index: {episode_id.row_index}. Using the first one."
-                )
-            exp_dir = sub_df.iloc[0]["exp_dir"]
-            print(exp_dir)
-            self.exp_result = ExpResult(exp_dir)
-            self.step = 0
-            return
-
-        # find unique row for task_name and seed
+        # find unique row using idx
         result_df = self.agent_df.reset_index(inplace=False)
-        sub_df = result_df[
-            (result_df[TASK_NAME_KEY] == episode_id.task_name)
-            & (result_df[TASK_SEED_KEY] == episode_id.seed)
-        ]
-        if len(sub_df) == 0:
-            self.exp_result = None
-            raise ValueError(
-                f"Could not find task_name: {episode_id.task_name} and seed: {episode_id.seed}"
-            )
-
-        if len(sub_df) > 1:
-            warning(
-                f"Found multiple rows for task_name: {episode_id.task_name} and seed: {episode_id.seed}. Using the first one."
-            )
-
-        exp_dir = sub_df.iloc[0]["exp_dir"]
+        exp_dir = result_df.iloc[episode_id.row_index]["exp_dir"]
         print(exp_dir)
         self.exp_result = ExpResult(exp_dir)
         self.step = 0
@@ -1022,7 +989,7 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
     def extract_columns(row: pd.Series):
         return pd.Series(
             {
-                "index": row.get("_row_index", None),
+                "idx": row.get("_row_index", None),
                 "seed": row.get(TASK_SEED_KEY, None),
                 "reward": row.get("cum_reward", None),
                 "err": bool(row.get("err_msg", None)),
@@ -1032,7 +999,7 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
 
     seed_df = result_df.apply(extract_columns, axis=1)
     # Ensure column order and readability
-    seed_df = seed_df[["seed", "reward", "err", "n_steps","index"]]
+    seed_df = seed_df[["seed", "reward", "err", "n_steps", "idx"]]
     return seed_df
 
 
@@ -1050,8 +1017,8 @@ def on_select_task(evt: gr.SelectData, df: pd.DataFrame, agent_id: list[tuple]):
 def update_seeds(agent_task_id: tuple):
     agent_id, task_name = agent_task_id
     seed_df = get_seeds_df(info.agent_df, task_name)
-    first_seed = int(seed_df.iloc[0]["seed"]) if len(seed_df) else None
-    first_index = int(seed_df.iloc[0]["index"]) if len(seed_df) else None
+    first_seed = int(seed_df.iloc[0]["seed"])
+    first_index = int(seed_df.iloc[0]["idx"])
     return seed_df, EpisodeId(
         agent_id=agent_id, task_name=task_name, seed=first_seed, row_index=first_index
     )
@@ -1060,15 +1027,9 @@ def update_seeds(agent_task_id: tuple):
 def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, agent_task_id: tuple):
     agent_id, task_name = agent_task_id
     col_idx = df.columns.get_loc("seed")
-    idx_col = df.columns.get_loc("index") if "index" in df.columns else None
+    idx_col = df.columns.get_loc("idx")
     seed = evt.row_value[col_idx]
-    row_index = evt.row_value[idx_col] if idx_col is not None else None
-    try:
-        seed = int(seed)
-        if row_index is not None:
-            row_index = int(row_index)
-    except Exception:
-        pass
+    row_index = evt.row_value[idx_col] 
     return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed, row_index=row_index)
 
 
@@ -1167,7 +1128,7 @@ def new_exp_dir(study_names: list, progress=gr.Progress(), just_refresh=False):
         study_names.remove(select_dir_instructions)
 
     if len(study_names) == 0:
-        return None, None
+        return None, None, None, None, None, None
 
     info.study_dirs = [info.results_dir / study_name.split(" - ")[0] for study_name in study_names]
     info.result_df = inspect_results.load_result_df(info.study_dirs, progress_fn=progress.tqdm)
