@@ -1,215 +1,192 @@
+"""Minimal Human Trace Agent (<200 lines)
+
+Per step we capture ONLY:
+  - axtree_txt, pruned_html, actions.json, after.html
+  - Auto-resume after detecting user action
+  - Visible recording indicator
+"""
+
 from __future__ import annotations
 
-import logging
-import textwrap
+import json
+import time
+import zipfile
 from dataclasses import dataclass
+from pathlib import Path
 
 import bgym
 from playwright.sync_api import Page
 
 from agentlab.agents.agent_args import AgentArgs
-
-logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Simplified variant: capture human step (trace + screenshot + html) only
-# ---------------------------------------------------------------------------
+from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, prune_html
 
 
 @dataclass
-class SimpleHumanTraceCaptureAgentArgs(AgentArgs):
-    """Args for SimpleHumanTraceCaptureAgent.
-
-    This version ONLY captures what the human does in the paused browser per step.
-    It does NOT attempt to map or translate actions. Always returns noop().
-    Set use_raw_page_output=True in loop/env so that obs contains a Playwright Page.
-    """
-
-    agent_name: str = "SimpleHumanTraceCapture"
+class HumanTraceAgentArgs(AgentArgs):
+    agent_name: str = "HumanTraceAgent"
     trace_dir: str = "human_traces"
-    screenshots: bool = True
-    snapshots: bool = True  # playwright tracing snapshots (DOM/Sources)
-    sources: bool = False  # include source files (bigger trace)
-    # Ensure the raw Playwright Page object is present in observations so we can pause.
     use_raw_page_output: bool = True
 
-    def make_agent(self) -> bgym.Agent:
-        return SimpleHumanTraceCaptureAgent(
-            trace_dir=self.trace_dir,
-            screenshots=self.screenshots,
-            snapshots=self.snapshots,
-            sources=self.sources,
-        )
+    def make_agent(self) -> bgym.Agent:  # type: ignore[override]
+        return HumanTraceAgent(self.trace_dir)
 
     def set_reproducibility_mode(self):
         pass
 
 
-class SimpleHumanTraceCaptureAgent(bgym.Agent):
-    """Minimal human-in-the-loop recorder.
-
-    On each get_action:
-      1. Start a Playwright tracing capture (if not already running for this step).
-      2. Call page.pause() to open Inspector; user performs EXACTLY one logical action.
-      3. Stop tracing, save trace zip, screenshot (after action), and HTML snapshot.
-      4. Return noop() so the environment advances.
-
-    Artifacts are stored under trace_dir/step_<n>/
-    """
-
-    def __init__(self, trace_dir: str, screenshots: bool, snapshots: bool, sources: bool):
+class HumanTraceAgent(bgym.Agent):
+    def __init__(self, trace_dir: str):
         self.action_set = bgym.HighLevelActionSet(["bid"], multiaction=False)
-        self._step_idx = 0
-        from pathlib import Path
-
         self._root = Path(trace_dir)
         self._root.mkdir(parents=True, exist_ok=True)
-        # Store trace config booleans; Playwright tracing.start expects them as named params.
-        self._trace_conf = dict(screenshots=screenshots, snapshots=snapshots, sources=sources)
-        self._tracing_started = False  # track if global tracing has been started
-        self._page: Page | None = None  # optional persistent page ref (when not in obs)
+        self._page: Page | None = None
+        self._step = 0
+        self._task_name = None
+        self._seed = None
 
-    def set_page(self, page: Page):
-        """Manually inject a Playwright Page so the agent can function without it in obs.
+    def obs_preprocessor(self, obs: dict):  # type: ignore[override]
+        if isinstance(obs, dict):
+            if self._page is None and "page" in obs:
+                self._page = obs["page"]
 
-        Call this once after you create / reset the environment if you prefer not to
-        expose the page through observations (e.g., for safety or serialization reasons).
-        """
-        self._page = page
+            # Extract task name and seed from obs if available
+            if self._task_name is None:
+                self._task_name = obs.get("task_name") or obs.get("task", {}).get(
+                    "task_name", "unknown_task"
+                )
+            if self._seed is None:
+                self._seed = obs.get("seed") or obs.get("task", {}).get("seed", "unknown_seed")
 
-    def obs_preprocessor(self, obs):  # keep original obs so page is available
+            dom = obs.get("dom_object")
+            axt = obs.get("axtree_object")
+            if axt is not None:
+                try:
+                    obs["axtree_txt"] = flatten_axtree_to_str(axt)
+                except Exception:
+                    pass
+            if dom is not None:
+                try:
+                    obs["pruned_html"] = prune_html(flatten_dom_to_str(dom))
+                except Exception:
+                    pass
+            for k in ("dom_object", "axtree_object", "page"):
+                obs.pop(k, None)
         return obs
 
     def get_action(self, obs: dict):  # type: ignore[override]
-        import json
-        import time
-
-        # Resolve page priority: observation > stored page
-        page: Page | None = obs.get("page") or self._page
-        if page is None:
-            raise RuntimeError(
-                "No Playwright Page available. Provide use_raw_page_output=True OR call set_page(page)."
-            )
-        # Cache page if first time we see it via obs so later steps can omit it
         if self._page is None:
-            self._page = page
+            raise RuntimeError("Playwright Page missing; ensure use_raw_page_output=True")
 
-        step_dir = self._root / f"step_{self._step_idx:04d}"
+        page = self._page
+
+        # Create directory structure: trace_dir/task_name/seed/step_XXXX
+        task_dir = self._root / str(self._task_name or "unknown_task")
+        seed_dir = task_dir / str(self._seed or "unknown_seed")
+        step_dir = seed_dir / f"step_{self._step:04d}"
         step_dir.mkdir(parents=True, exist_ok=True)
-        trace_path = step_dir / "trace.zip"
-        screenshot_path = step_dir / "after.png"
-        html_path = step_dir / "after.html"
 
-        # Lazy start of tracing (once per context) then per-step chunk
-        if not self._tracing_started:
-            try:
-                page.context.tracing.start(
-                    screenshots=self._trace_conf["screenshots"],
-                    snapshots=self._trace_conf["snapshots"],
-                    sources=self._trace_conf["sources"],
-                )
-                self._tracing_started = True
-            except Exception as e:  # pragma: no cover
-                print(f"[SimpleHumanTraceCapture][WARN] initial tracing.start failed: {e}")
+        trace_path = step_dir / "temp_trace.zip"
+        actions_path = step_dir / "actions.json"
 
+        print(
+            f"[HumanTrace] Task: {self._task_name}, Seed: {self._seed}, Step {self._step}: Perform ONE action"
+        )
+
+        # Small recording indicator
+        page.evaluate(
+            """
+            const div = document.createElement('div');
+            div.id = '__rec';
+            div.innerHTML = '🔴 REC';
+            div.style.cssText = 'position:fixed;top:5px;right:5px;background:#f44;color:#fff;padding:5px 8px;border-radius:4px;font:bold 12px monospace;z-index:99999';
+            document.body.appendChild(div);
+        """
+        )
+
+        # Start tracing
         try:
+            page.context.tracing.start(screenshots=True, snapshots=True)
             page.context.tracing.start_chunk()
-        except Exception as e:  # pragma: no cover
-            print(f"[SimpleHumanTraceCapture][WARN] tracing.start_chunk failed: {e}")
+        except Exception:
+            pass
 
-        print("\n[SimpleHumanTraceCapture] Perform ONE action then resume Inspector.")
-        print("[SimpleHumanTraceCapture] A trace will be saved to:", trace_path)
-        try:
-            page.pause()
-        except Exception as e:  # pragma: no cover
-            print(f"[SimpleHumanTraceCapture][WARN] page.pause failed: {e}")
+        # Wait for action
+        self._wait_for_action(page)
 
-        # Stop current chunk & save
+        # Stop tracing and save
         try:
             page.context.tracing.stop_chunk(path=str(trace_path))
-        except Exception as e:  # pragma: no cover
-            print(f"[SimpleHumanTraceCapture][WARN] tracing.stop_chunk failed: {e}")
+            actions = self._extract_trace(str(trace_path))
+            actions_path.write_text(json.dumps(actions, indent=2))
+            trace_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
-        # Post-action artifacts
-        try:
-            page.screenshot(path=str(screenshot_path))
-        except Exception as e:  # pragma: no cover
-            print(f"[SimpleHumanTraceCapture][WARN] screenshot failed: {e}")
-        try:
-            html = page.content()
-            html_path.write_text(html)
-        except Exception as e:  # pragma: no cover
-            print(f"[SimpleHumanTraceCapture][WARN] html capture failed: {e}")
+        # Remove indicator
+        page.evaluate("document.getElementById('__rec')?.remove()")
 
-        meta = {
-            "url": page.url,
-            "timestamp": time.time(),
-            "step": self._step_idx,
-            "trace_path": str(trace_path),
-            "screenshot_path": str(screenshot_path),
-            "html_path": str(html_path),
+        # Save screenshot
+        try:
+            page.screenshot(path=str(step_dir / "screenshot.png"))
+        except Exception:
+            pass
+
+        # Save HTML
+        try:
+            (step_dir / "after.html").write_text(page.content())
+        except Exception:
+            pass
+
+        self._step += 1
+        return "noop()", {
+            "extra_info": {
+                "step": self._step - 1,
+                "task_name": self._task_name,
+                "seed": self._seed,
+                "trace_dir": str(step_dir),
+            }
         }
-        (step_dir / "meta.json").write_text(json.dumps(meta, indent=2))
 
-        # --- Derive a lightweight human-readable script summary from the trace ---
-        script_summary_lines: list[str] = []
-        try:
-            import json as _json
-            import zipfile
-
-            with zipfile.ZipFile(trace_path, "r") as zf:
-                # Playwright trace usually contains one or more *.trace files (jsonl)
-                trace_files = [n for n in zf.namelist() if n.endswith(".trace")]
-                for tf in trace_files:
-                    with zf.open(tf, "r") as fh:
-                        for raw_line in fh:
-                            try:
-                                evt = _json.loads(raw_line.decode("utf-8"))
-                            except Exception:
-                                continue
-                            if evt.get("type") != "action":
-                                continue
-                            a = evt.get("action", {})
-                            api_name = a.get("apiName") or a.get("name") or "action"
-                            selector = a.get("selector") or a.get("locator") or ""
-                            value = a.get("value") or a.get("text") or ""
-                            line = f"{api_name}"
-                            if selector:
-                                line += f" selector={selector!r}"
-                            if value and isinstance(value, str) and len(value) < 200:
-                                line += f" value={value!r}"
-                            script_summary_lines.append(line)
-            if not script_summary_lines:
-                script_summary_lines.append("(no action events parsed from trace chunk)")
-        except Exception as e:  # pragma: no cover
-            script_summary_lines.append(f"(failed to parse trace for script summary: {e})")
-
-        # Prepare chat messages (simple list of strings for easy viewing)
-        chat_messages = [
-            "PLAYWRIGHT TRACE STEP SUMMARY:",
-            f"Step {self._step_idx} URL: {page.url}",
-            "Actions:",
-            *script_summary_lines,
-            f"Trace file: {trace_path}",
-            "Open with: npx playwright show-trace " + str(trace_path),
-        ]
-
-        self._step_idx += 1
-
-        agent_info = bgym.AgentInfo(
-            think="human-recorded",
-            chat_messages=chat_messages,
-            stats={"step": self._step_idx},
-            markdown_page=textwrap.dedent(
-                f"""### Simple Human Trace Capture\nSaved artifacts for step {meta['step']}:\n- URL: {meta['url']}\n- Trace: {meta['trace_path']}\n- Screenshot: {meta['screenshot_path']}\n- HTML: {meta['html_path']}\n"""
-            ),
-            extra_info=meta,
+    def _wait_for_action(self, page):
+        """Wait for user action with auto-resume."""
+        page.evaluate(
+            """
+            window.__acted = false;
+            ['click','keydown','input','change'].forEach(e => 
+                document.addEventListener(e, () => window.__acted = true, true)
+            );
+        """
         )
-        return "noop()", agent_info
+
+        start = time.time()
+        while time.time() - start < 300:  # 5 min max
+            try:
+                if page.evaluate("window.__acted"):
+                    page.evaluate("document.getElementById('__rec').innerHTML = '💾 SAVING'")
+                    time.sleep(0.3)
+                    return
+            except Exception:
+                pass
+            time.sleep(0.1)
+
+    def _extract_trace(self, trace_file: str):
+        """Extract ALL events from trace zip."""
+        all_events = []
+        try:
+            with zipfile.ZipFile(trace_file, "r") as zf:
+                for name in zf.namelist():
+                    if name.endswith(".trace"):
+                        with zf.open(name) as f:
+                            for line in f:
+                                try:
+                                    event = json.loads(line.decode())
+                                    # Save everything - don't filter
+                                    all_events.append(event)
+                                except Exception:
+                                    continue
+        except Exception:
+            pass
+        return all_events
 
 
-SIMPLE_TRACE_CAPTURE_AGENT = SimpleHumanTraceCaptureAgentArgs()
-
-##1. Simple debug agent
-# 2. Instead of using the page object Launch codegen directly in a subprocess using the playwright codegen --url or somethiing
+HUMAN_TRACE_AGENT = HumanTraceAgentArgs()
