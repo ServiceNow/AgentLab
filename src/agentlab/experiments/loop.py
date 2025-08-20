@@ -425,6 +425,7 @@ class ExpArgs:
                 exp_dir=self.exp_dir,
                 use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
             )
+            
 
             logger.debug("Environment created.")
             step_info = StepInfo(step=0)
@@ -433,7 +434,9 @@ class ExpArgs:
                 env, seed=self.env_args.task_seed or 0, obs_preprocessor=agent.obs_preprocessor
             )
             logger.debug("Environment reset.")
-
+            goal = step_info.obs['goal'] 
+            agent.set_task(self.env_args.task_name)  # set the task for the agent
+            agent.set_goal(goal)  # set the goal for the agent, if applicable
             while not step_info.is_done:  # set a limit
                 logger.debug(f"Starting step {step_info.step}.")
                 action = step_info.from_action(agent)
