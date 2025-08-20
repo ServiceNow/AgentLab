@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from attr import dataclass
+from browsergym.experiments.loop import StepInfo as BGymStepInfo
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall
@@ -28,7 +29,6 @@ from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
 from agentlab.llm.response_api import MessageBuilder, ToolCalls
-from browsergym.experiments.loop import StepInfo as BGymStepInfo
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -1029,7 +1029,7 @@ def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, agent_task_id: tuple):
     col_idx = df.columns.get_loc("seed")
     idx_col = df.columns.get_loc("idx")
     seed = evt.row_value[col_idx]
-    row_index = evt.row_value[idx_col] 
+    row_index = evt.row_value[idx_col]
     return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed, row_index=row_index)
 
 
@@ -1281,7 +1281,9 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     all_times = []
     step_times = []
     for i, step_info in progress_fn(list(enumerate(step_info_list)), desc="Building plot."):
-        assert isinstance(step_info, (StepInfo, BGymStepInfo)), f"Expected StepInfo or BGymStepInfo, got {type(step_info)}"
+        assert isinstance(
+            step_info, (StepInfo, BGymStepInfo)
+        ), f"Expected StepInfo or BGymStepInfo, got {type(step_info)}"
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
