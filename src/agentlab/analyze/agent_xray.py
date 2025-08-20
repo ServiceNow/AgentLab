@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from attr import dataclass
+from browsergym.experiments.loop import StepInfo as BGymStepInfo
 from langchain.schema import BaseMessage, HumanMessage
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall
@@ -74,6 +75,7 @@ class EpisodeId:
     agent_id: str = None
     task_name: str = None
     seed: int = None
+    row_index: int = None  # unique row index to disambiguate selections
 
 
 @dataclass
@@ -99,24 +101,9 @@ class Info:
         if self.result_df is None or episode_id.task_name is None or episode_id.seed is None:
             self.exp_result = None
 
-        # find unique row for task_name and seed
+        # find unique row using idx
         result_df = self.agent_df.reset_index(inplace=False)
-        sub_df = result_df[
-            (result_df[TASK_NAME_KEY] == episode_id.task_name)
-            & (result_df[TASK_SEED_KEY] == episode_id.seed)
-        ]
-        if len(sub_df) == 0:
-            self.exp_result = None
-            raise ValueError(
-                f"Could not find task_name: {episode_id.task_name} and seed: {episode_id.seed}"
-            )
-
-        if len(sub_df) > 1:
-            warning(
-                f"Found multiple rows for task_name: {episode_id.task_name} and seed: {episode_id.seed}. Using the first one."
-            )
-
-        exp_dir = sub_df.iloc[0]["exp_dir"]
+        exp_dir = result_df.iloc[episode_id.row_index]["exp_dir"]
         print(exp_dir)
         self.exp_result = ExpResult(exp_dir)
         self.step = 0
@@ -128,16 +115,15 @@ class Info:
         return agent_id
 
     def filter_agent_id(self, agent_id: list[tuple]):
-        # query_str = " & ".join([f"`{col}` == {repr(val)}" for col, val in agent_id])
-        # agent_df = info.result_df.query(query_str)
-
-        agent_df = self.result_df.reset_index(inplace=False)
-        agent_df.set_index(TASK_NAME_KEY, inplace=True)
+        # Preserve a stable row index to disambiguate selections later
+        tmp_df = self.result_df.reset_index(inplace=False)
+        tmp_df["_row_index"] = tmp_df.index
+        tmp_df.set_index(TASK_NAME_KEY, inplace=True)
 
         for col, val in agent_id:
             col = col.replace(".\n", ".")
-            agent_df = agent_df[agent_df[col] == val]
-        self.agent_df = agent_df
+            tmp_df = tmp_df[tmp_df[col] == val]
+        self.agent_df = tmp_df
 
 
 info = Info()
@@ -735,7 +721,7 @@ def dict_msg_to_markdown(d: dict):
             case _:
                 parts.append(f"\n```\n{str(item)}\n```\n")
 
-    markdown = f"### {d["role"].capitalize()}\n"
+    markdown = f"### {d['role'].capitalize()}\n"
     markdown += "\n".join(parts)
     return markdown
 
@@ -1003,7 +989,8 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
     def extract_columns(row: pd.Series):
         return pd.Series(
             {
-                "seed": row[TASK_SEED_KEY],
+                "idx": row.get("_row_index", None),
+                "seed": row.get(TASK_SEED_KEY, None),
                 "reward": row.get("cum_reward", None),
                 "err": bool(row.get("err_msg", None)),
                 "n_steps": row.get("n_steps", None),
@@ -1011,6 +998,8 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
         )
 
     seed_df = result_df.apply(extract_columns, axis=1)
+    # Ensure column order and readability
+    seed_df = seed_df[["seed", "reward", "err", "n_steps", "idx"]]
     return seed_df
 
 
@@ -1028,15 +1017,20 @@ def on_select_task(evt: gr.SelectData, df: pd.DataFrame, agent_id: list[tuple]):
 def update_seeds(agent_task_id: tuple):
     agent_id, task_name = agent_task_id
     seed_df = get_seeds_df(info.agent_df, task_name)
-    first_seed = seed_df.iloc[0]["seed"]
-    return seed_df, EpisodeId(agent_id=agent_id, task_name=task_name, seed=first_seed)
+    first_seed = int(seed_df.iloc[0]["seed"])
+    first_index = int(seed_df.iloc[0]["idx"])
+    return seed_df, EpisodeId(
+        agent_id=agent_id, task_name=task_name, seed=first_seed, row_index=first_index
+    )
 
 
 def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, agent_task_id: tuple):
     agent_id, task_name = agent_task_id
     col_idx = df.columns.get_loc("seed")
-    seed = evt.row_value[col_idx]  # seed should be the first column
-    return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed)
+    idx_col = df.columns.get_loc("idx")
+    seed = evt.row_value[col_idx]
+    row_index = evt.row_value[idx_col]
+    return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed, row_index=row_index)
 
 
 def new_episode(episode_id: EpisodeId, progress=gr.Progress()):
@@ -1134,7 +1128,7 @@ def new_exp_dir(study_names: list, progress=gr.Progress(), just_refresh=False):
         study_names.remove(select_dir_instructions)
 
     if len(study_names) == 0:
-        return None, None
+        return None, None, None, None, None, None
 
     info.study_dirs = [info.results_dir / study_name.split(" - ")[0] for study_name in study_names]
     info.result_df = inspect_results.load_result_df(info.study_dirs, progress_fn=progress.tqdm)
@@ -1287,7 +1281,9 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     all_times = []
     step_times = []
     for i, step_info in progress_fn(list(enumerate(step_info_list)), desc="Building plot."):
-        assert isinstance(step_info, StepInfo), f"Expected StepInfo, got {type(step_info)}"
+        assert isinstance(
+            step_info, (StepInfo, BGymStepInfo)
+        ), f"Expected StepInfo or BGymStepInfo, got {type(step_info)}"
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
