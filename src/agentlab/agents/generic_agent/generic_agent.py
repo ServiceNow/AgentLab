@@ -24,7 +24,8 @@ from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
-import Path
+from pathlib import Path
+
 
 @dataclass
 class GenericAgentArgs(AgentArgs):
@@ -215,3 +216,6 @@ does not support vision. Disabling use_screenshot."""
             The new task for the agent.
         """
         self.task = task
+    def set_goal(self, goal):
+        self.goal = goal
+        self.trajectory = self.privileged_observations.get_random(task=self.task, goal=self.goal)
