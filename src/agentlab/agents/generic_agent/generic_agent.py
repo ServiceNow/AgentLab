@@ -24,14 +24,14 @@ from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
-
+import Path
 
 @dataclass
 class GenericAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
-    privaleged_actions_path : None 
+    privaleged_actions_path :Path =  None 
 
     def __post_init__(self):
         try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
@@ -79,7 +79,8 @@ class GenericAgent(Agent):
         chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
-        privaleged_actions_path: str = None,
+        privaleged_actions_path: Path = None,
+
     ):
         self.privaleged_actions_path = privaleged_actions_path
         self.chat_llm = chat_model_args.make_model()
