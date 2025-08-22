@@ -24,7 +24,8 @@ from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
 from .generic_agent_prompt import GenericPromptFlags, MainPrompt
-import Path
+from pathlib import Path
+
 
 @dataclass
 class GenericAgentArgs(AgentArgs):
