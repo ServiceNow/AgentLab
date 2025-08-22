@@ -201,3 +201,14 @@ does not support vision. Disabling use_screenshot."""
             else 20  # dangerous to change the default value here?
         )
         return max_prompt_tokens, max_trunc_itr
+    def set_task(self, task: str):
+        """
+        Set the task for the agent. This method can be used to change the task
+        during an episode.
+
+        Parameters:
+        -----------
+        task: str
+            The new task for the agent.
+        """
+        self.task = task
