@@ -81,7 +81,7 @@ class GenericAgent(Agent):
         max_retry: int = 4,
         privaleged_actions_path: str = None,
     ):
-
+        self.privaleged_actions_path = privaleged_actions_path
         self.chat_llm = chat_model_args.make_model()
         self.chat_model_args = chat_model_args
         self.max_retry = max_retry
