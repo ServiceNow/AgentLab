@@ -31,6 +31,7 @@ class GenericAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
+    privaleged_actions_path : None 
 
     def __post_init__(self):
         try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
@@ -67,7 +68,7 @@ class GenericAgentArgs(AgentArgs):
 
     def make_agent(self):
         return GenericAgent(
-            chat_model_args=self.chat_model_args, flags=self.flags, max_retry=self.max_retry
+            chat_model_args=self.chat_model_args, flags=self.flags, max_retry=self.max_retry,privaleged_actions_path=self.privaleged_actions_path
         )
 
 
@@ -78,6 +79,7 @@ class GenericAgent(Agent):
         chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
+        privaleged_actions_path: str = None,
     ):
 
         self.chat_llm = chat_model_args.make_model()
