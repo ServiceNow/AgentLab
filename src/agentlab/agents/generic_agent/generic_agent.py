@@ -218,4 +218,3 @@ does not support vision. Disabling use_screenshot."""
         self.task = task
     def set_goal(self, goal):
         self.goal = goal
-        self.trajectory = self.privileged_observations.get_random(task=self.task, goal=self.goal)
