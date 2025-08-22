@@ -31,6 +31,7 @@ class GenericAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
     max_retry: int = 4
+    privaleged_actions_path : None 
 
     def __post_init__(self):
         try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
