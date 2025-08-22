@@ -646,6 +646,37 @@ GPT_4_1_CC_API = OpenAIChatModelArgs(
     vision_support=True,
 )
 
+
+GPT_5 = OpenAIChatModelArgs(
+    model_name="gpt-5",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=8_000,
+    temperature=None,
+    vision_support=True,
+)
+
+
+GPT_5_mini = OpenAIChatModelArgs(
+    model_name="gpt-5-mini-2025-08-07",
+    max_total_tokens=400_000,
+    max_input_tokens=400_000 - 4_000,
+    max_new_tokens=4_000,
+    temperature=1,  # Only temperature 1 works for gpt-5-mini
+    vision_support=True,
+)
+
+
+GPT_5_nano = OpenAIChatModelArgs(
+    model_name="gpt-5-nano-2025-08-07",
+    max_total_tokens=400_000,
+    max_input_tokens=400_000 - 4_000,
+    max_new_tokens=4_000,
+    temperature=1,  # Only temperature 1 works for gpt-5-nano
+    vision_support=True,
+)
+
+
 GPT_4_1_MINI = OpenAIResponseModelArgs(
     model_name="gpt-4.1-mini",
     max_total_tokens=200_000,
@@ -699,25 +730,6 @@ O3_CHATAPI_MODEL = OpenAIChatModelArgs(
     vision_support=True,
 )
 
-GPT_5 = OpenAIChatModelArgs(
-    model_name="gpt-5",
-    max_total_tokens=200_000,
-    max_input_tokens=200_000,
-    max_new_tokens=8_000,
-    temperature=None,
-    vision_support=True,
-)
-
-
-GPT_5_MINI = OpenAIChatModelArgs(
-    model_name="gpt-5-mini-2025-08-07",
-    max_total_tokens=200_000,
-    max_input_tokens=200_000,
-    max_new_tokens=2_000,
-    temperature=1.0,
-    vision_support=True,
-)
-
 GPT4_1_OPENROUTER_MODEL = OpenRouterModelArgs(
     model_name="openai/gpt-4.1",
     max_total_tokens=200_000,
@@ -742,7 +754,7 @@ DEFAULT_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=True),
     keep_last_n_obs=None,
-    multiaction=True,  # whether to use multi-action or not
+    multiaction=False,  # whether to use multi-action or not
     # action_subsets=("bid",),
     action_subsets=("coord",),
     # action_subsets=("coord", "bid"),
@@ -754,7 +766,15 @@ AGENT_CONFIG = ToolUseAgentArgs(
 )
 
 OAI_AGENT = ToolUseAgentArgs(
-    model_args=GPT_4_1,
+    model_args=GPT_5_mini,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+GPT5_1_NANO_AGENT = ToolUseAgentArgs(
+    model_args=GPT_5_nano,
+    config=DEFAULT_PROMPT_CONFIG,
+)
+GPT5_1_MINI_AGENT = ToolUseAgentArgs(
+    model_args=GPT_5_mini,
     config=DEFAULT_PROMPT_CONFIG,
 )
 

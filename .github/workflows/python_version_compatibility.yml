@@ -32,9 +32,12 @@ jobs:
     - name: Check Python ${{ matrix.python-version }}
       continue-on-error: true
       run: |
-        export PATH="$HOME/.cargo/bin:$PATH"
-        if uvx --python ${{ matrix.python-version }} --from python --with-requirements requirements.txt python -c "print('✅ Compatible')"; then
-          echo "✅ Python ${{ matrix.python-version }} works"
-        else
-          echo "❌ Python ${{ matrix.python-version }} incompatible"
-        fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          uv python install ${{ matrix.python-version }}
+          if uv sync --frozen --python ${{ matrix.python-version }}; then
+            uv run -p ${{ matrix.python-version }} python -c "import sys; print('✅ Compatible:', sys.version)"
+            echo "✅ Python ${{ matrix.python-version }} works"
+          else
+            echo "❌ Python ${{ matrix.python-version }} incompatible"
+            exit 1
+          fi
