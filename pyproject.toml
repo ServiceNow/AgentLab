@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentlab"
-dynamic = ["version", "dependencies"]
+dynamic = ["version"]
 description = "Main package for developing agents and experiments"
 authors = [
     {name = "Rim Assouel", email = "rim.assouel@gmail.com"},
@@ -27,13 +27,55 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "License :: OSI Approved :: Apache Software License",
 ]
+dependencies = [
+    "pydantic~=2.9",
+    "dask",
+    "distributed",
+    "browsergym>=0.7.1",
+    "joblib>=1.2.0",
+    "openai>=1.7,<2",
+    "langchain_community",
+    "tiktoken",
+    "huggingface_hub",
+    "contexttimer",
+    "ipython",
+    "pyyaml>=6",
+    "pandas",
+    "gradio>=5.5",
+    "gitpython",
+    "requests",
+    "matplotlib",
+    "ray[default]",
+    "python-slugify",
+    "pillow",
+    "gymnasium>=0.27",
+    "torch>=2.2.2",
+    "safetensors>=0.4.0",
+    "transformers>=4.38.2",
+    "anthropic>=0.62.0",
+    "litellm>=1.75.3",
+    "python-dotenv>=1.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black[jupyter]>=24.2.0",
+    "blacken-docs",
+    "pre-commit",
+    "pytest==7.3.2",
+    "flaky",
+    "pytest-xdist",
+    "pytest-playwright",
+]
+# tapeagents = [
+#     "tapeagents[converters]",
+# ]
 
 [project.urls]
 "Homepage" = "https://github.com/ServiceNow/AgentLab"
 
 [tool.setuptools.dynamic]
 version = {attr = "agentlab.__version__"}
-dependencies = {file = ["requirements.txt"]}
 
 [tool.black]
 line-length = 100
@@ -53,6 +95,16 @@ exclude = '''
   | dist
 )/
 '''
+
+[dependency-groups]
+dev = [
+    "darglint>=1.8.1",
+    "ipykernel>=6.30.1",
+    "pip>=25.2",
+]
+hint = [
+    "sentence-transformers>=5.0.0",
+]
 
 
 [project.scripts]

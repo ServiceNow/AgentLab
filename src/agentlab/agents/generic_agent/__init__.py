@@ -26,6 +26,7 @@ from .agent_configs import (
     AGENT_o3_MINI,
     FLAGS_GPT_4o,
     GenericAgentArgs,
+    AGENT_GPT5_MINI,
 )
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "AGENT_4o_VISION",
     "AGENT_4o_MINI_VISION",
     "AGENT_CLAUDE_SONNET_35_VISION",
+    "AGENT_GPT5_MINI",
 ]
