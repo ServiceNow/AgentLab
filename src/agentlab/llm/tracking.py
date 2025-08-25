@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 import re
@@ -9,7 +10,13 @@ from functools import cache, partial
 from typing import Optional
 
 import requests
-from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
+
+langchain_community = importlib.util.find_spec("langchain_community")
+if langchain_community is not None:
+    from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
+else:
+    bedrock_anthropic_callback = None
+    openai_info = None
 from litellm import completion_cost, get_model_info
 
 TRACKER = threading.local()
@@ -103,7 +110,14 @@ def get_pricing_openrouter():
 
 def get_pricing_openai():
     """Returns a dictionary of model pricing for OpenAI models."""
-    cost_dict = openai_info.MODEL_COST_PER_1K_TOKENS
+    try:
+        cost_dict = openai_info.MODEL_COST_PER_1K_TOKENS
+    except Exception as e:
+        logging.warning(
+            f"Failed to get OpenAI pricing: {e}. "
+            "Please install langchain-community or use LiteLLM API for pricing information."
+        )
+        return {}
     cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
     res = {}
     for k in cost_dict:
@@ -126,8 +140,15 @@ def _remove_version_suffix(model_name):
 
 def get_pricing_anthropic():
     """Returns a dictionary of model pricing for Anthropic models."""
-    input_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_INPUT_TOKENS
-    output_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_OUTPUT_TOKENS
+    try:
+        input_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_INPUT_TOKENS
+        output_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_OUTPUT_TOKENS
+    except Exception as e:
+        logging.warning(
+            f"Failed to get Anthropic pricing: {e}. "
+            "Please install langchain-community or use LiteLLM API for pricing information."
+        )
+        return {}
 
     res = {}
     for k, v in input_cost_dict.items():
