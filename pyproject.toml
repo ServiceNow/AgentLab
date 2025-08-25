@@ -34,7 +34,6 @@ dependencies = [
     "browsergym>=0.7.1",
     "joblib>=1.2.0",
     "openai>=1.7,<2",
-    "langchain_community",
     "tiktoken",
     "huggingface_hub",
     "contexttimer",
