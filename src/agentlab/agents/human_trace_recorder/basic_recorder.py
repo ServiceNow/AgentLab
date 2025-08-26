@@ -39,38 +39,39 @@ class BasicRecorderAgent(bgym.Agent):
             self._record_and_test()
             self._recorded = True
             exit()  # Exit after recording
-        
+
         return "", bgym.AgentInfo(think="Recording complete", chat_messages=[], stats={})
+
+    def test_recorded_pw_script(self, output_file):
+        # Test the recorded script
+        try:
+            result = subprocess.run(["python", str(output_file)], capture_output=True, text=True)
+            if result.returncode == 0:
+                return True
+            if result.stderr:
+                print(f"Errors: {result.stderr}")
+            return False
+        except Exception as e:
+            print(f"❌ Test failed: {e}")
 
     def _record_and_test(self):
         """Record actions and test the script."""
         self._trace_dir.mkdir(parents=True, exist_ok=True)
         output_file = self._trace_dir / "recorded_script.py"
         storage_file = self._trace_dir / "storage_state.json"
-
-        # Save storage state
-        if self._page and self._page.context:
-            self._page.context.storage_state(path=str(storage_file))
-            print(f"💾 Saved storage state")
-
-        # Record with codegen
-        cmd = ["python", "-m", "playwright", "codegen", "--target", "python", "--output", str(output_file)]
-        if storage_file.exists():
-            cmd.extend(["--load-storage", str(storage_file)])
-        cmd.append(self._page.url)
-        
-        subprocess.run(cmd, check=True)
-        
-        # Test the recorded script
-        print("🎬 Testing recorded script...")
-        try:
-            result = subprocess.run(["python", str(output_file)], capture_output=True, text=True, timeout=30)
-            status = "✅ Success!" if result.returncode == 0 else f"❌ Failed (code {result.returncode})"
-            print(f"{status} - Script saved to: {output_file}")
-            if result.stderr:
-                print(f"Errors: {result.stderr}")
-        except Exception as e:
-            print(f"❌ Test failed: {e}")
+        self._page.context.storage_state(path=str(storage_file))
+        done = False
+        while not done:
+            # Record with codegen
+            cmd = ["python", "-m", "playwright", "codegen", "--target", "python", "--output",
+                    str(output_file), "--load-storage", str(storage_file), self._page.url]
+            subprocess.run(cmd, check=True)
+            print(f"🎥 Recorded script saved to: {output_file}")
+            success = self.test_recorded_pw_script(output_file)
+            while not success: # edit the PW script
+                subprocess.run(["code", "--new-window", "--wait", str(output_file)], check=True)
+                success = self.test_recorded_pw_script(output_file)
+            done  = input('Record Again (y/n): ').strip().lower() == 'y' 
 
 
 BASIC_RECORDER_AGENT = BasicRecorderAgentArgs()
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     agent_configs = [BASIC_RECORDER_AGENT]
     benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l1"]()
     benchmark = benchmark.subset_from_glob("task_name", "*filter*")
-    benchmark.env_args_list = benchmark.env_args_list[:1]
+    benchmark.env_args_list = benchmark.env_args_list[2:3]
     
     for env_args in benchmark.env_args_list:
         env_args.max_steps = 10
