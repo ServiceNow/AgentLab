@@ -23,24 +23,24 @@ CHAT_MODEL_ARGS_DICT = {
     "openai/gpt-5-2025-08-07": OpenAIModelArgs(
         model_name="gpt-5-2025-08-07",
         max_total_tokens=400_000,
-        max_input_tokens=272_000,
-        max_new_tokens=16_384,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
         temperature=1,  # gpt-5 supports temperature of 1 only
         vision_support=True,
     ),
     "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
         model_name="gpt-5-nano-2025-08-07",
         max_total_tokens=400_000,
-        max_input_tokens=272_000,
-        max_new_tokens=16_384,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
         temperature=1,  # gpt-5 supports temperature of 1 only
         vision_support=True,
     ),
     "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
         model_name="gpt-5-mini-2025-08-07",
         max_total_tokens=400_000,
-        max_input_tokens=272_000,
-        max_new_tokens=16_384,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
         temperature=1,  # gpt-5 supports temperature of 1 only
         vision_support=True,
     ),
@@ -162,25 +162,25 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "azure/gpt-5-2025-08-07": AzureModelArgs(
         model_name="gpt-5",
-        max_total_tokens=256_000,
+        max_total_tokens=400_000,
         max_input_tokens=256_000,
-        max_new_tokens=16_384,
+        max_new_tokens=128_000,
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
     "azure/gpt-5-mini-2025-08-07": AzureModelArgs(
         model_name="gpt-5-mini",
-        max_total_tokens=256_000,
+        max_total_tokens=400_000,
         max_input_tokens=256_000,
-        max_new_tokens=16_384,
+        max_new_tokens=128_000,
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
     "azure/gpt-5-nano-2025-08-07": AzureModelArgs(
         model_name="gpt-5-nano",
-        max_total_tokens=256_000,
+        max_total_tokens=400_000,
         max_input_tokens=256_000,
-        max_new_tokens=16_384,
+        max_new_tokens=128_000,
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
