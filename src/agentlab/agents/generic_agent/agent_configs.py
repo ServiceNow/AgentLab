@@ -279,6 +279,10 @@ AGENT_AZURE_41_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini-2025-04-14"],
     flags=FLAGS_GPT_4o,
 )
+AGENT_AZURE_41_NANO = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-nano-2025-04-14"],
+    flags=FLAGS_GPT_4o,
+)
 
 AGENT_AZURE_5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-2025-08-07"],
@@ -348,6 +352,10 @@ AGENT_AZURE_41_VISION = GenericAgentArgs(
 
 AGENT_AZURE_41_MINI_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini-2025-04-14"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+AGENT_AZURE_41_NANO_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-nano-2025-04-14"],
     flags=FLAGS_GPT_4o_VISION,
 )
 

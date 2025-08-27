@@ -44,6 +44,13 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1,  # gpt-5 supports temperature of 1 only
         vision_support=True,
     ),
+    "openai/gpt-4.1-nano-2025-04-14": OpenAIModelArgs(
+        model_name="gpt-4.1-nano-2025-04-14",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
     "openai/gpt-4.1-mini-2025-04-14": OpenAIModelArgs(
         model_name="gpt-4.1-mini-2025-04-14",
         max_total_tokens=128_000,
@@ -155,6 +162,13 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "azure/gpt-4.1-mini-2025-04-14": AzureModelArgs(
         model_name="gpt-4.1-mini",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
+    "azure/gpt-4.1-nano-2025-04-14": AzureModelArgs(
+        model_name="gpt-4.1-nano",
         max_total_tokens=128_000,
         max_input_tokens=128_000,
         max_new_tokens=16_384,
