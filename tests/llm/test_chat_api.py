@@ -21,7 +21,9 @@ else:
 
 @pytest.mark.pricy
 @pytest.mark.skipif(skip_tests, reason="Skipping on remote as Azure is pricy")
-@pytest.mark.skipif(not os.getenv("AZURE_OPENAI_API_KEY"), reason="Skipping as Azure API key not set")
+@pytest.mark.skipif(
+    not os.getenv("AZURE_OPENAI_API_KEY"), reason="Skipping as Azure API key not set"
+)
 def test_api_model_args_azure():
     model_args = AzureModelArgs(
         model_name="gpt-4.1-nano",
@@ -66,7 +68,9 @@ def test_api_model_args_openai():
 
 @pytest.mark.pricy
 @pytest.mark.skipif(skip_tests, reason="Skipping on remote as Anthropic is pricy")
-@pytest.mark.skipif(not os.getenv("ANTHROPIC_API_KEY"), reason="Skipping as Anthropic API key not set")
+@pytest.mark.skipif(
+    not os.getenv("ANTHROPIC_API_KEY"), reason="Skipping as Anthropic API key not set"
+)
 def test_api_model_args_anthropic():
     model_args = AnthropicModelArgs(
         model_name="claude-3-haiku-20240307",
