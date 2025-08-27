@@ -24,12 +24,12 @@ else:
 @pytest.mark.skipif(not os.getenv("AZURE_OPENAI_API_KEY"), reason="Skipping as Azure API key not set")
 def test_api_model_args_azure():
     model_args = AzureModelArgs(
-        model_name="gpt-5-nano",
-        deployment_name="gpt-5-nano",
+        model_name="gpt-4.1-nano",
+        deployment_name="gpt-4.1-nano",
         max_total_tokens=8192,
         max_input_tokens=8192 - 512,
         max_new_tokens=512,
-        temperature=1,
+        temperature=1e-1,
     )
     model = model_args.make_model()
 
