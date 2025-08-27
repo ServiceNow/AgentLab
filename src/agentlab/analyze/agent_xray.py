@@ -103,7 +103,16 @@ class Info:
 
         # find unique row using idx
         result_df = self.agent_df.reset_index(inplace=False)
-        exp_dir = result_df.iloc[episode_id.row_index]["exp_dir"]
+        sub_df = result_df[result_df["_row_index"] == episode_id.row_index]
+        if len(sub_df) == 0:
+            self.exp_result = None
+            raise ValueError(f"Could not find _row_index: {episode_id.row_index}")
+
+        if len(sub_df) > 1:
+            warning(
+                f"Found multiple rows with same row_index {episode_id.row_index} Using the first one."
+            )
+        exp_dir = sub_df.iloc[0]["exp_dir"]
         print(exp_dir)
         self.exp_result = ExpResult(exp_dir)
         self.step = 0
