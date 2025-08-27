@@ -9,7 +9,7 @@ from typing import Optional
 import anthropic
 import openai
 from huggingface_hub import InferenceClient
-from openai import NOT_GIVEN, AzureOpenAI, OpenAI
+from openai import NOT_GIVEN, OpenAI
 
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
@@ -110,14 +110,11 @@ class OpenAIModelArgs(BaseModelArgs):
 class AzureModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an Azure model."""
 
-    deployment_name: str = None
-
     def make_model(self):
         return AzureChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            deployment_name=self.deployment_name,
             log_probs=self.log_probs,
         )
 
@@ -398,30 +395,28 @@ class AzureChatModel(ChatModel):
         self,
         model_name,
         api_key=None,
-        deployment_name=None,
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
         log_probs=False,
     ):
-        api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
 
         client_args = {
-            "azure_deployment": deployment_name,
-            "azure_endpoint": endpoint,
-            "api_version": "2024-02-01",
+            "base_url": endpoint,
+            "default_query": {"api-version": "preview"},
         }
         super().__init__(
             model_name=model_name,
             api_key=api_key,
+            api_key_env_var="AZURE_OPENAI_API_KEY",
             temperature=temperature,
             max_tokens=max_tokens,
             max_retry=max_retry,
             min_retry_wait_time=min_retry_wait_time,
-            client_class=AzureOpenAI,
+            client_class=OpenAI,
             client_args=client_args,
             pricing_func=tracking.get_pricing_openai,
             log_probs=log_probs,
