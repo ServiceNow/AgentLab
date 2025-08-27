@@ -110,6 +110,8 @@ class OpenAIModelArgs(BaseModelArgs):
 class AzureModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an Azure model."""
 
+    deployment_name: str = None  # NOTE: deployment_name is deprecated for Azure OpenAI and won't be used.
+
     def make_model(self):
         return AzureChatModel(
             model_name=self.model_name,
@@ -396,13 +398,21 @@ class AzureChatModel(ChatModel):
         model_name,
         api_key=None,
         temperature=0.5,
+        deployment_name=None,
         max_tokens=100,
         max_retry=4,
         min_retry_wait_time=60,
         log_probs=False,
     ):
+        api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+        assert api_key, "AZURE_OPENAI_API_KEY has to be defined in the environment when using AzureChatModel"
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment"
+        assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment when using AzureChatModel"
+
+        if deployment_name is not None:
+            logging.info(
+                f"Deployment name is deprecated for Azure OpenAI and won't be used. Using model name: {model_name}."
+            )
 
         client_args = {
             "base_url": endpoint,
@@ -411,7 +421,6 @@ class AzureChatModel(ChatModel):
         super().__init__(
             model_name=model_name,
             api_key=api_key,
-            api_key_env_var="AZURE_OPENAI_API_KEY",
             temperature=temperature,
             max_tokens=max_tokens,
             max_retry=max_retry,
