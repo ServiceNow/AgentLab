@@ -14,8 +14,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import bgym
-from playwright.sync_api import Page
-
 from agentlab.agents.agent_args import AgentArgs
 from browsergym.core.observation import (
     extract_dom_extra_properties,
@@ -25,7 +23,10 @@ from browsergym.core.observation import (
     extract_screenshot,
 )
 from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str, prune_html
+from dotenv import load_dotenv
+from playwright.sync_api import Page
 
+load_dotenv()
 
 def extract_log_message_from_pw_trace(pw_trace_file_path):
     zip_file = zipfile.ZipFile(pw_trace_file_path, "r")
