@@ -646,17 +646,6 @@ GPT_4_1_CC_API = OpenAIChatModelArgs(
     vision_support=True,
 )
 
-
-GPT_5 = OpenAIChatModelArgs(
-    model_name="gpt-5",
-    max_total_tokens=200_000,
-    max_input_tokens=200_000,
-    max_new_tokens=8_000,
-    temperature=None,
-    vision_support=True,
-)
-
-
 GPT_5_mini = OpenAIChatModelArgs(
     model_name="gpt-5-mini-2025-08-07",
     max_total_tokens=400_000,
@@ -727,6 +716,25 @@ O3_CHATAPI_MODEL = OpenAIChatModelArgs(
     max_input_tokens=200_000,
     max_new_tokens=2_000,
     temperature=None,
+    vision_support=True,
+)
+
+GPT_5 = OpenAIChatModelArgs(
+    model_name="gpt-5",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=8_000,
+    temperature=None,
+    vision_support=True,
+)
+
+
+GPT_5_MINI = OpenAIChatModelArgs(
+    model_name="gpt-5-mini-2025-08-07",
+    max_total_tokens=200_000,
+    max_input_tokens=200_000,
+    max_new_tokens=2_000,
+    temperature=1.0,
     vision_support=True,
 )
 
