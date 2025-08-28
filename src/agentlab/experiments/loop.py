@@ -53,6 +53,8 @@ class EnvArgs(DataClassJsonMixin):
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
     pre_observation_delay: float = None  # seconds, wait for JS events to be fired
+    use_chat_ui: bool = False
+    use_hint_labeling_ui: bool = False
 
     def make_env(
         self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True
@@ -100,6 +102,8 @@ class EnvArgs(DataClassJsonMixin):
             wait_for_user_message=self.wait_for_user_message,
             action_mapping=action_mapping,  # action mapping is provided by the agent
             use_raw_page_output=use_raw_page_output,
+            use_chat_ui=self.use_chat_ui,
+            use_hint_labeling_ui=self.use_hint_labeling_ui,
             **extra_kwargs,
         )
 
@@ -408,7 +412,7 @@ class ExpArgs:
     def run(self):
         """Run the experiment and save the results"""
         # start writing logs to run logfile
-        # self._set_logger()
+        self._set_logger()
 
         # log python environment info
         save_package_versions(Path(self.exp_dir))
@@ -991,7 +995,7 @@ def _update_hint_labeling(hint_labeling: HintLabeling, action: str, agent: Agent
             agent.flags.extra_instructions = hint
             seen_actions = set()
             suggestions = []
-            for i in tqdm(range(5)):
+            for _ in range(5):
                 # TODO: make this more optimal
                 action = step_info.from_action(agent)
                 think = step_info.agent_info.think
