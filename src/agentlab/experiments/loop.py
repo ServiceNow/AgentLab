@@ -457,7 +457,7 @@ class ExpArgs:
                     logger.debug("Chat info sent.")
 
                 if hasattr(env.unwrapped, "hint_labeling") and isinstance(env.unwrapped.hint_labeling, HintLabeling):
-                    _update_hint_labeling(env.unwrapped.hint_labeling, action, agent, step_info)
+                    action = _update_hint_labeling(env.unwrapped.hint_labeling, action, agent, step_info)
 
                 if action is None:
                     logger.debug("Agent returned None action. Ending episode.")
@@ -972,11 +972,6 @@ def _update_hint_labeling(hint_labeling: HintLabeling, action: str, agent: Agent
                 "id": "1",
                 "action": action,
                 "think": step_info.agent_info.think,
-            },
-            {
-                "id": "2",
-                "action": "test",
-                "think": "test",
             }
         ]
     )
@@ -994,16 +989,19 @@ def _update_hint_labeling(hint_labeling: HintLabeling, action: str, agent: Agent
             # reprompt model 5 times
             hint = response["payload"]["hint"]
             agent.flags.extra_instructions = hint
+            seen_actions = set()
             suggestions = []
             for i in tqdm(range(5)):
                 # TODO: make this more optimal
                 action = step_info.from_action(agent)
                 think = step_info.agent_info.think
-                suggestions.append({"id": str(i+1), "action": action, "think": think})
-            
+                if action not in seen_actions:
+                    seen_actions.add(action)
+                    suggestions.append({"id": str(len(seen_actions)), "action": action, "think": think})
+
             # update context
             context = HintLabelingInputs(
-                goal="blablabli",
+                goal=context.goal,
                 error_feedback=context.error_feedback,
                 screenshot = context.screenshot,
                 axtree = context.axtree,
