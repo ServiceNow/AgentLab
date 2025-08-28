@@ -1,5 +1,6 @@
 import base64
 import collections
+import importlib
 import io
 import json
 import logging
@@ -16,10 +17,16 @@ import numpy as np
 import openai
 import tiktoken
 import yaml
-from langchain.schema import BaseMessage as LangchainBaseMessage
-from langchain_community.adapters.openai import convert_message_to_dict
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
+
+langchain_community = importlib.util.find_spec("langchain_community")
+if langchain_community is not None:
+    from langchain.schema import BaseMessage as LangchainBaseMessage
+    from langchain_community.adapters.openai import convert_message_to_dict
+else:
+    LangchainBaseMessage = None
+    convert_message_to_dict = None
 
 if TYPE_CHECKING:
     from agentlab.llm.chat_api import ChatModel
@@ -32,7 +39,7 @@ def messages_to_dict(messages: list[dict] | list[LangchainBaseMessage]) -> dict:
             new_messages.add_message(m)
         elif isinstance(m, str):
             new_messages.add_message({"role": "<unknown role>", "content": m})
-        elif isinstance(m, LangchainBaseMessage):
+        elif LangchainBaseMessage is not None and isinstance(m, LangchainBaseMessage):
             new_messages.add_message(convert_message_to_dict(m))
         else:
             raise ValueError(f"Unknown message type: {type(m)}")
