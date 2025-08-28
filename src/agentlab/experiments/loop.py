@@ -460,8 +460,12 @@ class ExpArgs:
                     _send_chat_info(env.unwrapped.chat, action, step_info.agent_info)
                     logger.debug("Chat info sent.")
 
-                if hasattr(env.unwrapped, "hint_labeling") and isinstance(env.unwrapped.hint_labeling, HintLabeling):
-                    action = _update_hint_labeling(env.unwrapped.hint_labeling, action, agent, step_info)
+                if hasattr(env.unwrapped, "hint_labeling") and isinstance(
+                    env.unwrapped.hint_labeling, HintLabeling
+                ):
+                    action = _update_hint_labeling(
+                        env.unwrapped.hint_labeling, action, agent, step_info
+                    )
 
                 if action is None:
                     logger.debug("Agent returned None action. Ending episode.")
@@ -955,6 +959,7 @@ action:
     logger.info(msg)
     chat.add_message(role="info", msg=msg)
 
+
 def _convert_np_array_to_base64(np_array: np.ndarray):
     im = PIL.Image.fromarray(np_array)
     buffered = BytesIO()
@@ -962,22 +967,25 @@ def _convert_np_array_to_base64(np_array: np.ndarray):
     img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
     return img_b64
 
-def _update_hint_labeling(hint_labeling: HintLabeling, action: str, agent: Agent, step_info: StepInfo):
+
+def _update_hint_labeling(
+    hint_labeling: HintLabeling, action: str, agent: Agent, step_info: StepInfo
+):
     """Update the hint labeling with the action and agent info."""
     context = HintLabelingInputs(
-        goal=step_info.obs.get("goal", ""), # TODO: is this goal deprecated?
+        goal=step_info.obs.get("goal", ""),  # TODO: is this goal deprecated?
         error_feedback=step_info.obs.get("last_action_error", ""),
-        screenshot = _convert_np_array_to_base64(step_info.obs["screenshot"]),
-        axtree = step_info.obs["axtree_txt"],
-        history = [], # TODO: add history
-        hint = "",
-        suggestions = [
+        screenshot=_convert_np_array_to_base64(step_info.obs["screenshot"]),
+        axtree=step_info.obs["axtree_txt"],
+        history=[],  # TODO: add history
+        hint="",
+        suggestions=[
             {
                 "id": "1",
                 "action": action,
                 "think": step_info.agent_info.think,
             }
-        ]
+        ],
     )
     while True:
         # update hint labeling ui context
@@ -1001,17 +1009,19 @@ def _update_hint_labeling(hint_labeling: HintLabeling, action: str, agent: Agent
                 think = step_info.agent_info.think
                 if action not in seen_actions:
                     seen_actions.add(action)
-                    suggestions.append({"id": str(len(seen_actions)), "action": action, "think": think})
+                    suggestions.append(
+                        {"id": str(len(seen_actions)), "action": action, "think": think}
+                    )
 
             # update context
             context = HintLabelingInputs(
                 goal=context.goal,
                 error_feedback=context.error_feedback,
-                screenshot = context.screenshot,
-                axtree = context.axtree,
-                history = context.history,
-                hint = hint,
-                suggestions = suggestions
+                screenshot=context.screenshot,
+                axtree=context.axtree,
+                history=context.history,
+                hint=hint,
+                suggestions=suggestions,
             )
             continue
 
@@ -1022,7 +1032,7 @@ def _update_hint_labeling(hint_labeling: HintLabeling, action: str, agent: Agent
             return action
         else:
             raise ValueError(f"Unknown response type: {response['type']}")
-            
+
 
 def _flatten_dict(d, parent_key="", sep="."):
     """Recursively flatten a nested dictionary."""
