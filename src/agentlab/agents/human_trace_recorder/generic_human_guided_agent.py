@@ -1,23 +1,35 @@
-from dataclasses import asdict, dataclass
+import base64
+import copy
+import io
+import re
+from dataclasses import Field, asdict, dataclass
+from typing import Dict, List
 
 import bgym
+import numpy as np
+from PIL import Image
 
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.generic_agent.generic_agent import GenericAgent, GenericAgentArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import MainPrompt
-from agentlab.llm.llm_utils import Discussion, SystemMessage
+from agentlab.agents.human_trace_recorder.hint_labelling import (
+    HintLabeling,
+    HintLabelingInputs,
+)
+from agentlab.analyze import overlay_utils
+from agentlab.llm.llm_utils import (
+    Discussion,
+    HumanMessage,
+    SystemMessage,
+    image_to_jpg_base64_url,
+)
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
-from agentlab.llm.llm_utils import HumanMessage
-
-
-import re
-from typing import Dict, List, Tuple
 
 
 class CandidatesGeneration(dp.PromptElement):
     # Ask for multiple alternatives; each candidate must contain <think> and <action>.
-    def __init__(self, hint: list[str] | None=None, n_candidates=3) -> None:
+    def __init__(self, hint: list[str] | None = None, n_candidates=3) -> None:
         self.hint = hint
         self.n_candidates = n_candidates
         self.hint_prompt = "\n".join(f"{i}. {c}" for i, c in enumerate(hint, 1)) if hint else ""
@@ -86,7 +98,10 @@ class CandidatesGeneration(dp.PromptElement):
             ...
         }
         """
-        result = {f"candidate_generation_{i+1}": {"think": "", "action": ""} for i in range(self.n_candidates)}
+        result = {
+            f"candidate_generation_{i+1}": {"think": "", "action": ""}
+            for i in range(self.n_candidates)
+        }
 
         if not isinstance(text_answer, str):
             return result
@@ -94,7 +109,7 @@ class CandidatesGeneration(dp.PromptElement):
         matches: List[re.Match] = list(self._NUM_BLOCK.finditer(text_answer))
         # Sort by numeric index
         matches_sorted = sorted(matches, key=lambda m: int(m.group("idx")))
-        for i, m in enumerate(matches_sorted[:self.n_candidates]):
+        for i, m in enumerate(matches_sorted[: self.n_candidates]):
             body = m.group("body").strip()
             think_m = self._THINK_PATTERN.search(body)
             action_m = self._ACTION_PATTERN.search(body)
@@ -105,21 +120,23 @@ class CandidatesGeneration(dp.PromptElement):
 
         return result
 
-def get_human_intervention(candidates: Dict[str, Dict[str, str]]) -> Tuple[int, str]:
-    """
-    Get the user's choice of candidate and any hints they provide.
 
-    Args:
-        candidates (Dict[str, Dict[str, str]]): The candidates to choose from.
-    """
-    for i, candidate in candidates.items():
-        think = candidate['think']
-        action = candidate['action']
-        print(f"{i}:\n Think: {think}\n Action: {action}\n")
+def overlay_action(obs, action):
+    """Overlays actions on screenshot in-place"""
+    act_img = copy.deepcopy(obs["screenshot"])
+    act_img = Image.fromarray(act_img)
+    overlay_utils.annotate_action(act_img, action, properties=obs["extra_element_properties"])
+    return img_to_base_64(act_img)
 
-    choice_idx = int(input('Select choice: or Provide a hint (P): '))
-    hint = input('Provide any hints (optional): ')
-    return choice_idx, hint
+
+def img_to_base_64(image: Image.Image | np.ndarray) -> str:
+    """Converts a PIL Image or NumPy array to a base64-encoded string."""
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return b64_str
 
 
 @dataclass
@@ -133,12 +150,38 @@ class MultipleProposalGenericAgentArgs(GenericAgentArgs):
 
 class MultipleProposalGenericAgent(GenericAgent):
 
+    def __init__(
+        self,
+        chat_model_args,
+        flags,
+        max_retry: int = 4,
+    ):
+        super().__init__(chat_model_args, flags, max_retry)
+        self.ui = None  # Single HintLabeling instance
+
+    def get_candidate_generation(
+        self,
+        sys_prompt: SystemMessage,
+        human_prompt: HumanMessage,
+        hint: list[str] | None = None,
+        n_candidates=3,
+    ) -> tuple[Dict[str, Dict[str, str]], Discussion]:
+
+        cg = CandidatesGeneration(hint=hint, n_candidates=n_candidates)
+        candidates_prompt = HumanMessage(cg.prompt)
+        chat_messages = Discussion([sys_prompt, human_prompt, candidates_prompt])
+        output = self.chat_llm(chat_messages)
+        candidates = cg._parse_answer(output["content"])
+        self.step_n_human_intervention_rounds += 1
+        msg_to_add_to_xray = Discussion([sys_prompt, human_prompt])
+
+        return candidates, msg_to_add_to_xray
+
     @cost_tracker_decorator
     def get_action(self, obs):
         # reset vars
         step_hint = []
         self.step_n_human_intervention_rounds = 0
-
         self.obs_history.append(obs)
         main_prompt = MainPrompt(
             action_set=self.action_set,
@@ -162,24 +205,115 @@ class MultipleProposalGenericAgent(GenericAgent):
             max_iterations=max_trunc_itr,
             additional_prompts=system_prompt,
         )
-        candidates, chat_messages = self.get_candidate_generation(
-                sys_prompt=system_prompt,
-                human_prompt=human_prompt,
-                hint=step_hint if step_hint else None,
+        # Initialize UI once outside the loop
+        if self.ui is None:
+            self.ui = HintLabeling(headless=False)
+            # Show initial waiting state
+            initial_inputs = HintLabelingInputs(
+                goal=(
+                    obs.get("goal_object", [{}])[0].get("text", "")
+                    if obs.get("goal_object")
+                    else ""
+                ),
+                error_feedback="",
+                screenshot=(img_to_base_64(obs["screenshot"]) if "screenshot" in obs else ""),
+                screenshots=[],  # no overlay screenshots yet
+                axtree=obs.get("axtree_txt", ""),
+                history=[],
+                hint="",
+                suggestions=[],  # no suggestions yet
             )
-        while True:
-            choice_idx, hint = get_human_intervention(candidates)
-            if hint: # Get new candidates based on hint.
-                step_hint.append(hint)
-                candidates, chat_messages = self.get_candidate_generation(
-                    sys_prompt=system_prompt,
-                    human_prompt=human_prompt,
-                    hint=step_hint if step_hint else None,
-                )
-            else:
-                ans_dict = candidates[f'candidate_generation_{choice_idx}']
-                break
+            self.ui.update_context(initial_inputs)
 
+        # Generate first candidates
+        candidates, chat_messages = self.get_candidate_generation(
+            sys_prompt=system_prompt,
+            human_prompt=human_prompt,
+            hint=step_hint if step_hint else None,
+        )
+        suggestions = [
+            {
+                "id": key.split("_")[-1],
+                "action": candidate["action"],
+                "think": candidate["think"],
+            }
+            for key, candidate in candidates.items()
+        ]
+        # List of Images as base64 - create overlay screenshots for each suggestion
+        screenshots = [overlay_action(obs, choice["action"]) for choice in suggestions]
+
+        while True:
+            try:
+                hint_labeling_inputs = HintLabelingInputs(
+                    goal=(
+                        obs.get("goal_object", [{}])[0].get("text", "")
+                        if obs.get("goal_object")
+                        else ""
+                    ),
+                    error_feedback=obs.get("last_action_error", ""),
+                    screenshot=(img_to_base_64(obs["screenshot"]) if "screenshot" in obs else ""),
+                    screenshots=screenshots,  # list of overlay screenshots for hover
+                    axtree=obs.get("axtree_txt", ""),
+                    history=[],  # TODO: add history
+                    hint=(
+                        "\n".join(f"{i}. {c}" for i, c in enumerate(step_hint, 1))
+                        if step_hint
+                        else ""
+                    ),
+                    suggestions=suggestions,
+                )
+
+                self.ui.update_context(hint_labeling_inputs)
+                response = self.ui.wait_for_response(timeout=300)
+
+                if response["type"] == "reprompt":
+                    hint = response["payload"]["hint"]
+                    step_hint.append(hint)
+                    candidates, chat_messages = self.get_candidate_generation(
+                        sys_prompt=system_prompt,
+                        human_prompt=human_prompt,
+                        hint=step_hint if step_hint else None,
+                    )
+                    suggestions = [
+                        {
+                            "id": key.split("_")[-1],
+                            "action": candidate["action"],
+                            "think": candidate["think"],
+                        }
+                        for key, candidate in candidates.items()
+                    ]
+                    # Regenerate screenshots for new suggestions
+                    screenshots = [overlay_action(obs, choice["action"]) for choice in suggestions]
+                    # Continue the loop to show new suggestions
+                elif response["type"] == "step":
+                    selected_action = response["payload"]["action"]
+                    choice_idx = None
+                    for i, candidate in enumerate(suggestions, 1):
+                        if candidate["action"] == selected_action:
+                            choice_idx = i
+                            break
+                    if choice_idx is None:
+                        choice_idx = 1
+                    ans_dict = candidates[f"candidate_generation_{choice_idx}"]
+                    break
+                else:
+                    ans_dict = candidates["candidate_generation_1"]
+                    break
+
+            except KeyboardInterrupt:
+                print("User cancelled the operation")
+                if self.ui:
+                    self.ui.close()
+                raise
+            except Exception as e:
+                print(f"Error in human intervention UI: {e}")
+                if self.ui:
+                    self.ui.close()
+                    self.ui = None
+                # Raise exception instead of falling back to console input
+                raise RuntimeError(f"Human intervention UI failed: {e}") from e
+
+        # TODO: Refactor as discussed with ALAC.
         stats = self.chat_llm.get_stats()
         self.plan = ans_dict.get("plan", self.plan)
         self.plan_step = ans_dict.get("step", self.plan_step)
@@ -190,26 +324,15 @@ class MultipleProposalGenericAgent(GenericAgent):
             think=ans_dict.get("think", None),
             chat_messages=chat_messages,
             stats=stats,
-            extra_info={"chat_model_args": asdict(self.chat_model_args),
-                        "step_hints": step_hint,
-                        "n_human_intervention_rounds": self.step_n_human_intervention_rounds,
-                        "candidates": candidates
-                    },
+            extra_info={
+                "chat_model_args": asdict(self.chat_model_args),
+                "step_hints": step_hint,
+                "n_human_intervention_rounds": self.step_n_human_intervention_rounds,
+                "candidates": candidates,
+                "suggestions": suggestions,
+            },
         )
         return ans_dict["action"], agent_info
-
-    def get_candidate_generation(self, 
-                                 sys_prompt: SystemMessage, 
-                                 human_prompt: HumanMessage, 
-                                 hint: list[str] | None=None, 
-                                 n_candidates=3) -> tuple[Dict[str, Dict[str, str]], Discussion]:
-        cg = CandidatesGeneration(hint=hint, n_candidates=n_candidates)
-        candidates_prompt = HumanMessage(cg.prompt)
-        chat_messages = Discussion([sys_prompt, human_prompt, candidates_prompt])
-        output = self.chat_llm(chat_messages)
-        candidates = cg._parse_answer(output["content"])
-        self.step_n_human_intervention_rounds += 1
-        return candidates, chat_messages
 
 
 def get_base_agent(llm_config):
@@ -240,6 +363,8 @@ if __name__ == "__main__":
     for env_args in benchmark.env_args_list:
         env_args.max_steps = 100  # max human steps
         env_args.headless = False
+        # env_args.use_chat_ui = False
+        # env_args.use_hint_labeling_ui = True
 
     Study(agent_configs, benchmark, logging_level=logging.WARNING).run(
         n_jobs=1,
