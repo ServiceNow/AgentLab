@@ -21,7 +21,6 @@ from agentlab.llm.llm_utils import (
     Discussion,
     HumanMessage,
     SystemMessage,
-    image_to_jpg_base64_url,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 from browsergym.experiments.agent import AgentInfo
@@ -146,6 +145,12 @@ class MultipleProposalGenericAgentArgs(GenericAgentArgs):
         return MultipleProposalGenericAgent(
             chat_model_args=self.chat_model_args, flags=self.flags, max_retry=self.max_retry
         )
+    
+    def __post_init__(self):
+        """Prefix subagent name with 'HILT-'."""
+        super().__post_init__()
+        if hasattr(self, 'agent_name') and self.agent_name:
+            self.agent_name = "HILT-" + self.agent_name
 
 
 class MultipleProposalGenericAgent(GenericAgent):
