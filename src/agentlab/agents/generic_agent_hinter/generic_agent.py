@@ -111,10 +111,11 @@ class GenericAgent(Agent):
             previous_plan=self.plan,
             step=self.plan_step,
             flags=self.flags,
+            llm=self.chat_llm,
         )
 
         # Set task name for task hints if available
-        if self.flags.use_task_hint and hasattr(self, 'task_name'):
+        if self.flags.use_task_hint and hasattr(self, "task_name"):
             main_prompt.set_task_name(self.task_name)
 
         max_prompt_tokens, max_trunc_itr = self._get_maxes()

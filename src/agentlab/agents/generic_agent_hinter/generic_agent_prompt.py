@@ -6,15 +6,16 @@ It is based on the dynamic_prompting module from the agentlab package.
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal
 
-from browsergym.core import action
+import pandas as pd
 from browsergym.core.action.base import AbstractActionSet
 
 from agentlab.agents import dynamic_prompting as dp
+from agentlab.agents.tool_use_agent.tool_use_agent import HintsSource
+from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
-import fnmatch
-import pandas as pd
-from pathlib import Path
 
 
 @dataclass
@@ -49,6 +50,7 @@ class GenericPromptFlags(dp.Flags):
     use_abstract_example: bool = False
     use_hints: bool = False
     use_task_hint: bool = False
+    task_hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
     hint_db_path: str = None
     enable_chat: bool = False
     max_prompt_tokens: int = None
@@ -70,10 +72,12 @@ class MainPrompt(dp.Shrinkable):
         previous_plan: str,
         step: int,
         flags: GenericPromptFlags,
+        llm: ChatModel,
     ) -> None:
         super().__init__()
         self.flags = flags
         self.history = dp.History(obs_history, actions, memories, thoughts, flags.obs)
+        goal = obs_history[-1]["goal_object"]
         if self.flags.enable_chat:
             self.instructions = dp.ChatInstructions(
                 obs_history[-1]["chat_messages"], extra_instructions=flags.extra_instructions
@@ -84,7 +88,7 @@ class MainPrompt(dp.Shrinkable):
                     "Agent is in goal mode, but multiple user messages are present in the chat. Consider switching to `enable_chat=True`."
                 )
             self.instructions = dp.GoalInstructions(
-                obs_history[-1]["goal_object"], extra_instructions=flags.extra_instructions
+                goal, extra_instructions=flags.extra_instructions
             )
 
         self.obs = dp.Observation(
@@ -105,7 +109,10 @@ class MainPrompt(dp.Shrinkable):
         self.hints = dp.Hints(visible=lambda: flags.use_hints)
         self.task_hint = TaskHint(
             use_task_hint=flags.use_task_hint,
-            hint_db_path=flags.hint_db_path
+            hint_db_path=flags.hint_db_path,
+            goal=goal,
+            hint_retrieval_mode=flags.task_hint_retrieval_mode,
+            llm=llm,
         )
         self.plan = Plan(previous_plan, step, lambda: flags.use_plan)  # TODO add previous plan
         self.criticise = Criticise(visible=lambda: flags.use_criticise)
@@ -114,12 +121,12 @@ class MainPrompt(dp.Shrinkable):
     @property
     def _prompt(self) -> HumanMessage:
         prompt = HumanMessage(self.instructions.prompt)
-        
+
         # Add task hints if enabled
         task_hints_text = ""
-        if self.flags.use_task_hint and hasattr(self, 'task_name'):
+        if self.flags.use_task_hint and hasattr(self, "task_name"):
             task_hints_text = self.task_hint.get_hints_for_task(self.task_name)
-        
+
         prompt.add_text(
             f"""\
 {self.obs.prompt}\
@@ -286,11 +293,21 @@ explore the page to find a way to activate the form.
 
 
 class TaskHint(dp.PromptElement):
-    def __init__(self, use_task_hint: bool = True, hint_db_path: str = None) -> None:
+    def __init__(
+        self,
+        use_task_hint: bool,
+        hint_db_path: str,
+        goal: str,
+        hint_retrieval_mode: Literal["direct", "llm", "emb"],
+        llm: ChatModel,
+    ) -> None:
         super().__init__(visible=use_task_hint)
         self.use_task_hint = use_task_hint
         self.hint_db_rel_path = "hint_db.csv"
         self.hint_db_path = hint_db_path  # Allow external path override
+        self.hint_retrieval_mode: Literal["direct", "llm", "emb"] = hint_retrieval_mode
+        self.goal = goal
+        self.llm = llm
         self._init()
 
     _prompt = ""  # Task hints are added dynamically in MainPrompt
@@ -316,21 +333,26 @@ accessibility tree to identify interactive elements before taking actions.
                 hint_db_path = Path(self.hint_db_path)
             else:
                 hint_db_path = Path(__file__).parent / self.hint_db_rel_path
-            
+
             if hint_db_path.exists():
                 self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
                 # Verify the expected columns exist
                 if "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
-                    print(f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}")
+                    print(
+                        f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
+                    )
                     self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
             else:
                 print(f"Warning: Hint database not found at {hint_db_path}")
                 self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+            self.hints_source = HintsSource(
+                hint_db_path=self.hint_db_rel_path,
+                hint_retrieval_mode=self.hint_retrieval_mode,
+            )
         except Exception as e:
             # Fallback to empty database on any error
             print(f"Warning: Could not load hint database: {e}")
             self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-
 
     def get_hints_for_task(self, task_name: str) -> str:
         """Get hints for a specific task."""
@@ -338,17 +360,22 @@ accessibility tree to identify interactive elements before taking actions.
             return ""
 
         # Ensure hint_db is initialized
-        if not hasattr(self, 'hint_db'):
+        if not hasattr(self, "hint_db"):
             self._init()
 
         # Check if hint_db has the expected structure
-        if self.hint_db.empty or "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
+        if (
+            self.hint_db.empty
+            or "task_name" not in self.hint_db.columns
+            or "hint" not in self.hint_db.columns
+        ):
             return ""
 
         try:
-            task_hints = self.hint_db[
-                self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
-            ]
+            # task_hints = self.hint_db[
+            #     self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
+            # ]
+            task_hints = self.hints_source.choose_hints(self.llm, task_name, self.goal)
 
             hints = []
             for hint in task_hints["hint"]:
@@ -364,5 +391,5 @@ accessibility tree to identify interactive elements before taking actions.
                 return hints_str
         except Exception as e:
             print(f"Warning: Error getting hints for task {task_name}: {e}")
-        
+
         return ""
