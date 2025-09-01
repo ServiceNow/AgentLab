@@ -341,7 +341,7 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
 
         if len(hints) > 0:
             hints_str = (
-                "# Hints:\nHere are some hints for the task you are working on:\n"
+                "\n# Hints:\nHere are some hints for the task you are working on:\n"
                 + "\n".join(hints)
             )
             msg = llm.msg.user().add_text(hints_str)
@@ -354,6 +354,7 @@ class HintsSource:
         self,
         hint_db_path: str,
         hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct",
+        skip_hints_for_current_task: bool = False,
         top_n: int = 4,
         embedder_model: str = "Qwen/Qwen3-Embedding-0.6B",
         embedder_server: str = "http://localhost:5000",
@@ -363,6 +364,7 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
     ) -> None:
         self.hint_db_path = hint_db_path
         self.hint_retrieval_mode = hint_retrieval_mode
+        self.skip_hints_for_current_task = skip_hints_for_current_task
         self.top_n = top_n
         self.embedder_model = embedder_model
         self.embedder_server = embedder_server
@@ -405,7 +407,14 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
     def choose_hints_llm(self, llm, goal: str) -> list[str]:
         """Choose hints using LLM to filter the hints."""
         topic_to_hints = defaultdict(list)
-        for i, row in self.hint_db.iterrows():
+        hints_df = self.hint_db
+        if self.skip_hints_for_current_task:
+            current_task_hints = self.get_current_task_hints(task_name)
+            hints_df = hints_df[~hints_df["hint"].isin(current_task_hints)]
+            logger.info(
+                f"Filtered out current task hints, remaining hints: {hints_df.shape[0]} out of {self.hint_db.shape[0]}"
+            )
+        for i, row in hints_df.iterrows():
             topic_to_hints[row["semantic_keys"]].append(i)
         hint_topics = list(topic_to_hints.keys())
         topics = "\n".join([f"{i}. {h}" for i, h in enumerate(hint_topics)])
@@ -421,10 +430,10 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
                 return []
             hint_topic = hint_topics[hint_topic_idx]
             hint_indices = topic_to_hints[hint_topic]
-            df = self.hint_db.iloc[hint_indices].copy()
+            df = hints_df.iloc[hint_indices].copy()
             df = df.drop_duplicates(subset=["hint"], keep="first")  # leave only unique hints
             hints = df["hint"].tolist()
-            logger.debug(f"LLM hint topic {hint_topic_idx}, chosen hints: {df['hint'].tolist()}")
+            logger.info(f"LLM hint topic {hint_topic_idx}, chosen hints: {df['hint'].tolist()}")
         except json.JSONDecodeError:
             logger.error(f"Failed to parse LLM hint id response: {response}, no hints")
             hints = []
@@ -433,10 +442,21 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
     def choose_hints_emb(self, goal: str) -> list[str]:
         """Choose hints using embeddings to filter the hints."""
         goal_embeddings = self._encode([goal], prompt="task description")
-        similarities = self._similarity(goal_embeddings.tolist(), self.hint_embeddings.tolist())
+        hint_embeddings = self.hint_embeddings
+        hints_df = self.uniq_hints
+        if self.skip_hints_for_current_task:
+            current_task_hints = self.get_current_task_hints(task_name)
+            mask = ~hints_df["hint"].isin(current_task_hints)
+            hints_df = hints_df[mask]
+            filtered_indices = hints_df.index.tolist()
+            hint_embeddings = hint_embeddings[filtered_indices]
+            logger.info(
+                f"Filtered same task hint, remained: {len(hint_embeddings)} out of {len(self.hint_embeddings)} embeddings"
+            )
+        similarities = self._similarity(goal_embeddings.tolist(), hint_embeddings.tolist())
         top_indices = similarities.argsort()[0][-self.top_n :].tolist()
         logger.info(f"Top hint indices based on embedding similarity: {top_indices}")
-        hints = self.uniq_hints.iloc[top_indices]
+        hints = hints_df.iloc[top_indices]
         logger.info(f"Embedding-based hints chosen: {hints}")
         return hints["hint"].tolist()
 
@@ -479,10 +499,15 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
         raise ValueError("Failed to compute similarity")
 
     def choose_hints_direct(self, task_name: str) -> list[str]:
-        hints = self.hint_db[
+        hints = self.get_current_task_hints(task_name)
+        logger.info(f"Direct hints chosen: {hints}")
+        return hints
+
+    def get_current_task_hints(self, task_name):
+        hints_df = self.hint_db[
             self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
         ]
-        return hints["hint"].tolist()
+        return hints_df["hint"].tolist()
 
 
 @dataclass
