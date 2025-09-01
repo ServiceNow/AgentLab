@@ -51,6 +51,7 @@ class GenericPromptFlags(dp.Flags):
     use_hints: bool = False
     use_task_hint: bool = False
     task_hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
+    skip_hints_for_current_task: bool = False
     hint_db_path: str = None
     enable_chat: bool = False
     max_prompt_tokens: int = None
@@ -113,6 +114,7 @@ class MainPrompt(dp.Shrinkable):
             goal=goal,
             hint_retrieval_mode=flags.task_hint_retrieval_mode,
             llm=llm,
+            skip_hints_for_current_task=flags.skip_hints_for_current_task,
         )
         self.plan = Plan(previous_plan, step, lambda: flags.use_plan)  # TODO add previous plan
         self.criticise = Criticise(visible=lambda: flags.use_criticise)
@@ -299,6 +301,7 @@ class TaskHint(dp.PromptElement):
         hint_db_path: str,
         goal: str,
         hint_retrieval_mode: Literal["direct", "llm", "emb"],
+        skip_hints_for_current_task: bool,
         llm: ChatModel,
     ) -> None:
         super().__init__(visible=use_task_hint)
@@ -306,6 +309,7 @@ class TaskHint(dp.PromptElement):
         self.hint_db_rel_path = "hint_db.csv"
         self.hint_db_path = hint_db_path  # Allow external path override
         self.hint_retrieval_mode: Literal["direct", "llm", "emb"] = hint_retrieval_mode
+        self.skip_hints_for_current_task = skip_hints_for_current_task
         self.goal = goal
         self.llm = llm
         self._init()
@@ -346,8 +350,9 @@ accessibility tree to identify interactive elements before taking actions.
                 print(f"Warning: Hint database not found at {hint_db_path}")
                 self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
             self.hints_source = HintsSource(
-                hint_db_path=self.hint_db_rel_path,
+                hint_db_path=hint_db_path.as_posix(),
                 hint_retrieval_mode=self.hint_retrieval_mode,
+                skip_hints_for_current_task=self.skip_hints_for_current_task,
             )
         except Exception as e:
             # Fallback to empty database on any error

@@ -375,6 +375,7 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
         else:
             self.hint_db_path = (Path(__file__).parent / self.hint_db_path).as_posix()
         self.hint_db = pd.read_csv(self.hint_db_path, header=0, index_col=None, dtype=str)
+        logger.info(f"Loaded {len(self.hint_db)} hints from database {self.hint_db_path}")
         if self.hint_retrieval_mode == "emb":
             self.load_hint_vectors()
 
@@ -395,16 +396,19 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
 
     def choose_hints(self, llm, task_name: str, goal: str) -> list[str]:
         """Choose hints based on the task name."""
+        logger.info(
+            f"Choosing hints for task: {task_name}, goal: {goal} from db: {self.hint_db_path} using mode: {self.hint_retrieval_mode}"
+        )
         if self.hint_retrieval_mode == "llm":
-            return self.choose_hints_llm(llm, goal)
+            return self.choose_hints_llm(llm, goal, task_name)
         elif self.hint_retrieval_mode == "direct":
             return self.choose_hints_direct(task_name)
         elif self.hint_retrieval_mode == "emb":
-            return self.choose_hints_emb(goal)
+            return self.choose_hints_emb(goal, task_name)
         else:
             raise ValueError(f"Unknown hint retrieval mode: {self.hint_retrieval_mode}")
 
-    def choose_hints_llm(self, llm, goal: str) -> list[str]:
+    def choose_hints_llm(self, llm, goal: str, task_name: str) -> list[str]:
         """Choose hints using LLM to filter the hints."""
         topic_to_hints = defaultdict(list)
         hints_df = self.hint_db
@@ -439,7 +443,7 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
             hints = []
         return hints
 
-    def choose_hints_emb(self, goal: str) -> list[str]:
+    def choose_hints_emb(self, goal: str, task_name: str) -> list[str]:
         """Choose hints using embeddings to filter the hints."""
         goal_embeddings = self._encode([goal], prompt="task description")
         hint_embeddings = self.hint_embeddings
