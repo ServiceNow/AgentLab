@@ -378,7 +378,7 @@ accessibility tree to identify interactive elements before taking actions.
             task_hints = self.hints_source.choose_hints(self.llm, task_name, self.goal)
 
             hints = []
-            for hint in task_hints["hint"]:
+            for hint in task_hints:
                 hint = hint.strip()
                 if hint:
                     hints.append(f"- {hint}")
