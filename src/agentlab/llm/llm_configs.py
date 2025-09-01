@@ -111,6 +111,14 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
+    "openai/gpt-5-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1,  # temperature param not supported by gpt-5
+        vision_support=True,
+    ),
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
         deployment_name="gpt-35-turbo",
