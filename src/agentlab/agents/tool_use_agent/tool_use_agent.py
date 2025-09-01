@@ -411,58 +411,62 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
     def choose_hints_llm(self, llm, goal: str, task_name: str) -> list[str]:
         """Choose hints using LLM to filter the hints."""
         topic_to_hints = defaultdict(list)
-        hints_df = self.hint_db
+        skip_hints = []
         if self.skip_hints_for_current_task:
-            current_task_hints = self.get_current_task_hints(task_name)
-            hints_df = hints_df[~hints_df["hint"].isin(current_task_hints)]
-            logger.info(
-                f"Filtered out current task hints, remaining hints: {hints_df.shape[0]} out of {self.hint_db.shape[0]}"
-            )
-        for i, row in hints_df.iterrows():
-            topic_to_hints[row["semantic_keys"]].append(i)
+            skip_hints = self.get_current_task_hints(task_name)
+        for _, row in self.hint_db.iterrows():
+            hint = row["hint"]
+            if hint in skip_hints:
+                continue
+            topic_to_hints[row["semantic_keys"]].append(hint)
+        logger.info(f"Collected {len(topic_to_hints)} hint topics")
         hint_topics = list(topic_to_hints.keys())
         topics = "\n".join([f"{i}. {h}" for i, h in enumerate(hint_topics)])
         prompt = self.llm_prompt.format(goal=goal, topics=topics)
+
         if isinstance(llm, ChatModel):
             response: str = llm(messages=[dict(role="user", content=prompt)])["content"]
         else:
             response: str = llm(APIPayload(messages=[llm.msg.user().add_text(prompt)])).think
         try:
-            hint_topic_idx = json.loads(response)
-            if hint_topic_idx < 0 or hint_topic_idx >= len(hint_topics):
+            topic_number = json.loads(response)
+            if topic_number < 0 or topic_number >= len(hint_topics):
                 logger.error(f"Wrong LLM hint id response: {response}, no hints")
                 return []
-            hint_topic = hint_topics[hint_topic_idx]
-            hint_indices = topic_to_hints[hint_topic]
-            df = hints_df.iloc[hint_indices].copy()
-            df = df.drop_duplicates(subset=["hint"], keep="first")  # leave only unique hints
-            hints = df["hint"].tolist()
-            logger.info(f"LLM hint topic {hint_topic_idx}, chosen hints: {df['hint'].tolist()}")
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse LLM hint id response: {response}, no hints")
+            hint_topic = hint_topics[topic_number]
+            hints = list(set(topic_to_hints[hint_topic]))
+            logger.info(f"LLM hint topic {topic_number}:'{hint_topic}', chosen hints: {hints}")
+        except Exception as e:
+            logger.exception(f"Failed to parse LLM hint id response: {response}:\n{e}")
             hints = []
         return hints
 
     def choose_hints_emb(self, goal: str, task_name: str) -> list[str]:
         """Choose hints using embeddings to filter the hints."""
-        goal_embeddings = self._encode([goal], prompt="task description")
-        hint_embeddings = self.hint_embeddings
-        hints_df = self.uniq_hints
-        if self.skip_hints_for_current_task:
-            current_task_hints = self.get_current_task_hints(task_name)
-            mask = ~hints_df["hint"].isin(current_task_hints)
-            hints_df = hints_df[mask]
-            filtered_indices = hints_df.index.tolist()
-            hint_embeddings = hint_embeddings[filtered_indices]
-            logger.info(
-                f"Filtered same task hint, remained: {len(hint_embeddings)} out of {len(self.hint_embeddings)} embeddings"
-            )
-        similarities = self._similarity(goal_embeddings.tolist(), hint_embeddings.tolist())
-        top_indices = similarities.argsort()[0][-self.top_n :].tolist()
-        logger.info(f"Top hint indices based on embedding similarity: {top_indices}")
-        hints = hints_df.iloc[top_indices]
-        logger.info(f"Embedding-based hints chosen: {hints}")
-        return hints["hint"].tolist()
+        try:
+            goal_embeddings = self._encode([goal], prompt="task description")
+            hint_embeddings = self.hint_embeddings.copy()
+            all_hints = self.uniq_hints["hint"].tolist()
+            skip_hints = []
+            if self.skip_hints_for_current_task:
+                skip_hints = self.get_current_task_hints(task_name)
+            hint_embeddings = []
+            id_to_hint = {}
+            for hint, emb in zip(all_hints, self.hint_embeddings):
+                if hint in skip_hints:
+                    continue
+                hint_embeddings.append(emb.tolist())
+                id_to_hint[len(hint_embeddings) - 1] = hint
+            logger.info(f"Prepared hint embeddings for {len(hint_embeddings)} hints")
+            similarities = self._similarity(goal_embeddings.tolist(), hint_embeddings)
+            top_indices = similarities.argsort()[0][-self.top_n :].tolist()
+            logger.info(f"Top hint indices based on embedding similarity: {top_indices}")
+            hints = [id_to_hint[idx] for idx in top_indices]
+            logger.info(f"Embedding-based hints chosen: {hints}")
+        except Exception as e:
+            logger.exception(f"Failed to choose hints using embeddings: {e}")
+            hints = []
+        return hints
 
     def _encode(self, texts: list[str], prompt: str = "", timeout: int = 10, max_retries: int = 5):
         """Call the encode API endpoint with timeout and retries"""
@@ -483,7 +487,11 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
         raise ValueError("Failed to encode hints")
 
     def _similarity(
-        self, texts1: list[str], texts2: list[str], timeout: int = 2, max_retries: int = 5
+        self,
+        texts1: list,
+        texts2: list,
+        timeout: int = 2,
+        max_retries: int = 5,
     ):
         """Call the similarity API endpoint with timeout and retries"""
         for attempt in range(max_retries):
