@@ -108,10 +108,11 @@ class MainPrompt(dp.Shrinkable):
         self.be_cautious = dp.BeCautious(visible=time_for_caution)
         self.think = dp.Think(visible=lambda: flags.use_thinking)
         self.hints = dp.Hints(visible=lambda: flags.use_hints)
+        goal_str: str = goal[0]["text"]
         self.task_hint = TaskHint(
             use_task_hint=flags.use_task_hint,
             hint_db_path=flags.hint_db_path,
-            goal=goal,
+            goal=goal_str,
             hint_retrieval_mode=flags.task_hint_retrieval_mode,
             llm=llm,
             skip_hints_for_current_task=flags.skip_hints_for_current_task,
