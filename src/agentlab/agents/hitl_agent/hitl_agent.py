@@ -48,7 +48,7 @@ class HumanInTheLoopAgent(Agent):
                 screenshots=[],  # no overlay screenshots yet
                 axtree=obs.get("axtree_txt", ""),
                 history=[],
-                hint="",
+                hints=[],
                 suggestions=[],  # no suggestions yet
             )
             self.ui.update_context(initial_inputs)
@@ -73,11 +73,7 @@ class HumanInTheLoopAgent(Agent):
                     screenshots=screenshots,  # list of overlay screenshots for hover
                     axtree=obs.get("axtree_txt", ""),
                     history=[],  # TODO: add history
-                    hint=(
-                        "\n".join(f"{i}. {c}" for i, c in enumerate(step_hint, 1))
-                        if step_hint
-                        else ""
-                    ),
+                    hints=step_hint,
                     suggestions=suggestions,
                 )
 
@@ -85,8 +81,9 @@ class HumanInTheLoopAgent(Agent):
                 response = self.ui.wait_for_response(timeout=600)
 
                 if response["type"] == "reprompt":
-                    hint = response["payload"]["hint"]
-                    step_hint.append(hint)
+                    new_hints = response["payload"].get("hints", [])
+                    # Replace with the new list from UI, or extend if needed
+                    step_hint = list(new_hints) if isinstance(new_hints, list) else step_hint
                     candidates = self.subagent.get_candidate_generations(
                         obs, hint=step_hint if step_hint else None, n_candidates=3
                     )

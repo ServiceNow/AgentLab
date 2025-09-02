@@ -18,7 +18,6 @@ from agentlab.agents.hitl_agent.hint_labelling import (
     HintLabeling,
     HintLabelingInputs,
 )
-from agentlab.analyze import overlay_utils
 from agentlab.llm.llm_utils import (
     Discussion,
     HumanMessage,
@@ -208,7 +207,7 @@ class MultipleProposalGenericAgent(GenericAgent):
                 screenshots=[],  # no overlay screenshots yet
                 axtree=obs.get("axtree_txt", ""),
                 history=[],
-                hint="",
+                hints=[],
                 suggestions=[],  # no suggestions yet
             )
             self.ui.update_context(initial_inputs)
@@ -243,11 +242,7 @@ class MultipleProposalGenericAgent(GenericAgent):
                     screenshots=screenshots,  # list of overlay screenshots for hover
                     axtree=obs.get("axtree_txt", ""),
                     history=[],  # TODO: add history
-                    hint=(
-                        "\n".join(f"{i}. {c}" for i, c in enumerate(step_hint, 1))
-                        if step_hint
-                        else ""
-                    ),
+                    hints=step_hint,
                     suggestions=suggestions,
                 )
 
@@ -255,8 +250,8 @@ class MultipleProposalGenericAgent(GenericAgent):
                 response = self.ui.wait_for_response(timeout=600)
 
                 if response["type"] == "reprompt":
-                    hint = response["payload"]["hint"]
-                    step_hint.append(hint)
+                    new_hints = response["payload"].get("hints", [])
+                    step_hint = list(new_hints) if isinstance(new_hints, list) else step_hint
                     candidates, chat_messages = self.get_candidate_generation(
                         sys_prompt=system_prompt,
                         human_prompt=human_prompt,
@@ -354,8 +349,8 @@ if __name__ == "__main__":
     from agentlab.experiments.study import Study
 
     agent_configs = [HUMAN_GUIDED_GENERIC_AGENT]
-    benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l1"]()
-    benchmark = benchmark.subset_from_glob("task_name", "*create*")
+    benchmark = bgym.DEFAULT_BENCHMARKS["miniwob"]()
+    benchmark = benchmark.subset_from_glob("task_name", "*book*")
     benchmark.env_args_list = benchmark.env_args_list[3:4]
 
     for env_args in benchmark.env_args_list:
