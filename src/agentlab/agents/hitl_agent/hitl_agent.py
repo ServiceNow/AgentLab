@@ -11,8 +11,8 @@ from browsergym.experiments.agent import Agent
 from PIL import Image
 
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.hilt_agent.base_multi_candidate_agent import MultiCandidateAgent
-from agentlab.agents.hilt_agent.hint_labelling import (
+from agentlab.agents.hitl_agent.base_multi_candidate_agent import MultiCandidateAgent
+from agentlab.agents.hitl_agent.hint_labelling import (
     HintLabeling,
     HintLabelingInputs,
 )
@@ -142,10 +142,10 @@ class HumanInTheLoopAgentArgs(AgentArgs):
         return HumanInTheLoopAgent(subagent_args=self.subagent_args)
 
     def __post_init__(self):
-        """Prefix subagent name with 'HILT-'."""
+        """Prefix subagent name with 'HITL-'."""
         super().__post_init__()
         if self.subagent_args and self.subagent_args.agent_name:
-            self.agent_name = "HILT-" + self.subagent_args.agent_name
+            self.agent_name = "HITL-" + self.subagent_args.agent_name
 
     def set_benchmark(self, benchmark, demo_mode):
         """Delegate set_benchmark to the subagent if it has the method."""
@@ -178,8 +178,8 @@ def img_to_base_64(image: Image.Image | np.ndarray) -> str:
 
 def get_base_human_in_the_loop_genericagent(llm_config):
     from agentlab.agents.generic_agent.tmlr_config import BASE_FLAGS
-    from agentlab.agents.hilt_agent.hilt_agent import HumanInTheLoopAgentArgs
-    from agentlab.agents.hilt_agent.multi_candidate_generic_agent import (
+    from agentlab.agents.hitl_agent.hitl_agent import HumanInTheLoopAgentArgs
+    from agentlab.agents.hitl_agent.multi_candidate_generic_agent import (
         MultiCandidateGenericAgentArgs,
     )
     from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
@@ -197,7 +197,7 @@ HUMAN_GUIDED_GENERIC_AGENT = get_base_human_in_the_loop_genericagent("openai/gpt
 if __name__ == "__main__":
     import logging
 
-    from agentlab.agents.hilt_agent.hilt_agent import (
+    from agentlab.agents.hitl_agent.hitl_agent import (
         HUMAN_GUIDED_GENERIC_AGENT,
     )
     from agentlab.experiments.study import Study

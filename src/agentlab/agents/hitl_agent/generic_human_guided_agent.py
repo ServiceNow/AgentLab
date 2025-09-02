@@ -13,7 +13,7 @@ from PIL import Image
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.generic_agent.generic_agent import GenericAgent, GenericAgentArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import MainPrompt
-from agentlab.agents.hilt_agent.hint_labelling import (
+from agentlab.agents.hitl_agent.hint_labelling import (
     HintLabeling,
     HintLabelingInputs,
 )
@@ -146,10 +146,10 @@ class MultipleProposalGenericAgentArgs(GenericAgentArgs):
         )
 
     def __post_init__(self):
-        """Prefix subagent name with 'HILT-'."""
+        """Prefix subagent name with 'HITL-'."""
         super().__post_init__()
         if hasattr(self, "agent_name") and self.agent_name:
-            self.agent_name = "HILT-" + self.agent_name
+            self.agent_name = "HITL-" + self.agent_name
 
 
 class MultipleProposalGenericAgent(GenericAgent):
@@ -354,14 +354,14 @@ HUMAN_GUIDED_GENERIC_AGENT = get_base_agent("openai/gpt-5-mini-2025-08-07")
 if __name__ == "__main__":
     import logging
 
-    from agentlab.agents.hilt_agent.generic_human_guided_agent import (
+    from agentlab.agents.hitl_agent.generic_human_guided_agent import (
         HUMAN_GUIDED_GENERIC_AGENT,
     )
     from agentlab.experiments.study import Study
 
     agent_configs = [HUMAN_GUIDED_GENERIC_AGENT]
-    benchmark = bgym.DEFAULT_BENCHMARKS["miniwob"]()
-    benchmark = benchmark.subset_from_glob("task_name", "*book*")
+    benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l1"]()
+    benchmark = benchmark.subset_from_glob("task_name", "*create*")
     benchmark.env_args_list = benchmark.env_args_list[3:4]
 
     for env_args in benchmark.env_args_list:

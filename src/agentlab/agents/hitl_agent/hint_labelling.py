@@ -8,7 +8,7 @@ import playwright.sync_api
 from browsergym.core import _get_global_playwright
 from pydantic import BaseModel, Field
 
-from agentlab.agents.hilt_agent import hint_labelling_ui_files
+from agentlab.agents.hitl_agent import hint_labelling_ui_files
 
 logger = logging.getLogger(__name__)
 
