@@ -2,7 +2,7 @@
 Console launcher for the Human-in-the-Loop Generic Agent UI.
 
 Usage (installed entry point):
-  agentlab-hint-ui --benchmark miniwob --task-name miniwob.book-flight --seed 123
+    agentlab-mentor --benchmark miniwob --task-name miniwob.book-flight --seed 123 --no-headless
 
 This will run a Study with the MultipleProposalGenericAgent and the selected task.
 """
@@ -21,7 +21,9 @@ from agentlab.agents.hitl_agent.generic_human_guided_agent import (
 from agentlab.experiments.study import Study
 
 
-def build_benchmark(benchmark_name: str, task_name: Optional[str], seed: Optional[int]):
+def build_benchmark(
+    benchmark_name: str, task_name: Optional[str], seed: Optional[int], headless: bool
+):
     # Instantiate benchmark by name using BrowserGym registry
     try:
         benchmark = bgym.DEFAULT_BENCHMARKS[benchmark_name.lower()]()
@@ -44,8 +46,7 @@ def build_benchmark(benchmark_name: str, task_name: Optional[str], seed: Optiona
     # Reasonable defaults for interactive UI
     for env_args in benchmark.env_args_list:
         env_args.max_steps = env_args.max_steps or 100
-        # Leave headless True by default; UI is external Gradio, not browser GUI
-        env_args.headless = True
+        env_args.headless = headless
 
     return benchmark
 
@@ -93,6 +94,12 @@ def parse_args():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level",
     )
+    p.add_argument(
+        "--headless",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Run the browser headless (default: True). Use --no-headless to show the browser.",
+    )
     return p.parse_args()
 
 
@@ -101,7 +108,7 @@ def main():
 
     logging_level = getattr(logging, args.log_level)
 
-    benchmark = build_benchmark(args.benchmark, args.task_name, args.seed)
+    benchmark = build_benchmark(args.benchmark, args.task_name, args.seed, args.headless)
     agent_configs = [HUMAN_GUIDED_GENERIC_AGENT]
 
     study = Study(
