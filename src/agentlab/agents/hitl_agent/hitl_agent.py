@@ -90,6 +90,7 @@ class HumanInTheLoopAgent(Agent):
                     candidates = self.subagent.get_candidate_generations(
                         obs, hint=step_hint if step_hint else None, n_candidates=3
                     )
+                    step_n_human_intervention_rounds += 1
                     suggestions = [
                         {"action": c["action"], "think": c["agent_info"].think} for c in candidates
                     ]
@@ -156,6 +157,19 @@ class HumanInTheLoopAgentArgs(AgentArgs):
 
 
 def get_base_human_in_the_loop_genericagent(llm_config):
+    """
+    Create a base human-in-the-loop generic agent configuration using the key from CHAT_MODEL_ARGS_DICT.
+
+    This function creates a HumanInTheLoopAgentArgs instance with a MultiCandidateGenericAgent
+    as the subagent, configured with the specified LLM configuration and base flags.
+
+    Args:
+        llm_config (str): The LLM configuration key to use from CHAT_MODEL_ARGS_DICT.
+
+    Returns:
+        HumanInTheLoopAgentArgs: Configured human-in-the-loop agent arguments with
+                                a multi-candidate generic agent as the subagent.
+    """
     from agentlab.agents.generic_agent.tmlr_config import BASE_FLAGS
     from agentlab.agents.hitl_agent.hitl_agent import HumanInTheLoopAgentArgs
     from agentlab.agents.hitl_agent.multi_candidate_generic_agent import (

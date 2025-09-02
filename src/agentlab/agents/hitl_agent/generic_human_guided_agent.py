@@ -11,6 +11,7 @@ from browsergym.experiments.agent import AgentInfo
 from PIL import Image
 
 from agentlab.agents import dynamic_prompting as dp
+from agentlab.agents.agent_utils import overlay_action
 from agentlab.agents.generic_agent.generic_agent import GenericAgent, GenericAgentArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import MainPrompt
 from agentlab.agents.hitl_agent.hint_labelling import (
@@ -22,10 +23,10 @@ from agentlab.llm.llm_utils import (
     Discussion,
     HumanMessage,
     SystemMessage,
+    img_to_base_64,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
-from agentlab.agents.agent_utils import overlay_action
-from agentlab.llm.llm_utils import img_to_base_64
+
 
 class CandidatesGeneration(dp.PromptElement):
     # Ask for multiple alternatives; each candidate must contain <think> and <action>.
@@ -323,6 +324,16 @@ class MultipleProposalGenericAgent(GenericAgent):
 
 
 def get_base_agent(llm_config):
+    """Creates and returns a MultipleProposalGenericAgentArgs instance with
+    specified LLM configuration from CHAT_MODEL_ARGS_DICT.
+
+    Args:
+        llm_config: The LLM configuration key to use from CHAT_MODEL_ARGS_DICT.
+
+    Returns:
+        MultipleProposalGenericAgentArgs: Configured agent arguments instance.
+    """
+
     from agentlab.agents.generic_agent.tmlr_config import BASE_FLAGS
     from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 

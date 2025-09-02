@@ -1,8 +1,10 @@
 import copy
+
 from PIL import Image, ImageDraw
 from playwright.sync_api import Page
-from agentlab.llm.llm_utils import img_to_base_64
+
 from agentlab.analyze import overlay_utils
+from agentlab.llm.llm_utils import img_to_base_64
 
 
 def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
@@ -139,6 +141,3 @@ def overlay_action(obs, action):
     act_img = Image.fromarray(act_img)
     overlay_utils.annotate_action(act_img, action, properties=obs["extra_element_properties"])
     return img_to_base_64(act_img)
-
-
-
