@@ -82,7 +82,7 @@ class HumanInTheLoopAgent(Agent):
                 )
 
                 self.ui.update_context(hint_labeling_inputs)
-                response = self.ui.wait_for_response(timeout=300)
+                response = self.ui.wait_for_response(timeout=600)
 
                 if response["type"] == "reprompt":
                     hint = response["payload"]["hint"]
