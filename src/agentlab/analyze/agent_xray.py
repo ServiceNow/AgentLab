@@ -818,6 +818,18 @@ def update_agent_info_html():
         s1, action_str = get_screenshot(info, info.step, False)
         s2, action_str = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
+        # Minimal: show step_hints if present
+        hints = (
+            agent_info.get("step_hints")
+            or agent_info.get("hints")
+            or agent_info.get("extra_info", {}).get("step_hints")
+        )
+        if hints:
+            if not isinstance(hints, (list, tuple)):
+                hints = [hints]
+            items = "".join(f"<li>{html.escape(str(h))}</li>" for h in hints)
+            hints_html = f"<html><body><h3>Step Hints</h3><ul>{items}</ul></body></html>"
+            return _page_to_iframe(hints_html), s1, s2
         page = agent_info.get("html_page", ["No Agent Info"])
         if page is None:
             page = """Fill up html_page attribute in AgentInfo to display here."""
