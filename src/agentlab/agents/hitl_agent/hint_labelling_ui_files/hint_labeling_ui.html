@@ -11,7 +11,7 @@
     }
     *{box-sizing:border-box}
   body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
-  .container{max-width:1280px;margin:24px auto;padding:0 16px}
+    .container{max-width:1600px;margin:24px auto;padding:0 16px}
 
     .grid{
       display:grid;gap:16px;
@@ -41,6 +41,8 @@
   .hint-row textarea.hint{flex:1;margin:0}
   .remove-hint{width:36px;min-width:36px;height:36px;line-height:1;border-radius:10px;padding:0;font-size:18px;color:#64748b}
   .remove-hint:hover{background:#f8fafc}
+  .hint:disabled{background:#f1f5f9;color:#94a3b8}
+  .btn-ghost[disabled]{opacity:.6;cursor:not-allowed}
 
   .choices{margin-top:12px;display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow:auto}
     .choice{display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start;background:#ffffff;border:1px solid var(--border);border-radius:14px;padding:12px}
@@ -52,6 +54,7 @@
     .choice .label{font-weight:700}
     .choice .value{color:#0f172a}
     .choice .reason{font-size:13px;color:#111827}
+    .choice .reason .value{white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word}
 
     .footer{display:flex;justify-content:flex-end;gap:12px;margin-top:10px}
 
@@ -61,8 +64,20 @@
 
     .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#0f172a;border:1px solid var(--border);font-size:12px}
 
+  /* Timeline styles */
+  .timeline-wrap{margin-top:16px}
+  .timeline{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+  .timeline .dot{width:12px;height:12px;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:transform .1s ease-in-out}
+  .timeline .dot:hover{transform:scale(1.2)}
+  .timeline .dot.active{background:var(--brand);box-shadow:0 0 0 4px rgba(37,99,235,.15)}
+  .timeline .label{margin-left:auto;font-size:12px;color:var(--muted)}
+  .history-notice{margin-top:8px}
+  /* step numbers above dots */
+  .timeline .dot{position:relative}
+  .timeline .dot::after{content: attr(data-step); position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--muted)}
+
   /* New: split layout for screenshot/tabs and hints+suggestions side-by-side */
-  .split{display:grid;gap:16px;grid-template-columns: 1fr 1.3fr;align-items:start;margin-top:16px}
+  .split{display:grid;gap:16px;grid-template-columns: 1.3fr 1fr;align-items:start;margin-top:16px}
   .right-stack{display:flex;flex-direction:column;gap:16px}
 
     @media (max-width: 900px){
@@ -91,6 +106,14 @@
 </head>
 <body>
   <div class="container">
+    <!-- Timeline + notice -->
+    <div class="timeline-wrap">
+      <div id="timeline" class="timeline" role="tablist" aria-label="Context updates timeline">
+        <!-- dots injected here -->
+        <span id="timelineLabel" class="label"></span>
+      </div>
+      <div id="historyNotice" class="banner info history-notice" style="display:none"></div>
+    </div>
     <!-- Top: Goal & Error -->
     <div class="grid" style="display: flex; gap: 16px;">
       <div class="card pad" style="flex: 1; height: 150px;">
@@ -132,7 +155,6 @@
         <div class="tabs">
           <button class="tab active" data-tab="screenshot">Screenshot</button>
           <button class="tab" data-tab="axtree">AxTree</button>
-          <button class="tab" data-tab="history">History</button>
         </div>
         <div class="pad tabpanel">
           <div id="tab-screenshot" class="tabcontent">
@@ -141,10 +163,7 @@
           <div id="tab-axtree" class="tabcontent" hidden>
             <textarea id="axtreeArea" class="axtree" readonly style="font-size: 12px; white-space: pre; overflow-wrap: normal;"></textarea>
           </div>
-          <div id="tab-history" class="tabcontent" hidden>
-            <!-- intentionally empty for now -->
-            <div class="banner info">History will appear here.</div>
-          </div>
+          
         </div>
       </div>
     </div>
@@ -171,13 +190,12 @@
   *   hints: Array<string>
      *   suggestions: Array<{ action: string, think: string, id?: string }>
      */
-    window.__BOOTSTRAP_DATA__ = window.__BOOTSTRAP_DATA__ || {
+  window.__BOOTSTRAP_DATA__ = window.__BOOTSTRAP_DATA__ || {
       goal: "go to the hardware catalog store and order a developer laptop",
       error_feedback: "playwright error when clicking on something that is not visible (from the previous step)",
       screenshot: "", // fill with base64 (PNG/JPG). When empty, we show a placeholder.
       screenshots: [], // list of base64 screenshots for hover
-      axtree: "<root>\n  <window name=\"VITASPHERE\">…</window>\n</root>",
-      history: [],
+  axtree: "<root>\n  <window name=\"VITASPHERE\">…</window>\n</root>",
   hints: [],
       suggestions: [
         { id: "1", action: "click(\"42\")", think: "The button with id 42 advances the form." },
@@ -190,6 +208,11 @@
   var originalScreenshot = ""; // store original screenshot
   var hoverScreenshots = []; // store screenshots for hover
   var hoverEnabled = true; // track if hover behavior is enabled
+
+  // Timeline state
+  let timeline = []; // {data, event, ts, meta}
+    let timelineIndex = -1;
+  let hintsLockedUntilNextSnapshot = false;
 
     function applyContext(d){
       goalBox.textContent = d.goal || '';
@@ -210,8 +233,15 @@
 
     // REPLACE your old updateContext with this:
     function updateContext(data){
-      window.__BOOTSTRAP_DATA__ = data || {};
-      applyContext(window.__BOOTSTRAP_DATA__);
+      // push new snapshot to timeline and render
+      const d = data || {};
+      window.__BOOTSTRAP_DATA__ = d;
+      // If backend delivered new suggestions, ensure hints unlock for the latest snapshot
+      if (Array.isArray(d.suggestions) && d.suggestions.length > 0) {
+        hintsLockedUntilNextSnapshot = false;
+      }
+      pushSnapshot('update', d);
+  setTimeout(ensureLatestEditable, 0);
     }
 
     // Placeholder endpoints (replace later)
@@ -236,10 +266,24 @@
     const submitStatus = document.getElementById('submitStatus');
     const progressArea = document.getElementById('progressArea');
     const progressContainer = document.getElementById('progressContainer');
+  const timelineEl = document.getElementById('timeline');
+  const timelineLabel = document.getElementById('timelineLabel');
+  const historyNotice = document.getElementById('historyNotice');
+  
 
     // State
     let currentSuggestions = [];
     let selectedId = null;
+
+    // Ensure latest snapshot is editable for hints and reprompt
+    function ensureLatestEditable(){
+      const isLatest = (timelineIndex === -1) || (timelineIndex === timeline.length - 1);
+      if (isLatest) {
+        hintsLockedUntilNextSnapshot = false;
+        setHintsEditable(true);
+        if (repromptBtn) repromptBtn.disabled = false;
+      }
+    }
 
     // Helpers
     function setVisible(el, visible){ el.style.display = visible ? '' : 'none'; }
@@ -256,6 +300,19 @@
     }
     function hideProgress() {
       setVisible(progressContainer, false);
+    }
+
+    function updateModeForSnapshot(){
+      const isLatest = timelineIndex === timeline.length - 1;
+      repromptBtn.disabled = !isLatest;
+      // Only force-disable submit when not on latest snapshot; when latest, selection controls it
+  if (!isLatest) submitBtn.disabled = true;
+  setHintsEditable(isLatest && !hintsLockedUntilNextSnapshot);
+      if (!isLatest){
+        setBanner(historyNotice, 'Viewing past context snapshot. Use Left/Right arrows to navigate. Press End to go to latest.', 'info');
+      } else {
+        setVisible(historyNotice, false);
+      }
     }
 
     function dataUrlFromBase64(b64){
@@ -325,8 +382,9 @@
         reasonLabel.textContent = 'reasoning:';
         const reasonVal = document.createElement('span');
         reasonVal.className = 'value';
-        reasonVal.style.maxHeight = '3em';
-        reasonVal.style.overflowY = 'auto';
+  // Let the reasoning grow naturally; wrapping handled in CSS
+  reasonVal.style.maxHeight = '';
+  reasonVal.style.overflowY = '';
         reasonVal.textContent = ` ${sugg.think}`;
         reasonRow.appendChild(reasonLabel); reasonRow.appendChild(reasonVal);
 
@@ -337,6 +395,9 @@
         wrapper.appendChild(box);
         choicesEl.appendChild(wrapper);
       });
+
+  // Ensure latest snapshot controls are enabled
+  ensureLatestEditable();
     }
 
     function currentSelection(){
@@ -365,6 +426,10 @@
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ hints })
         });
+  
+        // Lock current hints until a new snapshot arrives
+        hintsLockedUntilNextSnapshot = true;
+        setHintsEditable(false);
         // Don't expect a response - the backend will update the UI via updateContext
         updateProgress('Hint sent. Waiting for new suggestions...', true);
       }catch(err){
@@ -402,6 +467,16 @@
         }
       });
 
+      // Record selection into snapshot meta for step counting and history visuals
+      try {
+        if (timeline[timelineIndex]) {
+          timeline[timelineIndex].meta = timeline[timelineIndex].meta || {};
+          timeline[timelineIndex].meta.selectedAction = selection.action;
+          timeline[timelineIndex].meta.selectedId = selectedId;
+          renderTimeline();
+        }
+      } catch {}
+
       // Disable hover behavior
       hoverEnabled = false;
 
@@ -417,6 +492,7 @@
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify(payload)
         });
+        
         // Don't expect a response - the backend will handle the selection
         updateProgress('Selection submitted successfully!', false);
       }catch(err){
@@ -428,20 +504,111 @@
 
     // Initial render from BOOTSTRAP_DATA
     (function init(){
-      const d = window.__BOOTSTRAP_DATA__;
-      goalBox.textContent = d.goal || '';
-      errorBox.textContent = d.error_feedback || '';
-      screenshotImg.src = dataUrlFromBase64(d.screenshot || '');
-      axtreeArea.value = d.axtree || '';
-      renderSuggestions(Array.isArray(d.suggestions) ? d.suggestions : []);
       // setup hints UI
       setupHintsUI();
-      const incomingHints = Array.isArray(d.hints)
-        ? d.hints
-        : (d.hint ? [d.hint] : []);
-      renderHints(incomingHints);
-      // Don't show initial progress - only show when there's actual status
+      // prime timeline with initial data
+      const d = window.__BOOTSTRAP_DATA__;
+      // Do not add a placeholder snapshot; just render the initial context
+      applyContext(d);
+      const initHints = Array.isArray(d.hints) ? d.hints : (d.hint ? [d.hint] : []);
+      renderHints(initHints);
+      // Keyboard navigation for timeline
+      document.addEventListener('keydown', (e)=>{
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'TEXTAREA' || tag === 'INPUT') return; // don't hijack text editing
+        if (e.key === 'ArrowLeft') { goRelative(-1); }
+        else if (e.key === 'ArrowRight') { goRelative(1); }
+        else if (e.key === 'Home') { goTo(0); }
+        else if (e.key === 'End') { goTo(timeline.length - 1); }
+      });
+  // enable hints at start
+  setHintsEditable(true);
     })();
+
+    // Timeline helpers
+    function deepClone(obj){ try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; } }
+    function pushSnapshot(event, data){
+      // Avoid adding placeholder snapshots when suggestions are missing or empty
+      const suggs = (data && Array.isArray(data.suggestions)) ? data.suggestions : [];
+      if (!Array.isArray((data||{}).suggestions) || suggs.length === 0){
+        applyContext(data || {});
+        const hints0 = Array.isArray((data||{}).hints) ? data.hints : ((data||{}).hint ? [data.hint] : []);
+        renderHints(hints0);
+        // Even if we didn't add a snapshot, if suggestions were updated later, unlock
+        if (Array.isArray(suggs) && suggs.length > 0) {
+          hintsLockedUntilNextSnapshot = false;
+        }
+        updateModeForSnapshot();
+        return;
+      }
+      const snap = { event, ts: Date.now(), data: deepClone(data), meta: {} };
+      // Apply on push to set context and then record it
+      applyContext(snap.data);
+      // Ensure hints UI reflects incoming data
+      const incomingHints = Array.isArray(snap.data.hints) ? snap.data.hints : (snap.data.hint ? [snap.data.hint] : []);
+      renderHints(incomingHints);
+      timeline.push(snap);
+      timelineIndex = timeline.length - 1;
+  renderTimeline();
+  // New snapshot unlocks hints (unless we immediately navigate away)
+  hintsLockedUntilNextSnapshot = false;
+      updateModeForSnapshot();
+  // Ensure latest snapshot is editable for hints
+  setHintsEditable(true);
+  // Also re-enable reprompt on the latest snapshot
+  if (repromptBtn) repromptBtn.disabled = false;
+  setTimeout(ensureLatestEditable, 0);
+    }
+
+    function goTo(i){
+      if (i < 0 || i >= timeline.length) return;
+      timelineIndex = i;
+      const snap = timeline[timelineIndex];
+      applyContext(snap.data);
+      // set hints from snapshot
+      const incomingHints = Array.isArray(snap.data.hints) ? snap.data.hints : (snap.data.hint ? [snap.data.hint] : []);
+      renderHints(incomingHints);
+      // If a selection was made on this snapshot, restore its visual state
+      if (snap.meta && snap.meta.selectedAction){
+        const selAction = snap.meta.selectedAction;
+        const allChoices = choicesEl.querySelectorAll('.choice');
+        allChoices.forEach((choice, idx) => {
+          const sugg = currentSuggestions[idx];
+          if (!sugg) return;
+          if (sugg.action === selAction){
+            choice.classList.add('selected');
+            choice.classList.remove('disabled');
+          } else {
+            choice.classList.add('disabled');
+            choice.classList.remove('selected');
+          }
+        });
+      }
+      renderTimeline();
+      updateModeForSnapshot();
+    }
+    function goRelative(d){ goTo(timelineIndex + d); }
+
+    function renderTimeline(){
+      // clear existing dots (except label span)
+      Array.from(timelineEl.querySelectorAll('.dot')).forEach(n => n.remove());
+      const count = timeline.length;
+      let stepsSoFar = 0;
+      for (let i = 0; i < count; i++){
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === timelineIndex ? ' active' : '');
+        dot.title = `Snapshot ${i+1} of ${count}`;
+        dot.setAttribute('role','tab');
+  dot.setAttribute('aria-selected', String(i === timelineIndex));
+        if (timeline[i] && timeline[i].meta && timeline[i].meta.selectedAction){ stepsSoFar += 1; }
+        dot.setAttribute('data-step', stepsSoFar > 0 ? String(stepsSoFar) : '');
+        dot.addEventListener('click', ()=> goTo(i));
+        timelineEl.insertBefore(dot, timelineLabel);
+      }
+      timelineLabel.textContent = count ? `Snapshot ${timelineIndex+1} / ${count}` : '';
+    }
+
+    
 
     // Hints UI logic
     function setupHintsUI(){
@@ -492,6 +659,19 @@
       row.appendChild(rm);
       hintsContainer.appendChild(row);
       return ta;
+    }
+
+    function setHintsEditable(enabled){
+      // Toggle textareas
+      (hintsContainer ? hintsContainer.querySelectorAll('textarea.hint') : []).forEach((ta)=>{
+        ta.disabled = !enabled;
+      });
+      // Toggle add button
+      if (addHintBtn) addHintBtn.disabled = !enabled;
+      // Toggle remove buttons
+      (hintsContainer ? hintsContainer.querySelectorAll('.remove-hint') : []).forEach((btn)=>{
+        btn.disabled = !enabled;
+      });
     }
 
     function renderHints(hintsArray){

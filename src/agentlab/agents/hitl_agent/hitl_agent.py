@@ -5,14 +5,13 @@ import bgym
 import playwright
 from browsergym.experiments.agent import Agent
 
-
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.agents.agent_utils import overlay_action
 from agentlab.agents.hitl_agent.base_multi_candidate_agent import MultiCandidateAgent
 from agentlab.agents.hitl_agent.hint_labelling import (
     HintLabeling,
     HintLabelingInputs,
 )
-from agentlab.agents.agent_utils import overlay_action
 from agentlab.llm.llm_utils import img_to_base_64
 from agentlab.llm.tracking import cost_tracker_decorator
 
@@ -47,7 +46,6 @@ class HumanInTheLoopAgent(Agent):
                 screenshot=(img_to_base_64(obs["screenshot"]) if "screenshot" in obs else ""),
                 screenshots=[],  # no overlay screenshots yet
                 axtree=obs.get("axtree_txt", ""),
-                history=[],
                 hints=[],
                 suggestions=[],  # no suggestions yet
             )
@@ -72,7 +70,6 @@ class HumanInTheLoopAgent(Agent):
                     screenshot=(img_to_base_64(obs["screenshot"]) if "screenshot" in obs else ""),
                     screenshots=screenshots,  # list of overlay screenshots for hover
                     axtree=obs.get("axtree_txt", ""),
-                    history=[],  # TODO: add history
                     hints=step_hint,
                     suggestions=suggestions,
                 )

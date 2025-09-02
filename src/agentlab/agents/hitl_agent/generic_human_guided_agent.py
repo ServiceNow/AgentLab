@@ -206,7 +206,6 @@ class MultipleProposalGenericAgent(GenericAgent):
                 screenshot=(img_to_base_64(obs["screenshot"]) if "screenshot" in obs else ""),
                 screenshots=[],  # no overlay screenshots yet
                 axtree=obs.get("axtree_txt", ""),
-                history=[],
                 hints=[],
                 suggestions=[],  # no suggestions yet
             )
@@ -241,7 +240,6 @@ class MultipleProposalGenericAgent(GenericAgent):
                     screenshot=(img_to_base_64(obs["screenshot"]) if "screenshot" in obs else ""),
                     screenshots=screenshots,  # list of overlay screenshots for hover
                     axtree=obs.get("axtree_txt", ""),
-                    history=[],  # TODO: add history
                     hints=step_hint,
                     suggestions=suggestions,
                 )

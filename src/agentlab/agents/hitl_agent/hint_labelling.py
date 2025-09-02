@@ -9,7 +9,7 @@ from browsergym.core import _get_global_playwright
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
- 
+
 HINT_LABELING_DIR = resources.files("agentlab.agents.hitl_agent.hint_labelling_ui_files")
 
 
@@ -19,7 +19,6 @@ class HintLabelingInputs(BaseModel):
     screenshot: str  # base64 screenshot (original/current)
     screenshots: List[str] = Field(default_factory=list)  # list of base64 screenshots for hover
     axtree: str
-    history: List[Dict[str, str]] = Field(default_factory=list)
     hints: List[str] = Field(default_factory=list)
     suggestions: List[Dict[str, str]] = Field(default_factory=list)
 
@@ -74,7 +73,7 @@ class HintLabeling:
             body = json.loads(request.post_data or "{}")
         except Exception:
             body = {}
-    # Map UI payload -> your step shape
+        # Map UI payload -> your step shape
         msg = {
             "type": "step",
             "payload": {
@@ -97,7 +96,6 @@ class HintLabeling:
             "screenshot": ctx.screenshot,
             "screenshots": ctx.screenshots,  # list of screenshots for hover
             "axtree": ctx.axtree,
-            "history": ctx.history,
             "hints": ctx.hints,
             "suggestions": ctx.suggestions,
         }
