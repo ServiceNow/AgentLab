@@ -2,11 +2,12 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Dict, List
 
+from browsergym.experiments.agent import AgentInfo
+
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.generic_agent.generic_agent import GenericAgent, GenericAgentArgs
 from agentlab.agents.generic_agent.generic_agent_prompt import MainPrompt
 from agentlab.llm.llm_utils import Discussion, HumanMessage, SystemMessage
-from browsergym.experiments.agent import AgentInfo
 
 
 class CandidatesGeneration(dp.PromptElement):
@@ -70,15 +71,14 @@ class CandidatesGeneration(dp.PromptElement):
     )
 
     def _parse_answer(self, text_answer: str) -> Dict[str, Dict[str, str]]:
-        """
-        Extract up to n_candidates candidates, using numbered tags only.
+        """Extract up to n_candidates candidates, using numbered tags only.
+
+        Args:
+            text_answer: The text response containing candidate generation tags.
 
         Returns:
-        {
-            "candidate_generation_1": {"think": "...", "action": "..."},
-            "candidate_generation_2": {"think": "...", "action": "..."},
-            ...
-        }
+            Dictionary mapping candidate names to their think and action content.
+            Format: {"candidate_generation_1": {"think": "...", "action": "..."}, ...}
         """
         result = {
             f"candidate_generation_{i+1}": {"think": "", "action": ""}
@@ -123,7 +123,6 @@ class MultiCandidateGenericAgent(GenericAgent):
         # Important to handle cases when get_candidate_generation is called multiple times in a single step.
         if not self.obs_history or self.obs_history[-1] is not obs:
             self.obs_history.append(obs)
-    
 
         main_prompt = MainPrompt(
             action_set=self.action_set,
@@ -180,8 +179,12 @@ class MultiCandidateGenericAgent(GenericAgent):
         return output
 
     def update_agent_state_from_selected_candidate(self, output):
-        """Updates the agent's internal state based on the selected candidate from human feedback."""
-        action, agent_info = output['action'], output['agent_info']
+        """Updates the agent's internal state based on the selected candidate from human feedback.
+
+        Args:
+            output: Dictionary containing 'action' and 'agent_info' keys from selected candidate.
+        """
+        action, agent_info = output["action"], output["agent_info"]
         self.plan = agent_info.extra_info.get("plan", self.plan)
         self.plan_step = agent_info.extra_info.get("step", self.plan_step)
         self.memories.append(agent_info.extra_info.get("memory", None))
@@ -191,11 +194,17 @@ class MultiCandidateGenericAgent(GenericAgent):
     def get_action(self, obs):
         """Generates multiple candidates and always returns the first one.
         This allows to use this agent as a drop-in replacement for a single-candidate agent.
+
+        Args:
+            obs: The observation from the environment.
+
+        Returns:
+            tuple: A tuple containing (action, agent_info).
         """
-        candidates = self.get_candidate_generations(obs, hint=None, n_candidates=2) 
-        selection = candidates[0] # always select the first option.
+        candidates = self.get_candidate_generations(obs, hint=None, n_candidates=2)
+        selection = candidates[0]  # always select the first option.
         self.update_agent_state_from_selected_candidate(selection)
-        action, agent_info = selection['action'], selection['agent_info']
+        action, agent_info = selection["action"], selection["agent_info"]
 
         return action, agent_info
 
@@ -212,5 +221,5 @@ class MultiCandidateGenericAgentArgs(GenericAgentArgs):
     def __post_init__(self):
         """Prefix subagent name with 'MC-'."""
         super().__post_init__()
-        if hasattr(self, 'agent_name') and self.agent_name:
+        if hasattr(self, "agent_name") and self.agent_name:
             self.agent_name = "MC-" + self.agent_name

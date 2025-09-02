@@ -6,18 +6,19 @@ from typing import Optional
 
 import bgym
 import numpy as np
-from PIL import Image
 import playwright
+from browsergym.experiments.agent import Agent
+from PIL import Image
 
+from agentlab.agents.agent_args import AgentArgs
+from agentlab.agents.hilt_agent.base_multi_candidate_agent import MultiCandidateAgent
 from agentlab.agents.hilt_agent.hint_labelling import (
     HintLabeling,
     HintLabelingInputs,
 )
-from agentlab.llm.tracking import cost_tracker_decorator
 from agentlab.analyze import overlay_utils
-from browsergym.experiments.agent import Agent
-from agentlab.agents.agent_args import AgentArgs
-from agentlab.agents.hilt_agent.base_multi_candidate_agent import MultiCandidateAgent
+from agentlab.llm.tracking import cost_tracker_decorator
+
 
 class HumanInTheLoopAgent(Agent):
 
@@ -58,7 +59,7 @@ class HumanInTheLoopAgent(Agent):
         # Generate first candidates
         candidates = self.subagent.get_candidate_generations(obs, hint=None, n_candidates=3)
         step_n_human_intervention_rounds += 1
-        suggestions = [{ 'action': c['action'], 'think': c['agent_info'].think} for c in candidates]
+        suggestions = [{"action": c["action"], "think": c["agent_info"].think} for c in candidates]
         # List of Images as base64 - create overlay screenshots for each suggested action
         screenshots = [overlay_action(obs, choice["action"]) for choice in suggestions]
 
@@ -90,11 +91,11 @@ class HumanInTheLoopAgent(Agent):
                     hint = response["payload"]["hint"]
                     step_hint.append(hint)
                     candidates = self.subagent.get_candidate_generations(
-                        obs, 
-                        hint=step_hint if step_hint else None,
-                        n_candidates=3
+                        obs, hint=step_hint if step_hint else None, n_candidates=3
                     )
-                    suggestions = [{'action': c['action'], 'think': c['agent_info'].think} for c in candidates]
+                    suggestions = [
+                        {"action": c["action"], "think": c["agent_info"].think} for c in candidates
+                    ]
                     screenshots = [overlay_action(obs, choice["action"]) for choice in suggestions]
 
                 elif response["type"] == "step":
@@ -135,7 +136,6 @@ class HumanInTheLoopAgent(Agent):
 @dataclass
 class HumanInTheLoopAgentArgs(AgentArgs):
     subagent_args: Optional[AgentArgs] = None  # args for the underlying multiple proposal agent
-    
 
     def make_agent(self):
         assert self.subagent_args is not None
@@ -146,15 +146,15 @@ class HumanInTheLoopAgentArgs(AgentArgs):
         super().__post_init__()
         if self.subagent_args and self.subagent_args.agent_name:
             self.agent_name = "HILT-" + self.subagent_args.agent_name
-    
+
     def set_benchmark(self, benchmark, demo_mode):
         """Delegate set_benchmark to the subagent if it has the method."""
-        if hasattr(self.subagent_args, 'set_benchmark'):
+        if hasattr(self.subagent_args, "set_benchmark"):
             self.subagent_args.set_benchmark(benchmark, demo_mode)
-    
+
     def set_reproducibility_mode(self):
         """Delegate set_reproducibility_mode to the subagent if it has the method."""
-        if hasattr(self.subagent_args, 'set_reproducibility_mode'):
+        if hasattr(self.subagent_args, "set_reproducibility_mode"):
             self.subagent_args.set_reproducibility_mode()
 
 
@@ -175,16 +175,17 @@ def img_to_base_64(image: Image.Image | np.ndarray) -> str:
     b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return b64_str
 
+
 def get_base_human_in_the_loop_genericagent(llm_config):
     from agentlab.agents.generic_agent.tmlr_config import BASE_FLAGS
-    from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
     from agentlab.agents.hilt_agent.hilt_agent import HumanInTheLoopAgentArgs
     from agentlab.agents.hilt_agent.multi_candidate_generic_agent import (
         MultiCandidateGenericAgentArgs,
     )
+    from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
     return HumanInTheLoopAgentArgs(
-        subagent_args = MultiCandidateGenericAgentArgs(
+        subagent_args=MultiCandidateGenericAgentArgs(
             chat_model_args=CHAT_MODEL_ARGS_DICT[llm_config],
             flags=BASE_FLAGS,
         )
@@ -209,7 +210,6 @@ if __name__ == "__main__":
     for env_args in benchmark.env_args_list:
         env_args.max_steps = 100  # max human steps
         env_args.headless = False
-
 
     Study(agent_configs, benchmark, logging_level=logging.WARNING).run(
         n_jobs=1,

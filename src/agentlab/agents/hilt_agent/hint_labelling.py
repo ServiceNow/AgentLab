@@ -5,10 +5,10 @@ from queue import Queue
 from typing import Dict, List, Optional
 
 import playwright.sync_api
+from browsergym.core import _get_global_playwright
 from pydantic import BaseModel, Field
 
 from agentlab.agents.hilt_agent import hint_labelling_ui_files
-from browsergym.core import _get_global_playwright
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,16 @@ class HintLabeling:
         """
         Wait until the page makes a request to /api/reprompt or /api/submit,
         then parse the request body and return it in your schema.
+
+        Args:
+            timeout (Optional[float]): Maximum time to wait for the request in seconds. If None or 0,
+                waits indefinitely. Defaults to 600 seconds.
+
+        Returns:
+            dict: A dictionary containing the parsed response with 'type' and 'payload' keys.
+                For /api/reprompt: {'type': 'reprompt', 'payload': {'hint': str}}
+                For /api/submit: {'type': 'step', 'payload': {'think': str, 'action': str}}
+
         """
         logger.info("Waiting for response from Hint Labeling UI...")
 

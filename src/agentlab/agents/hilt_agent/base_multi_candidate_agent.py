@@ -1,4 +1,5 @@
 from typing_extensions import Protocol
+
 from agentlab.agents.agent_args import AgentArgs
 
 
@@ -12,9 +13,10 @@ class MultiCandidateAgent(Protocol):
 
     def get_candidate_generations(
         self, obs: dict, hint: list[str] | None = None, n_candidates: int = 3
-    ) -> list[dict]:
+    ) -> "list[dict]":
         """
         Generate multiple candidate actions for the given observation.
+
         You can pass extra info in agent_info to update internal state of the
         agent based on the selected candidate. Your internal state management
         should be robust to multiple calls to the get_candidate_generations method
@@ -24,11 +26,6 @@ class MultiCandidateAgent(Protocol):
             obs: The current observation dictionary containing environment state
             hint: Optional list of hint strings to guide candidate generation
             n_candidates: Number of candidate actions to generate
-
-        Returns:
-            List of dictionaries, each containing:
-                - 'action': The candidate action to be executed
-                - 'agent_info': Additional information about the action generation
         """
         ...
 
@@ -37,8 +34,10 @@ class MultiCandidateAgent(Protocol):
         Update the agent's internal state based on the selected candidate.
         This can include any memory or planning updates.
 
+        Args:
+            output: The selected candidate action dictionary
         """
-        ...
+        pass
 
 
 class MultiCandidateAgentArgs(AgentArgs):
@@ -47,5 +46,5 @@ class MultiCandidateAgentArgs(AgentArgs):
     def __post_init__(self):
         """Prefix subagent name with 'MC-'."""
         super().__post_init__()
-        if hasattr(self, 'agent_name') and self.agent_name:
+        if hasattr(self, "agent_name") and self.agent_name:
             self.agent_name = "MC-" + self.agent_name

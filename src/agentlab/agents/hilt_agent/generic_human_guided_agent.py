@@ -7,6 +7,7 @@ from typing import Dict, List
 
 import bgym
 import numpy as np
+from browsergym.experiments.agent import AgentInfo
 from PIL import Image
 
 from agentlab.agents import dynamic_prompting as dp
@@ -23,7 +24,6 @@ from agentlab.llm.llm_utils import (
     SystemMessage,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
-from browsergym.experiments.agent import AgentInfo
 
 
 class CandidatesGeneration(dp.PromptElement):
@@ -87,15 +87,14 @@ class CandidatesGeneration(dp.PromptElement):
     )
 
     def _parse_answer(self, text_answer: str) -> Dict[str, Dict[str, str]]:
-        """
-        Extract up to n_candidates candidates, using numbered tags only.
+        """Extract up to n_candidates candidates, using numbered tags only.
+
+        Args:
+            text_answer: The text response containing candidate generation tags.
 
         Returns:
-        {
-            "candidate_generation_1": {"think": "...", "action": "..."},
-            "candidate_generation_2": {"think": "...", "action": "..."},
-            ...
-        }
+            Dictionary mapping candidate names to their think and action content.
+            Format: {"candidate_generation_1": {"think": "...", "action": "..."}, ...}
         """
         result = {
             f"candidate_generation_{i+1}": {"think": "", "action": ""}
@@ -145,11 +144,11 @@ class MultipleProposalGenericAgentArgs(GenericAgentArgs):
         return MultipleProposalGenericAgent(
             chat_model_args=self.chat_model_args, flags=self.flags, max_retry=self.max_retry
         )
-    
+
     def __post_init__(self):
         """Prefix subagent name with 'HILT-'."""
         super().__post_init__()
-        if hasattr(self, 'agent_name') and self.agent_name:
+        if hasattr(self, "agent_name") and self.agent_name:
             self.agent_name = "HILT-" + self.agent_name
 
 
@@ -363,13 +362,11 @@ if __name__ == "__main__":
     agent_configs = [HUMAN_GUIDED_GENERIC_AGENT]
     benchmark = bgym.DEFAULT_BENCHMARKS["miniwob"]()
     benchmark = benchmark.subset_from_glob("task_name", "*book*")
-    benchmark.env_args_list = benchmark.env_args_list[2:3]
+    benchmark.env_args_list = benchmark.env_args_list[3:4]
 
     for env_args in benchmark.env_args_list:
         env_args.max_steps = 100  # max human steps
-        env_args.headless = False
-        # env_args.use_chat_ui = False
-        # env_args.use_hint_labeling_ui = True
+        env_args.headless = True
 
     Study(agent_configs, benchmark, logging_level=logging.WARNING).run(
         n_jobs=1,
