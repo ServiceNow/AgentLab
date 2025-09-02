@@ -7,6 +7,7 @@ from typing import Optional
 import bgym
 import numpy as np
 from PIL import Image
+import playwright
 
 from agentlab.agents.hilt_agent.hint_labelling import (
     HintLabeling,
@@ -114,6 +115,14 @@ class HumanInTheLoopAgent(Agent):
                 if self.ui:
                     self.ui.close()
                 raise
+            except playwright.sync_api.TimeoutError:
+                # Handle timeout specifically: fall back to first candidate
+                print("UI timeout; falling back to first candidate.")
+                selected_candidate = candidates[0]
+                self.subagent.update_agent_state_from_selected_candidate(selected_candidate)
+                action = selected_candidate["action"]
+                agent_info = selected_candidate["agent_info"]
+                return action, agent_info
             except Exception as e:
                 print(f"Error in human intervention UI: {e}")
                 if self.ui:
