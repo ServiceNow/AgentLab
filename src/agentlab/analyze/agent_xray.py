@@ -539,7 +539,7 @@ clicking the refresh button.
     port = os.getenv("AGENTXRAY_APP_PORT", None)
     if isinstance(port, str):
         port = int(port)
-    demo.launch(server_port=port, share=do_share)
+    demo.launch(server_name="0.0.0.0", server_port=port, share=do_share)
 
 
 def handle_key_event(key_event, step_id: StepId):
