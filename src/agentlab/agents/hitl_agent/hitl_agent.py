@@ -1,14 +1,10 @@
-import base64
-import copy
-import io
 from dataclasses import dataclass
 from typing import Optional
 
 import bgym
-import numpy as np
 import playwright
 from browsergym.experiments.agent import Agent
-from PIL import Image
+
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.hitl_agent.base_multi_candidate_agent import MultiCandidateAgent
@@ -16,7 +12,8 @@ from agentlab.agents.hitl_agent.hint_labelling import (
     HintLabeling,
     HintLabelingInputs,
 )
-from agentlab.analyze import overlay_utils
+from agentlab.agents.agent_utils import overlay_action
+from agentlab.llm.llm_utils import img_to_base_64
 from agentlab.llm.tracking import cost_tracker_decorator
 
 
@@ -156,24 +153,6 @@ class HumanInTheLoopAgentArgs(AgentArgs):
         """Delegate set_reproducibility_mode to the subagent if it has the method."""
         if hasattr(self.subagent_args, "set_reproducibility_mode"):
             self.subagent_args.set_reproducibility_mode()
-
-
-def overlay_action(obs, action):
-    """Overlays actions on screenshot in-place"""
-    act_img = copy.deepcopy(obs["screenshot"])
-    act_img = Image.fromarray(act_img)
-    overlay_utils.annotate_action(act_img, action, properties=obs["extra_element_properties"])
-    return img_to_base_64(act_img)
-
-
-def img_to_base_64(image: Image.Image | np.ndarray) -> str:
-    """Converts a PIL Image or NumPy array to a base64-encoded string."""
-    if isinstance(image, np.ndarray):
-        image = Image.fromarray(image)
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return b64_str
 
 
 def get_base_human_in_the_loop_genericagent(llm_config):

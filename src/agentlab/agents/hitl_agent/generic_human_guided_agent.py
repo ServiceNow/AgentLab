@@ -24,7 +24,8 @@ from agentlab.llm.llm_utils import (
     SystemMessage,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
-
+from agentlab.agents.agent_utils import overlay_action
+from agentlab.llm.llm_utils import img_to_base_64
 
 class CandidatesGeneration(dp.PromptElement):
     # Ask for multiple alternatives; each candidate must contain <think> and <action>.
@@ -117,24 +118,6 @@ class CandidatesGeneration(dp.PromptElement):
             }
 
         return result
-
-
-def overlay_action(obs, action):
-    """Overlays actions on screenshot in-place"""
-    act_img = copy.deepcopy(obs["screenshot"])
-    act_img = Image.fromarray(act_img)
-    overlay_utils.annotate_action(act_img, action, properties=obs["extra_element_properties"])
-    return img_to_base_64(act_img)
-
-
-def img_to_base_64(image: Image.Image | np.ndarray) -> str:
-    """Converts a PIL Image or NumPy array to a base64-encoded string."""
-    if isinstance(image, np.ndarray):
-        image = Image.fromarray(image)
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return b64_str
 
 
 @dataclass

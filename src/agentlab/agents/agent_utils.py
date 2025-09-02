@@ -1,5 +1,8 @@
+import copy
 from PIL import Image, ImageDraw
 from playwright.sync_api import Page
+from agentlab.llm.llm_utils import img_to_base_64
+from agentlab.analyze import overlay_utils
 
 
 def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
@@ -128,3 +131,14 @@ def zoom_webpage(page: Page, zoom_factor: float = 1.5):
 
     page.evaluate(f"document.documentElement.style.zoom='{zoom_factor*100}%'")
     return page
+
+
+def overlay_action(obs, action):
+    """Overlays actions on screenshot in-place"""
+    act_img = copy.deepcopy(obs["screenshot"])
+    act_img = Image.fromarray(act_img)
+    overlay_utils.annotate_action(act_img, action, properties=obs["extra_element_properties"])
+    return img_to_base_64(act_img)
+
+
+
