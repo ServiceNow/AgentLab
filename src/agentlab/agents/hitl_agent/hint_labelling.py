@@ -24,12 +24,10 @@ class HintLabelingInputs(BaseModel):
 
 
 class HintLabeling:
-    def __init__(self, headless: bool, window_size=(600, 1000), *args, **kwargs):
+    def __init__(self, headless: bool, *args, **kwargs):
         pw_opt = _get_global_playwright()
         pw: playwright.sync_api.Playwright = pw_opt  # type: ignore[assignment]
-        self.browser = pw.chromium.launch(
-            headless=headless, args=[f"--window-size={window_size[0]},{window_size[1]}"]
-        )
+        self.browser = pw.chromium.launch(headless=headless)
         self.context = self.browser.new_context(
             no_viewport=True,
         )
