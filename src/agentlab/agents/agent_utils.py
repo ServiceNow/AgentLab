@@ -142,7 +142,8 @@ def overlay_action(obs, action):
 
     new_obs_properties = copy.deepcopy(obs["extra_element_properties"])
     import os
-    if os.getenv("AGENTLAB_USE_RETINA"):    
+
+    if os.getenv("AGENTLAB_USE_RETINA"):
         # HACK: divide everything by 2 in the obs
         # TODO: make this more robust by changing login in annotate_action directly (or maybe in the obs section?)
         for key, value in new_obs_properties.items():
