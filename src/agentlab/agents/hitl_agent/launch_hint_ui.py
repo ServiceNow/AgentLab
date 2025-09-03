@@ -2,7 +2,7 @@
 Console launcher for the Human-in-the-Loop Generic Agent UI.
 
 Usage (installed entry point):
-    agentlab-mentor --benchmark miniwob --task-name miniwob.book-flight --seed 123 --no-headless
+    agentlab-mentor --benchmark miniwob --task-name miniwob.book-flight --seed 123 --seed 456 --no-headless
 
 This will run a Study with the MultipleProposalGenericAgent and the selected task.
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import copy
 from typing import Optional
 
 import bgym
@@ -20,9 +21,10 @@ from agentlab.agents.hitl_agent.generic_human_guided_agent import (
 )
 from agentlab.experiments.study import Study
 
+logger = logging.getLogger(__name__)
 
 def build_benchmark(
-    benchmark_name: str, task_name: Optional[str], seed: Optional[int], headless: bool
+    benchmark_name: str, task_name: Optional[str], seeds: Optional[list[int]], headless: bool
 ):
     # Instantiate benchmark by name using BrowserGym registry
     try:
@@ -32,16 +34,20 @@ def build_benchmark(
         raise SystemExit(f"Unknown benchmark '{benchmark_name}'. Choose one of: {choices}") from e
 
     if task_name:
-        # If a fully-qualified name is provided, filter by exact match; otherwise, allow glob
-        if any(ch in task_name for ch in "*?[]"):
-            benchmark = benchmark.subset_from_glob("task_name", task_name)
-        else:
-            benchmark = benchmark.subset_from_glob("task_name", task_name)
+        benchmark = benchmark.subset_from_glob("task_name", task_name)
+        tasks = list(set(e.task_name for e in benchmark.env_args_list))
+        logger.warning(f'Found {len(tasks)} tasks matching "{task_name}:" \n {tasks}, using only the first one.')
+        task = tasks[0]
 
-    # If a specific seed is provided, set it on all env args
-    if seed is not None:
-        for env_args in benchmark.env_args_list:
-            env_args.task_seed = seed
+    # If specific seeds are provided, duplicate envs for each seed
+    if seeds is not None:
+        new_env_args_list = []
+        task_env = next((x for x in benchmark.env_args_list if x.task_name == task))
+        for seed in seeds:
+            ea = copy.deepcopy(task_env)
+            ea.task_seed = seed
+            new_env_args_list.append(ea)
+        benchmark.env_args_list = new_env_args_list
 
     # Reasonable defaults for interactive UI
     for env_args in benchmark.env_args_list:
@@ -66,9 +72,10 @@ def parse_args():
     )
     p.add_argument(
         "--seed",
+        action="append",
         type=int,
         default=None,
-        help="Task seed to use for all selected tasks. If omitted, tasks keep their configured/random seed.",
+        help="Task seed. Repeat flag for multiple seeds (e.g., --seed 1 --seed 2). If omitted, tasks keep their configured/random seed.",
     )
     p.add_argument(
         "--jobs",
