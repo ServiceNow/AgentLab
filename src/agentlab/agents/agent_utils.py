@@ -139,5 +139,17 @@ def overlay_action(obs, action):
     """Overlays actions on screenshot in-place"""
     act_img = copy.deepcopy(obs["screenshot"])
     act_img = Image.fromarray(act_img)
-    overlay_utils.annotate_action(act_img, action, properties=obs["extra_element_properties"])
+
+    new_obs_properties = copy.deepcopy(obs["extra_element_properties"])
+    import os
+    if os.getenv("AGENTLAB_USE_RETINA"):    
+        # HACK: divide everything by 2 in the obs
+        # TODO: make this more robust by changing login in annotate_action directly (or maybe in the obs section?)
+        for key, value in new_obs_properties.items():
+            try:
+                new_obs_properties[key]["bbox"] = [elem / 2 for elem in value["bbox"]]
+            except:
+                pass
+
+    overlay_utils.annotate_action(act_img, action, properties=new_obs_properties)
     return img_to_base_64(act_img)
