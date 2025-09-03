@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 import bgym
 
@@ -19,7 +20,7 @@ from agentlab.agents.hitl_agent.generic_human_guided_agent import (
 )
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.study import Study
-from pathlib import Path
+
 
 def build_benchmark(benchmark_name: str, task_name: str, seed: int, headless: bool):
     # Instantiate benchmark by name using BrowserGym registry
