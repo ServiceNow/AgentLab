@@ -34,15 +34,50 @@ def build_benchmark(
         raise SystemExit(f"Unknown benchmark '{benchmark_name}'. Choose one of: {choices}") from e
 
     if task_name:
-        benchmark = benchmark.subset_from_glob("task_name", task_name)
-        tasks = list(set(e.task_name for e in benchmark.env_args_list))
-        logger.warning(f'Found {len(tasks)} tasks matching "{task_name}:" \n {tasks}, using only the first one.')
-        task = tasks[0]
+        try:
+            benchmark = benchmark.subset_from_glob("task_name", task_name)
+            tasks = sorted({e.task_name for e in benchmark.env_args_list})
+            if not tasks:
+                msg = f"No tasks found matching pattern '{task_name}'."
+                logger.error(msg)
+                raise SystemExit(msg)
+            if len(tasks) > 1:
+                logger.warning(
+                    "Found %d tasks matching '%s'. Using only the first: %s",
+                    len(tasks),
+                    task_name,
+                    tasks[0],
+                )
+            task = tasks[0]
+        except SystemExit:
+            raise
+        except Exception as e:
+            logger.error(f"Error occurred while filtering tasks: {e}")
+            raise SystemExit(str(e))
 
     # If specific seeds are provided, duplicate envs for each seed
     if seeds is not None:
         new_env_args_list = []
-        task_env = next((x for x in benchmark.env_args_list if x.task_name == task))
+        # If a specific task was selected above, duplicate that; otherwise, ensure there is exactly one task
+        if 'task' in locals():
+            task_env = next((x for x in benchmark.env_args_list if x.task_name == task), None)
+            if task_env is None:
+                msg = f"Internal error: selected task '{task}' not found in env list."
+                logger.error(msg)
+                raise SystemExit(msg)
+        else:
+            unique_tasks = sorted({e.task_name for e in benchmark.env_args_list})
+            if not unique_tasks:
+                raise SystemExit("No tasks available in the selected benchmark.")
+            if len(unique_tasks) > 1:
+                raise SystemExit(
+                    "Multiple tasks present in benchmark. Please specify --task-name to apply seeds to a single task."
+                )
+            task = unique_tasks[0]
+            task_env = next((x for x in benchmark.env_args_list if x.task_name == task), None)
+            if task_env is None:
+                raise SystemExit(f"Task '{task}' not found in env list.")
+
         for seed in seeds:
             ea = copy.deepcopy(task_env)
             ea.task_seed = seed
