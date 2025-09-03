@@ -15,9 +15,7 @@ from pathlib import Path
 
 import bgym
 
-from agentlab.agents.hitl_agent.generic_human_guided_agent import (
-    HUMAN_GUIDED_GENERIC_AGENT,
-)
+from agentlab.agents.hitl_agent.generic_human_guided_agent import get_base_agent
 from agentlab.experiments.exp_utils import RESULTS_DIR
 from agentlab.experiments.study import Study
 
@@ -121,6 +119,12 @@ def parse_args():
         help="Task seed to use for the selected task.",
     )
     p.add_argument(
+        "--llm-config",
+        dest="llm_config",
+        default="openai/gpt-5-mini-2025-08-07",
+        help="LLM configuration to use for the agent (e.g., 'azure/gpt-5-mini-2025-08-07').",
+    )
+    p.add_argument(
         "--headless",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -157,7 +161,7 @@ def main():
             "--benchmark, --task-name, and --seed are required unless using --download-hints"
         )
     benchmark = build_benchmark(args.benchmark, args.task_name, args.seed, args.headless)
-    agent_configs = [HUMAN_GUIDED_GENERIC_AGENT]
+    agent_configs = [get_base_agent(args.llm_config)]
     # study is needed to run the 'set_benchmark' method which sets appropriate agent parameters.
     study = Study(agent_args=agent_configs, benchmark=benchmark, logging_level=logging.WARNING)
     study.run(
