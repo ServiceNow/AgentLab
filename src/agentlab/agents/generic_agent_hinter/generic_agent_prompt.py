@@ -378,9 +378,6 @@ accessibility tree to identify interactive elements before taking actions.
             return ""
 
         try:
-            # task_hints = self.hint_db[
-            #     self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
-            # ]
             task_hints = self.hints_source.choose_hints(self.llm, task_name, self.goal)
 
             hints = []
