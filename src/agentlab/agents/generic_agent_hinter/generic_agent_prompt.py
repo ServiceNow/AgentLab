@@ -4,6 +4,7 @@ Prompt builder for GenericAgent
 It is based on the dynamic_prompting module from the agentlab package.
 """
 
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,6 +61,7 @@ class GenericPromptFlags(dp.Flags):
     add_missparsed_messages: bool = True
     max_trunc_itr: int = 20
     flag_group: str = None
+    n_retrieval_queries: int = 3
 
 
 class MainPrompt(dp.Shrinkable):
@@ -396,3 +398,74 @@ accessibility tree to identify interactive elements before taking actions.
             print(f"Warning: Error getting hints for task {task_name}: {e}")
 
         return ""
+
+
+class StepWiseRetrievalPrompt(dp.Shrinkable):
+    def __init__(
+        self,
+        obs_history: list[dict],
+        actions: list[str],
+        thoughts: list[str],
+        obs_flags: dp.ObsFlags,
+        n_queries: int = 3,
+    ) -> None:
+        super().__init__()
+        self.obs_flags = obs_flags
+        self.n_queries = n_queries
+        self.history = dp.History(obs_history, actions, None, thoughts, obs_flags)
+        self.instructions = dp.GoalInstructions(obs_history[-1]["goal_object"])
+        self.obs = dp.Observation(obs_history[-1], obs_flags)
+
+        self.think = dp.Think(visible=True)  # To replace with static text maybe
+
+    @property
+    def _prompt(self) -> HumanMessage:
+        prompt = HumanMessage(self.instructions.prompt)
+
+        prompt.add_text(
+            f"""\
+{self.obs.prompt}\
+{self.history.prompt}\
+"""
+        )
+
+        example_queries = [
+            "How to sort with multiple columns on the ServiceNow platform?",
+            "What are the potential challenges of sorting by multiple columns?",
+            "How to handle sorting by multiple columns in a table?",
+            "Can I use the filter tool to sort by multiple columns?",
+        ]
+
+        example_queries_str = json.dumps(example_queries[: self.n_queries], indent=2)
+
+        prompt.add_text(
+            f"""
+# Querying memory
+
+Before choosing an action, let's search our available documentation and memory on how to approach this step.
+This could provide valuable hints on how to properly solve this task. Return your answer as follow
+<think>chain of thought</think>
+<queries>json list of strings</queries> for the queries. Return exactly {self.n_queries} 
+queries in the list.
+
+# Concrete Example
+
+<think>
+I have to sort by client and country. I could use the built-in sort on each column but I'm not sure if
+I will be able to sort by both at the same time.
+</think>
+
+<queries>
+{example_queries_str}
+</queries>
+"""
+        )
+
+        return self.obs.add_screenshot(prompt)
+
+    def _parse_answer(self, text_answer):
+        ans_dict = parse_html_tags_raise(
+            text_answer, keys=["think", "queries"], merge_multiple=True
+        )
+        ans_dict["queries"] = json.loads(ans_dict.get("queries", "[]"))
+        return ans_dict
