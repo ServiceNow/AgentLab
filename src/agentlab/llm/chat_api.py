@@ -8,12 +8,10 @@ from typing import Optional
 
 import anthropic
 import openai
-from huggingface_hub import InferenceClient
 from openai import NOT_GIVEN, OpenAI
 
 import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
-from agentlab.llm.huggingface_utils import HFBaseChatModel
 from agentlab.llm.llm_utils import AIMessage, Discussion
 
 
@@ -139,6 +137,8 @@ class SelfHostedModelArgs(BaseModelArgs):
                 self.model_url = os.environ["AGENTLAB_MODEL_URL"]
             if self.token is None:
                 self.token = os.environ["AGENTLAB_MODEL_TOKEN"]
+            # Lazy import to avoid importing HF utilities on non-HF paths
+            from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
 
             return HuggingFaceURLChatModel(
                 model_name=self.model_name,
@@ -438,28 +438,17 @@ class AzureChatModel(ChatModel):
         )
 
 
-class HuggingFaceURLChatModel(HFBaseChatModel):
-    def __init__(
-        self,
-        model_name: str,
-        base_model_name: str,
-        model_url: str,
-        token: Optional[str] = None,
-        temperature: Optional[int] = 1e-1,
-        max_new_tokens: Optional[int] = 512,
-        n_retry_server: Optional[int] = 4,
-        log_probs: Optional[bool] = False,
-    ):
-        super().__init__(model_name, base_model_name, n_retry_server, log_probs)
-        if temperature < 1e-3:
-            logging.warning("Models might behave weirdly when temperature is too low.")
-        self.temperature = temperature
+def __getattr__(name: str):
+    """Lazy re-export of optional classes to keep imports light.
 
-        if token is None:
-            token = os.environ["TGI_TOKEN"]
+    This lets users import HuggingFaceURLChatModel from agentlab.llm.chat_api
+    without importing heavy dependencies unless actually used.
+    """
+    if name == "HuggingFaceURLChatModel":
+        from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
 
-        client = InferenceClient(model=model_url, token=token)
-        self.llm = partial(client.text_generation, max_new_tokens=max_new_tokens, details=log_probs)
+        return HuggingFaceURLChatModel
+    raise AttributeError(name)
 
 
 class VLLMChatModel(ChatModel):
