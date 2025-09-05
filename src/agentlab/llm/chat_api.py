@@ -443,6 +443,15 @@ def __getattr__(name: str):
 
     This lets users import HuggingFaceURLChatModel from agentlab.llm.chat_api
     without importing heavy dependencies unless actually used.
+
+    Args:
+        name: The name of the attribute to retrieve.
+
+    Returns:
+        The requested class or raises AttributeError if not found.
+
+    Raises:
+        AttributeError: If the requested attribute is not available.
     """
     if name == "HuggingFaceURLChatModel":
         from agentlab.llm.huggingface_utils import HuggingFaceURLChatModel
