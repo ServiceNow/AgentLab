@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="http://route.local/"><!-- NEW: gives fetch a resolvable origin -->
+  <title>Agent Reprompt UI</title>
+  <style>
+    :root{
+      --bg:#f4f6f8; --card:#fff; --muted:#6b7280; --text:#0f172a; --brand:#2563eb; --accent:#10b981; --danger:#ef4444; --border:#e5e7eb;
+    }
+    *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .container{max-width:1600px;margin:24px auto;padding:0 16px}
+
+    .grid{
+      display:grid;gap:16px;
+      grid-template-columns: 1fr 1fr;
+    }
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+    .card h2{margin:0 0 8px 0;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+    .pad{padding:16px}
+
+    .tabs{display:flex;gap:8px;padding:8px 8px 0}
+    .tab{border:none;background:transparent;padding:10px 14px;border-radius:12px 12px 0 0;cursor:pointer;font-weight:600;color:var(--muted)}
+    .tab.active{background:var(--card);border:1px solid var(--border);border-bottom:none;color:var(--text)}
+    .tabpanel{border-top:1px solid var(--border)}
+
+  .screenshot{width:100%;height:auto;max-height:65vh;object-fit:contain;background:#0000000d;border-radius:8px}
+    .axtree{width:100%;height:520px;resize:none;border:none;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#0b10241a}
+
+    .hints-row{display:grid;grid-template-columns: 1fr 140px;gap:12px;align-items:start}
+    textarea.hint{width:100%;min-height:120px;resize:vertical;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:14px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:12px;padding:12px 16px;font-weight:600;cursor:pointer}
+    .btn-primary{background:var(--brand);color:#fff}
+    .btn-primary[disabled]{opacity:.6;cursor:not-allowed}
+    .btn-ghost{background:transparent;border:1px solid var(--border)}
+
+  /* Hint rows with removable controls */
+  .hint-row{display:flex;gap:8px;align-items:stretch}
+  .hint-row textarea.hint{flex:1;margin:0}
+  .remove-hint{width:36px;min-width:36px;height:36px;line-height:1;border-radius:10px;padding:0;font-size:18px;color:#64748b}
+  .remove-hint:hover{background:#f8fafc}
+  .hint:disabled{background:#f1f5f9;color:#94a3b8}
+  .btn-ghost[disabled]{opacity:.6;cursor:not-allowed}
+
+  .choices{margin-top:12px;display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow:auto}
+    .choice{display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start;background:#ffffff;border:1px solid var(--border);border-radius:14px;padding:12px}
+    .choice.selected{border:2px solid var(--accent);background:#f0fdf4}
+    .choice.disabled{opacity:0.5;pointer-events:none}
+    .choice input[type="radio"]{margin-top:6px;width:18px;height:18px}
+    .choice .action{font-weight:800}
+    .choice .row{display:flex;gap:6px;flex-wrap:wrap}
+    .choice .label{font-weight:700}
+    .choice .value{color:#0f172a}
+    .choice .reason{font-size:13px;color:#111827}
+    .choice .reason .value{white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word}
+
+    .footer{display:flex;justify-content:flex-end;gap:12px;margin-top:10px}
+
+    .banner{margin:12px 0;padding:10px 12px;border-radius:10px;font-size:14px}
+    .banner.info{background:#dbeafe;border:1px solid #bfdbfe}
+    .banner.error{background:#fee2e2;border:1px solid #fecaca;color:#991b1b}
+
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#0f172a;border:1px solid var(--border);font-size:12px}
+
+  /* Timeline styles */
+  .timeline-wrap{margin-top:16px}
+  .timeline{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+  .timeline .dot{width:12px;height:12px;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:transform .1s ease-in-out}
+  .timeline .dot:hover{transform:scale(1.2)}
+  .timeline .dot.active{background:var(--brand);box-shadow:0 0 0 4px rgba(37,99,235,.15)}
+  .timeline .label{margin-left:auto;font-size:12px;color:var(--muted)}
+  .history-notice{margin-top:8px}
+  /* step numbers above dots */
+  .timeline .dot{position:relative}
+  .timeline .dot::after{content: attr(data-step); position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--muted)}
+
+  /* New: split layout for screenshot/tabs and hints+suggestions side-by-side */
+  .split{display:grid;gap:16px;grid-template-columns: 1.3fr 1fr;align-items:start;margin-top:16px}
+  .right-stack{display:flex;flex-direction:column;gap:16px}
+
+    @media (max-width: 900px){
+      .grid{grid-template-columns: 1fr}
+      .split{grid-template-columns: 1fr}
+      .axtree{height:420px}
+      .screenshot{width:100%;height:auto;max-width:800px}
+    }
+
+    #goalBox,
+    #errorBox {
+      white-space: pre-wrap;     /* respects \n; collapses multiple spaces nicely */
+      overflow-wrap: anywhere;   /* wrap very long tokens (URLs/unbroken text) */
+      word-break: break-word;    /* fallback for older engines */
+    }
+
+    .progress-area {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Timeline + notice -->
+    <div class="timeline-wrap">
+      <div id="timeline" class="timeline" role="tablist" aria-label="Context updates timeline">
+        <!-- dots injected here -->
+        <span id="timelineLabel" class="label"></span>
+      </div>
+      <div id="historyNotice" class="banner info history-notice" style="display:none"></div>
+    </div>
+    <!-- Top: Goal & Error -->
+    <div class="grid" style="display: flex; gap: 16px;">
+      <div class="card pad" style="flex: 1; height: 150px;">
+        <h2>Goal</h2>
+        <div id="goalBox" style="padding: 12px 14px; font-size: 15px; background: #f8fafc; height: 80%; overflow-y: auto;"></div>
+      </div>
+      <div class="card pad" style="flex: 1; height: 150px;">
+        <h2>Error Feedback</h2>
+        <div id="errorBox" style="padding: 12px 14px; font-size: 15px; background: #fef2f2; height: 80%; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <!-- Middle: Two-column split -->
+    <div class="split">
+      <!-- Left: Hints and Suggestions stacked -->
+      <div class="right-stack">
+        <!-- Hints & Reprompt -->
+        <div class="card pad" id="hintsSection">
+          <h2>Hints</h2>
+          <!-- Dynamic hints inputs will be injected here above the button -->
+          <button id="repromptBtn" class="btn btn-primary" title="Send hint to get refreshed suggestions" style="margin-top: 12px;">Reprompt with Hint</button>
+          <div id="repromptStatus" class="banner info" style="display:none"></div>
+        </div>
+
+        <!-- Suggestions / Radio list -->
+        <div class="card pad">
+          <h2>Suggestions</h2>
+          <div id="choices" class="choices"></div>
+          <div id="choicesNote" class="banner info" style="display:none" title="Hover to see more details"></div>
+          <div class="footer">
+            <button id="submitBtn" class="btn btn-primary" disabled title="Select an action to enable">Send Action</button>
+          </div>
+          <div id="submitStatus" class="banner info" style="display:none" title="Hover to see submission status"></div>
+        </div>
+      </div>
+
+      <!-- Right: Tabs with Screenshot/AxTree/History -->
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active" data-tab="screenshot">Screenshot</button>
+          <button class="tab" data-tab="axtree">AxTree</button>
+        </div>
+        <div class="pad tabpanel">
+          <div id="tab-screenshot" class="tabcontent">
+            <img id="screenshotImg" alt="screenshot" class="screenshot" />
+          </div>
+          <div id="tab-axtree" class="tabcontent" hidden>
+            <textarea id="axtreeArea" class="axtree" readonly style="font-size: 12px; white-space: pre; overflow-wrap: normal;"></textarea>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress/Status Area - Hidden by default, shown only when there's status -->
+    <div id="progressContainer" class="card pad" style="margin-top:16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); display: none;">
+      <h2 style="color: white; margin-bottom: 8px;">Status</h2>
+      <div id="progressArea" class="progress-area" style="font-size: 16px; font-weight: 600; text-align: center; padding: 16px; background: rgba(255, 255, 255, 0.1); border-radius: 12px; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+        Waiting for first response...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Bootstrapping contract
+     * You can overwrite window.__BOOTSTRAP_DATA__ from your server-side template.
+     * Fields:
+     *   goal: string
+     *   error_feedback: string
+     *   screenshot: base64 string (no data: prefix required)
+     *   screenshots: Array<string> - list of base64 screenshots for hover (same length as suggestions)
+     *   axtree: string
+  *   hints: Array<string>
+     *   suggestions: Array<{ action: string, think: string, id?: string }>
+     */
+  window.__BOOTSTRAP_DATA__ = window.__BOOTSTRAP_DATA__ || {
+      goal: "go to the hardware catalog store and order a developer laptop",
+      error_feedback: "playwright error when clicking on something that is not visible (from the previous step)",
+      screenshot: "", // fill with base64 (PNG/JPG). When empty, we show a placeholder.
+      screenshots: [], // list of base64 screenshots for hover
+  axtree: "<root>\n  <window name=\"VITASPHERE\">…</window>\n</root>",
+  hints: [],
+      suggestions: [
+        { id: "1", action: "click(\"42\")", think: "The button with id 42 advances the form." },
+        { id: "2", action: "type(\"Assigned to\", \"John Doe\")", think: "Fills the assignee field before submission." },
+        { id: "3", action: "open(\"/hardware-catalog\")", think: "Navigate directly to the catalog page." }
+      ]
+    };
+
+  var RECEIVED_RESPONSE = false;
+  var originalScreenshot = ""; // store original screenshot
+  var hoverScreenshots = []; // store screenshots for hover
+  var hoverEnabled = true; // track if hover behavior is enabled
+
+  // Timeline state
+  let timeline = []; // {data, event, ts, meta}
+    let timelineIndex = -1;
+  let hintsLockedUntilNextSnapshot = false;
+
+    function applyContext(d){
+      goalBox.textContent = d.goal || '';
+      errorBox.textContent = d.error_feedback || '';
+      originalScreenshot = d.screenshot || '';
+      hoverScreenshots = Array.isArray(d.screenshots) ? d.screenshots : [];
+      screenshotImg.src = dataUrlFromBase64(originalScreenshot);
+      axtreeArea.value = d.axtree || '';
+      if (Array.isArray(d.suggestions)) {
+        renderSuggestions(d.suggestions);
+      }
+      // render hints list from array (fallback to single hint string)
+      const incomingHints = Array.isArray(d.hints)
+        ? d.hints
+        : (d.hint ? [d.hint] : []);
+      renderHints(incomingHints);
+    }
+
+    // REPLACE your old updateContext with this:
+    function updateContext(data){
+      // push new snapshot to timeline and render
+      const d = data || {};
+      window.__BOOTSTRAP_DATA__ = d;
+      // If backend delivered new suggestions, ensure hints unlock for the latest snapshot
+      if (Array.isArray(d.suggestions) && d.suggestions.length > 0) {
+        hintsLockedUntilNextSnapshot = false;
+      }
+      pushSnapshot('update', d);
+  setTimeout(ensureLatestEditable, 0);
+    }
+
+    // Placeholder endpoints (replace later)
+    const ENDPOINTS = {
+      REPROMPT: "/api/reprompt",   // expects POST {hints: string[]} -> returns {suggestions: [...]} 
+  SUBMIT: "/api/submit"        // expects POST {action, think, id?} -> returns {suggestions?: [...]} (optional)
+    };
+
+    // DOM references
+    const goalBox = document.getElementById('goalBox');
+    const errorBox = document.getElementById('errorBox');
+    const screenshotImg = document.getElementById('screenshotImg');
+    const axtreeArea = document.getElementById('axtreeArea');
+  // Hints UI elements (dynamic list)
+  let hintsContainer;
+  let addHintBtn;
+    const repromptBtn = document.getElementById('repromptBtn');
+    const repromptStatus = document.getElementById('repromptStatus');
+    const choicesEl = document.getElementById('choices');
+    const choicesNote = document.getElementById('choicesNote');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitStatus = document.getElementById('submitStatus');
+    const progressArea = document.getElementById('progressArea');
+    const progressContainer = document.getElementById('progressContainer');
+  const timelineEl = document.getElementById('timeline');
+  const timelineLabel = document.getElementById('timelineLabel');
+  const historyNotice = document.getElementById('historyNotice');
+  
+
+    // State
+    let currentSuggestions = [];
+    let selectedId = null;
+
+    // Ensure latest snapshot is editable for hints and reprompt
+    function ensureLatestEditable(){
+      const isLatest = (timelineIndex === -1) || (timelineIndex === timeline.length - 1);
+      if (isLatest) {
+        hintsLockedUntilNextSnapshot = false;
+        setHintsEditable(true);
+        if (repromptBtn) repromptBtn.disabled = false;
+      }
+    }
+
+    // Helpers
+    function setVisible(el, visible){ el.style.display = visible ? '' : 'none'; }
+    function setBanner(el, text, variant='info'){ el.className = `banner ${variant}`; el.textContent = text; setVisible(el,true); }
+    function updateProgress(message, showAnimation = true) {
+      progressArea.textContent = message;
+      if (showAnimation) {
+        progressArea.style.animation = 'pulse 2s infinite';
+      } else {
+        progressArea.style.animation = 'none';
+      }
+      // Show the progress container when there's a message
+      setVisible(progressContainer, true);
+    }
+    function hideProgress() {
+      setVisible(progressContainer, false);
+    }
+
+    function updateModeForSnapshot(){
+      const isLatest = timelineIndex === timeline.length - 1;
+      repromptBtn.disabled = !isLatest;
+      // Only force-disable submit when not on latest snapshot; when latest, selection controls it
+  if (!isLatest) submitBtn.disabled = true;
+  setHintsEditable(isLatest && !hintsLockedUntilNextSnapshot);
+      if (!isLatest){
+        setBanner(historyNotice, 'Viewing past context snapshot. Use Left/Right arrows to navigate. Press End to go to latest.', 'info');
+      } else {
+        setVisible(historyNotice, false);
+      }
+    }
+
+    function dataUrlFromBase64(b64){
+      if(!b64) return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"900\"><rect width=\"100%\" height=\"100%\" fill=\"#eef2ff\"/><text x=\"50%\" y=\"50%\" font-family=\"sans-serif\" font-size=\"24\" text-anchor=\"middle\" fill=\"#64748b\">No screenshot provided</text></svg>`);
+      // naive sniff for png/jpg
+      const pref = b64.trim().startsWith('/') || b64.trim().startsWith('iVBOR') ? 'image/png' : 'image/jpeg';
+      return `data:${pref};base64,${b64}`;
+    }
+
+    function renderSuggestions(suggestions){
+      currentSuggestions = suggestions.slice(0,5); // cap at 5
+      choicesEl.innerHTML = '';
+      selectedId = null;
+      submitBtn.disabled = true;
+      hoverEnabled = true; // Re-enable hover when new suggestions are rendered
+
+      // Hide progress when new suggestions arrive - user is ready for interaction
+      hideProgress();
+
+      if(currentSuggestions.length === 0){
+        setBanner(choicesNote, 'No suggestions yet. Please Wait..');
+        return;
+      }
+      setVisible(choicesNote,false);
+
+      currentSuggestions.forEach((sugg, idx)=>{
+        const id = sugg.id || String(idx+1);
+        const wrapper = document.createElement('label');
+        wrapper.className = 'choice';
+        wrapper.setAttribute('for', `choice-${id}`);
+
+        // Add hover event listeners for screenshot changes
+        const screenshotForThisChoice = hoverScreenshots[idx] || originalScreenshot;
+        wrapper.addEventListener('mouseenter', () => {
+          if (hoverEnabled && screenshotForThisChoice && screenshotForThisChoice !== originalScreenshot) {
+            screenshotImg.src = dataUrlFromBase64(screenshotForThisChoice);
+          }
+        });
+        wrapper.addEventListener('mouseleave', () => {
+          if (hoverEnabled) {
+            screenshotImg.src = dataUrlFromBase64(originalScreenshot);
+          }
+        });
+
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'choice';
+        radio.id = `choice-${id}`;
+        radio.value = id;
+        radio.addEventListener('change', ()=>{ selectedId = id; submitBtn.disabled = false; });
+
+        const box = document.createElement('div');
+        const actionRow = document.createElement('div');
+        actionRow.className = 'row';
+        const actionLabel = document.createElement('span');
+        actionLabel.className = 'label action';
+        actionLabel.textContent = '';
+        const actionVal = document.createElement('span');
+        actionVal.className = 'value action';
+        actionVal.textContent = `${sugg.action}`;
+        actionRow.appendChild(actionLabel); actionRow.appendChild(actionVal);
+
+        const reasonRow = document.createElement('div');
+        reasonRow.className = 'row reason';
+        const reasonLabel = document.createElement('span');
+        reasonLabel.className = 'label';
+        reasonLabel.textContent = 'reasoning:';
+        const reasonVal = document.createElement('span');
+        reasonVal.className = 'value';
+  // Let the reasoning grow naturally; wrapping handled in CSS
+  reasonVal.style.maxHeight = '';
+  reasonVal.style.overflowY = '';
+        reasonVal.textContent = ` ${sugg.think}`;
+        reasonRow.appendChild(reasonLabel); reasonRow.appendChild(reasonVal);
+
+        box.appendChild(actionRow);
+        box.appendChild(reasonRow);
+
+        wrapper.appendChild(radio);
+        wrapper.appendChild(box);
+        choicesEl.appendChild(wrapper);
+      });
+
+  // Ensure latest snapshot controls are enabled
+  ensureLatestEditable();
+    }
+
+    function currentSelection(){
+      if(!selectedId) return null;
+      const obj = currentSuggestions.find(s=> (s.id||String(currentSuggestions.indexOf(s)+1)) === selectedId);
+      return obj || null;
+    }
+
+    // Tab logic
+    document.querySelectorAll('.tab').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const name = btn.dataset.tab;
+        document.querySelectorAll('.tabcontent').forEach(c=>c.hidden = true);
+        document.getElementById('tab-'+name).hidden = false;
+      });
+    });
+
+    // Actions
+    repromptBtn.addEventListener('click', async ()=>{
+      updateProgress('Requesting new suggestions...', true);
+      try{
+        const hints = collectHints();
+        const res = await fetch(ENDPOINTS.REPROMPT,{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ hints })
+        });
+  
+        // Lock current hints until a new snapshot arrives
+        hintsLockedUntilNextSnapshot = true;
+        setHintsEditable(false);
+        // Don't expect a response - the backend will update the UI via updateContext
+        updateProgress('Hint sent. Waiting for new suggestions...', true);
+      }catch(err){
+        updateProgress('Error: ' + String(err), false);
+      } finally{
+        setTimeout(()=>hideProgress(), 2000);
+      }
+    });
+
+    submitBtn.addEventListener('click', async ()=>{
+      const selection = currentSelection();
+      if(!selection){ return; }
+      updateProgress('Submitting selection...', true);
+      submitBtn.disabled = true;
+
+      // Find the index of the selected suggestion to get its screenshot
+      const selectedIndex = currentSuggestions.findIndex(s => (s.id || String(currentSuggestions.indexOf(s) + 1)) === selectedId);
+      const selectedScreenshot = hoverScreenshots[selectedIndex] || originalScreenshot;
+
+      // Show the selected option's screenshot instead of waiting message
+      if (selectedScreenshot) {
+        screenshotImg.src = dataUrlFromBase64(selectedScreenshot);
+      }
+
+      // Apply visual states to options
+      const allChoices = choicesEl.querySelectorAll('.choice');
+      allChoices.forEach((choice, idx) => {
+        const choiceId = currentSuggestions[idx].id || String(idx + 1);
+        if (choiceId === selectedId) {
+          choice.classList.add('selected');
+          choice.classList.remove('disabled');
+        } else {
+          choice.classList.add('disabled');
+          choice.classList.remove('selected');
+        }
+      });
+
+      // Record selection into snapshot meta for step counting and history visuals
+      try {
+        if (timeline[timelineIndex]) {
+          timeline[timelineIndex].meta = timeline[timelineIndex].meta || {};
+          timeline[timelineIndex].meta.selectedAction = selection.action;
+          timeline[timelineIndex].meta.selectedId = selectedId;
+          renderTimeline();
+        }
+      } catch {}
+
+      // Disable hover behavior
+      hoverEnabled = false;
+
+      // Reset UI to ideal state
+      document.querySelectorAll('input[name="choice"]').forEach(r=> r.checked=false);
+      selectedId = null;
+      submitBtn.disabled = true;
+  clearHintsUI();
+
+      try{
+        const payload = { action: selection.action, think: selection.think, id: selection.id };
+        const res = await fetch(ENDPOINTS.SUBMIT,{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        
+        // Don't expect a response - the backend will handle the selection
+        updateProgress('Selection submitted successfully!', false);
+      }catch(err){
+        updateProgress('Error: ' + String(err), false);
+      } finally{
+        setTimeout(()=>updateProgress('Waiting for LLM response...', false), 5000);
+      }
+    });
+
+    // Initial render from BOOTSTRAP_DATA
+    (function init(){
+      // setup hints UI
+      setupHintsUI();
+      // prime timeline with initial data
+      const d = window.__BOOTSTRAP_DATA__;
+      // Do not add a placeholder snapshot; just render the initial context
+      applyContext(d);
+      const initHints = Array.isArray(d.hints) ? d.hints : (d.hint ? [d.hint] : []);
+      renderHints(initHints);
+      // Keyboard navigation for timeline
+      document.addEventListener('keydown', (e)=>{
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'TEXTAREA' || tag === 'INPUT') return; // don't hijack text editing
+        if (e.key === 'ArrowLeft') { goRelative(-1); }
+        else if (e.key === 'ArrowRight') { goRelative(1); }
+        else if (e.key === 'Home') { goTo(0); }
+        else if (e.key === 'End') { goTo(timeline.length - 1); }
+      });
+  // enable hints at start
+  setHintsEditable(true);
+    })();
+
+    // Timeline helpers
+    function deepClone(obj){ try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; } }
+    function pushSnapshot(event, data){
+      // Avoid adding placeholder snapshots when suggestions are missing or empty
+      const suggs = (data && Array.isArray(data.suggestions)) ? data.suggestions : [];
+      if (!Array.isArray((data||{}).suggestions) || suggs.length === 0){
+        applyContext(data || {});
+        const hints0 = Array.isArray((data||{}).hints) ? data.hints : ((data||{}).hint ? [data.hint] : []);
+        renderHints(hints0);
+        // Even if we didn't add a snapshot, if suggestions were updated later, unlock
+        if (Array.isArray(suggs) && suggs.length > 0) {
+          hintsLockedUntilNextSnapshot = false;
+        }
+        updateModeForSnapshot();
+        return;
+      }
+      const snap = { event, ts: Date.now(), data: deepClone(data), meta: {} };
+      // Apply on push to set context and then record it
+      applyContext(snap.data);
+      // Ensure hints UI reflects incoming data
+      const incomingHints = Array.isArray(snap.data.hints) ? snap.data.hints : (snap.data.hint ? [snap.data.hint] : []);
+      renderHints(incomingHints);
+      timeline.push(snap);
+      timelineIndex = timeline.length - 1;
+  renderTimeline();
+  // New snapshot unlocks hints (unless we immediately navigate away)
+  hintsLockedUntilNextSnapshot = false;
+      updateModeForSnapshot();
+  // Ensure latest snapshot is editable for hints
+  setHintsEditable(true);
+  // Also re-enable reprompt on the latest snapshot
+  if (repromptBtn) repromptBtn.disabled = false;
+  setTimeout(ensureLatestEditable, 0);
+    }
+
+    function goTo(i){
+      if (i < 0 || i >= timeline.length) return;
+      timelineIndex = i;
+      const snap = timeline[timelineIndex];
+      applyContext(snap.data);
+      // set hints from snapshot
+      const incomingHints = Array.isArray(snap.data.hints) ? snap.data.hints : (snap.data.hint ? [snap.data.hint] : []);
+      renderHints(incomingHints);
+      // If a selection was made on this snapshot, restore its visual state
+      if (snap.meta && snap.meta.selectedAction){
+        const selAction = snap.meta.selectedAction;
+        const allChoices = choicesEl.querySelectorAll('.choice');
+        allChoices.forEach((choice, idx) => {
+          const sugg = currentSuggestions[idx];
+          if (!sugg) return;
+          if (sugg.action === selAction){
+            choice.classList.add('selected');
+            choice.classList.remove('disabled');
+          } else {
+            choice.classList.add('disabled');
+            choice.classList.remove('selected');
+          }
+        });
+      }
+      renderTimeline();
+      updateModeForSnapshot();
+    }
+    function goRelative(d){ goTo(timelineIndex + d); }
+
+    function renderTimeline(){
+      // clear existing dots (except label span)
+      Array.from(timelineEl.querySelectorAll('.dot')).forEach(n => n.remove());
+      const count = timeline.length;
+      let stepsSoFar = 0;
+      for (let i = 0; i < count; i++){
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === timelineIndex ? ' active' : '');
+        dot.title = `Snapshot ${i+1} of ${count}`;
+        dot.setAttribute('role','tab');
+  dot.setAttribute('aria-selected', String(i === timelineIndex));
+        if (timeline[i] && timeline[i].meta && timeline[i].meta.selectedAction){ stepsSoFar += 1; }
+        dot.setAttribute('data-step', stepsSoFar > 0 ? String(stepsSoFar) : '');
+        dot.addEventListener('click', ()=> goTo(i));
+        timelineEl.insertBefore(dot, timelineLabel);
+      }
+      timelineLabel.textContent = count ? `Snapshot ${timelineIndex+1} / ${count}` : '';
+    }
+
+    
+
+    // Hints UI logic
+    function setupHintsUI(){
+      const hintsSection = document.getElementById('hintsSection');
+      hintsContainer = document.createElement('div');
+      hintsContainer.id = 'hintsContainer';
+      hintsContainer.style.display = 'flex';
+      hintsContainer.style.flexDirection = 'column';
+      hintsContainer.style.gap = '8px';
+
+      addHintBtn = document.createElement('button');
+      addHintBtn.id = 'addHintBtn';
+      addHintBtn.className = 'btn btn-ghost';
+      addHintBtn.type = 'button';
+      addHintBtn.textContent = '+ add hint';
+      addHintBtn.title = 'Add another hint textbox';
+      addHintBtn.addEventListener('click', ()=> addHintTextbox(''));
+
+      hintsSection.insertBefore(hintsContainer, hintsSection.querySelector('#repromptBtn'));
+      hintsSection.insertBefore(addHintBtn, hintsSection.querySelector('#repromptBtn'));
+    }
+
+    function addHintTextbox(value){
+      const row = document.createElement('div');
+      row.className = 'hint-row';
+
+      const ta = document.createElement('textarea');
+      ta.className = 'hint';
+      ta.placeholder = 'Type guidance for the next reprompt…';
+      ta.style.width = '100%';
+      ta.value = value || '';
+
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'btn btn-ghost remove-hint';
+      rm.title = 'Remove this hint';
+      rm.setAttribute('aria-label','Remove hint');
+      rm.textContent = '×';
+      rm.addEventListener('click', ()=>{
+        row.remove();
+        // Ensure at least one textbox remains
+        if (hintsContainer.querySelectorAll('textarea.hint').length === 0){
+          addHintTextbox('');
+        }
+      });
+
+      row.appendChild(ta);
+      row.appendChild(rm);
+      hintsContainer.appendChild(row);
+      return ta;
+    }
+
+    function setHintsEditable(enabled){
+      // Toggle textareas
+      (hintsContainer ? hintsContainer.querySelectorAll('textarea.hint') : []).forEach((ta)=>{
+        ta.disabled = !enabled;
+      });
+      // Toggle add button
+      if (addHintBtn) addHintBtn.disabled = !enabled;
+      // Toggle remove buttons
+      (hintsContainer ? hintsContainer.querySelectorAll('.remove-hint') : []).forEach((btn)=>{
+        btn.disabled = !enabled;
+      });
+    }
+
+    function renderHints(hintsArray){
+      if (!hintsContainer) return;
+      hintsContainer.innerHTML = '';
+      const items = (Array.isArray(hintsArray) ? hintsArray : []).filter(h => typeof h === 'string');
+      if (items.length === 0) {
+        // start with one empty textbox by default
+        addHintTextbox('');
+      } else {
+        items.forEach(h => addHintTextbox(h));
+      }
+    }
+
+    function collectHints(){
+      if (!hintsContainer) return [];
+      return Array.from(hintsContainer.querySelectorAll('textarea.hint'))
+        .map(ta => (ta.value || '').trim())
+        .filter(v => v.length > 0);
+    }
+
+    function clearHintsUI(){
+      if (!hintsContainer) return;
+      hintsContainer.innerHTML = '';
+      addHintTextbox('');
+    }
+  </script>
+</body>
+</html>
