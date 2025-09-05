@@ -1,5 +1,10 @@
+import copy
+
 from PIL import Image, ImageDraw
 from playwright.sync_api import Page
+
+from agentlab.analyze import overlay_utils
+from agentlab.llm.llm_utils import img_to_base_64
 
 
 def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
@@ -128,3 +133,24 @@ def zoom_webpage(page: Page, zoom_factor: float = 1.5):
 
     page.evaluate(f"document.documentElement.style.zoom='{zoom_factor*100}%'")
     return page
+
+
+def overlay_action(obs, action):
+    """Overlays actions on screenshot in-place"""
+    act_img = copy.deepcopy(obs["screenshot"])
+    act_img = Image.fromarray(act_img)
+
+    new_obs_properties = copy.deepcopy(obs["extra_element_properties"])
+    import os
+
+    if os.getenv("AGENTLAB_USE_RETINA"):
+        # HACK: divide everything by 2 in the obs
+        # TODO: make this more robust by changing login in annotate_action directly (or maybe in the obs section?)
+        for key, value in new_obs_properties.items():
+            try:
+                new_obs_properties[key]["bbox"] = [elem / 2 for elem in value["bbox"]]
+            except:
+                pass
+
+    overlay_utils.annotate_action(act_img, action, properties=new_obs_properties)
+    return img_to_base_64(act_img)

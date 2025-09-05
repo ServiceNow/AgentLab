@@ -727,6 +727,16 @@ def image_to_png_base64_url(image: np.ndarray | Image.Image):
     return f"data:image/png;base64,{image_base64}"
 
 
+def img_to_base_64(image: Image.Image | np.ndarray) -> str:
+    """Converts a PIL Image or NumPy array to a base64-encoded string."""
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return b64_str
+
+
 class BaseMessage(dict):
     def __init__(self, role: str, content: Union[str, list[dict]], **kwargs):
         allowed_attrs = {"log_probs"}
