@@ -60,6 +60,13 @@ class GenericPromptFlags(dp.Flags):
     add_missparsed_messages: bool = True
     max_trunc_itr: int = 20
     flag_group: str = None
+    # hint flags
+    hint_type: Literal["human", "llm", "docs"] = "human"
+    hint_index_type: Literal["sparse", "dense"] = "sparse"
+    hint_query_type: Literal["direct", "llm", "emb"] = "direct"
+    hint_index_path: str = None
+    hint_retriever_path: str = None
+    hint_num_results: int = 5
 
 
 class MainPrompt(dp.Shrinkable):
@@ -116,6 +123,13 @@ class MainPrompt(dp.Shrinkable):
             hint_retrieval_mode=flags.task_hint_retrieval_mode,
             llm=llm,
             skip_hints_for_current_task=flags.skip_hints_for_current_task,
+            # hint related
+            hint_type=flags.hint_type,
+            hint_index_type=flags.hint_index_type,
+            hint_query_type=flags.hint_query_type,
+            hint_index_path=flags.hint_index_path,
+            hint_retriever_path=flags.hint_retriever_path,
+            hint_num_results=flags.hint_num_results,
         )
         self.plan = Plan(previous_plan, step, lambda: flags.use_plan)  # TODO add previous plan
         self.criticise = Criticise(visible=lambda: flags.use_criticise)
@@ -301,12 +315,24 @@ class TaskHint(dp.PromptElement):
         use_task_hint: bool,
         hint_db_path: str,
         goal: str,
-        hint_retrieval_mode: Literal["direct", "llm", "emb"],
-        skip_hints_for_current_task: bool,
         llm: ChatModel,
+        hint_type: Literal["human", "llm", "docs"] = "human",
+        hint_index_type: Literal["sparse", "dense"] = "sparse",
+        hint_query_type: Literal["direct", "llm", "emb"] = "direct",
+        hint_index_path: str = None,
+        hint_retriever_path: str = None,
+        hint_num_results: int = 5,
+        skip_hints_for_current_task: bool = False,
+        hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct",
     ) -> None:
         super().__init__(visible=use_task_hint)
         self.use_task_hint = use_task_hint
+        self.hint_type = hint_type
+        self.hint_index_type = hint_index_type
+        self.hint_query_type = hint_query_type
+        self.hint_index_path = hint_index_path
+        self.hint_retriever_path = hint_retriever_path
+        self.hint_num_results = hint_num_results
         self.hint_db_rel_path = "hint_db.csv"
         self.hint_db_path = hint_db_path  # Allow external path override
         self.hint_retrieval_mode: Literal["direct", "llm", "emb"] = hint_retrieval_mode
@@ -333,28 +359,46 @@ accessibility tree to identify interactive elements before taking actions.
     def _init(self):
         """Initialize the block."""
         try:
-            # Use external path if provided, otherwise fall back to relative path
-            if self.hint_db_path and Path(self.hint_db_path).exists():
-                hint_db_path = Path(self.hint_db_path)
+            if self.hint_type == "docs":
+                if self.hint_index_type == "sparse":
+                    print("Loading sparse hint index")
+                    import bm25s
+                    self.hint_index = bm25s.BM25.load(self.hint_index_path, load_corpus=True)
+                    print("Sparse hint index loaded successfully")
+                elif self.hint_index_type == "dense":
+                    print("Loading dense hint index and retriever")
+                    from datasets import load_from_disk
+                    from sentence_transformers import SentenceTransformer
+                    self.hint_index = load_from_disk(self.hint_index_path)
+                    self.hint_index.load_faiss_index("embeddings", self.hint_index_path.removesuffix("/") + ".faiss")
+                    print("Dense hint index loaded successfully")
+                    self.hint_retriever = SentenceTransformer(self.hint_retriever_path)
+                    print("Hint retriever loaded successfully")
+                else:
+                    raise ValueError(f"Unknown hint index type: {self.hint_index_type}")
             else:
-                hint_db_path = Path(__file__).parent / self.hint_db_rel_path
+                # Use external path if provided, otherwise fall back to relative path
+                if self.hint_db_path and Path(self.hint_db_path).exists():
+                    hint_db_path = Path(self.hint_db_path)
+                else:
+                    hint_db_path = Path(__file__).parent / self.hint_db_rel_path
 
-            if hint_db_path.exists():
-                self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
-                # Verify the expected columns exist
-                if "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
-                    print(
-                        f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
-                    )
+                if hint_db_path.exists():
+                    self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
+                    # Verify the expected columns exist
+                    if "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
+                        print(
+                            f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
+                        )
+                        self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+                else:
+                    print(f"Warning: Hint database not found at {hint_db_path}")
                     self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-            else:
-                print(f"Warning: Hint database not found at {hint_db_path}")
-                self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-            self.hints_source = HintsSource(
-                hint_db_path=hint_db_path.as_posix(),
-                hint_retrieval_mode=self.hint_retrieval_mode,
-                skip_hints_for_current_task=self.skip_hints_for_current_task,
-            )
+                self.hints_source = HintsSource(
+                    hint_db_path=hint_db_path.as_posix(),
+                    hint_retrieval_mode=self.hint_retrieval_mode,
+                    skip_hints_for_current_task=self.skip_hints_for_current_task,
+                )
         except Exception as e:
             # Fallback to empty database on any error
             print(f"Warning: Could not load hint database: {e}")
@@ -364,6 +408,32 @@ accessibility tree to identify interactive elements before taking actions.
         """Get hints for a specific task."""
         if not self.use_task_hint:
             return ""
+
+        if self.hint_type == "docs":
+            if not hasattr(self, "hint_index"):
+                self._init()
+
+            if self.hint_query_type == "goal":
+                query = self.goal
+            elif self.hint_query_type == "llm":
+                query = self.llm.generate(self._prompt + self._abstract_ex + self._concrete_ex)
+            else:
+                raise ValueError(f"Unknown hint query type: {self.hint_query_type}")
+
+            if self.hint_index_type == "sparse":
+                query_tokens = bm25s.tokenize(query)
+                docs = self.hint_index.search(query_tokens, k=self.hint_num_results)
+                docs = docs["text"]
+            elif self.hint_index_type == "dense":
+                query_embedding = self.hint_retriever.encode(query)
+                _, docs = self.hint_index.get_nearest_examples("embeddings", query_embedding, k=self.hint_num_results)
+                docs = docs["text"]
+
+            hints_str = (
+                "# Hints:\nHere are some hints for the task you are working on:\n"
+                + "\n".join(docs)
+            )
+            return hints_str
 
         # Ensure hint_db is initialized
         if not hasattr(self, "hint_db"):
