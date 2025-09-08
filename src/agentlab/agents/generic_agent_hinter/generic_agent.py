@@ -26,7 +26,7 @@ from agentlab.llm.tracking import cost_tracker_decorator
 from .generic_agent_prompt import (
     GenericPromptFlags,
     MainPrompt,
-    StepWiseRetrievalPrompt,
+    StepWiseContextIdentificationPrompt,
 )
 
 
@@ -111,10 +111,8 @@ class GenericAgent(Agent):
 
         queries, think_queries = self._get_queries()
 
-        # TODO
-        # use those queries to retreive from the database. e.g.:
-        # hints = self.hint_db.get_hints(queries)
-        # then add those hints to the main prompt
+        # use those queries to retrieve from the database and pass to prompt if step-level
+        queries_for_hints = queries if getattr(self.flags, "hint_level", "episode") == "step" else None
 
         main_prompt = MainPrompt(
             action_set=self.action_set,
@@ -126,6 +124,7 @@ class GenericAgent(Agent):
             step=self.plan_step,
             flags=self.flags,
             llm=self.chat_llm,
+            queries=queries_for_hints,
         )
 
         # Set task name for task hints if available
@@ -183,7 +182,7 @@ class GenericAgent(Agent):
     def _get_queries(self):
         """Retrieve queries for hinting."""
         system_prompt = SystemMessage(dp.SystemPrompt().prompt)
-        query_prompt = StepWiseRetrievalPrompt(
+        query_prompt = StepWiseContextIdentificationPrompt(
             obs_history=self.obs_history,
             actions=self.actions,
             thoughts=self.thoughts,

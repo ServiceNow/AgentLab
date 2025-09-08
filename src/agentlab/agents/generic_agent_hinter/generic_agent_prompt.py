@@ -62,6 +62,7 @@ class GenericPromptFlags(dp.Flags):
     max_trunc_itr: int = 20
     flag_group: str = None
     n_retrieval_queries: int = 3
+    hint_level: Literal["episode", "step"] = "episode"
 
 
 class MainPrompt(dp.Shrinkable):
@@ -76,6 +77,7 @@ class MainPrompt(dp.Shrinkable):
         step: int,
         flags: GenericPromptFlags,
         llm: ChatModel,
+        queries: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.flags = flags
@@ -118,6 +120,8 @@ class MainPrompt(dp.Shrinkable):
             hint_retrieval_mode=flags.task_hint_retrieval_mode,
             llm=llm,
             skip_hints_for_current_task=flags.skip_hints_for_current_task,
+            hint_level=flags.hint_level,
+            queries=queries,
         )
         self.plan = Plan(previous_plan, step, lambda: flags.use_plan)  # TODO add previous plan
         self.criticise = Criticise(visible=lambda: flags.use_criticise)
@@ -306,6 +310,8 @@ class TaskHint(dp.PromptElement):
         hint_retrieval_mode: Literal["direct", "llm", "emb"],
         skip_hints_for_current_task: bool,
         llm: ChatModel,
+        hint_level: Literal["episode", "step"] = "episode",
+        queries: list[str] | None = None,
     ) -> None:
         super().__init__(visible=use_task_hint)
         self.use_task_hint = use_task_hint
@@ -315,6 +321,8 @@ class TaskHint(dp.PromptElement):
         self.skip_hints_for_current_task = skip_hints_for_current_task
         self.goal = goal
         self.llm = llm
+        self.hint_level: Literal["episode", "step"] = hint_level
+        self.queries: list[str] | None = queries
         self._init()
 
     _prompt = ""  # Task hints are added dynamically in MainPrompt
@@ -352,6 +360,7 @@ accessibility tree to identify interactive elements before taking actions.
             else:
                 print(f"Warning: Hint database not found at {hint_db_path}")
                 self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+
             self.hints_source = HintsSource(
                 hint_db_path=hint_db_path.as_posix(),
                 hint_retrieval_mode=self.hint_retrieval_mode,
@@ -380,7 +389,16 @@ accessibility tree to identify interactive elements before taking actions.
             return ""
 
         try:
-            task_hints = self.hints_source.choose_hints(self.llm, task_name, self.goal)
+            # When step-level, pass queries as goal string to fit the llm_prompt
+            goal_or_queries = self.goal
+            if self.hint_level == "step" and self.queries:
+                goal_or_queries = "\n".join(self.queries)
+
+            task_hints = self.hints_source.choose_hints(
+                self.llm,
+                task_name,
+                goal_or_queries,
+            )
 
             hints = []
             for hint in task_hints:
@@ -400,14 +418,14 @@ accessibility tree to identify interactive elements before taking actions.
         return ""
 
 
-class StepWiseRetrievalPrompt(dp.Shrinkable):
+class StepWiseContextIdentificationPrompt(dp.Shrinkable):
     def __init__(
         self,
         obs_history: list[dict],
         actions: list[str],
         thoughts: list[str],
         obs_flags: dp.ObsFlags,
-        n_queries: int = 3,
+        n_queries: int = 1,
     ) -> None:
         super().__init__()
         self.obs_flags = obs_flags
@@ -430,10 +448,10 @@ class StepWiseRetrievalPrompt(dp.Shrinkable):
         )
 
         example_queries = [
-            "How to sort with multiple columns on the ServiceNow platform?",
-            "What are the potential challenges of sorting by multiple columns?",
-            "How to handle sorting by multiple columns in a table?",
-            "Can I use the filter tool to sort by multiple columns?",
+            "The user has started sorting a table and needs to apply multiple column criteria simultaneously.",
+            "The user is attempting to configure advanced sorting options but the interface is unclear.",
+            "The user has selected the first sort column and is now looking for how to add a second sort criterion.",
+            "The user is in the middle of a multi-step sorting process and needs guidance on the next action.",
         ]
 
         example_queries_str = json.dumps(example_queries[: self.n_queries], indent=2)
@@ -442,8 +460,8 @@ class StepWiseRetrievalPrompt(dp.Shrinkable):
             f"""
 # Querying memory
 
-Before choosing an action, let's search our available documentation and memory on how to approach this step.
-This could provide valuable hints on how to properly solve this task. Return your answer as follow
+Before choosing an action, let's search our available documentation and memory for relevant context.
+Generate a brief, general summary of the current status to help identify useful hints. Return your answer as follow
 <think>chain of thought</think>
 <queries>json list of strings</queries> for the queries. Return exactly {self.n_queries} 
 queries in the list.
