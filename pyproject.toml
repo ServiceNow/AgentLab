@@ -109,3 +109,4 @@ hint = [
 [project.scripts]
 agentlab-assistant = "agentlab.ui_assistant:main"
 agentlab-xray = "agentlab.analyze.agent_xray:main"
+agentlab-mentor = "agentlab.agents.hitl_agent.launch_hint_ui:main"

@@ -18,7 +18,6 @@ import openai
 import tiktoken
 import yaml
 from PIL import Image
-from transformers import AutoModel, AutoTokenizer
 
 langchain_community = importlib.util.find_spec("langchain_community")
 if langchain_community is not None:
@@ -512,6 +511,13 @@ def get_tokenizer_old(model_name="openai/gpt-4"):
         )
         return tiktoken.encoding_for_model("gpt-4")
     else:
+        # Lazy import of transformers only when needed
+        try:
+            from transformers import AutoTokenizer  # type: ignore
+        except Exception as e:
+            raise ImportError(
+                "The 'transformers' package is required to use non-OpenAI/Azure tokenizers."
+            ) from e
         return AutoTokenizer.from_pretrained(model_name)
 
 
@@ -522,6 +528,8 @@ def get_tokenizer(model_name="gpt-4"):
     except KeyError:
         logging.info(f"Could not find a tokenizer for model {model_name}. Trying HuggingFace.")
     try:
+        from transformers import AutoTokenizer  # type: ignore
+
         return AutoTokenizer.from_pretrained(model_name)
     except Exception as e:
         logging.info(f"Could not find a tokenizer for model {model_name}: {e} Defaulting to gpt-4.")
@@ -676,8 +684,8 @@ def parse_html_tags(text, keys=(), optional_keys=(), merge_multiple=False):
     retry_messages = []
 
     for key in all_keys:
-        if not key in content_dict:
-            if not key in optional_keys:
+        if key not in content_dict:
+            if key not in optional_keys:
                 retry_messages.append(f"Missing the key <{key}> in the answer.")
         else:
             val = content_dict[key]
@@ -697,6 +705,13 @@ def parse_html_tags(text, keys=(), optional_keys=(), merge_multiple=False):
 
 
 def download_and_save_model(model_name: str, save_dir: str = "."):
+    # Lazy import of transformers only when explicitly downloading a model
+    try:
+        from transformers import AutoModel  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "The 'transformers' package is required to download and save models."
+        ) from e
     model = AutoModel.from_pretrained(model_name)
     model.save_pretrained(save_dir)
     print(f"Model downloaded and saved to {save_dir}")
@@ -725,6 +740,16 @@ def image_to_png_base64_url(image: np.ndarray | Image.Image):
     image.save(buffered, "PNG")
     image_base64 = base64.b64encode(buffered.getvalue()).decode()
     return f"data:image/png;base64,{image_base64}"
+
+
+def img_to_base_64(image: Image.Image | np.ndarray) -> str:
+    """Converts a PIL Image or NumPy array to a base64-encoded string."""
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return b64_str
 
 
 class BaseMessage(dict):

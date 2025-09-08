@@ -686,6 +686,7 @@ def test_claude_model_with_multiple_messages_pricy_call():
 
 ## Test multiaction
 @pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Skipping as OpenAI API key not set")
 def test_multi_action_tool_calls():
     """
     Test that the model can produce multiple tool calls in parallel.

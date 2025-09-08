@@ -1,7 +1,7 @@
+import os
 from functools import partial
 
 import pytest
-
 from agentlab.llm.litellm_api import LiteLLMModelArgs
 from agentlab.llm.response_api import APIPayload, LLMOutput
 
@@ -106,6 +106,7 @@ def test_multi_action_tool_calls():
 
 
 @pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Skipping as OpenAI API key not set")
 def test_single_tool_call():
     """
     Test that the LLMOutput contains only one tool call when use_only_first_toolcall is True.
@@ -137,6 +138,7 @@ def test_single_tool_call():
 
 
 @pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Skipping as OpenAI API key not set")
 def test_force_tool_call():
     """
     Test that the model can produce a specific tool call when requested.
