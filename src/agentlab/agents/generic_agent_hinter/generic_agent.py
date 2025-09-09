@@ -23,7 +23,11 @@ from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
 
-from .generic_agent_prompt import GenericPromptFlags, MainPrompt
+from .generic_agent_prompt import (
+    GenericPromptFlags,
+    MainPrompt,
+    StepWiseContextIdentificationPrompt,
+)
 
 
 @dataclass
@@ -102,6 +106,14 @@ class GenericAgent(Agent):
     def get_action(self, obs):
 
         self.obs_history.append(obs)
+
+        system_prompt = SystemMessage(dp.SystemPrompt().prompt)
+
+        queries, think_queries = self._get_queries()
+
+        # use those queries to retrieve from the database and pass to prompt if step-level
+        queries_for_hints = queries if getattr(self.flags, "hint_level", "episode") == "step" else None
+
         main_prompt = MainPrompt(
             action_set=self.action_set,
             obs_history=self.obs_history,
@@ -112,6 +124,7 @@ class GenericAgent(Agent):
             step=self.plan_step,
             flags=self.flags,
             llm=self.chat_llm,
+            queries=queries_for_hints,
         )
 
         # Set task name for task hints if available
@@ -119,8 +132,6 @@ class GenericAgent(Agent):
             main_prompt.set_task_name(self.task_name)
 
         max_prompt_tokens, max_trunc_itr = self._get_maxes()
-
-        system_prompt = SystemMessage(dp.SystemPrompt().prompt)
 
         human_prompt = dp.fit_tokens(
             shrinkable=main_prompt,
@@ -167,6 +178,31 @@ class GenericAgent(Agent):
             extra_info={"chat_model_args": asdict(self.chat_model_args)},
         )
         return ans_dict["action"], agent_info
+
+    def _get_queries(self):
+        """Retrieve queries for hinting."""
+        system_prompt = SystemMessage(dp.SystemPrompt().prompt)
+        query_prompt = StepWiseContextIdentificationPrompt(
+            obs_history=self.obs_history,
+            actions=self.actions,
+            thoughts=self.thoughts,
+            obs_flags=self.flags.obs,
+            n_queries=self.flags.n_retrieval_queries,  # TODO
+        )
+
+        chat_messages = Discussion([system_prompt, query_prompt.prompt])
+        ans_dict = retry(
+            self.chat_llm,
+            chat_messages,
+            n_retry=self.max_retry,
+            parser=query_prompt._parse_answer,
+        )
+
+        queries = ans_dict.get("queries", [])
+        assert len(queries) == self.flags.n_retrieval_queries
+
+        # TODO: we should probably propagate these chat_messages to be able to see them in xray
+        return queries, ans_dict.get("think", None)
 
     def reset(self, seed=None):
         self.seed = seed

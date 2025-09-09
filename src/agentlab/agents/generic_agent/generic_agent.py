@@ -98,6 +98,7 @@ class GenericAgent(Agent):
     def get_action(self, obs):
 
         self.obs_history.append(obs)
+
         main_prompt = MainPrompt(
             action_set=self.action_set,
             obs_history=self.obs_history,
