@@ -352,7 +352,6 @@ class TaskHint(dp.PromptElement):
         self.llm = llm
         self.hint_level: Literal["episode", "step"] = hint_level
         self.queries: list[str] | None = queries
-        self._init()
 
     _prompt = ""  # Task hints are added dynamically in MainPrompt
 
@@ -368,50 +367,6 @@ Relevant hint: Based on the hints provided, I should focus on the form elements 
 accessibility tree to identify interactive elements before taking actions.
 </task_hint>
 """
-
-    def _init(self):
-        """Initialize the block."""
-        try:
-            if self.hint_type == "docs":
-                if self.hint_index_type == "sparse":
-                    import bm25s
-                    self.hint_index = bm25s.BM25.load(self.hint_index_path, load_corpus=True)
-                elif self.hint_index_type == "dense":
-                    from datasets import load_from_disk
-                    from sentence_transformers import SentenceTransformer
-                    self.hint_index = load_from_disk(self.hint_index_path)
-                    self.hint_index.load_faiss_index("embeddings", self.hint_index_path.removesuffix("/") + ".faiss")
-                    self.hint_retriever = SentenceTransformer(self.hint_retriever_path)
-                else:
-                    raise ValueError(f"Unknown hint index type: {self.hint_index_type}")
-            else:
-                # Use external path if provided, otherwise fall back to relative path
-                if self.hint_db_path and Path(self.hint_db_path).exists():
-                    hint_db_path = Path(self.hint_db_path)
-                else:
-                    hint_db_path = Path(__file__).parent / self.hint_db_rel_path
-
-                if hint_db_path.exists():
-                    self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
-                    # Verify the expected columns exist
-                    if "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
-                        print(
-                            f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
-                        )
-                        self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-                else:
-                    print(f"Warning: Hint database not found at {hint_db_path}")
-                    self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-                    
-                self.hints_source = HintsSource(
-                    hint_db_path=hint_db_path.as_posix(),
-                    hint_retrieval_mode=self.hint_retrieval_mode,
-                    skip_hints_for_current_task=self.skip_hints_for_current_task,
-                )
-        except Exception as e:
-            # Fallback to empty database on any error
-            print(f"Warning: Could not load hint database: {e}")
-            self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
 
     def get_hints_for_task(self, task_name: str) -> str:
         """Get hints for a specific task."""
@@ -449,10 +404,6 @@ accessibility tree to identify interactive elements before taking actions.
                 + "\n".join(docs)
             )
             return hints_str
-
-        # Ensure hint_db is initialized
-        if not hasattr(self, "hint_db"):
-            self._init()
 
         # Check if hint_db has the expected structure
         if (
