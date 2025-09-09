@@ -16,12 +16,14 @@ from warnings import warn
 import bgym
 from bgym import Benchmark
 from browsergym.experiments.agent import Agent, AgentInfo
-
+import pandas as pd
+from pathlib import Path
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
+from agentlab.agents.tool_use_agent.tool_use_agent import HintsSource
 
 from .generic_agent_prompt import (
     GenericPromptFlags,
@@ -91,6 +93,8 @@ class GenericAgent(Agent):
         self.flags = flags
         self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
+
+        self._init_hints_index()
 
         self._check_flag_constancy()
         self.reset(seed=None)
@@ -246,3 +250,46 @@ does not support vision. Disabling use_screenshot."""
             else 20  # dangerous to change the default value here?
         )
         return max_prompt_tokens, max_trunc_itr
+
+    def _init_hints_index(self):
+        """Initialize the block."""
+        try:
+            if self.flags.hint_type == "docs":
+                if self.flags.hint_index_type == "sparse":
+                    import bm25s
+                    self.hint_index = bm25s.BM25.load(self.flags.hint_index_path, load_corpus=True)
+                elif self.flags.hint_index_type == "dense":
+                    from datasets import load_from_disk
+                    from sentence_transformers import SentenceTransformer
+                    self.hint_index = load_from_disk(self.flags.hint_index_path)
+                    self.hint_index.load_faiss_index("embeddings", self.flags.hint_index_path.removesuffix("/") + ".faiss")
+                    self.hint_retriever = SentenceTransformer(self.flags.hint_retriever_path)
+                else:
+                    raise ValueError(f"Unknown hint index type: {self.flags.hint_index_type}")
+            else:
+                # Use external path if provided, otherwise fall back to relative path
+                if self.flags.hint_db_path and Path(self.flags.hint_db_path).exists():
+                    hint_db_path = Path(self.flags.hint_db_path)
+                else:
+                    hint_db_path = Path(__file__).parent / self.flags.hint_db_rel_path
+
+                if hint_db_path.exists():
+                    self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
+                    # Verify the expected columns exist
+                    if "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
+                        print(
+                            f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
+                        )
+                        self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+                else:
+                    print(f"Warning: Hint database not found at {hint_db_path}")
+                    self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+                self.hints_source = HintsSource(
+                    hint_db_path=hint_db_path.as_posix(),
+                    hint_retrieval_mode=self.flags.hint_retrieval_mode,
+                    skip_hints_for_current_task=self.flags.skip_hints_for_current_task,
+                )
+        except Exception as e:
+            # Fallback to empty database on any error
+            print(f"Warning: Could not load hint database: {e}")
+            self.hint_db = pd.DataFrame(columns=["task_name", "hint"])

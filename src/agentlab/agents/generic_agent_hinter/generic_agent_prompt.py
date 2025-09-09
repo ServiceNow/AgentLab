@@ -80,6 +80,7 @@ class MainPrompt(dp.Shrinkable):
         actions: list[str],
         memories: list[str],
         thoughts: list[str],
+        hints: list[str],
         previous_plan: str,
         step: int,
         flags: GenericPromptFlags,
@@ -120,6 +121,7 @@ class MainPrompt(dp.Shrinkable):
         self.think = dp.Think(visible=lambda: flags.use_thinking)
         self.hints = dp.Hints(visible=lambda: flags.use_hints)
         goal_str: str = goal[0]["text"]
+        # TODO: This design is not very good as we will instantiate the loop up at every step
         self.task_hint = TaskHint(
             use_task_hint=flags.use_task_hint,
             hint_db_path=flags.hint_db_path,
@@ -147,7 +149,8 @@ class MainPrompt(dp.Shrinkable):
 
         # Add task hints if enabled
         task_hints_text = ""
-        if self.flags.use_task_hint and hasattr(self, "task_name"):
+        # if self.flags.use_task_hint and hasattr(self, "task_name"):
+        if self.flags.use_task_hint:
             task_hints_text = self.task_hint.get_hints_for_task(self.task_name)
 
         prompt.add_text(
@@ -371,19 +374,14 @@ accessibility tree to identify interactive elements before taking actions.
         try:
             if self.hint_type == "docs":
                 if self.hint_index_type == "sparse":
-                    print("Loading sparse hint index")
                     import bm25s
                     self.hint_index = bm25s.BM25.load(self.hint_index_path, load_corpus=True)
-                    print("Sparse hint index loaded successfully")
                 elif self.hint_index_type == "dense":
-                    print("Loading dense hint index and retriever")
                     from datasets import load_from_disk
                     from sentence_transformers import SentenceTransformer
                     self.hint_index = load_from_disk(self.hint_index_path)
                     self.hint_index.load_faiss_index("embeddings", self.hint_index_path.removesuffix("/") + ".faiss")
-                    print("Dense hint index loaded successfully")
                     self.hint_retriever = SentenceTransformer(self.hint_retriever_path)
-                    print("Hint retriever loaded successfully")
                 else:
                     raise ValueError(f"Unknown hint index type: {self.hint_index_type}")
             else:
@@ -422,8 +420,8 @@ accessibility tree to identify interactive elements before taking actions.
 
         if self.hint_type == "docs":
             if not hasattr(self, "hint_index"):
+                print("Initializing hint index new time")
                 self._init()
-
             if self.hint_query_type == "goal":
                 query = self.goal
             elif self.hint_query_type == "llm":
@@ -432,9 +430,15 @@ accessibility tree to identify interactive elements before taking actions.
                 raise ValueError(f"Unknown hint query type: {self.hint_query_type}")
 
             if self.hint_index_type == "sparse":
+                import bm25s
                 query_tokens = bm25s.tokenize(query)
-                docs = self.hint_index.search(query_tokens, k=self.hint_num_results)
-                docs = docs["text"]
+                docs, _ = self.hint_index.retrieve(query_tokens, k=self.hint_num_results)
+                docs = [elem["text"] for elem in docs[0]]
+                # HACK: truncate to 20k characters (should cover >99% of the cases)
+                for doc in docs:
+                    if len(doc) > 20000:
+                        doc = doc[:20000]
+                        doc += " ...[truncated]"
             elif self.hint_index_type == "dense":
                 query_embedding = self.hint_retriever.encode(query)
                 _, docs = self.hint_index.get_nearest_examples("embeddings", query_embedding, k=self.hint_num_results)
