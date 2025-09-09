@@ -551,6 +551,10 @@ I will be able to sort by both at the same time.
 
         return self.obs.add_screenshot(prompt)
 
+    def shrink(self):
+        self.history.shrink()
+        self.obs.shrink()
+
     def _parse_answer(self, text_answer):
         ans_dict = parse_html_tags_raise(
             text_answer, keys=["think", "queries"], merge_multiple=True
