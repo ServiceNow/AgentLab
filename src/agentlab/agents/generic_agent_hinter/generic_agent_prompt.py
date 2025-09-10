@@ -51,9 +51,6 @@ class GenericPromptFlags(dp.Flags):
     use_abstract_example: bool = False
     use_hints: bool = False
     use_task_hint: bool = False
-    task_hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
-    skip_hints_for_current_task: bool = False
-    hint_db_path: str = None
     enable_chat: bool = False
     max_prompt_tokens: int = None
     be_cautious: bool = True
@@ -61,15 +58,6 @@ class GenericPromptFlags(dp.Flags):
     add_missparsed_messages: bool = True
     max_trunc_itr: int = 20
     flag_group: str = None
-    # hint flags
-    hint_type: Literal["human", "llm", "docs"] = "human"
-    hint_index_type: Literal["sparse", "dense"] = "sparse"
-    hint_query_type: Literal["direct", "llm", "emb"] = "direct"
-    hint_index_path: str = None
-    hint_retriever_path: str = None
-    hint_num_results: int = 5
-    n_retrieval_queries: int = 3
-    hint_level: Literal["episode", "step"] = "episode"
 
 
 class MainPrompt(dp.Shrinkable):
@@ -135,7 +123,7 @@ class MainPrompt(dp.Shrinkable):
 {self.history.prompt}\
 {self.action_prompt.prompt}\
 {self.hints.prompt}\
-{self.task_hint.prompt}\
+{self.task_hints.prompt}\
 {self.be_cautious.prompt}\
 {self.think.prompt}\
 {self.plan.prompt}\
@@ -156,7 +144,7 @@ answer:
 {self.plan.abstract_ex}\
 {self.memory.abstract_ex}\
 {self.criticise.abstract_ex}\
-{self.task_hint.abstract_ex}\
+{self.task_hints.abstract_ex}\
 {self.action_prompt.abstract_ex}\
 """
             )
@@ -172,7 +160,7 @@ Make sure to follow the template with proper tags:
 {self.plan.concrete_ex}\
 {self.memory.concrete_ex}\
 {self.criticise.concrete_ex}\
-{self.task_hint.concrete_ex}\
+{self.task_hints.concrete_ex}\
 {self.action_prompt.concrete_ex}\
 """
             )
@@ -303,7 +291,12 @@ class TaskHint(dp.PromptElement):
         super().__init__(visible=visible)
         self.task_hints = task_hints
 
-    _prompt = ""  # Task hints are added dynamically in MainPrompt
+    @property
+    def _prompt(self):
+        task_hint_str = "# Hints:\nHere are some hints for the task you are working on:\n"
+        for hint in self.task_hints:
+            task_hint_str += f"{hint}\n"
+        return task_hint_str
 
     _abstract_ex = """
 <task_hint>
