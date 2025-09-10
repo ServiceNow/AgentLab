@@ -47,6 +47,16 @@ BASE_FLAGS = GenericPromptFlags(
     max_prompt_tokens=40_000,
     be_cautious=True,
     extra_instructions=None,
+
+    # hint flags
+    hint_type="human",
+    hint_index_type="sparse",
+    hint_query_type="direct",
+    hint_index_path=None,
+    hint_retriever_path=None,
+    hint_num_results=5,
+    n_retrieval_queries=3,
+    hint_level="episode",
 )
 
 
