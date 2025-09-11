@@ -328,6 +328,7 @@ does not support vision. Disabling use_screenshot."""
             print(f"Query: {query}")
             if self.flags.hint_index_type == "sparse":
                 import bm25s
+
                 query_tokens = bm25s.tokenize(query)
                 docs, _ = self.hint_index.retrieve(query_tokens, k=self.flags.hint_num_results)
                 docs = [elem["text"] for elem in docs[0]]
@@ -338,7 +339,9 @@ does not support vision. Disabling use_screenshot."""
                         doc += " ...[truncated]"
             elif self.flags.hint_index_type == "dense":
                 query_embedding = self.hint_retriever.encode(query)
-                _, docs = self.hint_index.get_nearest_examples("embeddings", query_embedding, k=self.flags.hint_num_results)
+                _, docs = self.hint_index.get_nearest_examples(
+                    "embeddings", query_embedding, k=self.flags.hint_num_results
+                )
                 docs = docs["text"]
 
             return docs

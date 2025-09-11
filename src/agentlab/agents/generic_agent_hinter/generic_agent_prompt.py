@@ -11,12 +11,11 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-from browsergym.core.action.base import AbstractActionSet
-
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.tool_use_agent.tool_use_agent import HintsSource
 from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
+from browsergym.core.action.base import AbstractActionSet
 
 
 @dataclass
@@ -292,11 +291,7 @@ explore the page to find a way to activate the form.
 
 
 class TaskHint(dp.PromptElement):
-    def __init__(
-        self,
-        visible: bool,
-        task_hints: list[str]
-    ) -> None:
+    def __init__(self, visible: bool, task_hints: list[str]) -> None:
         super().__init__(visible=visible)
         self.task_hints = task_hints
 
