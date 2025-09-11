@@ -59,6 +59,16 @@ class GenericPromptFlags(dp.Flags):
     max_trunc_itr: int = 20
     flag_group: str = None
 
+    # hint related
+    use_task_hint: bool = False
+    hint_type: str = "docs"
+    hint_index_type: str = "sparse"
+    hint_query_type: str = "direct"
+    hint_index_path: str = "indexes/servicenow-docs-bm25"
+    hint_retriever_path: str = "google/embeddinggemma-300m"
+    hint_num_results: int = 5
+    n_retrieval_queries: int = 1
+
 
 class MainPrompt(dp.Shrinkable):
     def __init__(
@@ -68,7 +78,6 @@ class MainPrompt(dp.Shrinkable):
         actions: list[str],
         memories: list[str],
         thoughts: list[str],
-        hints: list[str],
         previous_plan: str,
         step: int,
         flags: GenericPromptFlags,

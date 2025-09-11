@@ -30,6 +30,16 @@ def main():
     agent_args = [get_base_agent(args.llm_config)]
     benchmark = DEFAULT_BENCHMARKS[args.benchmark]()
 
+    ##################### Shuffle env args list, pick subset
+    import numpy as np
+    rng = np.random.default_rng(42)
+    rng.shuffle(benchmark.env_args_list)
+    benchmark.env_args_list = benchmark.env_args_list[:33]
+    #####################
+
+    # for env_args in benchmark.env_args_list:
+        # env_args.max_steps = 100
+
     if args.relaunch:
         #  relaunch an existing study
         study = Study.load_most_recent(contains=None)

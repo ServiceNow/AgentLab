@@ -49,6 +49,12 @@ def main():
     
     benchmark = DEFAULT_BENCHMARKS[args.benchmark]()
 
+    # # shuffle env_args_list and pick first 33
+    # import numpy as np
+    # rng = np.random.default_rng(42)
+    # rng.shuffle(benchmark.env_args_list)
+    # benchmark.env_args_list = benchmark.env_args_list[:33]
+
 
     if args.relaunch:
         #  relaunch an existing study

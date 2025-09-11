@@ -120,6 +120,12 @@ class GenericAgent(Agent):
             queries if getattr(self.flags, "hint_level", "episode") == "step" else None
         )
 
+        # get hints
+        if self.flags.use_hints:
+            task_hints = self._get_task_hints()
+        else:
+            task_hints = []
+
         main_prompt = MainPrompt(
             action_set=self.action_set,
             obs_history=self.obs_history,
@@ -130,7 +136,7 @@ class GenericAgent(Agent):
             step=self.plan_step,
             flags=self.flags,
             llm=self.chat_llm,
-            queries=queries_for_hints,
+            task_hints=task_hints,
         )
 
         # Set task name for task hints if available
@@ -303,42 +309,39 @@ does not support vision. Disabling use_screenshot."""
             print(f"Warning: Could not load hint database: {e}")
             self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
 
-    def get_hints_for_task(self, task_name: str) -> str:
+    def _get_task_hints(self) -> list[str]:
         """Get hints for a specific task."""
-        if not self.use_task_hint:
-            return ""
+        if not self.flags.use_task_hint:
+            return []
 
-        if self.hint_type == "docs":
+        if self.flags.hint_type == "docs":
             if not hasattr(self, "hint_index"):
                 print("Initializing hint index new time")
                 self._init()
-            if self.hint_query_type == "goal":
-                query = self.goal
-            elif self.hint_query_type == "llm":
+            if self.flags.hint_query_type == "goal":
+                query = self.obs_history[-1]["goal_object"][0]["text"]
+            elif self.flags.hint_query_type == "llm":
                 query = self.llm.generate(self._prompt + self._abstract_ex + self._concrete_ex)
             else:
-                raise ValueError(f"Unknown hint query type: {self.hint_query_type}")
+                raise ValueError(f"Unknown hint query type: {self.flags.hint_query_type}")
 
-            if self.hint_index_type == "sparse":
+            print(f"Query: {query}")
+            if self.flags.hint_index_type == "sparse":
                 import bm25s
                 query_tokens = bm25s.tokenize(query)
-                docs, _ = self.hint_index.retrieve(query_tokens, k=self.hint_num_results)
+                docs, _ = self.hint_index.retrieve(query_tokens, k=self.flags.hint_num_results)
                 docs = [elem["text"] for elem in docs[0]]
                 # HACK: truncate to 20k characters (should cover >99% of the cases)
                 for doc in docs:
                     if len(doc) > 20000:
                         doc = doc[:20000]
                         doc += " ...[truncated]"
-            elif self.hint_index_type == "dense":
+            elif self.flags.hint_index_type == "dense":
                 query_embedding = self.hint_retriever.encode(query)
-                _, docs = self.hint_index.get_nearest_examples("embeddings", query_embedding, k=self.hint_num_results)
+                _, docs = self.hint_index.get_nearest_examples("embeddings", query_embedding, k=self.flags.hint_num_results)
                 docs = docs["text"]
 
-            hints_str = (
-                "# Hints:\nHere are some hints for the task you are working on:\n"
-                + "\n".join(docs)
-            )
-            return hints_str
+            return docs
 
         # Check if hint_db has the expected structure
         if (
@@ -346,17 +349,17 @@ does not support vision. Disabling use_screenshot."""
             or "task_name" not in self.hint_db.columns
             or "hint" not in self.hint_db.columns
         ):
-            return ""
+            return []
 
         try:
             # When step-level, pass queries as goal string to fit the llm_prompt
-            goal_or_queries = self.goal
-            if self.hint_level == "step" and self.queries:
+            goal_or_queries = self.obs_history[-1]["goal_object"][0]["text"]
+            if self.flags.hint_level == "step" and self.queries:
                 goal_or_queries = "\n".join(self.queries)
 
             task_hints = self.hints_source.choose_hints(
                 self.llm,
-                task_name,
+                self.task_name,
                 goal_or_queries,
             )
 
@@ -366,13 +369,8 @@ does not support vision. Disabling use_screenshot."""
                 if hint:
                     hints.append(f"- {hint}")
 
-            if len(hints) > 0:
-                hints_str = (
-                    "# Hints:\nHere are some hints for the task you are working on:\n"
-                    + "\n".join(hints)
-                )
-                return hints_str
+            return hints
         except Exception as e:
-            print(f"Warning: Error getting hints for task {task_name}: {e}")
+            print(f"Warning: Error getting hints for task {self.task_name}: {e}")
 
-        return ""
+        return []
