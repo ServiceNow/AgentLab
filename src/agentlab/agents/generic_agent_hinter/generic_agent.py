@@ -321,7 +321,9 @@ does not support vision. Disabling use_screenshot."""
             if self.flags.hint_query_type == "goal":
                 query = self.obs_history[-1]["goal_object"][0]["text"]
             elif self.flags.hint_query_type == "llm":
-                query = self.llm.generate(self._prompt + self._abstract_ex + self._concrete_ex)
+                queries, _ = self._get_queries()
+                # HACK: only 1 query supported
+                query = queries[0]
             else:
                 raise ValueError(f"Unknown hint query type: {self.flags.hint_query_type}")
 
