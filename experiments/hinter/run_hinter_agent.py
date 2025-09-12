@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--hint-index-path", type=str, default="indexes/servicenow-docs-bm25")
     parser.add_argument("--hint-retriever-path", type=str, default="google/embeddinggemma-300m")
     parser.add_argument("--hint-num-results", type=int, default=5)
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     flags = FLAGS_GPT_4o
@@ -49,11 +50,12 @@ def main():
     
     benchmark = DEFAULT_BENCHMARKS[args.benchmark]()
 
-    # # shuffle env_args_list and pick first 33
-    # import numpy as np
-    # rng = np.random.default_rng(42)
-    # rng.shuffle(benchmark.env_args_list)
-    # benchmark.env_args_list = benchmark.env_args_list[:33]
+    if args.debug:
+        # shuffle env_args_list and 
+        import numpy as np
+        rng = np.random.default_rng(42)
+        rng.shuffle(benchmark.env_args_list)
+        benchmark.env_args_list = benchmark.env_args_list[:6]
 
 
     if args.relaunch:
@@ -73,7 +75,7 @@ def main():
         n_jobs=args.n_jobs,
         parallel_backend=args.parallel_backend,
         strict_reproducibility=args.reproducibility_mode,
-        n_relaunch=1,
+        n_relaunch=3,
     )
 
         
