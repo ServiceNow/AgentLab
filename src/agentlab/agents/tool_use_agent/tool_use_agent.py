@@ -43,6 +43,7 @@ from agentlab.llm.response_api import (
 from agentlab.llm.tracking import cost_tracker_decorator
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
@@ -423,12 +424,17 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
         hint_topics = list(topic_to_hints.keys())
         topics = "\n".join([f"{i}. {h}" for i, h in enumerate(hint_topics)])
         prompt = self.llm_prompt.format(goal=goal, topics=topics)
+        logger.info(f"LLM choose hint topics prompt: {prompt}")
 
         if isinstance(llm, ChatModel):
             response: str = llm(messages=[dict(role="user", content=prompt)])["content"]
         else:
             response: str = llm(APIPayload(messages=[llm.msg.user().add_text(prompt)])).think
         try:
+            response = response.strip()
+            if response.endswith("."):
+                response = response[:-1]
+            logger.info(f"LLM choose hint topics RAW response: {response}")
             topic_number = json.loads(response)
             if topic_number < 0 or topic_number >= len(hint_topics):
                 logger.error(f"Wrong LLM hint id response: {response}, no hints")

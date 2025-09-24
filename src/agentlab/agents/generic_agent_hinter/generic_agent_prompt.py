@@ -18,6 +18,7 @@ from agentlab.agents.tool_use_agent.tool_use_agent import HintsSource
 from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class GenericPromptFlags(dp.Flags):
@@ -404,7 +405,7 @@ accessibility tree to identify interactive elements before taking actions.
                 else:
                     print(f"Warning: Hint database not found at {hint_db_path}")
                     self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-                    
+
                 self.hints_source = HintsSource(
                     hint_db_path=hint_db_path.as_posix(),
                     hint_retrieval_mode=self.hint_retrieval_mode,
@@ -531,13 +532,14 @@ class StepWiseContextIdentificationPrompt(dp.Shrinkable):
 # Querying memory
 
 Before choosing an action, let's search our available documentation and memory for relevant context.
-Generate a brief, general summary of the current status to help identify useful hints. Return your answer as follow
+Generate a brief, general summary of the current status to help identify useful hints. Return your answer in the following format:
 <think>chain of thought</think>
-<queries>json list of strings</queries> for the queries. Return exactly {self.n_queries} 
-queries in the list.
+<queries>json list of strings of queries</queries>
+
+Additional instructions: List of queries should contain up to {self.n_queries} queries. Both the think and the queries blocks are required!
 
 # Concrete Example
-
+```
 <think>
 I have to sort by client and country. I could use the built-in sort on each column but I'm not sure if
 I will be able to sort by both at the same time.
@@ -546,6 +548,9 @@ I will be able to sort by both at the same time.
 <queries>
 {example_queries_str}
 </queries>
+```
+Note: do not generate backticks.
+Now proceed to generate your own thoughts and queries.
 """
         )
 
@@ -556,8 +561,18 @@ I will be able to sort by both at the same time.
         self.obs.shrink()
 
     def _parse_answer(self, text_answer):
-        ans_dict = parse_html_tags_raise(
-            text_answer, keys=["think", "queries"], merge_multiple=True
-        )
-        ans_dict["queries"] = json.loads(ans_dict.get("queries", "[]"))
+        try:
+            ans_dict = parse_html_tags_raise(
+                text_answer, keys=["think", "queries"], merge_multiple=True
+            )
+        except Exception as e:
+            t = text_answer.replace("\n", "\\n")
+            logger.exception(f"Failed to parse llm answer: {e}. RAW answer: {t}")
+            raise e
+        try:
+            ans_dict["queries"] = json.loads(ans_dict.get("queries", "[]"))
+        except Exception as e:
+            t = text_answer.replace("\n", "\\n")
+            logger.exception(f"Failed to parse queries: {e}. RAW llm answer: {t}")
+            raise e
         return ans_dict
