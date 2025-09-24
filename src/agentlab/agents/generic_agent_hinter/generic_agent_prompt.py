@@ -567,12 +567,12 @@ Now proceed to generate your own thoughts and queries.
             )
         except Exception as e:
             t = text_answer.replace("\n", "\\n")
-            logger.exception(f"Failed to parse llm answer: {e}. RAW answer: {t}")
+            logger.warning(f"Failed to parse llm answer: {e}. RAW answer: '{t}'. Will retry")
             raise e
         try:
             ans_dict["queries"] = json.loads(ans_dict.get("queries", "[]"))
         except Exception as e:
             t = text_answer.replace("\n", "\\n")
-            logger.exception(f"Failed to parse queries: {e}. RAW llm answer: {t}")
+            logger.warning(f"Failed to parse queries: {e}. RAW llm answer: '{t}'. Will retry")
             raise e
         return ans_dict
