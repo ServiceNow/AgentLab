@@ -200,7 +200,7 @@ class GenericAgent(Agent):
         )
 
         queries = ans_dict.get("queries", [])
-        assert len(queries) == self.flags.n_retrieval_queries
+        assert len(queries) <= self.flags.n_retrieval_queries
 
         # TODO: we should probably propagate these chat_messages to be able to see them in xray
         return queries, ans_dict.get("think", None)
