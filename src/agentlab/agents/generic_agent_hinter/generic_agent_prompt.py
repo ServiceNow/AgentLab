@@ -551,6 +551,7 @@ I will be able to sort by both at the same time.
 ```
 Note: do not generate backticks.
 Now proceed to generate your own thoughts and queries.
+Always return non-empty answer, its very important!
 """
         )
 
@@ -569,10 +570,11 @@ Now proceed to generate your own thoughts and queries.
             t = text_answer.replace("\n", "\\n")
             logger.warning(f"Failed to parse llm answer: {e}. RAW answer: '{t}'. Will retry")
             raise e
+        raw_queries = ans_dict.get("queries", "[]")
         try:
-            ans_dict["queries"] = json.loads(ans_dict.get("queries", "[]"))
+            ans_dict["queries"] = json.loads(raw_queries)
         except Exception as e:
             t = text_answer.replace("\n", "\\n")
-            logger.warning(f"Failed to parse queries: {e}. RAW llm answer: '{t}'. Will retry")
+            logger.warning(f"Failed to parse queries: {e}. Queries block content: '{ans_dict['queries']}'. RAW llm answer: '{t}'. Will retry")
             raise e
         return ans_dict
