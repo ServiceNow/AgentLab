@@ -13,6 +13,8 @@ from .agent_configs import (
     AGENT_CLAUDE_SONNET_35,
     AGENT_CLAUDE_SONNET_35_VISION,
     AGENT_CUSTOM,
+    AGENT_GPT5_MINI,
+    AGENT_GPT5_NANO,
     AGENT_LLAMA3_70B,
     AGENT_LLAMA4_17B_INSTRUCT,
     AGENT_LLAMA31_70B,
@@ -26,9 +28,7 @@ from .agent_configs import (
     AGENT_o3_MINI,
     FLAGS_GPT_4o,
     GenericAgentArgs,
-    AGENT_GPT5_MINI,
 )
-
 from .generic_agent import GenericAgent, GenericAgentArgs
 
 __all__ = [
@@ -50,4 +50,5 @@ __all__ = [
     "AGENT_4o_MINI_VISION",
     "AGENT_CLAUDE_SONNET_35_VISION",
     "AGENT_GPT5_MINI",
+    "AGENT_GPT5_NANO",
 ]
