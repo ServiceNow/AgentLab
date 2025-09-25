@@ -911,10 +911,13 @@ def _get_env_name(task_name: str):
     # lazy import
     if task_name.startswith("miniwob"):
         import browsergym.miniwob
+    elif task_name.startswith("workarenax"):
+        import browsergym.workarenax
     elif task_name.startswith("workarena"):
         import browsergym.workarena
     elif task_name.startswith("webarena"):
         import browsergym.webarena
+        import browsergym.webarenalite
     elif task_name.startswith("visualwebarena"):
         import browsergym.visualwebarena
     elif task_name.startswith("assistantbench"):
