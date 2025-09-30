@@ -8,6 +8,7 @@ state such as plans, memories, and thoughts. The `GenericAgentArgs` class provid
 the agent, including model arguments and flags for various behaviors.
 """
 
+import os
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from functools import partial
@@ -89,6 +90,8 @@ class GenericAgent(Agent):
         self.max_retry = max_retry
 
         self.flags = flags
+        if self.flags.hint_db_path is not None:
+            assert os.path.exists(self.flags.hint_db_path), f"Hint database path {self.flags.hint_db_path} does not exist."
         self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
