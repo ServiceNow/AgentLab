@@ -127,11 +127,13 @@ class OpenAIComputerUseAgent(Agent):
                     elif k.lower() == "space":
                         to_press = " "
                     elif k.lower() == "ctrl":
-                        to_press = "Ctrl"
+                        to_press = "Control"
                     elif k.lower() == "shift":
                         to_press = "Shift"
                     elif k.lower() == "alt":
                         to_press = "Alt"
+                    elif k.lower() == "-":
+                        to_press += "Minus"
                     else:
                         to_press += f"+{k}"
                 return f"keyboard_press('{to_press}')"
