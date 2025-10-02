@@ -863,7 +863,9 @@ def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    if BaseMessage and isinstance(chat_messages[1], BaseMessage):  # TODO remove once langchain is deprecated
+    if BaseMessage and isinstance(
+        chat_messages[1], BaseMessage
+    ):  # TODO remove once langchain is deprecated
         assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
         chat_messages = [
             make_system_message(chat_messages[0].content),
