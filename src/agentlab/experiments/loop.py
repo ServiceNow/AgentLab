@@ -425,6 +425,9 @@ class ExpArgs:
                 exp_dir=self.exp_dir,
                 use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
             )
+            # webarena_verified hack, enable playwright tracing
+            if self.env_args.task_name.startswith("webarena_verified"):
+                env.unwrapped.context.tracing.start(snapshots=True)
 
             logger.debug("Environment created.")
             step_info = StepInfo(step=0)
@@ -504,6 +507,9 @@ class ExpArgs:
                 logger.exception(f"Error while saving experiment info: {e}")
             try:
                 if env is not None:
+                    # webarena_verified hack, close playwright tracing
+                    if self.env_args.task_name.startswith("webarena_verified"):
+                        env.unwrapped.context.tracing.stop(path=self.exp_dir / "pw_traces" / f"{self.exp_name}.zip")
                     env.close()
             except Exception as e:
                 logger.exception(f"Error while closing the environment: {e}")
@@ -915,6 +921,8 @@ def _get_env_name(task_name: str):
         import browsergym.workarena
     elif task_name.startswith("webarena"):
         import browsergym.webarena
+        import browsergym.webarena_verified
+        import browsergym.webarenalite
     elif task_name.startswith("visualwebarena"):
         import browsergym.visualwebarena
     elif task_name.startswith("assistantbench"):
