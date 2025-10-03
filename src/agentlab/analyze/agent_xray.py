@@ -302,6 +302,11 @@ clicking the refresh button.
             action_info = gr.Markdown(label="Action Info", elem_classes="my-markdown")
             state_error = gr.Markdown(label="Next Step Error", elem_classes="my-markdown")
 
+        with gr.Row(variant="panel"):
+            prev_btn = gr.Button("◀ Previous", size="md", scale=0)
+            next_btn = gr.Button("Next ▶", size="md", scale=0)
+            step_indicator = gr.Markdown("**Step 0/0**")
+
         profiling_gr = gr.Image(
             label="Profiling", show_label=False, interactive=False, show_download_button=False
         )
@@ -537,13 +542,38 @@ clicking the refresh button.
             outputs=[hidden_key_input, step_id],
         )
 
+        # Simple navigation button events - reuse keyboard logic
+        prev_btn.click(
+            lambda step_id: handle_key_event("Cmd+Left", step_id)[1],
+            inputs=[step_id],
+            outputs=[step_id],
+        )
+        next_btn.click(
+            lambda step_id: handle_key_event("Cmd+Right", step_id)[1],
+            inputs=[step_id],
+            outputs=[step_id],
+        )
+
+        # Update step indicator display
+        def format_step_indicator(step_id):
+            global info
+            if not step_id or not info.exp_result or not info.exp_result.steps_info:
+                return "Step 0/0"
+            # 1-based for user, total steps is len-1 (last is terminal)
+            current = (step_id.step + 1) if step_id.step is not None else 0
+            total = max(len(info.exp_result.steps_info) - 1, 0)
+            return f"Step {current}/{total}"
+
+        step_id.change(format_step_indicator, inputs=[step_id], outputs=[step_indicator])
+
     demo.queue()
 
     do_share = os.getenv("AGENTXRAY_SHARE_GRADIO", "false").lower() == "true"
     port = os.getenv("AGENTXRAY_APP_PORT", None)
+    server_name = "0.0.0.0" if os.getenv("AGENTXRAY_PUBLIC", "false") == "true" else "127.0.0.1"
     if isinstance(port, str):
         port = int(port)
-    demo.launch(server_port=port, share=do_share)
+    demo.launch(server_name=server_name, server_port=port, share=do_share)
 
 
 def handle_key_event(key_event, step_id: StepId):
@@ -947,7 +977,7 @@ def get_episode_info(info: Info):
 
         info = f"""\
 ### {env_args.task_name} (seed: {env_args.task_seed})
-### Step {info.step} / {len(steps_info) - 1} (Reward: {cum_reward:.1f})
+### (Reward: {cum_reward:.1f})
 
 **Goal:**
 
