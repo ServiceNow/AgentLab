@@ -1,0 +1,14 @@
+/* Bulma carousel component styles - simplified version */
+
+.carousel-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.carousel-item {
+  display: none;
+}
+
+.carousel-item.is-active {
+  display: block;
+}
