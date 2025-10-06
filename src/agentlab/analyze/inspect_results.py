@@ -240,48 +240,59 @@ def get_sample_std_err(df, metric):
 
 
 def summarize(sub_df):
+    # 1) Choose which error flag to use, in priority order:
+    #    err_any (combined), then has_step_error, then legacy err_msg!=NaN
+    if "err_any" in sub_df:
+        err_flag = sub_df["err_any"].fillna(False)
+    elif "has_step_error" in sub_df:
+        base = sub_df["err_msg"].notnull() if "err_msg" in sub_df else False
+        err_flag = base | sub_df["has_step_error"].fillna(False)
+    else:
+        err_flag = sub_df["err_msg"].notnull() if "err_msg" in sub_df else pd.Series(False, index=sub_df.index)
+
     if "cum_reward" not in sub_df:
         record = dict(
             avg_reward=np.nan,
             std_err=np.nan,
-            # avg_raw_reward=np.nan,
             avg_steps=np.nan,
             n_completed=f"0/{len(sub_df)}",
-            n_err=0,
+            n_err=int(err_flag.sum(skipna=True)),
         )
-    else:
-        err = sub_df["err_msg"].notnull()
-        n_completed = err.copy()
-        for col in ["truncated", "terminated"]:
-            if col in sub_df:
-                n_completed = n_completed | sub_df[col]
-        n_completed = n_completed.sum()
+        return pd.Series(record)
 
-        if n_completed == 0:
-            return None
+    # Completed = any of (terminated/truncated) or error flagged
+    n_completed_flag = err_flag.copy()
+    for col in ["truncated", "terminated"]:
+        if col in sub_df:
+            n_completed_flag = n_completed_flag | sub_df[col]
+    n_completed = int(n_completed_flag.sum())
 
-        _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
+    if n_completed == 0:
+        return None
 
-        # sanity check, if there is an error the reward should be zero
+    _mean_reward, std_reward = get_std_err(sub_df, "cum_reward")
+
+    # Optional sanity check (only applies to top-level errors).
+    # Keep it guarded so step-only errors don't trip it.
+    if "err_msg" in sub_df:
         assert sub_df[sub_df["err_msg"].notnull()]["cum_reward"].sum() == 0
 
-        record = dict(
-            avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
-            std_err=std_reward.round(3),
-            # avg_raw_reward=sub_df["cum_raw_reward"].mean(skipna=True).round(3),
-            avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
-            n_completed=f"{n_completed}/{len(sub_df)}",
-            n_err=err.sum(skipna=True),
-        )
-        if "stats.cum_cost" in sub_df:
-            record["cum_cost"] = sub_df["stats.cum_cost"].sum(skipna=True).round(4)
-        if "stats.cum_effective_cost" in sub_df:
-            record["cum_effective_cost"] = (
-                sub_df["stats.cum_effective_cost"].sum(skipna=True).round(4)
-            )
-            record.pop("cum_cost", None)
+    record = dict(
+        avg_reward=sub_df["cum_reward"].mean(skipna=True).round(3),
+        std_err=std_reward.round(3),
+        avg_steps=sub_df["n_steps"].mean(skipna=True).round(3),
+        n_completed=f"{n_completed}/{len(sub_df)}",
+        n_err=int(err_flag.sum(skipna=True)),
+    )
+
+    if "stats.cum_cost" in sub_df:
+        record["cum_cost"] = sub_df["stats.cum_cost"].sum(skipna=True).round(4)
+    if "stats.cum_effective_cost" in sub_df:
+        record["cum_effective_cost"] = sub_df["stats.cum_effective_cost"].sum(skipna=True).round(4)
+        record.pop("cum_cost", None)
 
     return pd.Series(record)
+
 
 
 def summarize_stats(sub_df):

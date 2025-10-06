@@ -49,6 +49,7 @@ class EnvArgs(DataClassJsonMixin):
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
     pre_observation_delay: float = None  # seconds, wait for JS events to be fired
+    goal : str = None
 
     def make_env(
         self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True

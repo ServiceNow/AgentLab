@@ -90,6 +90,11 @@ class PrivilegedObservation:
     model_name: str
     output: str
     goal: Optional[str]   
+    action_name: Optional[str]
+    action_value: Optional[str]
+    bid_line: Optional[str]
+
+
 
 
 @dataclass
@@ -248,6 +253,10 @@ class PrivalegedAgent(Agent):
                             model_name=obs_data["model_name"],
                             output=obs_data["output"],
                             goal = goal,
+                            action_name=obs_data["action_name"],
+                            action_value=obs_data["action_value"],
+                            bid_line=obs_data["bid_line"],
+                            
                         )
                         run.add_step(step_id, privileged_obs)
 

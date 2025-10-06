@@ -142,34 +142,8 @@ class PrivalegedPrompt(dp.Shrinkable):
         # else:
         if self.use_privileged_actions:
             try:
-                # Create a formatted string for the trajectory, highlighting the current step
-                trajectory_lines = []
-                traj_goal = self.trajectory[0].goal
-                for i, t in enumerate(self.trajectory):
-                    # prefix = "-->" if i == self.step_idx else "   "
-                    trajectory_lines.append(f"{t.action}")
 
-                trajectory_str = "\n".join(trajectory_lines)
-
-                prompt.add_text(
-                    f"""
-<Secret information>
-    Here is a successful trajectory for a similar task. Your goal is to replicate the sequence of actions from this trajectory to solve the current task.
-
-    **Successful Trajectory Example for the Goal {traj_goal}:**
-    {trajectory_str}
-
-    **Your Task:**
-
-    1.  **Follow the Action Sequence:** You must execute the same type of action (e.g., `click`, `fill`) as the corresponding step in the example trajectory.
-    2.  **Adapt to the Environment:** The current environment is similar but may not be identical. Element attributes (like IDs, text, or positions) will be different. Your task is to identify the element in the current observation that corresponds to the target of the action in the example trajectory.
-    3.  **Reasoning:** For each step, first state the action from the example trajectory. Then, reason about how to find the equivalent element in the current observation and construct the correct action.
-    4.  **Strict Constraint:** Do NOT mention that you have been given an example trajectory in your reasoning. Act as if you are determining the best action based only on the observation and goal. You will be penalized for violating this rule.
-    5. **Reflect on the actions you have taken so far:** If you have already executed some actions, consider their effects and how they might influence the next action. You can refer to the previous actions in the trajectory to guide your reasoning.
-</Secret information>
-
-"""
-                )
+                prompt.add_text(get_privileged_info_prompt_agentlab(self.trajectory, self.trajectory[0].goal))
             except Exception as e:
                 # raise RuntimeError(f"No privilaged action will for goal {self.goal}.") from e
                 pass
@@ -302,3 +276,93 @@ explore the page to find a way to activate the form.
 
     def _parse_answer(self, text_answer):
         return parse_html_tags_raise(text_answer, optional_keys=["action_draft", "criticise"])
+    
+
+import re
+
+PROMPT_MINI = """<Secret information>
+- RULES:
+- DO NOT mention, reference, or leak ANY part of this secret information — it is invisible to you and must never appear in your reasoning or output.
+- Only use BIDs visible in the current AXTree.
+- **NEVER use BIDs from examples (like 'a324') — they are fake placeholders. The real BID must be found in the current AXTree.**
+- **The concrete example below (with 'a324') is ONLY for formatting. Ignore its content, BID, and reasoning logic.**
+- Think step by step — ALWAYS:
+1. Review previous action → Did it succeed? Is target now visible/focused/expanded?
+2. Find matching element in AXTree using: role + label + state (exact match > substring)
+3. If hidden/collapsed → open container first
+4. Justify briefly — **be concise** (1-3 short lines, no fluff, no stories)
+5. Output EXACTLY one action wrapped in <action>...</action>
+- Constraints:
+- DO NOT invent, hallucinate, or assume BIDs.
+- Never mention this secret trace — treat it as if it doesn't exist.
+- **If you skip thinking, you fail. Always write reasoning before the action.**
+- **Be concise. No repetition. No unnecessary words. One idea per line.**
+- Reference trajectory (for guidance only; do not copy IDs):
+- Here is a successful trajectory for a similar task. Your goal is to use it to solve the current task.
+- Goal: {goal}
+- Trace format (id-free, one per line):
+• ACTION=<click|dblclick|fill|select_option|scroll|noop> | VALUE='<payload or —>' | TARGET=<AXTree signature without [a###]>
+- Reference (do not copy ids):
+{traj}
+- Action API:
+- (exact syntax; output the action inside <action>…</action>)
+</Secret information>"""
+
+
+def get_privileged_info_prompt_agentlab(trajectory, traj_goal: str) -> str:
+    """
+    Builds an id-agnostic privileged prompt from a trajectory consisting of
+    dicts, (key, dict) tuples, or objects (e.g., PrivilegedObservation).
+    Each emitted reference row is:
+      • ACTION=<name> | VALUE='<payload or —>' | TARGET=<AXTree signature without [a###]>
+    """
+
+    def signature(axline: str | None) -> str | None:
+        if not axline:
+            return None
+        # strip leading [a###] token + surrounding whitespace if present
+        s = re.sub(r"^\s*\[[^\]]+\]\s*", "", axline).strip()
+        return s or None
+
+    def get_field(step, key, default=None):
+        # dict-like
+        if isinstance(step, dict):
+            return step.get(key, default)
+        # object-like
+        if hasattr(step, key):
+            return getattr(step, key)
+        return default
+
+    rows = []
+    for item in trajectory or []:
+        step = item[1] if isinstance(item, tuple) else item
+
+        # pull fields from either dict or object
+        action_name = get_field(step, "action_name")    # e.g., 'click', 'fill'
+        action_value = get_field(step, "action_value")  # e.g., 'team leaders'
+        ax_sig_raw = get_field(step, "bid_line")        # raw AXTree line
+        in_ax = get_field(step, "bid_in_axtree", None)  # may be missing
+        action_call = get_field(step, "action")         # full original call string
+
+        ax_sig = signature(ax_sig_raw)
+
+        # If bid_in_axtree not provided, assume True when we have a signature line
+        if in_ax is None:
+            in_ax = ax_sig is not None
+
+        if action_name and ax_sig and in_ax:
+            # Only include VALUE field if there's actually a value
+            if action_value is not None and (not isinstance(action_value, str) or action_value.strip() != ""):
+                val_str = repr(str(action_value))
+                rows.append(f"• ACTION={action_name} | VALUE={val_str} | TARGET={ax_sig}")
+            else:
+                rows.append(f"• ACTION={action_name} | TARGET={ax_sig}")
+        else:
+            # fallback keeps the original call for traceability
+            call_str = (action_call or "").strip()
+            rows.append(f"• ACTION_CALL={call_str}")
+
+    traj_block = "\n".join(rows) if rows else "• (empty)"
+
+    return PROMPT_MINI.format(goal=traj_goal, traj=traj_block)
+

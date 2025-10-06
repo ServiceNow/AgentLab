@@ -323,7 +323,7 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            res = AIMessage(completion.choices[0].message.content)
+            res = AIMessage(_extract_thinking_content_from_response(completion))
             if self.log_probs:
                 res["log_probs"] = completion.choices[0].log_probs
             return res
@@ -545,3 +545,71 @@ class AnthropicModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
         )
+
+
+
+import logging
+
+def _extract_thinking_content_from_response(response, wrap_tag: str = "think"):
+    """
+    Extracts the content from the message, including reasoning if available.
+    It wraps the reasoning around <think>...</think> for easy identification of reasoning content,
+    when LLM produces 'text' and 'reasoning' in the same message.
+
+    Args:
+        response: The message object or dict containing content and reasoning.
+        wrap_tag: The tag name to wrap reasoning content (default: "think").
+
+    Returns:
+        str: The extracted content with reasoning wrapped in specified tags.
+    """
+    # Normalize to dict
+    message = response.choices[0].message
+    if not isinstance(message, dict):
+        message = message.to_dict()
+
+    # --- Extract reasoning from either `reasoning` or `reasoning_content` (and optional metadata) ---
+    reasoning_text = (
+        message.get("reasoning")
+        or message.get("reasoning_content")
+    )
+
+    # --- Extract surface text/content (keeps your original behavior, but handles list-style `content`) ---
+    msg_text = message.get("text", "")  # works for OpenRouter
+    raw_content = message.get("content", "")
+
+    if isinstance(raw_content, list):
+        # Concatenate text-like parts if provider returns content blocks
+        parts = []
+        for part in raw_content:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict):
+                # Common shapes: {"type":"text","text":"..."} or {"type":"text","text":{"value":"..."}}
+                if part.get("type") == "text":
+                    txt = part.get("text")
+                    if isinstance(txt, dict) and isinstance(txt.get("value"), str):
+                        parts.append(txt["value"])
+                    elif isinstance(txt, str):
+                        parts.append(txt)
+                else:
+                    # Fallback: try a few likely keys
+                    for k in ("content", "text", "value"):
+                        v = part.get(k)
+                        if isinstance(v, str):
+                            parts.append(v)
+                            break
+            else:
+                parts.append(str(part))
+        msg_content = "\n".join(p for p in parts if p)
+    else:
+        msg_content = raw_content if isinstance(raw_content, str) else str(raw_content or "")
+
+    # --- Wrap reasoning if present ---
+    if reasoning_text:
+        reasoning_wrapped = f"<{wrap_tag}>{reasoning_text}</{wrap_tag}>\n" if wrap_tag else (reasoning_text + "\n")
+        logging.debug("Extracting content from response.choices[i].message.(reasoning|reasoning_content)")
+    else:
+        reasoning_wrapped = ""
+
+    return f"{reasoning_wrapped}{msg_text}{msg_content}"

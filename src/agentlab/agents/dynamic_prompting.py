@@ -412,6 +412,7 @@ class Observation(Shrinkable):
             visible=lambda: flags.use_html,
             prefix="## ",
         )
+        obs["axtree_txt"] = remove_ui_patterns(obs["axtree_txt"]) 
         self.ax_tree = AXTree(
             obs["axtree_txt"],
             visible_elements_only=flags.filter_visible_elements_only,
@@ -874,3 +875,39 @@ def make_obs_preprocessor(flags: ObsFlags):
         return obs
 
     return obs_mapping
+
+
+
+
+import re
+
+def remove_ui_patterns(text):
+    """
+    Remove lines containing specific UI patterns for ServiceNow accessibility tree text.
+
+    Args:
+        text (str): The input string containing the accessibility tree
+
+    Returns:
+        str: The cleaned string with lines containing UI patterns removed
+    """
+
+    # Words to look for
+    words_to_remove = ["Edit Widget", "Edit Widget Preferences", "Close Widget", "Add content"]
+
+    # Split text into lines
+    lines = text.split('\n')
+
+    # Keep lines that don't contain any of the words
+    filtered_lines = []
+    for line in lines:
+        should_keep = True
+        for word in words_to_remove:
+            if word in line:
+                should_keep = False
+                break
+        if should_keep:
+            filtered_lines.append(line)
+
+    # Join the remaining lines back together
+    return '\n'.join(filtered_lines)
