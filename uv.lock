@@ -25,7 +25,6 @@ name = "agentlab"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
-    { name = "bm25s" },
     { name = "browsergym", version = "0.13.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "browsergym", version = "0.14.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.13') or platform_machine != 'x86_64' or sys_platform != 'linux'" },
     { name = "contexttimer" },
@@ -38,7 +37,6 @@ dependencies = [
     { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "joblib" },
-    { name = "langchain" },
     { name = "litellm" },
     { name = "matplotlib" },
     { name = "openai" },
@@ -76,13 +74,16 @@ dev = [
 hint = [
     { name = "sentence-transformers" },
 ]
+retrievers = [
+    { name = "bm25s" },
+    { name = "langchain" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.62.0" },
     { name = "black", extras = ["jupyter"], marker = "extra == 'dev'", specifier = ">=24.2.0" },
     { name = "blacken-docs", marker = "extra == 'dev'" },
-    { name = "bm25s", specifier = ">=0.2.14" },
     { name = "browsergym", specifier = ">=0.7.1" },
     { name = "contexttimer" },
     { name = "dask" },
@@ -94,7 +95,6 @@ requires-dist = [
     { name = "huggingface-hub" },
     { name = "ipython" },
     { name = "joblib", specifier = ">=1.2.0" },
-    { name = "langchain", specifier = ">=0.3.27" },
     { name = "litellm", specifier = ">=1.75.3" },
     { name = "matplotlib" },
     { name = "openai", specifier = ">=1.7,<2" },
@@ -124,6 +124,10 @@ dev = [
     { name = "pip", specifier = ">=25.2" },
 ]
 hint = [{ name = "sentence-transformers", specifier = ">=5.0.0" }]
+retrievers = [
+    { name = "bm25s", specifier = ">=0.2.14" },
+    { name = "langchain", specifier = ">=0.3.27" },
+]
 
 [[package]]
 name = "aiofiles"

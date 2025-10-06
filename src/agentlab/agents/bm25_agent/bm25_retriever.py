@@ -1,7 +1,10 @@
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
-import bm25s
+try:
+    import bm25s
+except ImportError:
+    raise ImportError("bm25s is not installed. Please install it using `pip agentlab[retrievers]`.")
 import tiktoken  # Added import for tiktoken
 
 from .utils import get_chunks_from_tokenizer
@@ -54,7 +57,14 @@ class BM25SRetriever:
 
     def create_text_chunks(self, axtree, chunk_size=200, overlap=50):
         if self.use_recursive_text_splitter:
-            from langchain_text_splitters.character import RecursiveCharacterTextSplitter
+            try:
+                from langchain.text_splitter import (
+                    RecursiveCharacterTextSplitter,
+                )
+            except ImportError:
+                raise ImportError(
+                    "langchain is not installed. Please install it using `pip agentlab[retrievers]`."
+                )
 
             text_splitter = RecursiveCharacterTextSplitter()
             return text_splitter.split_text(axtree)

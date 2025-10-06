@@ -60,9 +60,14 @@ class EmbeddingRetrieverAgent(GenericAgent):
         axtree_txt = obs["axtree_txt"] if self.flags.obs.use_ax_tree else obs["pruned_dom"]
         axtree_chunks = []
         if self.retriever.args.use_recursive_text_splitter:
-            from langchain_text_splitters.character import (
-                RecursiveCharacterTextSplitter,
-            )
+            try:
+                from langchain.text_splitter import (
+                    RecursiveCharacterTextSplitter,
+                )
+            except ImportError:
+                raise ImportError(
+                    "langchain is not installed. Please install it using `pip agentlab[retrievers]`."
+                )
 
             text_splitter = RecursiveCharacterTextSplitter()
             axtree_chunks = text_splitter.split_text(axtree_txt)
