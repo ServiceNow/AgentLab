@@ -47,7 +47,7 @@ class LlmRetrieverUtils:
 
     @staticmethod
     def remove_lines_keep_structure(
-        tree: str, line_numbers: list[int], strategy: Literal["bid", "role", "bid+role"]
+        tree: str, line_numbers: list[int], strategy: Literal["bid", "bid+role"]
     ) -> str:
         """
         Remove all other lines that are not in line_numbers.
@@ -56,6 +56,9 @@ class LlmRetrieverUtils:
         Args:
             tree (str): The tree containing content to process
             line_numbers (list[int]): Line numbers to keep (1-indexed)
+            strategy (Literal["bid", "bid+role"]): Strategy to keep structure
+                - "bid": keep only the bid of the element and replace the rest of the line
+                - "bid+role": keep the bid and role of the element and replace the rest of the line
 
         Returns:
             str: Content with only specified lines kept, other parts replaced by tags
@@ -74,8 +77,6 @@ class LlmRetrieverUtils:
                         tag = (
                             line.split()[0] + " ... removed ..."
                         )  # keep bid and replace the rest of the line with removed
-                    case "role":
-                        raise NotImplementedError("Strategy keep role only not implemented.")
                     case "bid+role":
                         if ("[" not in line) and ("]" not in line):
                             tag = line.split()[

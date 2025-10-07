@@ -36,7 +36,7 @@ class FocusAgentArgs(GenericAgentArgs):
     retriever_prompt_flags: LlmRetrieverPromptFlags = None
     max_retry: int = 4
     keep_structure: bool = False
-    strategy: Literal["bid", "role", "bid+role"] = "bid"
+    strategy: Literal["bid", "bid+role"] = "bid"
     benchmark: str = None
     retriever_type: Literal["line", "defender", "restrictive", "neutral"] = "line"
 
