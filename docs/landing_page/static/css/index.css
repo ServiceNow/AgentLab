@@ -198,7 +198,7 @@ code {
 
 .table th {
   background-color: #0F2027;
-  color: white;
+  color: #e2e8f0 !important;
 }
 
 .table td {
