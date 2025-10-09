@@ -31,8 +31,8 @@ class GaiaGym(MultiToolGym):
     task: dict
     exp_dir: str
 
-    def __init__(self, tools: list[Tool | StatefulTool], task: dict, exp_dir: str):
-        super().__init__(tools=tools)
+    def __init__(self, tools: list[Tool | StatefulTool], task: dict, exp_dir: str, max_turns: int):
+        super().__init__(tools=tools, max_turns=max_turns)
         self.task = task
         self.exp_dir = exp_dir
         os.makedirs(".cache", exist_ok=True)
@@ -67,20 +67,9 @@ class GaiaGymArgs(AbstractEnvArgs):
     task_seed: int
     task_name: str
     env_config: DictConfig
+    max_turns: int
 
-    def __init__(
-        self,
-        task_name: str,
-        task: dict[str, Any],
-        env_config: DictConfig,
-        task_seed: int = 0,
-    ):
-        self.task_name = task_name
-        self.task = task
-        self.task_seed = task_seed
-        self.env_config = env_config
-
-    def make_env(self, exp_dir: Path, action_mapping=None) -> GaiaGym:
+    def make_env(self, exp_dir: Path, action_mapping=None, **kwargs) -> GaiaGym:
         tapeagents.config.DB_DEFAULT_FILENAME = str(exp_dir.parent / "tapedata.sqlite")
         exp_dir_str = str(exp_dir)
         logger.info(f"Init gaia env with directory {exp_dir_str}")
@@ -89,7 +78,7 @@ class GaiaGymArgs(AbstractEnvArgs):
             if hasattr(self.env_config.tools[i], "exp_path"):
                 self.env_config.tools[i].exp_path = exp_dir_str
         tools = hydra.utils.instantiate(self.env_config.tools)
-        env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir_str)
+        env = GaiaGym(tools=tools, task=self.task, exp_dir=exp_dir_str, max_turns=self.max_turns)
         return env
 
 
@@ -122,6 +111,7 @@ class GaiaBenchmark(AbstractBenchmark):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str = "gaia"
     split: Literal["test", "validation"]
+    max_turns: int = 20
     level: Literal["1", "2", "3", "all"] = "all"
     env_args_list: list[GaiaGymArgs] = None  # type: ignore
     dataset: dict | None = None  # type: ignore
@@ -134,6 +124,7 @@ class GaiaBenchmark(AbstractBenchmark):
             level=config.level,
             env_config=config.environment,
             dataset=dataset,
+            max_turns=config.max_turns,
         )
 
     def model_post_init(self, __context: Any) -> None:
@@ -151,7 +142,14 @@ class GaiaBenchmark(AbstractBenchmark):
             number += 1
             task["number"] = number
             name = f"gaia.{task['task_id']}"
-            env_args = GaiaGymArgs(task_name=name, task=task, env_config=self.env_config)
+            task_seed = 0
+            env_args = GaiaGymArgs(
+                task_name=name,
+                task=task,
+                task_seed=task_seed,
+                env_config=self.env_config,
+                max_turns=self.max_turns,
+            )
             self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} tasks from {self.split} split")
 
@@ -192,7 +190,8 @@ def task_to_observations(task: dict, max_doc_length: int = 8000) -> list[Observa
     if not question.filename:
         return [question]
 
-    filename: str | None = question.filename
+    filename: str = question.filename
+    assert os.path.exists(filename), f"Attachment {filename} does not exist!"
     question.filename = None
     steps: list[Observation] = []
     name, ext = filename.rsplit(".", maxsplit=1)
