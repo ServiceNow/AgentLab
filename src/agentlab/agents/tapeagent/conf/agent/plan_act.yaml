@@ -16,7 +16,7 @@ known_actions:
   - _target_: hydra.utils.get_class
     path: tapeagents.tools.code_executor.PythonCodeAction
   - _target_: hydra.utils.get_class
-    path: tapeagents.tools.browser.ClickAction
+    path: tapeagents.tools.browser.ClickBIDAction
   - _target_: hydra.utils.get_class
     path: tapeagents.tools.browser.GoBackAction
   - _target_: hydra.utils.get_class
@@ -82,13 +82,12 @@ nodes:
   - _target_: tapeagents.nodes.StandardNode
     name: act
     system_prompt: ${agent.templates.system_prompt}
-    guidance: |
-      Produce single next step. If the answer is ready, produce gaia_answer_action.
-      ${agent.templates.format}
+    guidance: Then produce single function call for the next step. If the answer is ready, call GaiaAnswer.
     steps_prompt: ${agent.templates.allowed_steps}
     steps:
       - tapeagents.steps.ReasoningThought
       - agentlab.benchmarks.gaia.ExtractedFacts
       - agentlab.benchmarks.gaia.GaiaAnswer
     use_known_actions: true
+    use_function_calls: true
     next_node: act
