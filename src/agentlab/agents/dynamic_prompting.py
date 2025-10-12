@@ -560,6 +560,7 @@ characters and wait until next step.
 * Interacting with combobox, dropdowns and auto-complete fields can be tricky,
 sometimes you need to use select_option, while other times you need to use fill
 or click and wait for the reaction of the page.
+* I want you to respond strictly with the action only. Do not say anything else.
 """
 
 
@@ -575,7 +576,7 @@ class ActionPrompt(PromptElement):
     _concrete_ex = """
 <action>
 click('a324')
-</action>
+<end_action>
 """
 
     def __init__(self, action_set: AbstractActionSet, action_flags: ActionFlags) -> None:
@@ -598,13 +599,13 @@ elements in the page is through bid which are specified in your observations.
         self._abstract_ex = f"""
 <action>
 {self.action_set.example_action(abstract=True)}
-</action>
+<end_action>
 """
 
     #         self._concrete_ex = f"""
     # <action>
     # {self.action_set.example_action(abstract=False)}
-    # </action>
+    # <end_action>
     # """
 
     def _parse_answer(self, text_answer):
@@ -789,7 +790,7 @@ class HistoryStep(Shrinkable):
             prompt += f"\n<think>\n{self.thought}\n</think>\n"
 
         if self.flags.use_action_history:
-            prompt += f"\n<action>\n{self.action}\n</action>\n"
+            prompt += f"\n<action>\n{self.action}\n<end_action>\n"
 
         # prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
         prompt += f"{self.error.prompt}"

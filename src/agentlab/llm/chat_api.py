@@ -324,7 +324,8 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            res = AIMessage(completion.choices[0].message.content)
+            rec = split_reasoning_and_action(completion.choices[0].message.content)
+            res = AIMessage("<think>\nreasoning\n</think>" + rec[1])
             if self.log_probs:
                 res["log_probs"] = completion.choices[0].log_probs
             return res
@@ -553,3 +554,54 @@ class AnthropicModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
         )
+
+
+from typing import Tuple
+
+START_TAG = "[BEGIN FINAL RESPONSE]"
+END_TAG = "[END FINAL RESPONSE]"
+END_RESPONSE_TAG = "<|end|>"
+
+def split_reasoning_and_action(s: str) -> Tuple[str, str]:
+    """Return (reasoning_wrapped, action_wrapped) from a single string.
+    reasoning_wrapped -> '<think>\\n{reasoning}\\n</think>' or '' if none
+    action_wrapped    -> '\\n\\n<action>\\n{content}\\n</action>'
+    """
+    txt = s.strip()
+
+    # Locate tags
+    i = txt.find(START_TAG)
+    j = txt.find(END_TAG, i + len(START_TAG)) if i != -1 else -1
+
+    if i != -1 and j != -1:
+        reasoning = txt[:i].strip()
+        content = txt[i + len(START_TAG):j].strip()
+    else:
+        reasoning = ""
+        content = txt
+
+    # Clean accidental echoes
+    if reasoning.endswith(START_TAG):
+        reasoning = reasoning[:-len(START_TAG)].rstrip()
+    if content.startswith(START_TAG):
+        content = content[len(START_TAG):].lstrip()
+    if content.endswith(END_TAG):
+        content = content[:-len(END_TAG)].rstrip()
+    if content.endswith(END_RESPONSE_TAG):
+        content = content[:-len(END_RESPONSE_TAG)].rstrip()
+
+    # Normalize existing <think> wrappers
+    if reasoning.startswith("<think>"):
+        reasoning = reasoning[len("<think>"):].lstrip()
+    if reasoning.endswith("</think>"):
+        reasoning = reasoning[:-len("</think>")].rstrip()
+
+    # Strip any action wrappers inside content before re-wrapping
+    content = content.replace("<action>", "").replace("<end_action>", "").strip()
+
+    reasoning_wrapped = f"<think>\n{reasoning}\n</think>" if reasoning else ""
+    action_wrapped = f"\n\n<action>\n{content}\n</action>"
+
+    return reasoning_wrapped, action_wrapped
+
+
