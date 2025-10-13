@@ -479,7 +479,7 @@ class VLLMChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             api_key_env_var="VLLM_API_KEY",
             client_class=OpenAI,
-            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            client_args={"base_url": os.getenv("VLLM_API_URL", "http://localhost:8000/v1")},
             pricing_func=None,
         )
 
