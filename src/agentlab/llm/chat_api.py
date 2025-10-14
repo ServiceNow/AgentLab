@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Optional
 
-import agentlab.llm.tracking as tracking
 import anthropic
 import openai
+from openai import NOT_GIVEN, OpenAI
+
+import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.llm_utils import AIMessage, Discussion
-from openai import NOT_GIVEN, OpenAI
 
 
 def make_system_message(content: str) -> dict:
