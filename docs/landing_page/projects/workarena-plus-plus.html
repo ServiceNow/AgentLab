@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="WorkArena++: Towards Compositional Planning and Reasoning-based Common Knowledge Work Tasks">
+  <meta name="keywords" content="WorkArena++, Enterprise, Benchmark, Web Agents, ServiceNow, LLM, Planning, Reasoning">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WorkArena++: Towards Compositional Planning and Reasoning-based Common Knowledge Work Tasks</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="../static/css/bulma.min.css">
+  <link rel="stylesheet" href="../static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="../static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="../static/css/index.css">
+  <link rel="icon" href="../static/images/favicon.ico">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="../static/js/bulma-carousel.min.js"></script>
+  <script src="../static/js/bulma-slider.min.js"></script>
+  <script src="../static/js/index.js"></script>
+</head>
+
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">WorkArena++: Towards Compositional Planning and Reasoning-based Common Knowledge Work Tasks</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Léo Boisvert,
+            </span>
+            <span class="author-block">
+              Megh Thakkar,
+            </span>
+            <span class="author-block">
+              Maxime Gasse,
+            </span>
+            <span class="author-block">
+              Massimo Caccia,
+            </span>
+            <span class="author-block">
+              Thibault Le Sellier De Chezelles,
+            </span>
+            <span class="author-block">
+              Quentin Cappart,
+            </span>
+            <span class="author-block">
+              Nicolas Chapados,
+            </span>
+            <span class="author-block">
+              Alexandre Lacoste
+            </span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2407.05291" 
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ServiceNow/WorkArena"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- arXiv Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2407.05291"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                  </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            The ability of large language models (LLMs) to mimic human-like intelligence has led to a surge in 
+            LLM-based autonomous agents. Though recent LLMs seem capable of planning and reasoning given user 
+            instructions, their effectiveness in applying these capabilities for autonomous task solving remains 
+            underexplored. This is especially true in enterprise settings, where automated agents hold the 
+            promise of a high impact.
+          </p>
+          <p>
+            To fill this gap, we propose WorkArena++, a novel benchmark consisting of 682 tasks corresponding 
+            to realistic workflows routinely performed by knowledge workers. WorkArena++ is designed to evaluate 
+            the planning, problem-solving, logical/arithmetic reasoning, retrieval, and contextual understanding 
+            abilities of web agents. Our empirical studies across state-of-the-art LLMs and vision-language models 
+            (VLMs), as well as human workers, reveal several challenges for such models to serve as useful assistants 
+            in the workplace.
+          </p>
+          <p>
+            In addition to the benchmark, we provide a mechanism to effortlessly generate thousands of ground-truth 
+            observation/action traces, which can be used for fine-tuning existing models. Overall, we expect this 
+            work to serve as a useful resource to help the community progress toward capable autonomous agents.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Key Features</h2>
+    
+    <div class="columns is-multiline">
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Compositional Tasks</h3>
+            <p class="content">
+              682 tasks designed to evaluate compositional planning and reasoning abilities, 
+              going beyond simple navigation to complex multi-step workflows.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Multi-Modal Evaluation</h3>
+            <p class="content">
+              Comprehensive evaluation across state-of-the-art LLMs and vision-language models,
+              with human baseline comparisons for realistic performance assessment.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 title is-4">Automated Trace Generation</h3>
+            <p class="content">
+              Built-in mechanism to generate thousands of ground-truth observation/action traces
+              for fine-tuning and training autonomous agents.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Enterprise Workflows</h3>
+            <p class="content">
+              Realistic workflows performed by knowledge workers, focusing on 
+              planning, reasoning, retrieval, and contextual understanding capabilities.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Evaluation Capabilities</h2>
+    
+    <div class="columns is-multiline">
+      <div class="column is-full">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Planning & Problem-Solving</h3>
+            <div class="columns">
+              <div class="column">
+                <p class="content">
+                  Tasks requiring multi-step planning, decomposition of complex problems, 
+                  and strategic thinking to achieve enterprise-level objectives across 
+                  ServiceNow platform workflows.
+                </p>
+              </div>
+              <div class="column">
+                <ul>
+                  <li>Multi-step workflow planning</li>
+                  <li>Problem decomposition</li>
+                  <li>Strategic decision making</li>
+                  <li>Resource optimization</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-full">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Logical & Arithmetic Reasoning</h3>
+            <div class="columns">
+              <div class="column">
+                <p class="content">
+                  Evaluation of mathematical reasoning, logical inference, and quantitative 
+                  analysis capabilities required for data-driven enterprise decision making 
+                  and process optimization.
+                </p>
+              </div>
+              <div class="column">
+                <ul>
+                  <li>Mathematical computations</li>
+                  <li>Logical inference chains</li>
+                  <li>Data analysis tasks</li>
+                  <li>Quantitative reasoning</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-full">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Information Retrieval & Context</h3>
+            <div class="columns">
+              <div class="column">
+                <p class="content">
+                  Assessment of agents' ability to retrieve relevant information from 
+                  large knowledge bases, understand contextual relationships, and 
+                  apply retrieved knowledge to solve complex tasks.
+                </p>
+              </div>
+              <div class="column">
+                <ul>
+                  <li>Knowledge base queries</li>
+                  <li>Contextual understanding</li>
+                  <li>Information synthesis</li>
+                  <li>Cross-reference validation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Benchmark Statistics</h2>
+    <div class="content">
+      <div class="columns">
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content has-text-centered">
+              <h4 class="title is-2">682</h4>
+              <p class="subtitle">Total Tasks</p>
+              <p>Comprehensive task coverage across multiple enterprise scenarios</p>
+            </div>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content has-text-centered">
+              <h4 class="title is-2">5</h4>
+              <p class="subtitle">Core Capabilities</p>
+              <p>Planning, Reasoning, Retrieval, Context, Problem-Solving</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="columns">
+        <div class="column">
+          <h4 class="title is-5">Task Categories</h4>
+          <ul>
+            <li><strong>Compositional Planning:</strong> Multi-step workflow coordination</li>
+            <li><strong>Arithmetic Reasoning:</strong> Mathematical and quantitative analysis</li>
+            <li><strong>Logical Reasoning:</strong> Complex inference and deduction</li>
+            <li><strong>Information Retrieval:</strong> Knowledge base search and synthesis</li>
+            <li><strong>Contextual Understanding:</strong> Enterprise domain comprehension</li>
+          </ul>
+        </div>
+        <div class="column">
+          <h4 class="title is-5">Model Evaluation</h4>
+          <ul>
+            <li><strong>LLMs:</strong> State-of-the-art language models</li>
+            <li><strong>VLMs:</strong> Vision-language multimodal models</li>
+            <li><strong>Human Baselines:</strong> Knowledge worker performance</li>
+            <li><strong>Fine-tuning Data:</strong> Thousands of action traces</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">BibTeX</h2>
+    <div class="content">
+      <pre><code>@article{boisvert2024workarena++,
+  title={WorkArena++: Towards Compositional Planning and Reasoning-based Common Knowledge Work Tasks},
+  author={Boisvert, L{\\'e}o and Thakkar, Megh and Gasse, Maxime and Caccia, Massimo and Le Sellier De Chezelles, Thibault and Cappart, Quentin and Chapados, Nicolas and Lacoste, Alexandre},
+  journal={arXiv preprint arXiv:2407.05291},
+  year={2024}
+}</code></pre>
+      <button class="button is-small" onclick="navigator.clipboard.writeText(document.querySelector('pre code').textContent)">
+        <span class="icon"><i class="fas fa-copy"></i></span>
+        <span>Copy</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template">Academic Project Page Template</a>.
+        <br>
+        Part of the <a href="../index.html">AgentLab Research Hub</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
