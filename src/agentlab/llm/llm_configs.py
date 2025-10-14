@@ -1,13 +1,12 @@
-from openai import NOT_GIVEN
-
 from agentlab.llm.chat_api import (
     AnthropicModelArgs,
     AzureModelArgs,
+    BedrockModelArgs,
     OpenAIModelArgs,
     OpenRouterModelArgs,
     SelfHostedModelArgs,
-    BedrockModelArgs,
 )
+from openai import NOT_GIVEN
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -211,17 +210,17 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1e-1,
     ),
     # ------------ Anthropic / Bedrock ------------#
-    "bedrock/claude-3.7-sonnet": BedrockModelArgs(
+    "bedrock/claude-3-7-sonnet": BedrockModelArgs(
         model_name="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         max_new_tokens=16_384,
         temperature=1e-1,
     ),
-    "bedrock/claude-4.0-sonnet": BedrockModelArgs(
+    "bedrock/claude-4-0-sonnet": BedrockModelArgs(
         model_name="us.anthropic.claude-sonnet-4-20250514-v1:0",
         max_new_tokens=16_384,
         temperature=1e-1,
     ),
-    "bedrock/claude-4.5-sonnet": BedrockModelArgs(
+    "bedrock/claude-4-5-sonnet": BedrockModelArgs(
         model_name="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         max_new_tokens=16_384,
         temperature=1e-1,
