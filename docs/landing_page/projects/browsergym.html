@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="BrowserGym Ecosystem: A unified environment for web agent research across multiple benchmarks.">
+  <meta name="keywords" content="BrowserGym, Web Agents, Benchmarks, Research, AI">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BrowserGym Ecosystem</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="../static/css/bulma.min.css">
+  <link rel="stylesheet" href="../static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="../static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="../static/css/index.css">
+  <link rel="icon" href="../static/images/favicon.ico">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="../static/js/bulma-carousel.min.js"></script>
+  <script src="../static/js/bulma-slider.min.js"></script>
+  <script src="../static/js/index.js"></script>
+</head>
+
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">BrowserGym Ecosystem</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Thibault Le Sellier De Chezelles,
+            </span>
+            <span class="author-block">
+              Maxime Gasse,
+            </span>
+            <span class="author-block">
+              Alexandre Drouin,
+            </span>
+            <span class="author-block">
+                Massimo Caccia,
+            </span>
+            <span class="author-block">
+                Léo Boisvert,
+            </span>
+            <span class="author-block">
+                Megh Thakkar,
+            </span>
+            <span class="author-block">
+                Tom Marty,
+            </span>
+            <span class="author-block">
+                Rim Assouel,
+            </span>
+            <span class="author-block">
+                Sahar Omidi Shayegan,
+            </span>
+            <span class="author-block">
+                Lawrence Keunho Jang,
+            </span>
+            <span class="author-block">
+                Xing Han Lù,
+            </span>
+            <span class="author-block">
+                Ori Yoran,
+            </span>
+            <span class="author-block">
+                Dehan Kong,
+            </span>
+            <span class="author-block">
+                Frank F. Xu,
+            </span>
+            <span class="author-block">
+                Siva Reddy,
+            </span>
+            <span class="author-block">
+                Quentin Cappart,
+            </span>
+            <span class="author-block">
+                Graham Neubig,
+            </span>
+            <span class="author-block">
+                Ruslan Salakhutdinov,
+            </span>
+            <span class="author-block">
+                Nicolas Chapados,
+            </span>
+            <span class="author-block">
+                Alexandre Lacoste
+            </span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2412.05467" 
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ServiceNow/BrowserGym"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- arXiv Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2412.05467"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                  </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            The BrowserGym ecosystem addresses the growing need for efficient evaluation and benchmarking of web agents, particularly those leveraging automation and Large Language Models (LLMs). Many existing benchmarks suffer from fragmentation and inconsistent evaluation methodologies, making it challenging to achieve reliable comparisons and reproducible results. In an earlier work, Drouin et al. (2024) introduced BrowserGym which aims to solve this by providing a unified, gym-like environment with well-defined observation and action spaces, facilitating standardized evaluation across diverse benchmarks. We propose an extended BrowserGym-based ecosystem for web agent research, which unifies existing benchmarks from the literature and includes AgentLab, a complementary framework that aids in agent creation, testing, and analysis. Our proposed ecosystem offers flexibility for integrating new benchmarks while ensuring consistent evaluation and comprehensive experiment management. As a supporting evidence, we conduct the first large-scale, multi-benchmark web agent experiment and compare the performance of 6 state-of-the-art LLMs across 6 popular web agent benchmarks made available in BrowserGym. Among other findings, our results highlight a large discrepancy between OpenAI and Anthropic's latests models, with Claude-3.5-Sonnet leading the way on almost all benchmarks, except on vision-related tasks where GPT-4o is superior. Despite these advancements, our results emphasize that building robust and efficient web agents remains a significant challenge, due to the inherent complexity of real-world web environments and the limitations of current models.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Key Features</h2>
+    
+    <div class="columns is-multiline">
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Unified Interface</h3>
+            <p class="content">
+              Standardized Gymnasium-compatible interface across all supported benchmarks, 
+              enabling seamless switching between different evaluation environments.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Multiple Benchmarks</h3>
+            <p class="content">
+              Support for 8+ web agent benchmarks including WebArena, WorkArena, 
+              VisualWebArena, AssistantBench, MiniWoB, and more.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Standardized Evaluation</h3>
+            <p class="content">
+              Consistent evaluation metrics and protocols across benchmarks, 
+              enabling fair comparison of agent performance.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Reproducible Research</h3>
+            <p class="content">
+              Built-in reproducibility features, experiment tracking, 
+              and standardized reporting for reliable research outcomes.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">BibTeX</h2>
+    <div class="content">
+      <pre><code>@misc{dechezelles2025browsergymecosystemwebagent,
+      title={The BrowserGym Ecosystem for Web Agent Research}, 
+      author={Thibault Le Sellier De Chezelles and Maxime Gasse and Alexandre Drouin and Massimo Caccia and Léo Boisvert and Megh Thakkar and Tom Marty and Rim Assouel and Sahar Omidi Shayegan and Lawrence Keunho Jang and Xing Han Lù and Ori Yoran and Dehan Kong and Frank F. Xu and Siva Reddy and Quentin Cappart and Graham Neubig and Ruslan Salakhutdinov and Nicolas Chapados and Alexandre Lacoste},
+      year={2025},
+      eprint={2412.05467},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2412.05467}, 
+}</code></pre>
+      <button class="button is-small" onclick="navigator.clipboard.writeText(document.querySelector('pre code').textContent)">
+        <span class="icon"><i class="fas fa-copy"></i></span>
+        <span>Copy</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template">Academic Project Page Template</a>.
+        <br>
+        Part of the <a href="../index.html">AgentLab Research Hub</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

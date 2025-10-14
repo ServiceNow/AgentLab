@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="AgentLab: A comprehensive framework for developing and evaluating web agents across multiple benchmarks.">
+  <meta name="keywords" content="AgentLab, Web Agents, BrowserGym, WebArena, WorkArena, AI Agents">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentLab Research Hub</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.ico">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <!-- Social sharing meta tags -->
+  <meta property="og:title" content="AgentLab Research Hub">
+  <meta property="og:description" content="A comprehensive framework for developing and evaluating web agents across multiple benchmarks.">
+  <meta property="og:image" content="./static/images/social_preview.svg">
+  <meta property="og:url" content="https://agentlab-research.github.io">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AgentLab Research Hub">
+  <meta name="twitter:description" content="A comprehensive framework for developing and evaluating web agents across multiple benchmarks.">
+  <meta name="twitter:image" content="./static/images/social_preview.svg">
+</head>
+<body>
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://agentlab.readthedocs.io">
+      <span class="icon">
+          <i class="fas fa-book"></i>
+      </span>
+      Documentation
+      </a>
+
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">
+          Research Projects
+        </a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="./projects/browsergym.html">
+            BrowserGym Ecosystem
+          </a>
+          <a class="navbar-item" href="https://servicenow.github.io/WorkArena/">
+            WorkArena Benchmark
+          </a>
+          <a class="navbar-item" href="./projects/workarena-plus-plus.html">
+            WorkArena++
+          </a>
+          <a class="navbar-item" href="./projects/focus_agent.html">
+            FocusAgent
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+
+          <h1 class="title is-1 publication-title">AgentLab Research Hub</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              A comprehensive framework for developing and evaluating web agents
+            </span>
+          </div>
+
+          <!-- ServiceNow Logo -->
+          <!-- <div class="servicenow-logo-container" style="margin-bottom: 2rem;">
+            <img src="./static/images/ServiceNow_logo_CMYK_BL_Green.png" 
+                 alt="ServiceNow Logo" 
+                 class="servicenow-logo"
+                 style="height: 60px; width: auto;">
+          </div> -->
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://servicenow.com" style="color: #63df4e;">ServiceNow Research</a>
+            </span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- GitHub Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ServiceNow/AgentLab"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- PyPI Link. -->
+              <span class="link-block">
+                <a href="https://pypi.org/project/agentlab/"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-python"></i>
+                  </span>
+                  <span>PyPI</span>
+                  </a>
+              </span>
+              <!-- Documentation Link. -->
+              <span class="link-block">
+                <a href="https://agentlab.readthedocs.io"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-book"></i>
+                  </span>
+                  <span>Docs</span>
+                  </a>
+              </span>
+              <!-- Leaderboard Link. -->
+              <span class="link-block">
+                <a href="https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-trophy"></i>
+                  </span>
+                  <span>Leaderboard</span>
+                  </a>
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body" align="center">
+        <img src="https://github.com/user-attachments/assets/47a7c425-9763-46e5-be54-adac363be850" alt="agentlab-diagram" width="700"/>
+      <!-- <h2 class="subtitle has-text-centered">
+        <span class="dnerf">AgentLab</span> provides an open, easy-to-use and extensible framework to accelerate web agent research across multiple benchmarks.
+      </h2> -->
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">About</h2>
+        <div class="content has-text-justified">
+          <p>
+            <strong>AgentLab</strong> is a comprehensive framework for developing and evaluating agents on a variety of
+            benchmarks supported by <a href="https://github.com/ServiceNow/BrowserGym">BrowserGym</a>. 
+            It provides essential building blocks for creating web agents, unified LLM APIs, 
+            and extensive reproducibility features for rigorous research.
+          </p>
+          <p>
+            The framework supports large-scale parallel agent experiments using Ray, includes various 
+            agent architectures, and maintains a unified leaderboard across multiple benchmarks 
+            including WebArena, WorkArena, VisualWebArena, AssistantBench, and more.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+
+    <!-- Research Projects Grid -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Research Projects</h2>
+
+        <div class="columns is-multiline">
+          <!-- BrowserGym Ecosystem -->
+          <div class="column is-half" id="browsergym">
+            <div class="card">
+              <div class="card-content">
+                <h3 class="title is-4">BrowserGym Ecosystem</h3>
+                <p class="content">
+                  A unified environment for web agent research across multiple benchmarks.
+                  Provides standardized interfaces and evaluation metrics.
+                </p>
+                <div class="buttons">
+                  <a class="button is-primary" href="./projects/browsergym.html">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    <span>Learn More</span>
+                  </a>
+                  <a class="button is-link" href="https://github.com/ServiceNow/BrowserGym">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>Code</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- WorkArena Benchmark -->
+          <div class="column is-half" id="workarena">
+            <div class="card">
+              <div class="card-content">
+                <h3 class="title is-4">WorkArena Benchmark</h3>
+                <p class="content">
+                  Enterprise-focused web agent benchmark with realistic workplace tasks.
+                  Multiple difficulty levels (L1, L2, L3) with high seed diversity.
+                </p>
+                <div class="buttons">
+                  <a class="button is-primary" href="https://servicenow.github.io/WorkArena/">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    <span>Learn More</span>
+                  </a>
+                  <a class="button is-link" href="https://github.com/ServiceNow/WorkArena">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>Repository</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        <!-- WorkArena++ -->
+          <div class="column is-half">
+            <div class="card">
+              <div class="card-content">
+                <h3 class="title is-4">WorkArena++</h3>
+                <p class="content">
+                  Advanced benchmark with 682 compositional planning and reasoning tasks
+                  for evaluating autonomous agents in enterprise workflows.
+                </p>
+                <div class="buttons">
+                  <a class="button is-primary" href="./projects/workarena-plus-plus.html">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    <span>Learn More</span>
+                  </a>
+                  <a class="button is-link" href="https://arxiv.org/abs/2407.05291">
+                    <span class="icon"><i class="ai ai-arxiv"></i></span>
+                    <span>Paper</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        <!-- FocusAgent -->
+            <div class="column is-half" id="focusagent">
+              <div class="card">
+                <div class="card-content">
+                  <h3 class="title is-4">FocusAgent</h3>
+                  <p class="content">
+                    Innovative approach for context trimming in web agents, enhancing efficiency and security.
+                  </p>
+                  <div class="buttons">
+                    <a class="button is-primary" href="./projects/focus_agent.html">
+                      <span class="icon"><i class="fas fa-info-circle"></i></span>
+                      <span>Learn More</span>
+                    </a>
+                    <a class="button is-link" href="https://arxiv.org/abs/2510.03204">
+                      <span class="icon"><i class="ai ai-arxiv"></i></span>
+                      <span>Paper</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Supported Benchmarks -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Supported Benchmarks</h2>
+    <div class="content">
+      <table class="table is-fullwidth">
+        <thead>
+          <tr>
+            <th>Benchmark</th>
+            <th>Tasks</th>
+            <th>Max Steps</th>
+            <th>Multi-tab</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>WebArena</strong></td>
+            <td>812</td>
+            <td>30</td>
+            <td>✓</td>
+            <td>Available</td>
+          </tr>
+          <tr>
+            <td><strong>WorkArena L1-L3</strong></td>
+            <td>33-341</td>
+            <td>30-50</td>
+            <td>✗</td>
+            <td>Available</td>
+          </tr>
+          <tr>
+            <td><strong>VisualWebArena</strong></td>
+            <td>910</td>
+            <td>30</td>
+            <td>✓</td>
+            <td>Available</td>
+          </tr>
+          <tr>
+            <td><strong>AssistantBench</strong></td>
+            <td>214</td>
+            <td>30</td>
+            <td>✓</td>
+            <td>Available</td>
+          </tr>
+          <tr>
+            <td><strong>MiniWoB</strong></td>
+            <td>125</td>
+            <td>10</td>
+            <td>✗</td>
+            <td>Available</td>
+          </tr>
+          <tr>
+            <td><strong>OSWorld</strong></td>
+            <td>369</td>
+            <td>Variable</td>
+            <td>✗</td>
+            <td>Available</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Installation and Usage -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Quick Start</h2>
+    <div class="content">
+      <h4 class="title is-4">Installation</h4>
+      <pre><code>pip install agentlab
+playwright install</code></pre>
+      
+      <h4 class="title is-4">Basic Usage</h4>
+      <pre><code>from agentlab.agents.generic_agent import AGENT_4o_MINI
+from agentlab.experiments.study import make_study
+
+study = make_study(
+    benchmark="miniwob",
+    agent_args=[AGENT_4o_MINI],
+    comment="My first study",
+)
+
+study.run(n_jobs=5)</code></pre>
+
+      <h4 class="title is-4">Interactive Assistant</h4>
+      <pre><code>agentlab-assistant --start_url https://www.google.com</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template">Academic Project Page Template</a>.
+        <br>
+        AgentLab is developed by <a href="https://servicenow.com">ServiceNow Research</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,32 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="socialGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="630" fill="url(#socialGrad)"/>
+  
+  <!-- Main Title -->
+  <text x="600" y="200" font-family="Arial, sans-serif" font-size="72" font-weight="bold" 
+        text-anchor="middle" fill="white">AgentLab</text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="280" font-family="Arial, sans-serif" font-size="36" 
+        text-anchor="middle" fill="rgba(255,255,255,0.9)">Web Agent Research Framework</text>
+  
+  <!-- Description -->
+  <text x="600" y="340" font-family="Arial, sans-serif" font-size="24" 
+        text-anchor="middle" fill="rgba(255,255,255,0.8)">Comprehensive framework for developing and evaluating</text>
+  <text x="600" y="380" font-family="Arial, sans-serif" font-size="24" 
+        text-anchor="middle" fill="rgba(255,255,255,0.8)">web agents across multiple benchmarks</text>
+  
+  <!-- Features -->
+  <text x="600" y="450" font-family="Arial, sans-serif" font-size="20" 
+        text-anchor="middle" fill="white">✓ BrowserGym Ecosystem  ✓ WebArena & WorkArena  ✓ Scalable Experiments</text>
+  
+  <!-- Bottom branding -->
+  <text x="600" y="550" font-family="Arial, sans-serif" font-size="18" 
+        text-anchor="middle" fill="rgba(255,255,255,0.7)">ServiceNow Research • Open Source • MIT License</text>
+</svg>
