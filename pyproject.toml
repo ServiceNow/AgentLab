@@ -101,6 +101,9 @@ exclude = '''
   | dist
 )/
 '''
+force-exclude = '''
+src/agentlab/_version\.py$
+'''
 
 [dependency-groups]
 dev = [
