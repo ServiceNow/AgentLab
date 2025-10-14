@@ -1,0 +1,9 @@
+/* Bulma slider component styles - simplified version */
+
+.slider {
+  position: relative;
+}
+
+.slider input[type="range"] {
+  width: 100%;
+}

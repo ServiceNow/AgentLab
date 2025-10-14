@@ -1,0 +1,277 @@
+/* Custom CSS for AgentLab Landing Page - ServiceNow Theme */
+
+.hero {
+  background: linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%);
+  color: white;
+}
+
+.hero .title {
+  color: white;
+}
+
+.hero .subtitle {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.publication-title {
+  font-weight: bold;
+}
+
+.publication-authors {
+  margin-bottom: 1rem;
+}
+
+.author-block {
+  margin-right: 1rem;
+}
+
+.link-block {
+  margin: 0.25rem;
+}
+
+.card {
+  height: 100%;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #E5E7EB;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(15, 32, 39, 0.15);
+  border-color: #63DF4E;
+}
+
+.center-image {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+
+.blend-img-background {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.table {
+  background-color: white;
+}
+
+.navbar {
+  background-color: rgba(15, 32, 39, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.navbar-item {
+  color: white;
+}
+
+.navbar-item:hover {
+  background-color: rgba(99, 223, 78, 0.1);
+  color: #63DF4E;
+}
+
+.navbar-link {
+  color: white;
+}
+
+.navbar-link:hover {
+  background-color: rgba(99, 223, 78, 0.1);
+  color: #63DF4E;
+}
+
+.navbar-dropdown {
+  background-color: #203A43;
+}
+
+.navbar-dropdown .navbar-item {
+  color: white;
+}
+
+.navbar-dropdown .navbar-item:hover {
+  background-color: rgba(99, 223, 78, 0.1);
+  color: #63DF4E;
+}
+
+.section {
+  padding: 3rem 1.5rem;
+}
+
+.footer {
+  background-color: #0F2027;
+  color: white;
+  padding: 3rem 1.5rem 6rem;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .publication-title {
+    font-size: 2rem !important;
+  }
+  
+  .columns.is-multiline .column {
+    margin-bottom: 1.5rem;
+  }
+}
+
+/* Button styling - ServiceNow Theme */
+.button.is-rounded {
+  border-radius: 25px;
+}
+
+.button.is-primary {
+  background-color: #63DF4E;
+  border-color: #63DF4E;
+  color: #0F2027;
+  font-weight: 600;
+}
+
+.button.is-primary:hover {
+  background-color: #4FBF3A;
+  border-color: #4FBF3A;
+}
+
+.button.is-link {
+  background-color: #203A43;
+  border-color: #203A43;
+  color: white;
+}
+
+.button.is-link:hover {
+  background-color: #2C5364;
+  border-color: #2C5364;
+}
+
+.button.is-dark {
+  background-color: #0F2027;
+  border-color: #0F2027;
+  color: white;
+}
+
+.button.is-dark:hover {
+  background-color: #203A43;
+  border-color: #203A43;
+}
+
+/* Navigation improvements - ServiceNow Theme */
+.navbar-dropdown {
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(15, 32, 39, 0.25);
+  border: 1px solid #2C5364;
+}
+
+/* Code block styling - ServiceNow Theme */
+pre {
+  background-color: #0F2027;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  border: 1px solid #203A43;
+}
+
+code {
+  background-color: #0F2027;
+  color: #63DF4E;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* Additional ServiceNow Theme Elements */
+.title {
+  color: #0F2027;
+}
+
+.subtitle {
+  color: #203A43;
+}
+
+.content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
+  color: #0F2027;
+}
+
+.table {
+  background-color: white;
+  border: 1px solid #E5E7EB;
+}
+
+.table th {
+  background-color: #0F2027;
+  color: #e2e8f0 !important;
+}
+
+.table td {
+  border-color: #E5E7EB;
+}
+
+.table tr:hover {
+  background-color: rgba(99, 223, 78, 0.05);
+}
+
+/* Accent colors */
+.has-text-primary {
+  color: #63DF4E !important;
+}
+
+.has-background-primary {
+  background-color: #63DF4E !important;
+}
+
+/* Link styling */
+a {
+  color: #203A43;
+}
+
+a:hover {
+  color: #63DF4E;
+}
+
+/* Footer improvements */
+.footer a {
+  color: #63DF4E;
+}
+
+.footer a:hover {
+  color: white;
+}
+
+/* Section dividers */
+.section:nth-child(even) {
+  background-color: rgba(99, 223, 78, 0.02);
+}
+
+/* ServiceNow Logo Styling */
+.servicenow-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.servicenow-logo {
+  max-height: 60px;
+  height: auto;
+  width: auto;
+  transition: transform 0.2s ease;
+}
+
+.servicenow-logo:hover {
+  transform: scale(1.05);
+}
+
+/* Responsive logo sizing */
+@media screen and (max-width: 768px) {
+  .servicenow-logo {
+    max-height: 45px;
+  }
+  
+  .servicenow-logo-container {
+    margin-bottom: 1.5rem !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .servicenow-logo {
+    max-height: 35px;
+  }
+}
