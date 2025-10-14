@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=80", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -17,7 +17,7 @@ authors = [
     {name = "Aman Jaiswal", email = "aman.jaiswal@servicenow.com"},
 ]
 readme = "README.md"
-requires-python = ">3.10"
+requires-python = ">=3.11,<3.13"
 license = {text = "Apache-2.0"}
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -66,15 +66,22 @@ dev = [
     "pytest-xdist",
     "pytest-playwright",
 ]
-# tapeagents = [
-#     "tapeagents[converters]",
-# ]
 
 [project.urls]
-"Homepage" = "https://github.com/ServiceNow/AgentLab"
+Homepage = "https://github.com/ServiceNow/AgentLab"
 
-[tool.setuptools.dynamic]
-version = {attr = "agentlab.__version__"}
+# src/ layout discovery
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+write_to = "src/agentlab/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
 
 [tool.black]
 line-length = 100
