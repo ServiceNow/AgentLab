@@ -28,7 +28,7 @@ jobs:
         run: python -m pip install --upgrade pip hatchling hatch-vcs
 
       - name: Build wheel and sdist
-        run: python -m pip install hatch && hatch build --outdir dist/
+        run: python -m pip install hatch && hatch build dist/
 
       - name: Store the distribution packages
         uses: actions/upload-artifact@v4
