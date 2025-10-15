@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=80", "setuptools-scm>=8"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "agentlab"
@@ -70,18 +70,15 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/ServiceNow/AgentLab"
 
-# src/ layout discovery
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools_scm]
-write_to = "src/agentlab/_version.py"
+[tool.hatch.version]
+source = "vcs" # use version from git tags
+fallback-version = "0.0.0"
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentlab"]
+[tool.hatch.build.hooks.vcs]
+version-file = "src/agentlab/_version.py"
+[tool.hatch.version.raw-options]
 version_scheme = "guess-next-dev"
-local_scheme = "no-local-version"
-fallback_version = "0.0.0"
 
 [tool.black]
 line-length = 100
