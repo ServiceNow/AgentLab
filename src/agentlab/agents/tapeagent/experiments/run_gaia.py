@@ -10,6 +10,7 @@ logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[loggin
 
 if __name__ == "__main__":
     config = load_config("gaia_l1")
+    config.llm.base_url = os.environ["LLM_BASE_URL"]
     study = make_study(
         benchmark=GaiaBenchmark.from_config(config),  # type: ignore
         agent_args=TapeAgentArgs(agent_name=config.name, config=config),

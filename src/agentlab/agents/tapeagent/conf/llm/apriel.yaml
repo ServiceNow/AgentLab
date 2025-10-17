@@ -1,0 +1,9 @@
+_target_: tapeagents.llms.TrainableLLM
+model_name: Apriel1p5
+tokenizer_name: ServiceNow-AI/Apriel-1.5-15b-Thinker
+stream: false
+use_cache: false
+context_size: 128000
+base_url: localhost:8000
+parameters:
+  temperature: 0.6
