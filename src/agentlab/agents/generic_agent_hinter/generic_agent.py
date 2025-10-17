@@ -11,18 +11,18 @@ the agent, including model arguments and flags for various behaviors.
 import os
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-from functools import partial
+from pathlib import Path
 from warnings import warn
 
-import bgym
-from bgym import Benchmark
-from browsergym.experiments.agent import Agent, AgentInfo
-
+import pandas as pd
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import Discussion, ParseError, SystemMessage, retry
 from agentlab.llm.tracking import cost_tracker_decorator
+from agentlab.utils.hinting import HintsSource
+from bgym import Benchmark
+from browsergym.experiments.agent import Agent, AgentInfo
 
 from .generic_agent_prompt import (
     GenericPromptFlags,
@@ -39,7 +39,9 @@ class GenericAgentArgs(AgentArgs):
 
     def __post_init__(self):
         try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
-            self.agent_name = f"GenericAgent-hinter-{self.chat_model_args.model_name}".replace("/", "_")
+            self.agent_name = f"GenericAgent-hinter-{self.chat_model_args.model_name}".replace(
+                "/", "_"
+            )
         except AttributeError:
             pass
 
@@ -95,6 +97,8 @@ class GenericAgent(Agent):
         self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
+        self._init_hints_index()
+
         self._check_flag_constancy()
         self.reset(seed=None)
 
@@ -112,11 +116,16 @@ class GenericAgent(Agent):
 
         system_prompt = SystemMessage(dp.SystemPrompt().prompt)
 
-        if self.flags.hint_level == "step":
-            # use those queries to retrieve from the database and pass to prompt if step-level
-            queries_for_hints, think_queries = self._get_queries()
+        # use those queries to retrieve from the database and pass to prompt if step-level
+        self.queries = (
+            self._get_queries()[0] if getattr(self.flags, "hint_level", "episode") == "step" else None
+        )
+
+        # get hints
+        if self.flags.use_hints:
+            task_hints = self._get_task_hints()
         else:
-            queries_for_hints = None
+            task_hints = []
 
         main_prompt = MainPrompt(
             action_set=self.action_set,
@@ -128,7 +137,7 @@ class GenericAgent(Agent):
             step=self.plan_step,
             flags=self.flags,
             llm=self.chat_llm,
-            queries=queries_for_hints,
+            task_hints=task_hints,
         )
 
         # Set task name for task hints if available
@@ -250,3 +259,124 @@ does not support vision. Disabling use_screenshot."""
             else 20  # dangerous to change the default value here?
         )
         return max_prompt_tokens, max_trunc_itr
+
+    def _init_hints_index(self):
+        """Initialize the block."""
+        try:
+            if self.flags.hint_type == "docs":
+                if self.flags.hint_index_type == "sparse":
+                    import bm25s
+
+                    self.hint_index = bm25s.BM25.load(self.flags.hint_index_path, load_corpus=True)
+                elif self.flags.hint_index_type == "dense":
+                    from datasets import load_from_disk
+                    from sentence_transformers import SentenceTransformer
+
+                    self.hint_index = load_from_disk(self.flags.hint_index_path)
+                    self.hint_index.load_faiss_index(
+                        "embeddings", self.flags.hint_index_path.removesuffix("/") + ".faiss"
+                    )
+                    self.hint_retriever = SentenceTransformer(self.flags.hint_retriever_path)
+                else:
+                    raise ValueError(f"Unknown hint index type: {self.flags.hint_index_type}")
+            else:
+                # Use external path if provided, otherwise fall back to relative path
+                if self.flags.hint_db_path and Path(self.flags.hint_db_path).exists():
+                    hint_db_path = Path(self.flags.hint_db_path)
+                else:
+                    hint_db_path = Path(__file__).parent / self.flags.hint_db_rel_path
+
+                if hint_db_path.exists():
+                    self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
+                    # Verify the expected columns exist
+                    if (
+                        "task_name" not in self.hint_db.columns
+                        or "hint" not in self.hint_db.columns
+                    ):
+                        print(
+                            f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
+                        )
+                        self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+                else:
+                    print(f"Warning: Hint database not found at {hint_db_path}")
+                    self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+                self.hints_source = HintsSource(
+                    hint_db_path=hint_db_path.as_posix(),
+                    hint_retrieval_mode=self.flags.hint_retrieval_mode,
+                    skip_hints_for_current_task=self.flags.skip_hints_for_current_task,
+                )
+        except Exception as e:
+            # Fallback to empty database on any error
+            print(f"Warning: Could not load hint database: {e}")
+            self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
+
+    def _get_task_hints(self) -> list[str]:
+        """Get hints for a specific task."""
+        if not self.flags.use_task_hint:
+            return []
+
+        if self.flags.hint_type == "docs":
+            if not hasattr(self, "hint_index"):
+                print("Initializing hint index new time")
+                self._init()
+            if self.flags.hint_query_type == "goal":
+                query = self.obs_history[-1]["goal_object"][0]["text"]
+            elif self.flags.hint_query_type == "llm":
+                queries, _ = self._get_queries()
+                # HACK: only 1 query supported
+                query = queries[0]
+            else:
+                raise ValueError(f"Unknown hint query type: {self.flags.hint_query_type}")
+
+            print(f"Query: {query}")
+            if self.flags.hint_index_type == "sparse":
+                import bm25s
+
+                query_tokens = bm25s.tokenize(query)
+                docs, _ = self.hint_index.retrieve(query_tokens, k=self.flags.hint_num_results)
+                docs = [elem["text"] for elem in docs[0]]
+                # HACK: truncate to 20k characters (should cover >99% of the cases)
+                for doc in docs:
+                    if len(doc) > 20000:
+                        doc = doc[:20000]
+                        doc += " ...[truncated]"
+            elif self.flags.hint_index_type == "dense":
+                query_embedding = self.hint_retriever.encode(query)
+                _, docs = self.hint_index.get_nearest_examples(
+                    "embeddings", query_embedding, k=self.flags.hint_num_results
+                )
+                docs = docs["text"]
+
+            return docs
+
+        # Check if hint_db has the expected structure
+        if (
+            self.hint_db.empty
+            or "task_name" not in self.hint_db.columns
+            or "hint" not in self.hint_db.columns
+        ):
+            return []
+
+        try:
+            # When step-level, pass queries as goal string to fit the llm_prompt
+            goal_or_queries = self.obs_history[-1]["goal_object"][0]["text"]
+            if self.flags.hint_level == "step" and self.queries:
+                goal_or_queries = "\n".join(self.queries)
+
+            task_hints = self.hints_source.choose_hints(
+                self.llm,
+                self.task_name,
+                goal_or_queries,
+            )
+
+            hints = []
+            for hint in task_hints:
+                hint = hint.strip()
+                if hint:
+                    hints.append(f"- {hint}")
+
+            return hints
+        except Exception as e:
+            print(f"Warning: Error getting hints for task {self.task_name}: {e}")
+
+        return []

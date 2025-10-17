@@ -11,12 +11,11 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-from browsergym.core.action.base import AbstractActionSet
-
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.tool_use_agent.tool_use_agent import HintsSource
 from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
+from browsergym.core.action.base import AbstractActionSet
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +51,6 @@ class GenericPromptFlags(dp.Flags):
     use_abstract_example: bool = False
     use_hints: bool = False
     use_task_hint: bool = False
-    task_hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
-    skip_hints_for_current_task: bool = False
-    hint_db_path: str = None
     enable_chat: bool = False
     max_prompt_tokens: int = None
     be_cautious: bool = True
@@ -62,15 +58,16 @@ class GenericPromptFlags(dp.Flags):
     add_missparsed_messages: bool = True
     max_trunc_itr: int = 20
     flag_group: str = None
-    # hint flags
-    hint_type: Literal["human", "llm", "docs"] = "human"
-    hint_index_type: Literal["sparse", "dense"] = "sparse"
-    hint_query_type: Literal["direct", "llm", "emb"] = "direct"
-    hint_index_path: str = None
-    hint_retriever_path: str = None
+
+    # hint related
+    use_task_hint: bool = False
+    hint_type: str = "docs"
+    hint_index_type: str = "sparse"
+    hint_query_type: str = "direct"
+    hint_index_path: str = "indexes/servicenow-docs-bm25"
+    hint_retriever_path: str = "google/embeddinggemma-300m"
     hint_num_results: int = 5
-    n_retrieval_queries: int = 3
-    hint_level: Literal["episode", "step"] = "episode"
+    n_retrieval_queries: int = 1
 
 
 class MainPrompt(dp.Shrinkable):
@@ -85,7 +82,7 @@ class MainPrompt(dp.Shrinkable):
         step: int,
         flags: GenericPromptFlags,
         llm: ChatModel,
-        queries: list[str] | None = None,
+        task_hints: list[str] = [],
     ) -> None:
         super().__init__()
         self.flags = flags
@@ -120,24 +117,7 @@ class MainPrompt(dp.Shrinkable):
         self.be_cautious = dp.BeCautious(visible=time_for_caution)
         self.think = dp.Think(visible=lambda: flags.use_thinking)
         self.hints = dp.Hints(visible=lambda: flags.use_hints)
-        goal_str: str = goal[0]["text"]
-        self.task_hint = TaskHint(
-            use_task_hint=flags.use_task_hint,
-            hint_db_path=flags.hint_db_path,
-            goal=goal_str,
-            hint_retrieval_mode=flags.task_hint_retrieval_mode,
-            llm=llm,
-            skip_hints_for_current_task=flags.skip_hints_for_current_task,
-            # hint related
-            hint_type=flags.hint_type,
-            hint_index_type=flags.hint_index_type,
-            hint_query_type=flags.hint_query_type,
-            hint_index_path=flags.hint_index_path,
-            hint_retriever_path=flags.hint_retriever_path,
-            hint_num_results=flags.hint_num_results,
-            hint_level=flags.hint_level,
-            queries=queries,
-        )
+        self.task_hints = TaskHint(visible=lambda: flags.use_task_hint, task_hints=task_hints)
         self.plan = Plan(previous_plan, step, lambda: flags.use_plan)  # TODO add previous plan
         self.criticise = Criticise(visible=lambda: flags.use_criticise)
         self.memory = Memory(visible=lambda: flags.use_memory)
@@ -146,18 +126,13 @@ class MainPrompt(dp.Shrinkable):
     def _prompt(self) -> HumanMessage:
         prompt = HumanMessage(self.instructions.prompt)
 
-        # Add task hints if enabled
-        task_hints_text = ""
-        if self.flags.use_task_hint and hasattr(self, "task_name"):
-            task_hints_text = self.task_hint.get_hints_for_task(self.task_name)
-
         prompt.add_text(
             f"""\
 {self.obs.prompt}\
 {self.history.prompt}\
 {self.action_prompt.prompt}\
 {self.hints.prompt}\
-{task_hints_text}\
+{self.task_hints.prompt}\
 {self.be_cautious.prompt}\
 {self.think.prompt}\
 {self.plan.prompt}\
@@ -178,7 +153,7 @@ answer:
 {self.plan.abstract_ex}\
 {self.memory.abstract_ex}\
 {self.criticise.abstract_ex}\
-{self.task_hint.abstract_ex}\
+{self.task_hints.abstract_ex}\
 {self.action_prompt.abstract_ex}\
 """
             )
@@ -194,7 +169,7 @@ Make sure to follow the template with proper tags:
 {self.plan.concrete_ex}\
 {self.memory.concrete_ex}\
 {self.criticise.concrete_ex}\
-{self.task_hint.concrete_ex}\
+{self.task_hints.concrete_ex}\
 {self.action_prompt.concrete_ex}\
 """
             )
@@ -317,42 +292,16 @@ explore the page to find a way to activate the form.
 
 
 class TaskHint(dp.PromptElement):
-    def __init__(
-        self,
-        use_task_hint: bool,
-        hint_db_path: str,
-        goal: str,
-        llm: ChatModel,
-        hint_type: Literal["human", "llm", "docs"] = "human",
-        hint_index_type: Literal["sparse", "dense"] = "sparse",
-        hint_query_type: Literal["direct", "llm", "emb"] = "direct",
-        hint_index_path: str = None,
-        hint_retriever_path: str = None,
-        hint_num_results: int = 5,
-        skip_hints_for_current_task: bool = False,
-        hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct",
-        hint_level: Literal["episode", "step"] = "episode",
-        queries: list[str] | None = None,
-    ) -> None:
-        super().__init__(visible=use_task_hint)
-        self.use_task_hint = use_task_hint
-        self.hint_type = hint_type
-        self.hint_index_type = hint_index_type
-        self.hint_query_type = hint_query_type
-        self.hint_index_path = hint_index_path
-        self.hint_retriever_path = hint_retriever_path
-        self.hint_num_results = hint_num_results
-        self.hint_db_rel_path = "hint_db.csv"
-        self.hint_db_path = hint_db_path  # Allow external path override
-        self.hint_retrieval_mode: Literal["direct", "llm", "emb"] = hint_retrieval_mode
-        self.skip_hints_for_current_task = skip_hints_for_current_task
-        self.goal = goal
-        self.llm = llm
-        self.hint_level: Literal["episode", "step"] = hint_level
-        self.queries: list[str] | None = queries
-        self._init()
+    def __init__(self, visible: bool, task_hints: list[str]) -> None:
+        super().__init__(visible=visible)
+        self.task_hints = task_hints
 
-    _prompt = ""  # Task hints are added dynamically in MainPrompt
+    @property
+    def _prompt(self):
+        task_hint_str = "# Hints:\nHere are some hints for the task you are working on:\n"
+        for hint in self.task_hints:
+            task_hint_str += f"{hint}\n"
+        return task_hint_str
 
     _abstract_ex = """
 <task_hint>
@@ -366,127 +315,6 @@ Relevant hint: Based on the hints provided, I should focus on the form elements 
 accessibility tree to identify interactive elements before taking actions.
 </task_hint>
 """
-
-    def _init(self):
-        """Initialize the block."""
-        try:
-            if self.hint_type == "docs":
-                if self.hint_index_type == "sparse":
-                    print("Loading sparse hint index")
-                    import bm25s
-                    self.hint_index = bm25s.BM25.load(self.hint_index_path, load_corpus=True)
-                    print("Sparse hint index loaded successfully")
-                elif self.hint_index_type == "dense":
-                    print("Loading dense hint index and retriever")
-                    from datasets import load_from_disk
-                    from sentence_transformers import SentenceTransformer
-                    self.hint_index = load_from_disk(self.hint_index_path)
-                    self.hint_index.load_faiss_index("embeddings", self.hint_index_path.removesuffix("/") + ".faiss")
-                    print("Dense hint index loaded successfully")
-                    self.hint_retriever = SentenceTransformer(self.hint_retriever_path)
-                    print("Hint retriever loaded successfully")
-                else:
-                    raise ValueError(f"Unknown hint index type: {self.hint_index_type}")
-            else:
-                # Use external path if provided, otherwise fall back to relative path
-                if self.hint_db_path and Path(self.hint_db_path).exists():
-                    hint_db_path = Path(self.hint_db_path)
-                else:
-                    hint_db_path = Path(__file__).parent / self.hint_db_rel_path
-
-                if hint_db_path.exists():
-                    self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
-                    # Verify the expected columns exist
-                    if "task_name" not in self.hint_db.columns or "hint" not in self.hint_db.columns:
-                        print(
-                            f"Warning: Hint database missing expected columns. Found: {list(self.hint_db.columns)}"
-                        )
-                        self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-                else:
-                    print(f"Warning: Hint database not found at {hint_db_path}")
-                    self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-
-                self.hints_source = HintsSource(
-                    hint_db_path=hint_db_path.as_posix(),
-                    hint_retrieval_mode=self.hint_retrieval_mode,
-                    skip_hints_for_current_task=self.skip_hints_for_current_task,
-                )
-        except Exception as e:
-            # Fallback to empty database on any error
-            print(f"Warning: Could not load hint database: {e}")
-            self.hint_db = pd.DataFrame(columns=["task_name", "hint"])
-
-    def get_hints_for_task(self, task_name: str) -> str:
-        """Get hints for a specific task."""
-        if not self.use_task_hint:
-            return ""
-
-        if self.hint_type == "docs":
-            if not hasattr(self, "hint_index"):
-                self._init()
-
-            if self.hint_query_type == "goal":
-                query = self.goal
-            elif self.hint_query_type == "llm":
-                query = self.llm.generate(self._prompt + self._abstract_ex + self._concrete_ex)
-            else:
-                raise ValueError(f"Unknown hint query type: {self.hint_query_type}")
-
-            if self.hint_index_type == "sparse":
-                query_tokens = bm25s.tokenize(query)
-                docs = self.hint_index.search(query_tokens, k=self.hint_num_results)
-                docs = docs["text"]
-            elif self.hint_index_type == "dense":
-                query_embedding = self.hint_retriever.encode(query)
-                _, docs = self.hint_index.get_nearest_examples("embeddings", query_embedding, k=self.hint_num_results)
-                docs = docs["text"]
-
-            hints_str = (
-                "# Hints:\nHere are some hints for the task you are working on:\n"
-                + "\n".join(docs)
-            )
-            return hints_str
-
-        # Ensure hint_db is initialized
-        if not hasattr(self, "hint_db"):
-            self._init()
-
-        # Check if hint_db has the expected structure
-        if (
-            self.hint_db.empty
-            or "task_name" not in self.hint_db.columns
-            or "hint" not in self.hint_db.columns
-        ):
-            return ""
-
-        try:
-            # When step-level, pass queries as goal string to fit the llm_prompt
-            goal_or_queries = self.goal
-            if self.hint_level == "step" and self.queries:
-                goal_or_queries = "\n".join(self.queries)
-
-            task_hints = self.hints_source.choose_hints(
-                self.llm,
-                task_name,
-                goal_or_queries,
-            )
-
-            hints = []
-            for hint in task_hints:
-                hint = hint.strip()
-                if hint:
-                    hints.append(f"- {hint}")
-
-            if len(hints) > 0:
-                hints_str = (
-                    "# Hints:\nHere are some hints for the task you are working on:\n"
-                    + "\n".join(hints)
-                )
-                return hints_str
-        except Exception as e:
-            print(f"Warning: Error getting hints for task {task_name}: {e}")
-
-        return ""
 
 
 class StepWiseContextIdentificationPrompt(dp.Shrinkable):
