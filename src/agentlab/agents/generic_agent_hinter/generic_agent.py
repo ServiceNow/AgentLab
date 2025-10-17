@@ -117,7 +117,7 @@ class GenericAgent(Agent):
         system_prompt = SystemMessage(dp.SystemPrompt().prompt)
 
         # use those queries to retrieve from the database and pass to prompt if step-level
-        queries_for_hints = (
+        self.queries = (
             self._get_queries()[0] if getattr(self.flags, "hint_level", "episode") == "step" else None
         )
 
