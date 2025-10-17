@@ -44,6 +44,7 @@ from agentlab.llm.tracking import cost_tracker_decorator
 from agentlab.utils.hinting import HintsSource
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass

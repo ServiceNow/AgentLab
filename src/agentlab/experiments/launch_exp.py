@@ -1,4 +1,5 @@
 import logging
+import os
 from importlib import import_module
 from pathlib import Path
 
@@ -6,6 +7,8 @@ import bgym
 
 from agentlab.experiments.exp_utils import run_exp
 from agentlab.experiments.loop import ExpArgs, yield_all_exp_results
+
+RAY_PUBLIC_DASHBOARD = os.environ.get("RAY_PUBLIC_DASHBOARD", "false") == "true"
 
 
 def run_experiments(
@@ -82,7 +85,9 @@ def run_experiments(
         elif parallel_backend == "ray":
             from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
 
-            ray.init(num_cpus=n_jobs)
+            ray.init(
+                num_cpus=n_jobs, dashboard_host="0.0.0.0" if RAY_PUBLIC_DASHBOARD else "127.0.0.1"
+            )
             try:
                 execute_task_graph(exp_args_list, avg_step_timeout=avg_step_timeout)
             finally:

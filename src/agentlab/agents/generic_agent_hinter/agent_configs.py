@@ -365,6 +365,10 @@ AGENT_GPT5_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-mini-2025-08-07"],
     flags=GPT5_MINI_FLAGS,
 )
+AGENT_GPT5_NANO = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-nano-2025-08-07"],
+    flags=GPT5_MINI_FLAGS,
+)
 
 AGENT_GPT5 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-2025-08-07"],

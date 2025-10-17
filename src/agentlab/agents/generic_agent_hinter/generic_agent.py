@@ -8,6 +8,7 @@ state such as plans, memories, and thoughts. The `GenericAgentArgs` class provid
 the agent, including model arguments and flags for various behaviors.
 """
 
+import os
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -91,6 +92,8 @@ class GenericAgent(Agent):
         self.max_retry = max_retry
 
         self.flags = flags
+        if self.flags.hint_db_path is not None:
+            assert os.path.exists(self.flags.hint_db_path), f"Hint database path {self.flags.hint_db_path} does not exist."
         self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
@@ -113,11 +116,9 @@ class GenericAgent(Agent):
 
         system_prompt = SystemMessage(dp.SystemPrompt().prompt)
 
-        queries, think_queries = self._get_queries()
-
         # use those queries to retrieve from the database and pass to prompt if step-level
         queries_for_hints = (
-            queries if getattr(self.flags, "hint_level", "episode") == "step" else None
+            self._get_queries()[0] if getattr(self.flags, "hint_level", "episode") == "step" else None
         )
 
         # get hints
@@ -211,7 +212,7 @@ class GenericAgent(Agent):
         )
 
         queries = ans_dict.get("queries", [])
-        assert len(queries) == self.flags.n_retrieval_queries
+        assert len(queries) <= self.flags.n_retrieval_queries
 
         # TODO: we should probably propagate these chat_messages to be able to see them in xray
         return queries, ans_dict.get("think", None)
