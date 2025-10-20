@@ -19,6 +19,7 @@ from browsergym.core.action.base import AbstractActionSet
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class GenericPromptFlags(dp.Flags):
     """
@@ -403,6 +404,8 @@ Always return non-empty answer, its very important!
             ans_dict["queries"] = json.loads(raw_queries)
         except Exception as e:
             t = text_answer.replace("\n", "\\n")
-            logger.warning(f"Failed to parse queries: {e}. Queries block content: '{ans_dict['queries']}'. RAW llm answer: '{t}'. Will retry")
+            logger.warning(
+                f"Failed to parse queries: {e}. Queries block content: '{ans_dict['queries']}'. RAW llm answer: '{t}'. Will retry"
+            )
             raise e
         return ans_dict

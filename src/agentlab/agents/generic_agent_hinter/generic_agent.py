@@ -93,7 +93,9 @@ class GenericAgent(Agent):
 
         self.flags = flags
         if self.flags.hint_db_path is not None:
-            assert os.path.exists(self.flags.hint_db_path), f"Hint database path {self.flags.hint_db_path} does not exist."
+            assert os.path.exists(
+                self.flags.hint_db_path
+            ), f"Hint database path {self.flags.hint_db_path} does not exist."
         self.action_set = self.flags.action.action_set.make_action_set()
         self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
@@ -118,7 +120,9 @@ class GenericAgent(Agent):
 
         # use those queries to retrieve from the database and pass to prompt if step-level
         self.queries = (
-            self._get_queries()[0] if getattr(self.flags, "hint_level", "episode") == "step" else None
+            self._get_queries()[0]
+            if getattr(self.flags, "hint_level", "episode") == "step"
+            else None
         )
 
         # get hints
@@ -204,6 +208,7 @@ class GenericAgent(Agent):
         )
 
         chat_messages = Discussion([system_prompt, query_prompt.prompt])
+        # BUG: Parsing fails multiple times.
         ans_dict = retry(
             self.chat_llm,
             chat_messages,
