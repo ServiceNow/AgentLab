@@ -31,7 +31,7 @@ class HintsSource:
         llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
 You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
 Choose hint topic for the task and return only its number. Use the following output format: 
-<choice>index</choice> for e.g. <choice>1</choice> for the first choice. If you don't know the answer, return <choice>-1</choice>""",
+<choice>index</choice> for e.g. <choice>0</choice> for the topic with index 0. If you don't know the answer, return <choice>-1</choice>""",
     ) -> None:
         self.hint_db_path = hint_db_path
         self.hint_retrieval_mode = hint_retrieval_mode
