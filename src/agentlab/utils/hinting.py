@@ -14,6 +14,7 @@ import requests
 from agentlab.llm.chat_api import ChatModel
 import re
 from agentlab.llm.response_api import APIPayload
+
 logger = logging.getLogger(__name__)
 
 
@@ -100,8 +101,13 @@ Choose hint topic for the task and return only its number. Use the following out
             response: str = llm(APIPayload(messages=[llm.msg.user().add_text(prompt)])).think
         try:
             matches = re.findall(r"<choice>(-?\d+)</choice>", response)
+            if not matches:
+                logger.error(f"No choice tags found in LLM response: {response}")
+                return []
             if len(matches) > 1:
-                logger.warning(f"LLM selected multiple topics for retrieval using only the first one.")
+                logger.warning(
+                    f"LLM selected multiple topics for retrieval using only the first one."
+                )
             topic_number = int(matches[0])
             if topic_number < 0 or topic_number >= len(hint_topics):
                 logger.error(f"Wrong LLM hint id response: {response}, no hints")
