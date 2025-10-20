@@ -12,11 +12,13 @@ import numpy as np
 import pandas as pd
 import requests
 from agentlab.llm.chat_api import ChatModel
-
+import re
+from agentlab.llm.response_api import APIPayload
 logger = logging.getLogger(__name__)
 
 
 class HintsSource:
+
     def __init__(
         self,
         hint_db_path: str,
@@ -27,7 +29,8 @@ class HintsSource:
         embedder_server: str = "http://localhost:5000",
         llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
 You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
-Choose hint topic for the task and return only its number, e.g. 1. If you don't know the answer, return -1.""",
+Choose hint topic for the task and return only its number. Use the following output format: 
+<choice>index</choice> for e.g. <choice>1</choice> for the first choice. If you don't know the answer, return <choice>-1</choice>""",
     ) -> None:
         self.hint_db_path = hint_db_path
         self.hint_retrieval_mode = hint_retrieval_mode
@@ -96,7 +99,10 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
         else:
             response: str = llm(APIPayload(messages=[llm.msg.user().add_text(prompt)])).think
         try:
-            topic_number = json.loads(response)
+            matches = re.findall(r"<choice>(-?\d+)</choice>", response)
+            if len(matches) > 1:
+                logger.warning(f"LLM selected multiple topics for retrieval using only the first one.")
+            topic_number = int(matches[0])
             if topic_number < 0 or topic_number >= len(hint_topics):
                 logger.error(f"Wrong LLM hint id response: {response}, no hints")
                 return []
