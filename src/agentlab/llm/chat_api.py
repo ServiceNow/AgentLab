@@ -556,52 +556,41 @@ class AnthropicModelArgs(BaseModelArgs):
         )
 
 
-from typing import Tuple
+class BedrockChatModel(AnthropicChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
 
-START_TAG = "[BEGIN FINAL RESPONSE]"
-END_TAG = "[END FINAL RESPONSE]"
-END_RESPONSE_TAG = "<|end|>"
+        if (
+            not os.getenv("AWS_REGION")
+            or not os.getenv("AWS_ACCESS_KEY")
+            or not os.getenv("AWS_SECRET_KEY")
+        ):
+            raise ValueError(
+                "AWS_REGION, AWS_ACCESS_KEY and AWS_SECRET_KEY must be set in the environment when using BedrockChatModel"
+            )
 
-def split_reasoning_and_action(s: str) -> Tuple[str, str]:
-    """Return (reasoning_wrapped, action_wrapped) from a single string.
-    reasoning_wrapped -> '<think>\\n{reasoning}\\n</think>' or '' if none
-    action_wrapped    -> '\\n\\n<action>\\n{content}\\n</action>'
-    """
-    txt = s.strip()
-
-    # Locate tags
-    i = txt.find(START_TAG)
-    j = txt.find(END_TAG, i + len(START_TAG)) if i != -1 else -1
-
-    if i != -1 and j != -1:
-        reasoning = txt[:i].strip()
-        content = txt[i + len(START_TAG):j].strip()
-    else:
-        reasoning = ""
-        content = txt
-
-    # Clean accidental echoes
-    if reasoning.endswith(START_TAG):
-        reasoning = reasoning[:-len(START_TAG)].rstrip()
-    if content.startswith(START_TAG):
-        content = content[len(START_TAG):].lstrip()
-    if content.endswith(END_TAG):
-        content = content[:-len(END_TAG)].rstrip()
-    if content.endswith(END_RESPONSE_TAG):
-        content = content[:-len(END_RESPONSE_TAG)].rstrip()
-
-    # Normalize existing <think> wrappers
-    if reasoning.startswith("<think>"):
-        reasoning = reasoning[len("<think>"):].lstrip()
-    if reasoning.endswith("</think>"):
-        reasoning = reasoning[:-len("</think>")].rstrip()
-
-    # Strip any action wrappers inside content before re-wrapping
-    content = content.replace("<action>", "").replace("<end_action>", "").strip()
-
-    reasoning_wrapped = f"<think>\n{reasoning}\n</think>" if reasoning else ""
-    action_wrapped = f"\n\n<action>\n{content}\n</action>"
-
-    return reasoning_wrapped, action_wrapped
+        self.client = anthropic.AnthropicBedrock(
+            aws_region=os.getenv("AWS_REGION"),
+            aws_access_key=os.getenv("AWS_ACCESS_KEY"),
+            aws_secret_key=os.getenv("AWS_SECRET_KEY"),
+        )
 
 
+@dataclass
+class BedrockModelArgs(BaseModelArgs):
+    def make_model(self):
+        return BedrockChatModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
