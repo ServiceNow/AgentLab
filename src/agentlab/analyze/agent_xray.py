@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from attr import dataclass
-from langchain.schema import BaseMessage, HumanMessage
+from browsergym.experiments.loop import StepInfo as BGymStepInfo
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall
 from PIL import Image
@@ -28,6 +28,11 @@ from agentlab.llm.chat_api import make_system_message, make_user_message
 from agentlab.llm.llm_utils import BaseMessage as AgentLabBaseMessage
 from agentlab.llm.llm_utils import Discussion
 from agentlab.llm.response_api import MessageBuilder, ToolCalls
+
+try:
+    from langchain.schema import BaseMessage, HumanMessage
+except ImportError:
+    BaseMessage, HumanMessage = None, None
 
 select_dir_instructions = "Select Experiment Directory"
 AGENT_NAME_KEY = "agent.agent_name"
@@ -74,6 +79,7 @@ class EpisodeId:
     agent_id: str = None
     task_name: str = None
     seed: int = None
+    row_index: int = None  # unique row index to disambiguate selections
 
 
 @dataclass
@@ -99,23 +105,17 @@ class Info:
         if self.result_df is None or episode_id.task_name is None or episode_id.seed is None:
             self.exp_result = None
 
-        # find unique row for task_name and seed
+        # find unique row using idx
         result_df = self.agent_df.reset_index(inplace=False)
-        sub_df = result_df[
-            (result_df[TASK_NAME_KEY] == episode_id.task_name)
-            & (result_df[TASK_SEED_KEY] == episode_id.seed)
-        ]
+        sub_df = result_df[result_df["_row_index"] == episode_id.row_index]
         if len(sub_df) == 0:
             self.exp_result = None
-            raise ValueError(
-                f"Could not find task_name: {episode_id.task_name} and seed: {episode_id.seed}"
-            )
+            raise ValueError(f"Could not find _row_index: {episode_id.row_index}")
 
         if len(sub_df) > 1:
             warning(
-                f"Found multiple rows for task_name: {episode_id.task_name} and seed: {episode_id.seed}. Using the first one."
+                f"Found multiple rows with same row_index {episode_id.row_index} Using the first one."
             )
-
         exp_dir = sub_df.iloc[0]["exp_dir"]
         print(exp_dir)
         self.exp_result = ExpResult(exp_dir)
@@ -128,16 +128,15 @@ class Info:
         return agent_id
 
     def filter_agent_id(self, agent_id: list[tuple]):
-        # query_str = " & ".join([f"`{col}` == {repr(val)}" for col, val in agent_id])
-        # agent_df = info.result_df.query(query_str)
-
-        agent_df = self.result_df.reset_index(inplace=False)
-        agent_df.set_index(TASK_NAME_KEY, inplace=True)
+        # Preserve a stable row index to disambiguate selections later
+        tmp_df = self.result_df.reset_index(inplace=False)
+        tmp_df["_row_index"] = tmp_df.index
+        tmp_df.set_index(TASK_NAME_KEY, inplace=True)
 
         for col, val in agent_id:
             col = col.replace(".\n", ".")
-            agent_df = agent_df[agent_df[col] == val]
-        self.agent_df = agent_df
+            tmp_df = tmp_df[tmp_df[col] == val]
+        self.agent_df = tmp_df
 
 
 info = Info()
@@ -165,6 +164,32 @@ th {
 }
 """
 
+# Keyboard shortcut JavaScript - based on https://github.com/gradio-app/gradio/issues/6101
+shortcut_js = """
+<script>
+function shortcuts(e) {
+    var event = document.all ? window.event : e;
+    switch (e.target.tagName.toLowerCase()) {
+        case "input":
+        case "textarea":
+        case "select":
+        case "button":
+            return;
+        default:
+            if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                if (e.key === 'ArrowLeft') {
+                    document.getElementById("prev_btn").click();
+                } else {
+                    document.getElementById("next_btn").click();
+                }
+            }
+    }
+}
+document.addEventListener('keydown', shortcuts, false);
+</script>
+"""
+
 
 def run_gradio(results_dir: Path):
     """
@@ -174,13 +199,11 @@ def run_gradio(results_dir: Path):
     global info
     info.results_dir = results_dir
 
-    with gr.Blocks(theme=gr.themes.Soft(), css=css) as demo:
+    with gr.Blocks(theme=gr.themes.Soft(), css=css, head=shortcut_js) as demo:
         agent_id = gr.State(value=None)
         episode_id = gr.State(value=EpisodeId())
         agent_task_id = gr.State(value=None)
         step_id = gr.State(value=None)
-
-        hidden_key_input = gr.Textbox(visible=False, elem_id="key_capture")
 
         with gr.Accordion("Help", open=False):
             gr.Markdown(
@@ -302,6 +325,16 @@ clicking the refresh button.
             episode_info = gr.Markdown(label="Episode Info", elem_classes="my-markdown")
             action_info = gr.Markdown(label="Action Info", elem_classes="my-markdown")
             state_error = gr.Markdown(label="Next Step Error", elem_classes="my-markdown")
+
+        with gr.Row(variant="panel", elem_classes=["items-center", "justify-center"]):
+            step_indicator = gr.Markdown("### Step 0/0", elem_classes=["text-center"])
+            prev_btn = gr.Button(
+                "◀ Previous", size="md", scale=0, elem_id="prev_btn", elem_classes=["mx-auto"]
+            )
+            next_btn = gr.Button(
+                "Next ▶", size="md", scale=0, elem_id="next_btn", elem_classes=["mx-auto"]
+            )
+            gr.Markdown("(Shortcut: Ctrl/Cmd + ← →)", elem_classes=["text-center"])
 
         profiling_gr = gr.Image(
             label="Profiling", show_label=False, interactive=False, show_download_button=False
@@ -512,31 +545,37 @@ clicking the refresh button.
 
         demo.load(fn=refresh_exp_dir_choices, inputs=exp_dir_choice, outputs=exp_dir_choice)
 
-        demo.load(
-            None,
-            None,
-            None,
-            js="""
-    function() {
-        document.addEventListener('keydown', function(e) {
-            if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                const hiddenInput = document.querySelector('#key_capture input, #key_capture textarea');
-                if (hiddenInput) {
-                    let event = e.key === 'ArrowLeft' ? 'Cmd+Left' : 'Cmd+Right';
-                    hiddenInput.value = event;
-                    hiddenInput.dispatchEvent(new Event('input', {bubbles: true}));
-                }
-            }
-        });
-    }
-        """,
-        )
-        hidden_key_input.change(
-            handle_key_event,
-            inputs=[hidden_key_input, step_id],
-            outputs=[hidden_key_input, step_id],
-        )
+        # Simple navigation button events
+        def navigate_prev(step_id: StepId):
+            global info
+            if step_id and step_id.step is not None and step_id.episode_id:
+                step = max(0, step_id.step - 1)
+                info.step = step
+                return StepId(episode_id=step_id.episode_id, step=step)
+            return step_id
+
+        def navigate_next(step_id: StepId):
+            global info
+            if step_id and step_id.step is not None and step_id.episode_id and info.exp_result:
+                step = min(len(info.exp_result.steps_info) - 1, step_id.step + 1)
+                info.step = step
+                return StepId(episode_id=step_id.episode_id, step=step)
+            return step_id
+
+        prev_btn.click(navigate_prev, inputs=[step_id], outputs=[step_id])
+        next_btn.click(navigate_next, inputs=[step_id], outputs=[step_id])
+
+        # Update step indicator display
+        def format_step_indicator(step_id):
+            global info
+            if not step_id or not info.exp_result or not info.exp_result.steps_info:
+                return "### Step 0/0"
+            # 1-based for user, total steps is len-1 (last is terminal)
+            current = (step_id.step + 1) if step_id.step is not None else 0
+            total = max(len(info.exp_result.steps_info) - 1, 0)
+            return f"### Step {current}/{total}"
+
+        step_id.change(format_step_indicator, inputs=[step_id], outputs=[step_indicator])
 
     demo.queue()
 
@@ -545,25 +584,6 @@ clicking the refresh button.
     if isinstance(port, str):
         port = int(port)
     demo.launch(server_port=port, share=do_share)
-
-
-def handle_key_event(key_event, step_id: StepId):
-
-    if key_event:
-        global info
-
-        # print(f"Key event: {key_event}")
-        step = step_id.step
-        if key_event.startswith("Cmd+Left"):
-            step = max(0, step - 1)
-        elif key_event.startswith("Cmd+Right"):
-            step = min(len(info.exp_result.steps_info) - 2, step + 1)
-        else:
-            return gr.update()
-        # print(f"Updating step to {step} from key event {key_event}")
-        info.step = step
-        step_id = StepId(episode_id=step_id.episode_id, step=step)
-    return ("", step_id)
 
 
 def tab_select(evt: gr.SelectData):
@@ -735,7 +755,7 @@ def dict_msg_to_markdown(d: dict):
             case _:
                 parts.append(f"\n```\n{str(item)}\n```\n")
 
-    markdown = f"### {d["role"].capitalize()}\n"
+    markdown = f"### {d['role'].capitalize()}\n"
     markdown += "\n".join(parts)
     return markdown
 
@@ -751,7 +771,7 @@ def format_chat_message(message: BaseMessage | MessageBuilder | dict):
     """
     Format a message to markdown.
     """
-    if isinstance(message, BaseMessage):
+    if BaseMessage and isinstance(message, BaseMessage):
         return message.content
     elif isinstance(message, MessageBuilder):
         return message.to_markdown()
@@ -823,6 +843,18 @@ def update_agent_info_html():
         s1, action_str = get_screenshot(info, info.step, False)
         s2, action_str = get_screenshot(info, info.step + 1, False)
         agent_info = info.exp_result.steps_info[info.step].agent_info
+        # Minimal: show step_hints if present
+        hints = (
+            agent_info.get("step_hints")
+            or agent_info.get("hints")
+            or agent_info.get("extra_info", {}).get("step_hints")
+        )
+        if hints:
+            if not isinstance(hints, (list, tuple)):
+                hints = [hints]
+            items = "".join(f"<li>{html.escape(str(h))}</li>" for h in hints)
+            hints_html = f"<html><body><h3>Step Hints</h3><ul>{items}</ul></body></html>"
+            return _page_to_iframe(hints_html), s1, s2
         page = agent_info.get("html_page", ["No Agent Info"])
         if page is None:
             page = """Fill up html_page attribute in AgentInfo to display here."""
@@ -852,7 +884,9 @@ def submit_action(input_text):
     global info
     agent_info = info.exp_result.steps_info[info.step].agent_info
     chat_messages = deepcopy(agent_info.get("chat_messages", ["No Chat Messages"])[:2])
-    if isinstance(chat_messages[1], BaseMessage):  # TODO remove once langchain is deprecated
+    if BaseMessage and isinstance(
+        chat_messages[1], BaseMessage
+    ):  # TODO remove once langchain is deprecated
         assert isinstance(chat_messages[1], HumanMessage), "Second message should be user"
         chat_messages = [
             make_system_message(chat_messages[0].content),
@@ -934,7 +968,7 @@ def get_episode_info(info: Info):
 
         info = f"""\
 ### {env_args.task_name} (seed: {env_args.task_seed})
-### Step {info.step} / {len(steps_info) - 1} (Reward: {cum_reward:.1f})
+### (Reward: {cum_reward:.1f})
 
 **Goal:**
 
@@ -1003,7 +1037,8 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
     def extract_columns(row: pd.Series):
         return pd.Series(
             {
-                "seed": row[TASK_SEED_KEY],
+                "idx": row.get("_row_index", None),
+                "seed": row.get(TASK_SEED_KEY, None),
                 "reward": row.get("cum_reward", None),
                 "err": bool(row.get("err_msg", None)),
                 "n_steps": row.get("n_steps", None),
@@ -1011,6 +1046,8 @@ def get_seeds_df(result_df: pd.DataFrame, task_name: str):
         )
 
     seed_df = result_df.apply(extract_columns, axis=1)
+    # Ensure column order and readability
+    seed_df = seed_df[["seed", "reward", "err", "n_steps", "idx"]]
     return seed_df
 
 
@@ -1028,15 +1065,20 @@ def on_select_task(evt: gr.SelectData, df: pd.DataFrame, agent_id: list[tuple]):
 def update_seeds(agent_task_id: tuple):
     agent_id, task_name = agent_task_id
     seed_df = get_seeds_df(info.agent_df, task_name)
-    first_seed = seed_df.iloc[0]["seed"]
-    return seed_df, EpisodeId(agent_id=agent_id, task_name=task_name, seed=first_seed)
+    first_seed = int(seed_df.iloc[0]["seed"])
+    first_index = int(seed_df.iloc[0]["idx"])
+    return seed_df, EpisodeId(
+        agent_id=agent_id, task_name=task_name, seed=first_seed, row_index=first_index
+    )
 
 
 def on_select_seed(evt: gr.SelectData, df: pd.DataFrame, agent_task_id: tuple):
     agent_id, task_name = agent_task_id
     col_idx = df.columns.get_loc("seed")
-    seed = evt.row_value[col_idx]  # seed should be the first column
-    return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed)
+    idx_col = df.columns.get_loc("idx")
+    seed = evt.row_value[col_idx]
+    row_index = evt.row_value[idx_col]
+    return EpisodeId(agent_id=agent_id, task_name=task_name, seed=seed, row_index=row_index)
 
 
 def new_episode(episode_id: EpisodeId, progress=gr.Progress()):
@@ -1134,7 +1176,7 @@ def new_exp_dir(study_names: list, progress=gr.Progress(), just_refresh=False):
         study_names.remove(select_dir_instructions)
 
     if len(study_names) == 0:
-        return None, None
+        return None, None, None, None, None, None
 
     info.study_dirs = [info.results_dir / study_name.split(" - ")[0] for study_name in study_names]
     info.result_df = inspect_results.load_result_df(info.study_dirs, progress_fn=progress.tqdm)
@@ -1287,7 +1329,9 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
     all_times = []
     step_times = []
     for i, step_info in progress_fn(list(enumerate(step_info_list)), desc="Building plot."):
-        assert isinstance(step_info, StepInfo), f"Expected StepInfo, got {type(step_info)}"
+        assert isinstance(
+            step_info, (StepInfo, BGymStepInfo)
+        ), f"Expected StepInfo or BGymStepInfo, got {type(step_info)}"
         step = step_info.step
 
         prof = deepcopy(step_info.profiling)
@@ -1312,6 +1356,7 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
             # NEW: Add wait for page loading visualization
             if (
                 hasattr(prof, "wait_for_page_loading_start")
+                and prof.wait_for_page_loading_start is not None
                 and prof.wait_for_page_loading_start > 0
             ):
                 add_patch(
@@ -1323,7 +1368,11 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 )
 
             # NEW: Add validation visualization
-            if hasattr(prof, "validation_start") and prof.validation_start > 0:
+            if (
+                hasattr(prof, "validation_start")
+                and prof.validation_start is not None
+                and prof.validation_start > 0
+            ):
                 add_patch(
                     ax,
                     prof.validation_start,
@@ -1333,7 +1382,11 @@ def plot_profiling(ax, step_info_list: list[StepInfo], summary_info: dict, progr
                 )
 
             # NEW: Add get observation visualization
-            if hasattr(prof, "get_observation_start") and prof.get_observation_start > 0:
+            if (
+                hasattr(prof, "get_observation_start")
+                and prof.get_observation_start is not None
+                and prof.get_observation_start > 0
+            ):
                 add_patch(
                     ax,
                     prof.get_observation_start,

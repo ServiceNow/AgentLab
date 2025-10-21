@@ -262,6 +262,43 @@ AGENT_4o_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-4o-mini-2024-07-18"],
     flags=FLAGS_GPT_4o,
 )
+
+AGENT_AZURE_4o_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini-2024-07-18"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_4o = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-2024-08-06"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41 = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-2025-04-14"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini-2025-04-14"],
+    flags=FLAGS_GPT_4o,
+)
+AGENT_AZURE_41_NANO = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-nano-2025-04-14"],
+    flags=FLAGS_GPT_4o,
+)
+
+AGENT_AZURE_5 = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-2025-08-07"],
+    flags=FLAGS_GPT_4o,
+)
+
+AGENT_AZURE_5_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-mini-2025-08-07"],
+    flags=FLAGS_GPT_4o,
+)
+
+AGENT_AZURE_5_NANO = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-nano-2025-08-07"],
+    flags=FLAGS_GPT_4o,
+)
+
 AGENT_CLAUDE_SONNET_35 = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
     flags=FLAGS_GPT_4o,
@@ -270,8 +307,12 @@ AGENT_37_SONNET = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.7-sonnet"],
     flags=FLAGS_GPT_4o,
 )
+# AGENT_o3_MINI = GenericAgentArgs(
+#     chat_model_args=CHAT_MODEL_ARGS_DICT["openai/o3-mini-2025-01-31"],
+#     flags=FLAGS_GPT_4o,
+# )
 AGENT_o3_MINI = GenericAgentArgs(
-    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/o3-mini-2025-01-31"],
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/openai/o3-mini"],
     flags=FLAGS_GPT_4o,
 )
 
@@ -294,6 +335,45 @@ AGENT_4o_MINI_VISION = GenericAgentArgs(
     flags=FLAGS_GPT_4o_VISION,
 )
 
+AGENT_AZURE_4o_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-2024-08-06"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_4o_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4o-mini-2024-07-18"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_41_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-2025-04-14"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_41_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-mini-2025-04-14"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+AGENT_AZURE_41_NANO_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-4.1-nano-2025-04-14"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_5_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-2025-08-07"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_5_MINI_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-mini-2025-08-07"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
+AGENT_AZURE_5_NANO_VISION = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-nano-2025-08-07"],
+    flags=FLAGS_GPT_4o_VISION,
+)
+
 AGENT_CLAUDE_SONNET_35_VISION = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/anthropic/claude-3.5-sonnet:beta"],
     flags=FLAGS_GPT_4o_VISION,
@@ -301,6 +381,18 @@ AGENT_CLAUDE_SONNET_35_VISION = GenericAgentArgs(
 AGENT_LLAMA4_17B_INSTRUCT = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-4-maverick"],
     flags=BASE_FLAGS,
+)
+GPT5_MINI_FLAGS = BASE_FLAGS.copy()
+GPT5_MINI_FLAGS.action = dp.ActionFlags(  # action should not be str to work with agentlab-assistant
+    action_set=HighLevelActionSetArgs(
+        subsets=["bid"],
+        multiaction=False,
+    )
+)
+
+AGENT_GPT5_MINI = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["openai/gpt-5-mini-2025-08-07"],
+    flags=GPT5_MINI_FLAGS,
 )
 
 DEFAULT_RS_FLAGS = GenericPromptFlags(

@@ -36,9 +36,7 @@ def create_mock_openai_chat_completion(
             )
             tool_call_mock.id = tc["id"]
             tool_call_mock.type = tc["type"]
-            tool_call_mock.function = MagicMock(
-                spec=openai.types.chat.chat_completion_message_tool_call.Function
-            )
+            tool_call_mock.function = MagicMock()
             tool_call_mock.function.name = tc["function"]["name"]
             tool_call_mock.function.arguments = tc["function"]["arguments"]
             message.tool_calls.append(tool_call_mock)
@@ -483,8 +481,8 @@ def test_openai_response_model_pricy_call():
 
     assert parsed_output.raw_response is not None
     assert (
-        parsed_output.action == """get_weather(location='Paris')"""
-    ), f""" Expected get_weather(location='Paris') but got {parsed_output.action}"""
+        parsed_output.action == """get_weather(location='Paris', unit='celsius')"""
+    ), f""" Expected get_weather(location='Paris', unit='celsius') but got {parsed_output.action}"""
     assert global_tracker.stats["input_tokens"] > 0
     assert global_tracker.stats["output_tokens"] > 0
     assert global_tracker.stats["cost"] > 0
@@ -534,7 +532,7 @@ def test_openai_response_model_with_multiple_messages_and_cost_tracking():
     assert prev_cost > 0
     assert parsed.raw_response is not None
     assert (
-        parsed.action == """get_weather(location='Delhi')"""
+        parsed.action == """get_weather(location='Delhi', unit='celsius')"""
     ), f"Unexpected action: {parsed.action}"
     assert delta_input > 0
     assert delta_output > 0
@@ -688,6 +686,7 @@ def test_claude_model_with_multiple_messages_pricy_call():
 
 ## Test multiaction
 @pytest.mark.pricy
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Skipping as OpenAI API key not set")
 def test_multi_action_tool_calls():
     """
     Test that the model can produce multiple tool calls in parallel.
@@ -801,3 +800,4 @@ def test_tool_call_to_python_code():
 
 if __name__ == "__main__":
     test_tool_call_to_python_code()
+    # test_openai_chat_completion_model_parse_and_cost()

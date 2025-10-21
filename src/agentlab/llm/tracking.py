@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 import re
@@ -5,11 +6,18 @@ import threading
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import cache
+from functools import cache, partial
 from typing import Optional
 
 import requests
-from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
+
+langchain_community = importlib.util.find_spec("langchain_community")
+if langchain_community is not None:
+    from langchain_community.callbacks import bedrock_anthropic_callback, openai_info
+else:
+    bedrock_anthropic_callback = None
+    openai_info = None
+from litellm import completion_cost, get_model_info
 
 TRACKER = threading.local()
 
@@ -102,7 +110,14 @@ def get_pricing_openrouter():
 
 def get_pricing_openai():
     """Returns a dictionary of model pricing for OpenAI models."""
-    cost_dict = openai_info.MODEL_COST_PER_1K_TOKENS
+    try:
+        cost_dict = openai_info.MODEL_COST_PER_1K_TOKENS
+    except Exception as e:
+        logging.warning(
+            f"Failed to get OpenAI pricing: {e}. "
+            "Please install langchain-community or use LiteLLM API for pricing information."
+        )
+        return {}
     cost_dict = {k: v / 1000 for k, v in cost_dict.items()}
     res = {}
     for k in cost_dict:
@@ -125,8 +140,15 @@ def _remove_version_suffix(model_name):
 
 def get_pricing_anthropic():
     """Returns a dictionary of model pricing for Anthropic models."""
-    input_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_INPUT_TOKENS
-    output_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_OUTPUT_TOKENS
+    try:
+        input_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_INPUT_TOKENS
+        output_cost_dict = bedrock_anthropic_callback.MODEL_COST_PER_1K_OUTPUT_TOKENS
+    except Exception as e:
+        logging.warning(
+            f"Failed to get Anthropic pricing: {e}. "
+            "Please install langchain-community or use LiteLLM API for pricing information."
+        )
+        return {}
 
     res = {}
     for k, v in input_cost_dict.items():
@@ -141,6 +163,21 @@ def get_pricing_anthropic():
     return res
 
 
+def get_pricing_litellm(model_name):
+    """Returns a dictionary of model pricing for a LiteLLM model."""
+    try:
+        info = get_model_info(model_name)
+    except Exception as e:
+        logging.error(f"Error fetching model info for {model_name}: {e} from litellm")
+        info = {}
+    return {
+        model_name: {
+            "prompt": info.get("input_cost_per_token", 0.0),
+            "completion": info.get("output_cost_per_token", 0.0),
+        }
+    }
+
+
 class TrackAPIPricingMixin:
     """Mixin class to handle pricing information for different models.
     This populates the tracker.stats used by the cost_tracker_decorator
@@ -151,9 +188,8 @@ class TrackAPIPricingMixin:
     def reset_stats(self):
         self.stats = Stats()
 
-    def init_pricing_tracker(
-        self, pricing_api=None
-    ):  # TODO: Use this function in the base class init instead of having a init in the Mixin class.
+    def init_pricing_tracker(self, pricing_api=None):
+        """Initialize the pricing tracker with the given API."""
         self._pricing_api = pricing_api
         self.set_pricing_attributes()
         self.reset_stats()
@@ -163,9 +199,9 @@ class TrackAPIPricingMixin:
         # 'self' here calls ._call_api() method of the subclass
         response = self._call_api(*args, **kwargs)
         usage = dict(getattr(response, "usage", {}))
-        if "prompt_tokens_details" in usage:
+        if "prompt_tokens_details" in usage and usage["prompt_tokens_details"]:
             usage["cached_tokens"] = usage["prompt_tokens_details"].cached_tokens
-        if "input_tokens_details" in usage:
+        if "input_tokens_details" in usage and usage["input_tokens_details"]:
             usage["cached_tokens"] = usage["input_tokens_details"].cached_tokens
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
@@ -185,6 +221,7 @@ class TrackAPIPricingMixin:
             "openai": get_pricing_openai,
             "anthropic": get_pricing_anthropic,
             "openrouter": get_pricing_openrouter,
+            "litellm": partial(get_pricing_litellm, self.model_name),
         }
         pricing_fn = pricing_fn_map.get(self._pricing_api, None)
         if pricing_fn is None:
@@ -202,9 +239,15 @@ class TrackAPIPricingMixin:
             self.input_cost = float(model_costs["prompt"])
             self.output_cost = float(model_costs["completion"])
         else:
-            logging.warning(f"Model {self.model_name} not found in the pricing information.")
-            self.input_cost = 0.0
-            self.output_cost = 0.0
+            # use litellm to get model info if not found in the pricing dict
+            try:
+                model_info = get_model_info(self.model_name)
+                self.input_cost = float(model_info.get("input_cost_per_token", 0.0))
+                self.output_cost = float(model_info.get("output_cost_per_token", 0.0))
+            except Exception as e:
+                logging.warning(f"Failed to fetch pricing for {self.model_name}: {e}")
+                self.input_cost = 0.0
+                self.output_cost = 0.0
 
     def update_pricing_tracker(self, raw_response) -> None:
         """Update the pricing tracker with the input and output tokens and cost."""
@@ -248,6 +291,8 @@ class TrackAPIPricingMixin:
             return self.get_effective_cost_from_antrophic_api(response)
         elif self._pricing_api == "openai":
             return self.get_effective_cost_from_openai_api(response)
+        elif self._pricing_api == "litellm":
+            return completion_cost(response)
         else:
             logging.warning(
                 f"Unsupported provider: {self._pricing_api}. No effective cost calculated."
@@ -314,12 +359,16 @@ class TrackAPIPricingMixin:
         if api_type == "chatcompletion":
             total_input_tokens = usage.prompt_tokens  # (cache read tokens + new input tokens)
             output_tokens = usage.completion_tokens
-            cached_input_tokens = usage.prompt_tokens_details.cached_tokens
+            cached_input_tokens = (
+                usage.prompt_tokens_details.cached_tokens if usage.prompt_tokens_details else 0
+            )
             new_input_tokens = total_input_tokens - cached_input_tokens
         elif api_type == "response":
             total_input_tokens = usage.input_tokens  # (cache read tokens + new input tokens)
             output_tokens = usage.output_tokens
-            cached_input_tokens = usage.input_tokens_details.cached_tokens
+            cached_input_tokens = (
+                usage.input_tokens_details.cached_tokens if usage.input_tokens_details else 0
+            )
             new_input_tokens = total_input_tokens - cached_input_tokens
         else:
             logging.warning(f"Unsupported API type: {api_type}. Defaulting cost to 0.0.")

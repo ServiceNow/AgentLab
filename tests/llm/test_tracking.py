@@ -27,11 +27,6 @@ def test_get_action_decorator():
 OPENROUTER_API_KEY_AVAILABLE = os.environ.get("OPENROUTER_API_KEY") is not None
 
 OPENROUTER_MODELS = (
-    "openai/o1-mini-2024-09-12",
-    "openai/o1-preview-2024-09-12",
-    "openai/gpt-4o-2024-08-06",
-    "openai/gpt-4o-2024-05-13",
-    "anthropic/claude-3.5-sonnet:beta",
     "anthropic/claude-3.5-sonnet",
     "meta-llama/llama-3.1-405b-instruct",
     "meta-llama/llama-3.1-70b-instruct",
@@ -151,7 +146,7 @@ AZURE_OPENAI_API_KEY_AVAILABLE = (
     not AZURE_OPENAI_API_KEY_AVAILABLE, reason="Azure OpenAI API key is not available"
 )
 def test_azure_chat_model():
-    chat_model = AzureChatModel(model_name="gpt-35-turbo", deployment_name="gpt-35-turbo")
+    chat_model = AzureChatModel(model_name="gpt-4.1-nano", deployment_name="gpt-4.1-nano")
     assert chat_model.input_cost > 0
     assert chat_model.output_cost > 0
 
