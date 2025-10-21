@@ -13,6 +13,7 @@ import pandas as pd
 import requests
 from agentlab.llm.chat_api import ChatModel
 import re
+import json
 from agentlab.llm.response_api import APIPayload
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class HintsSource:
         hint_db_path: str,
         hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct",
         skip_hints_for_current_task: bool = False,
+        skip_hints_for_current_goal: bool = False,
         top_n: int = 4,
         embedder_model: str = "Qwen/Qwen3-Embedding-0.6B",
         embedder_server: str = "http://localhost:5000",
@@ -36,6 +38,7 @@ Choose hint topic for the task and return only its number. Use the following out
         self.hint_db_path = hint_db_path
         self.hint_retrieval_mode = hint_retrieval_mode
         self.skip_hints_for_current_task = skip_hints_for_current_task
+        self.skip_hints_for_current_goal = skip_hints_for_current_goal
         self.top_n = top_n
         self.embedder_model = embedder_model
         self.embedder_server = embedder_server
@@ -45,7 +48,16 @@ Choose hint topic for the task and return only its number. Use the following out
             self.hint_db_path = Path(hint_db_path).as_posix()
         else:
             self.hint_db_path = (Path(__file__).parent / self.hint_db_path).as_posix()
-        self.hint_db = pd.read_csv(self.hint_db_path, header=0, index_col=None, dtype=str)
+        self.hint_db = pd.read_csv(
+            self.hint_db_path,
+            header=0,
+            index_col=None,
+            dtype=str,
+            converters={
+                "trace_paths_json": lambda x: json.loads(x) if pd.notna(x) else [],
+                "source_trace_goals": lambda x: json.loads(x) if pd.notna(x) else [],
+            },
+        )
         logger.info(f"Loaded {len(self.hint_db)} hints from database {self.hint_db_path}")
         if self.hint_retrieval_mode == "emb":
             self.load_hint_vectors()
@@ -84,7 +96,9 @@ Choose hint topic for the task and return only its number. Use the following out
         topic_to_hints = defaultdict(list)
         skip_hints = []
         if self.skip_hints_for_current_task:
-            skip_hints = self.get_current_task_hints(task_name)
+            skip_hints += self.get_current_task_hints(task_name)
+        if self.skip_hints_for_current_goal:
+            skip_hints += self.get_current_goal_hints(goal)
         for _, row in self.hint_db.iterrows():
             hint = row["hint"]
             if hint in skip_hints:
@@ -128,7 +142,9 @@ Choose hint topic for the task and return only its number. Use the following out
             all_hints = self.uniq_hints["hint"].tolist()
             skip_hints = []
             if self.skip_hints_for_current_task:
-                skip_hints = self.get_current_task_hints(task_name)
+                skip_hints += self.get_current_task_hints(task_name)
+            if self.skip_hints_for_current_goal:
+                skip_hints += self.get_current_goal_hints(goal)
             hint_embeddings = []
             id_to_hint = {}
             for hint, emb in zip(all_hints, self.hint_embeddings):
@@ -199,3 +215,7 @@ Choose hint topic for the task and return only its number. Use the following out
             self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
         ]
         return hints_df["hint"].tolist()
+
+    def get_current_goal_hints(self, goal_str: str):
+        mask = self.hint_db["source_trace_goals"].apply(lambda goals: goal_str in goals)
+        return self.hint_db.loc[mask, "hint"].tolist()
