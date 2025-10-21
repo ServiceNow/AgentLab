@@ -25,7 +25,7 @@ class OpenAIComputerUseAgentArgs(AbstractAgentArgs):
     environment: str = "browser"
     reasoning_summary: str = "concise"
     truncation: str = "auto"  # Always set to "auto" for OpenAI API
-    wait_time: int = 2000 # wait for 2 seconds for noop() actions
+    wait_time: int = 2000  # wait for 2 seconds for noop() actions
     action_set: HighLevelActionSetArgs = None
     enable_safety_checks: bool = False  # Optional, default to False, only use in demo mode
     implicit_agreement: bool = True  # Whether to require explicit agreement for actions or not
@@ -89,7 +89,7 @@ class OpenAIComputerUseAgent(Agent):
         self.pending_checks = []
         self.previous_response_id = None
         self.last_call_id = None
-        self.initialized = False 
+        self.initialized = False
         self.user_answer = None  # Store the user answer to send to the assistant
 
         self.tools = [
@@ -100,8 +100,9 @@ class OpenAIComputerUseAgent(Agent):
                 "environment": environment,
             }
         ]
+
         self.inputs = []
-    
+
     def reset(self):
         self.computer_calls = []
         self.pending_checks = []
@@ -214,14 +215,14 @@ Task:
             }
         ]
         response = self.call_api(
-            input=inputs
+            inputs=inputs,
             reasoning={
                 "summary": self.reasoning_summary,
-            }
+            },
         )
         agent_info = AgentInfo(
             think=self.reasoning_summary if self.reasoning_summary else None,
-            chat_messages=inputs
+            chat_messages=inputs,
         )
         return response, agent_info
 
