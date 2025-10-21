@@ -217,7 +217,5 @@ Choose hint topic for the task and return only its number. Use the following out
         return hints_df["hint"].tolist()
 
     def get_current_goal_hints(self, goal_str: str):
-        hints_df = self.hint_db[
-            self.hint_db.apply(lambda x: goal_str in x.source_trace_goals, axis=1)
-        ]
-        return hints_df["hint"].tolist()
+        mask = self.hint_db["source_trace_goals"].apply(lambda goals: goal_str in goals)
+        return self.hint_db.loc[mask, "hint"].tolist()
