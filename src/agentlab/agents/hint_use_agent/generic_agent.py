@@ -39,7 +39,7 @@ class GenericAgentArgs(AgentArgs):
 
     def __post_init__(self):
         try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
-            #TODO: Rename the agent to HintUseAgent when appropriate
+            # TODO: Rename the agent to HintUseAgent when appropriate
             self.agent_name = f"GenericAgent-hinter-{self.chat_model_args.model_name}".replace(
                 "/", "_"
             )
