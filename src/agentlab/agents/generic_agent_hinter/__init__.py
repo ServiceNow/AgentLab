@@ -1,17 +1,19 @@
-from agentlab.agents.hint_use_agent import *
-import warnings
-import sys
+import importlib, sys, warnings
+
+OLD = __name__
+NEW = "agentlab.agents.hint_use_agent"
+SUBS = ("agent_configs", "generic_agent_prompt", "generic_agent", "tmlr_config")
 
 warnings.warn(
-    "generic_agent_hinter is renamed to hint_use_agent.",
+    f"{OLD} is renamed to {NEW}. {OLD} will be removed in future",
     DeprecationWarning,
     stacklevel=2,
 )
 
-# Create module alias - redirect old module to new module
-import agentlab.agents.hint_use_agent as new_module
+# Alias the top-level
+new_mod = importlib.import_module(NEW)
+sys.modules[OLD] = new_mod
 
-sys.modules["agentlab.agents.generic_agent_hinter"] = new_module
-
-# Re-export everything from the new location
-from agentlab.agents.hint_use_agent import *
+# Alias known submodules
+for sub in SUBS:
+    sys.modules[f"{OLD}.{sub}"] = importlib.import_module(f"{NEW}.{sub}")
