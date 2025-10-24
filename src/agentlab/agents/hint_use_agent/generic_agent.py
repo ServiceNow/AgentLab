@@ -93,7 +93,8 @@ class GenericAgent(Agent):
         self.max_retry = max_retry
 
         self.flags = flags
-        if self.flags.hint_db_path is not None:
+
+        if self.flags.hint_db_path is not None and self.flags.use_task_hint:
             assert os.path.exists(
                 self.flags.hint_db_path
             ), f"Hint database path {self.flags.hint_db_path} does not exist."
