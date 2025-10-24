@@ -325,7 +325,8 @@ does not support vision. Disabling use_screenshot."""
         if self.flags.hint_type == "docs":
             if not hasattr(self, "hint_index"):
                 print("Initializing hint index new time")
-                self._init()
+                # @patricebechard It seems _.init() method is missing do we still need it?
+                # self._init()
             if self.flags.hint_query_type == "goal":
                 query = self.obs_history[-1]["goal_object"][0]["text"]
             elif self.flags.hint_query_type == "llm":
@@ -333,6 +334,7 @@ does not support vision. Disabling use_screenshot."""
                 # HACK: only 1 query supported
                 query = queries[0]
             else:
+                # @patricebechard: This raises an error with the default value 'direct'
                 raise ValueError(f"Unknown hint query type: {self.flags.hint_query_type}")
 
             print(f"Query: {query}")
@@ -371,7 +373,7 @@ does not support vision. Disabling use_screenshot."""
                 goal_or_queries = "\n".join(self.queries)
 
             task_hints = self.hints_source.choose_hints(
-                self.llm,
+                self.chat_llm, 
                 self.task_name,
                 goal_or_queries,
             )
