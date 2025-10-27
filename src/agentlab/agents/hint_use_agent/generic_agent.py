@@ -373,7 +373,7 @@ does not support vision. Disabling use_screenshot."""
                 goal_or_queries = "\n".join(self.queries)
 
             task_hints = self.hints_source.choose_hints(
-                self.chat_llm, 
+                self.chat_llm,
                 self.task_name,
                 goal_or_queries,
             )
