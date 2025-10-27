@@ -319,14 +319,15 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
 
     def _init(self):
         """Initialize the block."""
-        self.hints_source = HintsSource(
-            hint_db_path=self.hint_db_rel_path,
-            hint_retrieval_mode=self.hint_retrieval_mode,
-            top_n=self.top_n,
-            embedder_model=self.embedder_model,
-            embedder_server=self.embedder_server,
-            llm_prompt=self.llm_prompt,
-        )
+        if self.use_task_hint:
+            self.hints_source = HintsSource(
+                hint_db_path=self.hint_db_rel_path,
+                hint_retrieval_mode=self.hint_retrieval_mode,
+                top_n=self.top_n,
+                embedder_model=self.embedder_model,
+                embedder_server=self.embedder_server,
+                llm_prompt=self.llm_prompt,
+            )
 
     def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
         if not self.use_task_hint:
