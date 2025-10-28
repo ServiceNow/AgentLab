@@ -272,7 +272,9 @@ does not support vision. Disabling use_screenshot."""
         try:
             if self.flags.hint_type == "docs":
                 if self.flags.hint_index_type == "direct":
-                    print("WARNING: Hint index type 'direct' is not supported for docs. Using 'sparse' instead.")
+                    print(
+                        "WARNING: Hint index type 'direct' is not supported for docs. Using 'sparse' instead."
+                    )
                     self.flags.hint_index_type = "sparse"
                 if self.flags.hint_index_type == "sparse":
                     import bm25s
@@ -327,7 +329,9 @@ does not support vision. Disabling use_screenshot."""
 
         if self.flags.hint_type == "docs":
             if self.flags.hint_index_type == "direct":
-                print("WARNING: Hint index type 'direct' is not supported for docs. Using 'sparse' instead.")
+                print(
+                    "WARNING: Hint index type 'direct' is not supported for docs. Using 'sparse' instead."
+                )
                 self.flags.hint_index_type = "sparse"
             if not hasattr(self, "hint_index"):
                 print("WARNING: Hint index not initialized. Initializing now.")
