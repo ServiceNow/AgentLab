@@ -5,6 +5,7 @@ from playwright.sync_api import Page
 
 from agentlab.analyze import overlay_utils
 from agentlab.llm.llm_utils import img_to_base_64
+import numpy as np
 
 
 def draw_mouse_pointer(image: Image.Image, x: int, y: int) -> Image.Image:
@@ -135,7 +136,7 @@ def zoom_webpage(page: Page, zoom_factor: float = 1.5):
     return page
 
 
-def overlay_action(obs, action):
+def overlay_action(obs, action, return_array=False):
     """Overlays actions on screenshot in-place"""
     act_img = copy.deepcopy(obs["screenshot"])
     act_img = Image.fromarray(act_img)
@@ -153,4 +154,7 @@ def overlay_action(obs, action):
                 pass
 
     overlay_utils.annotate_action(act_img, action, properties=new_obs_properties)
-    return img_to_base_64(act_img)
+    if return_array:
+        return np.array(act_img)
+    else:
+        return img_to_base_64(act_img)

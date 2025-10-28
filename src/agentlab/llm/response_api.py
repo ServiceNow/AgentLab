@@ -448,7 +448,11 @@ class AgentlabAction:
         """
 
         tool_name, tool_args = toolcall.name, toolcall.arguments
-        return tool_call_to_python_code(tool_name, tool_args)
+        return (
+            tool_call_to_python_code(tool_name, tool_args)
+            if tool_name != "get_action"
+            else tool_args.get("action", "noop()")
+        )
 
     @staticmethod
     def convert_multiactions_to_agentlab_action_format(actions: list[str]) -> str | None:
