@@ -737,6 +737,7 @@ def get_cua_like_agent_config(model_name: str) -> ToolUseAgentArgs:
     )
 
 CUA_LIKE_CLAUDE_4_SONNET = get_cua_like_agent_config("anthropic/claude-sonnet-4-20250514")
+CUA_LIKE_CLAUDE_4_5_SONNET = get_cua_like_agent_config("anthropic/claude-sonnet-4-5-20250929")
 
 if __name__ == "__main__":
 
