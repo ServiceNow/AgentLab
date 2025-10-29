@@ -88,13 +88,17 @@ Available actions:
 - mouse_click(347, 192)
 - mouse_click(56, 712.56, 'right')
 - keyboard_type('hello@example.com')
+- keyboard_type('System Diagnostics')
 - keyboard_press('ControlOrMeta+v')
+- keyboard_press('Escape')
 - mouse_drag_and_drop(100, 200, 300, 400)
 
 **WRONG Examples (DO NOT DO THIS):**
 - mouse_click(x='347, 192', y=192)  ❌ x is a string with both coords
 - mouse_click('347', '192')  ❌ coordinates as strings
 - "mouse_click(100, 200)"  ❌ wrapped in quotes
+- keyboard_press(Escape)  ❌ string argument missing quotes
+- keyboard_type(System Diagnostics)  ❌ text argument missing quotes
 """,
     "input_schema": { 
         "type": "object",
@@ -147,13 +151,17 @@ Available actions:
 - mouse_click(347, 192)
 - mouse_click(56, 712.56, 'right')
 - keyboard_type('hello@example.com')
+- keyboard_type('System Diagnostics')
 - keyboard_press('ControlOrMeta+v')
+- keyboard_press('Escape')
 - mouse_drag_and_drop(100, 200, 300, 400)
 
 **WRONG Examples (DO NOT DO THIS):**
 - mouse_click(x='347, 192', y=192)  ❌ x is a string with both coords
 - mouse_click('347', '192')  ❌ coordinates as strings
 - "mouse_click(100, 200)"  ❌ wrapped in quotes
+- keyboard_press(Escape)  ❌ string argument missing quotes
+- keyboard_type(System Diagnostics)  ❌ text argument missing quotes
 """,
     "parameters": { 
         "type": "object",
