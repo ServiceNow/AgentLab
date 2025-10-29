@@ -502,6 +502,16 @@ class ToolUseAgentArgs(AgentArgs):
         if benchmark_name == "osworld":
             self.config.obs.skip_preprocessing = True
 
+        self.config.obs.use_tabs = benchmark.is_multi_tab
+        benchmark_action_set = (
+            deepcopy(benchmark.high_level_action_set_args).make_action_set().action_set
+        )
+        # these actions are added based on the benchmark action set
+        if "send_msg_to_user" in benchmark_action_set:
+            self.config.action_subsets += ("chat",)
+        if "report_infeasible" in benchmark_action_set:
+            self.config.action_subsets += ("infeas",)
+
 
 class ToolUseAgent(bgym.Agent):
     def __init__(
