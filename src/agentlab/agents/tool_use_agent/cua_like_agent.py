@@ -6,7 +6,7 @@ import random
 import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from copy import copy
+from copy import copy, deepcopy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -50,39 +50,12 @@ from agentlab.agents import agent_utils
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
-ANTROPIC_GET_ACTION_TOOL = [{
-    "name": "get_action",
-    "description": """Return a string representation of a Python function call for browser automation actions.
-
-You must return ONLY the function call string, exactly as it would appear in Python code.
-
-Available actions:
-
-**Mouse Actions:**
-- noop() - Do nothing, optionally wait (e.g., noop(500) waits 500ms)
-- mouse_move(x, y) - Move mouse to coordinates (e.g., mouse_move(65.2, 158.5))
-- mouse_click(x, y, button='left') - Click at coordinates (e.g., mouse_click(887.2, 68) or mouse_click(56, 712.56, 'right'))
-- mouse_dblclick(x, y, button='left') - Double click at coordinates (e.g., mouse_dblclick(5, 236))
-- mouse_down(x, y, button='left') - Press and hold mouse button (e.g., mouse_down(140.2, 580.1))
-- mouse_up(x, y, button='left') - Release mouse button (e.g., mouse_up(250, 120))
-- mouse_drag_and_drop(from_x, from_y, to_x, to_y) - Drag and drop (e.g., mouse_drag_and_drop(10.7, 325, 235.6, 24.54))
-- mouse_upload_file(x, y, file) - Click and upload file (e.g., mouse_upload_file(132.1, 547, 'my_receipt.pdf'))
-- scroll_at(x, y, dx, dy) - Scroll at position (e.g., scroll_at(50, 100, -50, -100))
-
-**Keyboard Actions:**
-- keyboard_type(text) - Type text (e.g., keyboard_type('Hello world!'))
-- keyboard_insert_text(text) - Insert text without key events (e.g., keyboard_insert_text('Hello world!'))
-- keyboard_press(key) - Press key combination (e.g., keyboard_press('Enter'), keyboard_press('ControlOrMeta+a'))
-- keyboard_down(key) - Press and hold key (e.g., keyboard_down('Shift'))
-- keyboard_up(key) - Release key (e.g., keyboard_up('Shift'))
-
+ADDITIONAL_ACTION_INSTRUCTIONS = """
 **Important Rules:**
 - Coordinates (x, y) must be NUMBERS, not strings
 - Do NOT use named parameters for coordinates unless necessary for clarity
 - Button parameter is optional, defaults to 'left'
 - String values must be in quotes
-- Return ONLY the function call, no explanation
 
 **Correct Examples:**
 - mouse_click(347, 192)
@@ -99,71 +72,48 @@ Available actions:
 - "mouse_click(100, 200)"  ❌ wrapped in quotes
 - keyboard_press(Escape)  ❌ string argument missing quotes
 - keyboard_type(System Diagnostics)  ❌ text argument missing quotes
-""",
-    "input_schema": { 
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "description": "The Python function call string (e.g., 'mouse_click(100, 200)' or 'keyboard_type(\"hello\")')",
-            }
-        },
-        "required": ["action"],
-    },
-}]
+"""
 
-# openai responses tool
-OPENAI_GET_ACTION_TOOL = [{
+
+def make_generalized_action_tool(
+    action_set: bgym.AbstractActionSet, additional_instructions: str = ""
+) -> dict:
+    """Create a generalized action openAI response API tool description based on bgym AbstractActionSet.
+    calls describe() method of the action set to get the description."""
+    action_set_description = action_set.describe()
+    additional_instructions_prompt = (
+        f"\n Additional instructions: \n{additional_instructions}"
+        if additional_instructions
+        else ""
+    )
+    tool = {
+        "name": "get_action",
+        "type": "function",
+        "description": f"""Return a string representation of a Python function call for browser automation actions.
+        You must return ONLY the function call string, exactly as it would appear in Python code.
+        Available actions:
+        {action_set_description}
+        {additional_instructions_prompt}""",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "The Python function call string (e.g., 'mouse_click(100, 200)' or 'keyboard_type(\"hello\")')",
+                }
+            },
+            "required": ["action"],
+        },
+    }
+    return tool
+
+
+simple_bgym_action_tool = {
     "name": "get_action",
     "type": "function",
-    "description": """Return a string representation of a Python function call for browser automation actions.
-
-You must return ONLY the function call string, exactly as it would appear in Python code.
-
-Available actions:
-
-**Mouse Actions:**
-- noop() - Do nothing, optionally wait (e.g., noop(500) waits 500ms)
-- mouse_move(x, y) - Move mouse to coordinates (e.g., mouse_move(65.2, 158.5))
-- mouse_click(x, y, button='left') - Click at coordinates (e.g., mouse_click(887.2, 68) or mouse_click(56, 712.56, 'right'))
-- mouse_dblclick(x, y, button='left') - Double click at coordinates (e.g., mouse_dblclick(5, 236))
-- mouse_down(x, y, button='left') - Press and hold mouse button (e.g., mouse_down(140.2, 580.1))
-- mouse_up(x, y, button='left') - Release mouse button (e.g., mouse_up(250, 120))
-- mouse_drag_and_drop(from_x, from_y, to_x, to_y) - Drag and drop (e.g., mouse_drag_and_drop(10.7, 325, 235.6, 24.54))
-- mouse_upload_file(x, y, file) - Click and upload file (e.g., mouse_upload_file(132.1, 547, 'my_receipt.pdf'))
-- scroll_at(x, y, dx, dy) - Scroll at position (e.g., scroll_at(50, 100, -50, -100))
-
-**Keyboard Actions:**
-- keyboard_type(text) - Type text (e.g., keyboard_type('Hello world!'))
-- keyboard_insert_text(text) - Insert text without key events (e.g., keyboard_insert_text('Hello world!'))
-- keyboard_press(key) - Press key combination (e.g., keyboard_press('Enter'), keyboard_press('ControlOrMeta+a'))
-- keyboard_down(key) - Press and hold key (e.g., keyboard_down('Shift'))
-- keyboard_up(key) - Release key (e.g., keyboard_up('Shift'))
-
-**Important Rules:**
-- Coordinates (x, y) must be NUMBERS, not strings
-- Do NOT use named parameters for coordinates unless necessary for clarity
-- Button parameter is optional, defaults to 'left'
-- String values must be in quotes
-- Return ONLY the function call, no explanation
-
-**Correct Examples:**
-- mouse_click(347, 192)
-- mouse_click(56, 712.56, 'right')
-- keyboard_type('hello@example.com')
-- keyboard_type('System Diagnostics')
-- keyboard_press('ControlOrMeta+v')
-- keyboard_press('Escape')
-- mouse_drag_and_drop(100, 200, 300, 400)
-
-**WRONG Examples (DO NOT DO THIS):**
-- mouse_click(x='347, 192', y=192)  ❌ x is a string with both coords
-- mouse_click('347', '192')  ❌ coordinates as strings
-- "mouse_click(100, 200)"  ❌ wrapped in quotes
-- keyboard_press(Escape)  ❌ string argument missing quotes
-- keyboard_type(System Diagnostics)  ❌ text argument missing quotes
-""",
-    "parameters": { 
+    "description": f"""Return a string representation of a Python function call for browsergym actions.
+        You must return ONLY the function call string, exactly as it would appear in Python code.""",
+    "parameters": {
         "type": "object",
         "properties": {
             "action": {
@@ -173,9 +123,8 @@ Available actions:
         },
         "required": ["action"],
     },
-}]
+}
 
-# replace the input_schema with 'parameters' fot openai compatibility
 
 @dataclass
 class Block(ABC):
@@ -212,15 +161,15 @@ class MsgGroup:
 
     @property
     def messages_without_images(self) -> list[MessageBuilder]:
-        from copy import deepcopy
         _messages = deepcopy(self.messages)
         for msg in _messages:
             for content in msg.content:
-                if 'image' in content:
-                    content.pop('image')
-                    content['text'] = "[Screenshot Placeholder]"
-                
+                if "image" in content:
+                    content.pop("image")
+                    content["text"] = "[Screenshot Placeholder]"
+
         return _messages
+
 
 class StructuredDiscussion:
     """
@@ -370,7 +319,6 @@ class Obs(Block):
 
         discussion.append(obs_msg)
 
-
         return obs_msg
 
 
@@ -420,8 +368,8 @@ class Summarizer(Block):
 
     def apply(self, llm, discussion: StructuredDiscussion) -> dict:
         if not self.do_summary:
-            
-            return 
+
+            return
 
         msg = llm.msg.user().add_text("""Summarize\n""")
 
@@ -517,6 +465,7 @@ class PromptConfig:
     multiaction: bool = False
     action_subsets: tuple[str] = None
     use_noop_as_default_action: bool = True
+    use_generalized_bgym_action_tool: bool = True
 
 
 @dataclass
@@ -557,7 +506,7 @@ class ToolUseAgentArgs(AgentArgs):
 class ToolUseAgent(bgym.Agent):
     def __init__(
         self,
-        model_args: OpenAIResponseModelArgs,
+        model_args: LiteLLMModelArgs,
         config: PromptConfig = None,
         action_set: bgym.AbstractActionSet | None = None,
     ):
@@ -567,15 +516,12 @@ class ToolUseAgent(bgym.Agent):
             self.config.action_subsets,
             multiaction=self.config.multiaction,  # type: ignore
         )
-        # self.tools = self.action_set.to_tool_description(api=model_args.api)
-        match model_args.api:
-            case "anthropic":
-                self.tools = ANTROPIC_GET_ACTION_TOOL
-            case "openai":
-                self.tools = OPENAI_GET_ACTION_TOOL
-            case _:
-                self.tools = self.action_set.to_tool_description(api=model_args.api)
-    
+        # if self.config.use_generalized_bgym_action_tool:
+        #     self.tools = [make_generalized_action_tool(self.action_set,
+        #                                                additional_instructions=ADDITIONAL_INSTRUCTIONS)]
+        # else:
+        #     self.tools = self.action_set.to_tool_description(api=model_args.api)
+        self.tools = [simple_bgym_action_tool]
 
         self.call_ids = []
 
@@ -634,6 +580,12 @@ class ToolUseAgent(bgym.Agent):
                 sys_msg = SYS_MSG + "\nYou can take multiple actions in a single step, if needed."
             else:
                 sys_msg = SYS_MSG + "\nYou can only take one action at a time."
+
+            sys_msg += (
+                "\nAvailable browsergym actions that can be returned with get_action:\n"
+                + self.action_set.describe()
+            )
+            sys_msg += ADDITIONAL_ACTION_INSTRUCTIONS
             self.config.goal.apply(self.llm, self.discussion, obs, sys_msg)
 
             self.config.summarizer.apply_init(self.llm, self.discussion)
@@ -667,10 +619,8 @@ class ToolUseAgent(bgym.Agent):
             think = last_summary.content[0]["text"] + "\n" + think
         else:
             # Add the think to the history when use_summarizer is False
-            if think is not None: 
-                self.discussion.append(
-                    self.llm.msg.assistant().add_text(think)
-                )
+            if think is not None:
+                self.discussion.append(self.llm.msg.assistant().add_text(think))
 
         self.discussion.new_group()
 
