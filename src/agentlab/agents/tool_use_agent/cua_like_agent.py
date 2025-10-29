@@ -288,7 +288,7 @@ class Obs(Block):
     ) -> dict:
         obs_msg = llm.msg.user()
         tool_calls = last_llm_output.tool_calls
-        # add the tool call response first in the observation 
+        # add the tool call response first in the observation
         # to maintain continuity with last response.
         if tool_calls:
             for call in tool_calls:
@@ -612,17 +612,17 @@ class ToolUseAgent(bgym.Agent):
         response: LLMOutput = self.llm(
             APIPayload(
                 messages=messages,
-                tools=self.tools,  
-                tool_choice="auto", # auto must be enabled to get reasoning for tool calls.
+                tools=self.tools,
+                tool_choice="auto",  # auto must be enabled to get reasoning for tool calls.
                 cache_tool_definition=True,
                 cache_complete_prompt=False,
                 use_cache_breakpoints=True,
-                reasoning_effort="low"
+                reasoning_effort="low",
             )
         )
         action = response.action
         if action is None and self.config.use_noop_as_default_action:
-            action = 'noop()'  # default action is noop if none is provided
+            action = "noop()"  # default action is noop if none is provided
         think = response.think
         last_summary = self.discussion.get_last_summary()
         if last_summary is not None:
@@ -689,7 +689,7 @@ CUA_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=False),
     action_subsets=("coord",),
-    keep_last_n_obs=5, # max 20 no more than 20 screenshots for claude
+    keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
 )
 
 
@@ -704,6 +704,7 @@ def get_cua_like_agent_config(model_name: str) -> ToolUseAgentArgs:
         config=CUA_PROMPT_CONFIG,
     )
 
+
 CUA_LIKE_CLAUDE_4_SONNET = get_cua_like_agent_config("anthropic/claude-sonnet-4-20250514")
 CUA_LIKE_CLAUDE_4_5_SONNET = get_cua_like_agent_config("anthropic/claude-sonnet-4-5-20250929")
 
@@ -713,6 +714,7 @@ if __name__ == "__main__":
     from agentlab.experiments.study import Study
     import bgym
     import logging
+
     logging.getLogger().setLevel(logging.INFO)
     os.environ["LITELLM_LOG"] = "WARNING"
 
@@ -725,7 +727,7 @@ if __name__ == "__main__":
     benchmark = bgym.DEFAULT_BENCHMARKS[benchmark](n_repeats=1)
     benchmark = benchmark.subset_from_glob("task_name", "*create*")
     for env_args in benchmark.env_args_list:
-        env_args.max_steps = 20 # increase the number of steps for coord agent testing
+        env_args.max_steps = 20  # increase the number of steps for coord agent testing
 
     agent_args = [CUA_LIKE_CLAUDE_4_SONNET]
     study = Study(agent_args, benchmark, logging_level_stdout=logging.WARNING)
@@ -734,5 +736,5 @@ if __name__ == "__main__":
         n_jobs=5,
         parallel_backend="ray",
         strict_reproducibility=False,
-        n_relaunch=1
+        n_relaunch=1,
     )
