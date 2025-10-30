@@ -478,6 +478,14 @@ class ToolUseAgentArgs(AgentArgs):
     def __post_init__(self):
         try:
             self.agent_name = f"CUA-{self.model_args.model_name}".replace("/", "_")
+            if self.config.task_hint.use_task_hint:
+                if self.config.task_hint.hint_retrieval_mode == "direct":
+                    self.agent_name += f"-direct-hint"
+                if self.config.task_hint.hint_retrieval_mode == "emb":
+                    self.agent_name += f"-emb-hint"
+                if self.config.task_hint.hint_retrieval_mode == "llm":
+                    self.agent_name += f"-llm-hint"
+            
         except AttributeError:
             pass
 
@@ -526,12 +534,12 @@ class ToolUseAgent(bgym.Agent):
             self.config.action_subsets,
             multiaction=self.config.multiaction,  # type: ignore
         )
-        # if self.config.use_generalized_bgym_action_tool:
-        #     self.tools = [make_generalized_action_tool(self.action_set,
-        #                                                additional_instructions=ADDITIONAL_INSTRUCTIONS)]
-        # else:
-        #     self.tools = self.action_set.to_tool_description(api=model_args.api)
-        self.tools = [simple_bgym_action_tool]
+        if self.config.use_generalized_bgym_action_tool:
+            # self.tools = [make_generalized_action_tool(self.action_set,
+            #                                            additional_instructions=ADDITIONAL_INSTRUCTIONS)]
+            self.tools = [simple_bgym_action_tool]
+        else:
+            self.tools = self.action_set.to_tool_description(api=model_args.api)
 
         self.call_ids = []
 
@@ -692,6 +700,23 @@ CUA_PROMPT_CONFIG = PromptConfig(
     keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
 )
 
+
+def get_cua_like_agent_config_with_hint(model_name: str,
+                                        hint_db_path: str, 
+                                        hint_retrieval_mode: Literal['direct', 'llm', 'emb'] = 'direct'
+                                        ) -> ToolUseAgentArgs:
+    config = deepcopy(CUA_PROMPT_CONFIG)
+    config.task_hint.use_task_hint = True
+    config.task_hint.hint_db_rel_path = hint_db_path
+    config.task_hint.hint_retrieval_mode = hint_retrieval_mode
+    return ToolUseAgentArgs(
+        model_args=LiteLLMModelArgs(
+            model_name=model_name,
+            max_new_tokens=2000,
+            temperature=None, # NONE for claude-4-5 to enable reasoning effort.
+        ),
+        config=config,
+    )
 
 def get_cua_like_agent_config(model_name: str) -> ToolUseAgentArgs:
 
