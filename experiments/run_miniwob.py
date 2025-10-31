@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[loggin
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
-    config = load_config("gaia_l1")
+    config = load_config("miniwob")
     study = make_study(
         benchmark=MiniWobBenchmark(backend=MCPPlaywright()),
         agent_args=TapeAgentArgs(agent_name=config.name, config=config),

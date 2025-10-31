@@ -1,0 +1,9 @@
+defaults:
+  - llm: gpt5-mini
+  - agent: plan_act
+  - _self_
+
+name: miniwob_tapeagent
+comment: MiniWob TapeAgent
+parallel_backend: ray
+n_jobs: 32
