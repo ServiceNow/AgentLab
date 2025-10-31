@@ -9,6 +9,7 @@ from pydantic import Field
 from tapeagents.agent import Agent
 from tapeagents.core import Action, Observation, StopStep, TapeMetadata, Thought
 from tapeagents.core import Tape as BaseTape
+from tapeagents.tool_calling import ToolSpec
 
 from agentlab.agents.agent_args import AgentArgs
 
@@ -40,8 +41,12 @@ def load_config(config_name: str) -> DictConfig:
 class TapeAgentArgs(AgentArgs):
     config: DictConfig = None  # type: ignore
 
-    def make_agent(self) -> bgym.Agent:
-        agent: Agent = hydra.utils.instantiate(self.config.agent)
+    def make_agent(self, known_actions: tuple[ToolSpec, ...] | None) -> bgym.Agent:
+        if known_actions is None:
+            agent = hydra.utils.instantiate(self.config.agent)
+        else:
+            tools_description = "\n".join([action.description() for action in known_actions])
+            agent = hydra.utils.instantiate(self.config.agent, known_actions=known_actions, tools_description=tools_description)
         return TapeAgent(agent=agent)
 
 

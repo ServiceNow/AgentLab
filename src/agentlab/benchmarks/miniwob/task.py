@@ -1,6 +1,6 @@
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 from browsergym.miniwob import ALL_MINIWOB_TASKS
 
@@ -16,6 +16,15 @@ class MiniWobTask(AbstractWebTask):
     url: str = None
     remove_human_display: bool = True
     episode_max_time: int = 1000000
+    actions_whitelist: ClassVar[list[str]] = [
+        "browser_press_key",
+        "browser_type",
+        "browser_navigate",
+        "browser_click",
+        "browser_drag",
+        "browser_hover",
+        "browser_select_option",
+    ]
 
     def model_post_init(self, __context: Any):
         self.url = f"{self.base_url}/{self.subdomain}.html"

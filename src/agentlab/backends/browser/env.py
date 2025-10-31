@@ -1,24 +1,25 @@
 import logging
 import time
-from typing import Any, Literal
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal
 
 from tapeagents.core import Action, Observation, StopStep
+from tapeagents.tool_calling import ToolCallAction, ToolSpec
 
 from agentlab.backends.browser.base import BrowserBackend
-from agentlab.benchmarks.abstract_env import AbstractEnv
+from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
 from agentlab.benchmarks.miniwob.task import AbstractWebTask
 
 logger = logging.getLogger(__name__)
 
+class GoalObservation(Observation):
+    kind: Literal["goal_observation"] = "goal_observation"
+    goal: str
 
 class PageObservation(Observation):
     kind: Literal["page_observation"] = "page_observation"
     content: str
-
-class BrowserAction(Action):
-    kind: Literal["browser_action"] = "browser_action"
-    name: str
-    arguments: dict[str, Any]
 
 
 class BrowserEnv(AbstractEnv):
@@ -26,18 +27,22 @@ class BrowserEnv(AbstractEnv):
         self.task_name = task_name
         self.task = task
         self.seed = seed
-        self.backend = backend
         self._turns = 0
+        self.backend = backend
+        self.backend.initialize()
 
     def reset(self, seed: int):
         self.seed = seed
+        logger.info(f"Open task URL: {self.task.url}")
+        page_content = self.backend.goto(self.task.url)
         setup_js = self.task.get_setup_js()
         if setup_js:
             js_result_str = self.backend.run_js(setup_js)
             logger.info(f"Task reset result: {js_result_str}")
+        return [GoalObservation(goal=js_result_str), PageObservation(content=page_content)], {}
 
-    def step(self, action: BrowserAction) -> tuple[Observation, float, bool, bool, dict]:
-        logger.info(f"BrowserEnv.step() called with action {type(action)}")
+    def step(self, action: ToolCallAction) -> tuple[Observation, float, bool, bool, dict]:
+        logger.info(f"BrowserEnv.step() called with action {action.function.name}")
 
         action_exec_start = time.time()
         finished = isinstance(action, StopStep)
@@ -65,8 +70,8 @@ class BrowserEnv(AbstractEnv):
         logger.info(f"Action result in observation: {obs_view}")
         return observation, reward, finished, truncated, env_info
 
-    def _step(self, action: Action) -> PageObservation:
-        tool_result = self.backend.call_tool(action.name, action.arguments)
+    def _step(self, action: ToolCallAction) -> PageObservation:
+        tool_result = self.backend.step(action)
         return PageObservation(content=tool_result)
 
     def calculate_reward(self, action: Action, observation: PageObservation) -> float:
@@ -80,3 +85,28 @@ class BrowserEnv(AbstractEnv):
         if teardown_js:
             js_result_str = self.backend.run_js(teardown_js)
             logger.info(f"Task teardown result: {js_result_str}")
+
+    def actions(self) -> list[ToolSpec]:
+        all_actions = self.backend.actions()
+        filtered_actions = self.task.filter_actions(all_actions)
+        logger.info(f"Filtered {len(filtered_actions)} actions out of {len(all_actions)} for task {self.task.dataset}")
+        return filtered_actions
+
+
+@dataclass
+class BrowserEnvArgs(AbstractEnvArgs):
+    task: AbstractWebTask
+    task_seed: int
+    task_name: str
+    backend: BrowserBackend
+
+    def __init__(self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, task_seed: int = 0):
+        self.task_name = task_name
+        self.task = task
+        self.task_seed = task_seed
+        self.backend = backend
+
+    def make_env(self, exp_dir: Path) -> BrowserEnv:
+        env = BrowserEnv(task_name=self.task_name, task=self.task, backend=self.backend, seed=self.task_seed)
+        return env
+

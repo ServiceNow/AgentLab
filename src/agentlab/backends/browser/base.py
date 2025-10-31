@@ -1,40 +1,44 @@
-from tapeagents.environment import FunctionCall
-from tapeagents.mcp import MCPEnvironment, ToolCallAction
-from tapeagents.tool_calling import as_openai_tool
+from pydantic import BaseModel
+from tapeagents.mcp import MCPEnvironment
+from tapeagents.tool_calling import FunctionCall, ToolCallAction, ToolSpec
 
 
-class BrowserBackend():
+class BrowserBackend(BaseModel):
+    def initialize(self) -> None:
+        raise NotImplementedError
+
     def run_js(self, js: str):
         raise NotImplementedError
 
-    def call_tool(self, tool_name: str, arguments: dict) -> str:
+    def goto(self, url: str) -> str:
         raise NotImplementedError
 
-    def tools_description(self) -> str:
+    def step(self, action: ToolCallAction) -> str:
         raise NotImplementedError
 
-    def tools(self) -> list[dict]:
+    def actions(self) -> tuple[ToolSpec]:
         raise NotImplementedError
+
 
 
 class MCPBrowserBackend(BrowserBackend):
-    def __init__(self, config_path: str):
-        self.config_path = config_path
-        self.mcp = MCPEnvironment(config_path=self.config_path)
-        self.mcp.initialize()
+    config_path: str
+    _mcp = None
+    
+    def initialize(self) -> None:
+        self._mcp = MCPEnvironment(config_path=self.config_path)
+        self._mcp.initialize()
+
+    def step(self, action: ToolCallAction) -> str:
+        return self._call_mcp(action)
 
     def call_tool(self, tool_name: str, arguments: dict) -> str:
-        action = ToolCallAction(
-            function=FunctionCall(name=tool_name, arguments=arguments)
-        )
-        tool_result = self.mcp.step(action)
-        return tool_result.content.content[0].text
+        return self._call_mcp(ToolCallAction(function=FunctionCall(name=tool_name, arguments=arguments)))
+        
+    def _call_mcp(self, action: ToolCallAction) -> str:
+        tool_result = self._mcp.step(action)
+        texts = [c.text for c in tool_result.content.content]
+        return "\n\n".join(texts)
 
-
-    def tools_description(self) -> str:
-        return self.mcp.tools_description()
-
-    def tools(self) -> list[dict]:
-        actions = self.mcp.actions()
-        tools = [as_openai_tool(a).model_dump() for a in actions]
-        return tools
+    def actions(self) -> tuple[ToolSpec]:
+        return self._mcp.actions()

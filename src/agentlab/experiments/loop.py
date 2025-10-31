@@ -25,6 +25,8 @@ from dataclasses_json import DataClassJsonMixin
 from PIL import Image
 from tqdm import tqdm
 
+from agentlab.backends.browser.env import BrowserEnvArgs
+
 try:
     from agentlab.agents.tapeagent import TapeAgent, save_tape
 except ImportError:
@@ -414,19 +416,23 @@ class ExpArgs:
         env, step_info, err_msg, stack_trace = None, None, None, None
         try:
             logger.info(f"Running experiment {self.exp_name} in:\n  {self.exp_dir}")
-            agent = self.agent_args.make_agent()
-            if hasattr(agent, "set_task_name"):
-                agent.set_task_name(self.env_args.task_name)
+            if isinstance(self.env_args, BrowserEnvArgs):
+                env = self.env_args.make_env(exp_dir=self.exp_dir)
+                logger.debug("Environment created.")
+                agent = self.agent_args.make_agent(known_actions=env.actions())
+                logger.debug(f"Agent created with actions: {env.actions()}")
+            else:
+                agent = self.agent_args.make_agent()
+                if hasattr(agent, "set_task_name"):
+                    agent.set_task_name(self.env_args.task_name)
+                logger.debug("Agent created.")
+                env = self.env_args.make_env(
+                    action_mapping=agent.action_set.to_python_code,
+                    exp_dir=self.exp_dir,
+                    use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
+                )
+                logger.debug("Environment created.")
 
-            logger.debug("Agent created.")
-
-            env = self.env_args.make_env(
-                action_mapping=agent.action_set.to_python_code,
-                exp_dir=self.exp_dir,
-                use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
-            )
-
-            logger.debug("Environment created.")
             step_info = StepInfo(step=0)
             episode_info = [step_info]
             step_info.from_reset(

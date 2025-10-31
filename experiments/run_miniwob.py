@@ -8,6 +8,7 @@ from agentlab.experiments.study import make_study
 
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
 logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[logging.StreamHandler()])
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     config = load_config("gaia_l1")
