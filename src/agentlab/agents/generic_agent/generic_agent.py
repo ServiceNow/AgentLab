@@ -30,7 +30,7 @@ from .generic_agent_prompt import GenericPromptFlags, MainPrompt
 class GenericAgentArgs(AgentArgs):
     chat_model_args: BaseModelArgs = None
     flags: GenericPromptFlags = None
-    max_retry: int = 4
+    max_retry: int = 1
 
     def __post_init__(self):
         try:  # some attributes might be temporarily args.CrossProd for hyperparameter generation
@@ -77,7 +77,7 @@ class GenericAgent(Agent):
         self,
         chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
-        max_retry: int = 4,
+        max_retry: int = 1,
     ):
 
         self.chat_llm = chat_model_args.make_model()
