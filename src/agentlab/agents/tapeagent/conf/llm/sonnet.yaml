@@ -1,0 +1,6 @@
+_target_: tapeagents.llms.Claude
+model_name: claude-sonnet-4-5-20250929
+use_cache: false
+context_size: 128000
+parameters:
+  temperature: 0.1

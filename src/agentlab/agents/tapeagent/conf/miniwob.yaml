@@ -1,6 +1,6 @@
 defaults:
-  - llm: gpt5-mini
-  - agent: plan_act
+  - llm: sonnet
+  - agent: plan_react_fcall
   - _self_
 
 name: miniwob_tapeagent
