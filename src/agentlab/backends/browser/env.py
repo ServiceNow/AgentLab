@@ -7,6 +7,7 @@ from typing import Literal
 from tapeagents.core import Action, Observation, StopStep
 from tapeagents.tool_calling import ToolCallAction, ToolSpec
 
+from agentlab.actions import ToolsActionSet
 from agentlab.backends.browser.base import BrowserBackend
 from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
 from agentlab.benchmarks.miniwob.task import AbstractWebTask
@@ -41,7 +42,9 @@ class BrowserEnv(AbstractEnv):
             logger.info(f"Task reset result: {js_result_str}")
         return [GoalObservation(goal=js_result_str), PageObservation(content=page_content)], {}
 
-    def step(self, action: ToolCallAction) -> tuple[Observation, float, bool, bool, dict]:
+    def step(self, action: ToolCallAction | str) -> tuple[Observation, float, bool, bool, dict]:
+        if isinstance(action, str):
+            action = ToolsActionSet.parse_action(action)
         logger.info(f"BrowserEnv.step() called with action {action.function.name}")
 
         action_exec_start = time.time()

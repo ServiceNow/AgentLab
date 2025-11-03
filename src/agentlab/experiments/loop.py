@@ -419,7 +419,7 @@ class ExpArgs:
             if isinstance(self.env_args, BrowserEnvArgs):
                 env = self.env_args.make_env(exp_dir=self.exp_dir)
                 logger.debug("Environment created.")
-                agent = self.agent_args.make_agent(known_actions=env.actions())
+                agent = self.agent_args.make_agent(actions=env.actions())
                 logger.debug(f"Agent created with actions: {env.actions()}")
             else:
                 agent = self.agent_args.make_agent()

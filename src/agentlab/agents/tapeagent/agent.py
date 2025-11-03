@@ -41,12 +41,12 @@ def load_config(config_name: str) -> DictConfig:
 class TapeAgentArgs(AgentArgs):
     config: DictConfig = None  # type: ignore
 
-    def make_agent(self, known_actions: tuple[ToolSpec, ...] | None) -> bgym.Agent:
-        if known_actions is None:
+    def make_agent(self, actions: tuple[ToolSpec, ...] | None) -> bgym.Agent:
+        if actions is None:
             agent = hydra.utils.instantiate(self.config.agent)
         else:
-            tools_description = "\n".join([action.description() for action in known_actions])
-            agent = hydra.utils.instantiate(self.config.agent, known_actions=known_actions, tools_description=tools_description)
+            tools_description = "\n".join([action.description() for action in actions])
+            agent = hydra.utils.instantiate(self.config.agent, known_actions=actions, tools_description=tools_description)
         return TapeAgent(agent=agent)
 
 

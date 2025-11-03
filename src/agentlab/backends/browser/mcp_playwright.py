@@ -14,9 +14,13 @@ class MCPPlaywright(MCPBrowserBackend):
 
     def run_js(self, js: str):
         raw_response = self.call_tool("browser_evaluate", {"function": js})
-        _, half_response = raw_response.split("### Result", maxsplit=1)
-        result_str, _ = half_response.split("\n### Ran", maxsplit=1)
-        result_str = result_str.strip()
+        try:
+            _, half_response = raw_response.split("### Result", maxsplit=1)
+            result_str, _ = half_response.split("\n### Ran", maxsplit=1)
+            result_str = result_str.strip()
+        except Exception as e:
+            logger.error(f"Error parsing JS result: {e}. Raw result: {raw_response}")
+            raise e
         return result_str
 
     def step(self, action: ToolCallAction) -> str:

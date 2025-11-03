@@ -5,7 +5,7 @@
       "args": [
         "@playwright/mcp@latest",
         "--browser",
-        "chromium",
+        "firefox",
         "--headless",
         "--isolated"
       ],
