@@ -16,6 +16,7 @@ class MiniWobTask(AbstractWebTask):
     url: str = None
     remove_human_display: bool = True
     episode_max_time: int = 1000000
+    max_turns: int = 10
     actions_whitelist: ClassVar[list[str]] = [
         "browser_press_key",
         "browser_type",

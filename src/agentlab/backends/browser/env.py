@@ -29,6 +29,7 @@ class BrowserEnv(AbstractEnv):
         self.task = task
         self.seed = seed
         self._turns = 0
+        self.max_turns = task.max_turns
         self.backend = backend
         self.backend.initialize()
 
@@ -45,7 +46,7 @@ class BrowserEnv(AbstractEnv):
     def step(self, action: ToolCallAction | str) -> tuple[Observation, float, bool, bool, dict]:
         if isinstance(action, str):
             action = ToolsActionSet.parse_action(action)
-        logger.info(f"BrowserEnv.step() called with action {action.function.name}")
+        logger.info(f"BrowserEnv.step() called with action {action}")
 
         action_exec_start = time.time()
         finished = isinstance(action, StopStep)
@@ -61,7 +62,7 @@ class BrowserEnv(AbstractEnv):
         if self.task.validate_per_step or finished or truncated:
             reward = self.calculate_reward(action, observation)
         else:
-            reward = None
+            reward = 0.0
 
         env_info = {
             "step_metadata": observation.metadata,

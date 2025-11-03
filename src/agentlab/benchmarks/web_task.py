@@ -9,6 +9,7 @@ class AbstractWebTask(BaseModel):
     url: str
     validate_per_step: bool = False
     actions_whitelist: ClassVar[list[str]] = []
+    max_turns: int = 100
 
     @classmethod
     def filter_actions(cls, actions: list[ToolSpec]) -> list[str]:

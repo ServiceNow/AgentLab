@@ -1,6 +1,3 @@
-from tapeagents.environment import FunctionCall
-from tapeagents.mcp import ToolCallAction
-
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright
 from agentlab.benchmarks.miniwob.task import get_miniwob_tasks
 
@@ -11,6 +8,9 @@ def main():
     setup_js = task.get_setup_js()
 
     backend = MCPPlaywright()
+    backend.initialize()
+    print(backend.actions())
+
     print("="*100)
     # 1. goto task url
     print("URL: ", task.url)
