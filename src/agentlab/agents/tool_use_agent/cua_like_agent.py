@@ -414,6 +414,8 @@ class TaskHint(Block):
     top_n: int = 4  # Number of top hints to return when using embedding retrieval
     embedder_model: str = "Qwen/Qwen3-Embedding-0.6B"  # Model for embedding hints
     embedder_server: str = "http://localhost:5000"
+    skip_hints_for_current_task: bool = False
+    skip_hints_for_current_goal: bool = False
 
     def _init(self):
         """Initialize the block."""
@@ -424,6 +426,8 @@ class TaskHint(Block):
                 top_n=self.top_n,
                 embedder_model=self.embedder_model,
                 embedder_server=self.embedder_server,
+                skip_hints_for_current_task=self.skip_hints_for_current_task,
+                skip_hints_for_current_goal=self.skip_hints_for_current_goal,
                 # llm_prompt=self.llm_prompt, # Use the default Prompt
             )
 
@@ -715,6 +719,27 @@ def get_cua_like_agent_config_with_hint(model_name: str,
         config=config,
     )
 
+
+def get_cua_like_agent_config_with_hint_skip_for_current_goal(
+    model_name: str,
+    hint_db_path: str,
+    hint_retrieval_mode: Literal["llm", "emb"] = "llm",
+) -> ToolUseAgentArgs:
+    config = deepcopy(CUA_PROMPT_CONFIG)
+    config.task_hint.use_task_hint = True
+    config.task_hint.skip_hints_for_current_goal = True
+    config.task_hint.hint_db_rel_path = hint_db_path
+    config.task_hint.hint_retrieval_mode = hint_retrieval_mode
+    return ToolUseAgentArgs(
+        model_args=LiteLLMModelArgs(
+            model_name=model_name,
+            max_new_tokens=2000,
+            temperature=None,  # NONE for claude-4-5 to enable reasoning effort.
+        ),
+        config=config,
+    )
+
+
 def get_cua_like_agent_config(model_name: str) -> ToolUseAgentArgs:
 
     return ToolUseAgentArgs(
@@ -729,6 +754,7 @@ def get_cua_like_agent_config(model_name: str) -> ToolUseAgentArgs:
 
 CUA_LIKE_CLAUDE_4_SONNET = get_cua_like_agent_config("anthropic/claude-sonnet-4-20250514")
 CUA_LIKE_CLAUDE_4_5_SONNET = get_cua_like_agent_config("anthropic/claude-sonnet-4-5-20250929")
+
 
 if __name__ == "__main__":
 
