@@ -9,6 +9,7 @@ from agentlab.experiments.exp_utils import run_exp
 from agentlab.experiments.loop import ExpArgs, yield_all_exp_results
 
 RAY_PUBLIC_DASHBOARD = os.environ.get("RAY_PUBLIC_DASHBOARD", "false") == "true"
+RAY_DASHBOARD_PORT = os.environ.get("RAY_DASHBOARD_PORT")
 
 
 def run_experiments(
@@ -86,7 +87,9 @@ def run_experiments(
             from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
 
             ray.init(
-                num_cpus=n_jobs, dashboard_host="0.0.0.0" if RAY_PUBLIC_DASHBOARD else "127.0.0.1"
+                num_cpus=n_jobs,
+                dashboard_host="0.0.0.0" if RAY_PUBLIC_DASHBOARD else "127.0.0.1",
+                dashboard_port=None if RAY_DASHBOARD_PORT is None else int(RAY_DASHBOARD_PORT),
             )
             try:
                 execute_task_graph(exp_args_list, avg_step_timeout=avg_step_timeout)
