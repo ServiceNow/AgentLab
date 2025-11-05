@@ -662,6 +662,16 @@ class ToolUseAgent(bgym.Agent):
             )
         )
         action = response.action
+    
+        if self.config.use_generalized_bgym_action_tool:
+            if response.tool_calls is not None:
+                for tc in response.tool_calls.tool_calls:
+                    if tc.name == "get_action":
+                        action = tc.arguments.get("action")
+                        break
+            else:
+                action = None
+
         if action is None and self.config.use_noop_as_default_action:
             action = "noop()"  # default action is noop if none is provided
         think = response.think
