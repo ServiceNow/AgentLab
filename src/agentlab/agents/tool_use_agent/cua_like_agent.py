@@ -283,6 +283,9 @@ class Obs(Block):
     use_zoomed_webpage: bool = False
     skip_preprocessing: bool = False
 
+    def _init(self):
+        self._last_observation = None
+
     def apply(
         self, llm, discussion: StructuredDiscussion, obs: dict, last_llm_output: LLMOutput
     ) -> dict:
@@ -306,8 +309,11 @@ class Obs(Block):
             else:
                 screenshot = obs["screenshot"]
 
-            if self.overlay_mouse_action:
-                screenshot = agent_utils.overlay_action(obs, obs["last_action"], return_array=True)
+            if self.overlay_mouse_action and self._last_observation is not None:
+                self.overlay_last_screenshot_with_action(
+                    discussion, obs["last_action"], self._last_observation
+                )
+                # screenshot = agent_utils.overlay_action(obs, obs["last_action"], return_array=True)
 
             obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
@@ -318,8 +324,30 @@ class Obs(Block):
             obs_msg.add_text(_format_tabs(obs))
 
         discussion.append(obs_msg)
-
+        self._last_observation = deepcopy(obs)
         return obs_msg
+
+    @staticmethod
+    def overlay_last_screenshot_with_action(discussion: StructuredDiscussion, action, obs):
+        """Update the last message's image with new_image_base64."""
+        import base64
+        from agentlab.analyze import overlay_utils
+        from PIL import Image
+        import base64
+        from io import BytesIO
+
+        for msg_groups in reversed(discussion.groups):
+            for msg in reversed(msg_groups.messages):
+                for content in reversed(msg.content):
+                    if "image" in content:
+                        data_url = content["image"]
+                        header, encoded = data_url.split(",", 1)
+                        new_obs_properties = deepcopy(obs["extra_element_properties"])
+                        sc = Image.open(BytesIO(base64.b64decode(encoded)))
+                        overlay_utils.annotate_action(sc, action, properties=new_obs_properties)
+                        new_base64_image = image_to_png_base64_url(sc)
+                        content["image"] = new_base64_image
+                        return
 
 
 def _format_tabs(obs):
