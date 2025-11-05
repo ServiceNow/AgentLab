@@ -431,12 +431,16 @@ class TaskHint(Block):
                 # llm_prompt=self.llm_prompt, # Use the default Prompt
             )
 
-    def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
+    def apply(self, llm, discussion: StructuredDiscussion, obs: dict, task_name: str) -> dict:
         if not self.use_task_hint:
             return {}
 
-        goal = "\n".join([c.get("text", "") for c in discussion.groups[0].messages[1].content])
-        task_hints = self.hints_source.choose_hints(llm, task_name, goal)
+        try:
+            goal_text = obs["goal_object"][0]["text"]
+        except (KeyError, IndexError):
+            Warning("Goal text not found in observation")
+            goal_text = ""
+        task_hints = self.hints_source.choose_hints(llm, task_name, goal_text)
 
         hints = []
         for hint in task_hints:
@@ -609,7 +613,7 @@ class ToolUseAgent(bgym.Agent):
 
             self.config.summarizer.apply_init(self.llm, self.discussion)
             self.config.general_hints.apply(self.llm, self.discussion)
-            self.task_hint.apply(self.llm, self.discussion, self.task_name)
+            self.task_hint.apply(self.llm, self.discussion, obs, self.task_name)
 
             self.discussion.new_group()
 
