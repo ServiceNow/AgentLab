@@ -125,6 +125,16 @@ simple_bgym_action_tool = {
     },
 }
 
+def action_from_generalized_bgym_action_tool(response: LLMOutput, tool_name : str = "get_action") -> str | None:
+    """Extract the action string from the tool call in the LLM response."""
+    action = None
+    if response.tool_calls is not None:
+        for tc in response.tool_calls.tool_calls:
+            if tc.name == tool_name:
+                action = tc.arguments.get("action")
+                break
+    return action
+
 
 @dataclass
 class Block(ABC):
@@ -661,16 +671,11 @@ class ToolUseAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-        action = response.action
-    
+        
         if self.config.use_generalized_bgym_action_tool:
-            if response.tool_calls is not None:
-                for tc in response.tool_calls.tool_calls:
-                    if tc.name == "get_action":
-                        action = tc.arguments.get("action")
-                        break
-            else:
-                action = None
+            action = action_from_generalized_bgym_action_tool(response)
+        else:
+            action = response.action
 
         if action is None and self.config.use_noop_as_default_action:
             action = "noop()"  # default action is noop if none is provided
