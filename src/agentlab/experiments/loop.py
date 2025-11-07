@@ -197,51 +197,20 @@ class StepInfo:
     profiling: StepTimestamps = field(default_factory=StepTimestamps)
     task_info: dict = None
 
-    def from_step(self, env: gym.Env, action: str, obs_preprocessor: callable):
-        t = self.profiling
-        t.env_start = time.time()
-        self.obs, self.reward, self.terminated, self.truncated, env_info = env.step(action)
-        t.env_stop = time.time()
-
+    def add_action_result(self, action_result: tuple[dict, float, bool, bool, dict]):
+        self.obs, self.reward, self.terminated, self.truncated, env_info = action_result
         self.task_info = env_info.get("task_info", None)
-
         self.raw_reward = env_info.get("RAW_REWARD_GLOBAL", None)
 
-        t.action_exec_start = env_info["action_exec_start"]  # start
-        t.action_exect_after_timeout = env_info["action_exec_stop"]
-        t.action_exec_stop = env_info["action_exec_stop"] - env_info["action_exec_timeout"]
-        t.wait_for_page_loading_start = env_info.get("wait_for_page_loading_start", None)
-        t.wait_for_page_loading_stop = env_info.get("wait_for_page_loading_stop", None)
-        t.validation_start = env_info.get("validation_start", None)
-        t.validation_stop = env_info.get("validation_stop", None)
-        t.get_observation_start = env_info.get("get_observation_start", None)
-        t.get_observation_stop = env_info.get("get_observation_stop", None)
-
-        if obs_preprocessor:
-            self.obs = obs_preprocessor(self.obs)
-
-    def from_action(self, agent: Agent):
-        self.profiling.agent_start = time.time()
-        self.action, self.agent_info = agent.get_action(self.obs.copy())
-        self.profiling.agent_stop = time.time()
-
-        self.make_stats()
-
-        return self.action
-
-    def from_reset(self, env: gym.Env, seed: int, obs_preprocessor: callable):
-        t = self.profiling
-        t.env_start = time.time()
-        self.obs, env_info = env.reset(seed=seed)
-        self.reward, self.terminated, self.truncated = 0, False, False
-        t.env_stop = time.time()
-
-        t.action_exec_start = env_info.get("recording_start_time", t.env_start)
-        t.action_exect_after_timeout = t.env_stop
-        t.action_exec_stop = t.env_stop
-
-        if obs_preprocessor:
-            self.obs = obs_preprocessor(self.obs)
+        self.profiling.action_exec_start = env_info.get("action_exec_start", None)
+        self.profiling.action_exect_after_timeout = env_info["action_exec_stop"]
+        self.profiling.action_exec_stop = env_info["action_exec_stop"] - env_info["action_exec_timeout"]
+        self.profiling.wait_for_page_loading_start = env_info.get("wait_for_page_loading_start", None)
+        self.profiling.wait_for_page_loading_stop = env_info.get("wait_for_page_loading_stop", None)
+        self.profiling.validation_start = env_info.get("validation_start", None)
+        self.profiling.validation_stop = env_info.get("validation_stop", None)
+        self.profiling.get_observation_start = env_info.get("get_observation_start", None)
+        self.profiling.get_observation_stop = env_info.get("get_observation_stop", None)
 
     @property
     def is_done(self):
@@ -264,7 +233,7 @@ class StepInfo:
 
         self.stats = stats
 
-    def save_step_info(self, exp_dir, save_json=False, save_screenshot=True, save_som=False):
+    def save(self, exp_dir, save_json=False, save_screenshot=True, save_som=False):
         # special treatment for some of the observation fields
         if isinstance(self.obs, dict):
             # save screenshots to separate files
@@ -291,14 +260,15 @@ class StepInfo:
 
         with gzip.open(exp_dir / f"step_{self.step}.pkl.gz", "wb") as f:
             pickle.dump(self, f)
+        logger.debug("Step info saved.")
 
         if save_json:
             with open(exp_dir / "steps_info.json", "w") as f:
                 json.dump(self, f, indent=4, cls=DataclassJSONEncoder)
+            logger.debug("Step info saved to JSON.")
 
         if isinstance(self.obs, dict):
             # add the screenshots back to the obs
-            # why do we need this?
             if screenshot is not None:
                 self.obs["screenshot"] = screenshot
             if screenshot_som is not None:
@@ -416,57 +386,48 @@ class ExpArgs:
         env, step_info, err_msg, stack_trace = None, None, None, None
         try:
             logger.info(f"Running experiment {self.exp_name} in:\n  {self.exp_dir}")
-            if isinstance(self.env_args, BrowserEnvArgs):
-                env = self.env_args.make_env(exp_dir=self.exp_dir)
-                logger.debug("Environment created.")
-                agent = self.agent_args.make_agent(actions=env.actions())
-                logger.debug(f"Agent created with actions: {env.actions()}")
-            else:
-                agent = self.agent_args.make_agent()
-                if hasattr(agent, "set_task_name"):
-                    agent.set_task_name(self.env_args.task_name)
-                logger.debug("Agent created.")
-                env = self.env_args.make_env(
-                    action_mapping=agent.action_set.to_python_code,
-                    exp_dir=self.exp_dir,
-                    use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
-                )
-                logger.debug("Environment created.")
+            env, agent = self.create_env_and_agent()
 
             step_info = StepInfo(step=0)
-            episode_info = [step_info]
-            step_info.from_reset(
-                env, seed=self.env_args.task_seed or 0, obs_preprocessor=agent.obs_preprocessor
-            )
+            step_info.profiling.env_start = time.time()
+            self.obs, env_info = env.reset(seed=self.env_args.task_seed or 0)
+            step_info.profiling.env_stop = time.time()
+            step_info.task_info = env_info.get("task_info", None)
+            if agent.obs_preprocessor:
+                step_info.obs = agent.obs_preprocessor(step_info.obs)
             logger.debug("Environment reset.")
 
             while not step_info.is_done:  # set a limit
                 logger.debug(f"Starting step {step_info.step}.")
-                action = step_info.from_action(agent)
+                step_info.profiling.agent_start = time.time()
+                action, step_info.agent_info = agent.get_action(step_info.obs.copy())
+                step_info.profiling.agent_stop = time.time()
                 logger.debug(f"Agent chose action:\n {action}")
 
                 if action is None:
                     # will end the episode after saving the step info.
                     step_info.truncated = True
 
-                step_info.save_step_info(
-                    self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som
-                )
-                logger.debug("Step info saved.")
+                step_info.save(self.exp_dir, self.save_screenshot, self.save_som)
 
-                if hasattr(env.unwrapped, "chat") and isinstance(env.unwrapped.chat, Chat):
-                    _send_chat_info(env.unwrapped.chat, action, step_info.agent_info)
-                    logger.debug("Chat info sent.")
+                self.maybe_send_chat(env, action, step_info)
 
                 if action is None:
                     logger.debug("Agent returned None action. Ending episode.")
                     break
 
-                step_info = StepInfo(step=step_info.step + 1)
                 episode_info.append(step_info)
 
+                # --- End of (obs, action, reward) step, start a new one ---
+
+                step_info = StepInfo(step=step_info.step + 1)
                 logger.debug("Sending action to environment.")
-                step_info.from_step(env, action, obs_preprocessor=agent.obs_preprocessor)
+                step_info.profiling.env_start = time.time()
+                action_result = env.step(action)
+                step_info.profiling.env_stop = time.time()
+                step_info.add_action_result(action_result)
+                if agent.obs_preprocessor:
+                    step_info.obs = agent.obs_preprocessor(step_info.obs)
                 logger.debug("Environment stepped.")
                 if step_info.is_done:
                     logger.debug(
@@ -488,7 +449,7 @@ class ExpArgs:
         finally:
             try:
                 if step_info is not None:
-                    step_info.save_step_info(
+                    step_info.save(
                         self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som
                     )
             except Exception as e:
@@ -517,6 +478,30 @@ class ExpArgs:
                 self._unset_logger()  # stop writing logs to run logfile
             except Exception as e:
                 logger.exception(f"Error while unsetting the logger: {e}")
+
+    def create_env_and_agent(self) -> tuple[gym.Env, Agent]:
+        if isinstance(self.env_args, BrowserEnvArgs):
+            env = self.env_args.make_env(exp_dir=self.exp_dir)
+            logger.debug("Environment created.")
+            agent = self.agent_args.make_agent(actions=env.actions())
+            logger.debug(f"Agent created with actions: {env.actions()}")
+        else:
+            agent = self.agent_args.make_agent()
+            if hasattr(agent, "set_task_name"):
+                agent.set_task_name(self.env_args.task_name)
+            logger.debug("Agent created.")
+            env = self.env_args.make_env(
+                action_mapping=agent.action_set.to_python_code,
+                exp_dir=self.exp_dir,
+                use_raw_page_output=getattr(self.agent_args, "use_raw_page_output", False),
+            )
+            logger.debug("Environment created.")
+        return env, agent
+
+    def maybe_send_chat(self, env: gym.Env, action: str, step_info: StepInfo):
+        if hasattr(env.unwrapped, "chat") and isinstance(env.unwrapped.chat, Chat):
+            _send_chat_info(env.unwrapped.chat, action, step_info.agent_info)
+            logger.debug("Chat info sent.")
 
     def _set_logger(self):
         # output logging traces to a log file
@@ -618,6 +603,7 @@ def _aggregate_episode_stats(episode_info: list[StepInfo]):
 
     stats = defaultdict(list)
     for step_info in episode_info:
+        step_info.make_stats()
         if step_info.stats is not None:
             for key, val in step_info.stats.items():
                 if val is None:
