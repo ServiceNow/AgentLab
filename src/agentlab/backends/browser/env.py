@@ -45,23 +45,16 @@ class BrowserEnv(AbstractEnv):
         self.backend.goto(self.task.url)
         setup_js = self.task.get_setup_js()
         if setup_js:
-            js_out = self.backend.run_js(setup_js)
-            out_dict = json.loads(js_out)
-            logger.info(f"Task setup result: {out_dict}")
-            goal = out_dict["goal"]
-            done = out_dict["done"]
-            task_start_time = out_dict["task_start_time"]
-            logger.info(f"Task start time: {task_start_time}")
-            if done:
-                raise ValueError("Task is already done")
-            self.goal = goal
+            self.goal = self.backend.run_js(setup_js)
             logger.info(f"Task goal: {self.goal}")
         page_content = self.backend.page_snapshot()
-        logger.info(f"Initial obs: {page_content}")
+        screenshot = self.backend.page_screenshot()
+        logger.info(f"Initial obs: {page_content}\n{screenshot}")
         return {
             "goal_object": [{"type": "text", "text": self.goal}],
             "pruned_html": page_content,
-            "axtree_txt": "",
+            "axtree_txt": page_content,
+            "screenshot": screenshot,
             "last_action_error": "",
             "focused_element_bid": "none",
         }, {}
@@ -90,7 +83,7 @@ class BrowserEnv(AbstractEnv):
         truncated = self._turns >= self.max_turns
 
         if self.task.validate_per_step or finished or truncated:
-            reward, other = self.calculate_reward(action, observation)
+            reward, other = self.validate_task(action, observation)
             if other.get("done", False):
                 finished = True
         else:
@@ -107,16 +100,15 @@ class BrowserEnv(AbstractEnv):
         return observation, reward, finished, truncated, env_info
 
     def _step(self, action: ToolCallAction) -> dict:
-        tool_result = self.backend.step(action)
+        obs_dict = self.backend.step(action)
         return {
             "goal_object": [{"type": "text", "text": self.goal}],
-            "pruned_html": tool_result,
-            "axtree_txt": "",
+            **obs_dict,
             "last_action_error": "",
             "focused_element_bid": "none",
         }
 
-    def calculate_reward(self, action: Action, observation: PageObservation) -> tuple[float, dict]:
+    def validate_task(self, action: Action, observation: PageObservation) -> tuple[float, dict]:
         validate_js = self.task.get_step_validate_js()
         validate_result = self.backend.run_js(validate_js)
         reward, other = self.task.parse_validation_result(validate_result)

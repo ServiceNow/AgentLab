@@ -7,7 +7,9 @@
         "--browser",
         "firefox",
         "--headless",
-        "--isolated"
+        "--isolated",
+        "--caps",
+        "vision"
       ],
       "env": {
         "PLAYWRIGHT_BROWSERS_PATH": ""

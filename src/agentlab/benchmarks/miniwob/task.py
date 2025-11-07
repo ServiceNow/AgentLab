@@ -27,6 +27,7 @@ class MiniWobTask(AbstractWebTask):
         "browser_drag",
         "browser_hover",
         "browser_select_option",
+        "browser_mouse_click_xy",
     ]
 
     def model_post_init(self, __context: Any):
@@ -96,12 +97,10 @@ removeDisplay();
 Math.seedrandom(42);
 core.EPISODE_MAX_TIME = {self.episode_max_time};
 core.startEpisodeReal();
-start_time = Date.now();
 while (!WOB_TASK_READY) {{
   await new Promise(resolve => setTimeout(resolve, 100));
 }}
-ready_time = Date.now();
-return {{'goal': core.getUtterance(), 'done': WOB_DONE_GLOBAL, 'task_start_time': ready_time - start_time}};
+return core.getUtterance();
     """
         return f"async () => {{{js}}}"
 
@@ -119,7 +118,6 @@ return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GL
 }"""
 
     def parse_validation_result(self, validation_result: str) -> tuple[float, dict]:
-        logger.info(f"Validation result: {validation_result}")
         chunks = [c.strip() for c in validation_result.split(",")]
         raw_reward = float(chunks[1])
         done = chunks[3].strip().lower() == "true"

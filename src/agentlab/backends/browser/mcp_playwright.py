@@ -1,5 +1,9 @@
+import base64
 import logging
+from io import BytesIO
 
+from mcp.types import ImageContent, TextContent
+from PIL import Image
 from tapeagents.tool_calling import ToolCallAction
 
 from agentlab.backends.browser.base import MCPBrowserBackend
@@ -13,7 +17,8 @@ class MCPPlaywright(MCPBrowserBackend):
     config_path: str = DEFAULT_CONFIG_PATH
 
     def run_js(self, js: str):
-        raw_response = self.call_tool("browser_evaluate", {"function": js})
+        contents = self.call_tool("browser_evaluate", {"function": js})
+        raw_response = "\n".join([c.text for c in contents if c.type == "text"])
         try:
             _, half_response = raw_response.split("### Result", maxsplit=1)
             result_str, _ = half_response.split("\n### Ran", maxsplit=1)
@@ -23,14 +28,31 @@ class MCPPlaywright(MCPBrowserBackend):
             raise e
         return result_str
 
-    def step(self, action: ToolCallAction) -> str:
-        tool_result = self._call_mcp(action)
+    def step(self, action: ToolCallAction) -> dict:
+        contents = self._call_mcp(action)
+        logger.info(f"Step result has {len(contents)} contents")
+        tool_result = "\n".join(
+            [c.text for c in contents if c.type == "text" and "# Ran Playwright code" not in c.text]
+        )
         snapshot = self.page_snapshot()
-        return f"{tool_result}\n{snapshot}"
+        screenshot = self.page_screenshot()
+        return {
+            "pruned_html": f"{tool_result}\n{snapshot}",
+            "axtree_txt": snapshot,
+            "screenshot": screenshot,
+        }
 
     def page_snapshot(self) -> str:
-        return self.call_tool("browser_snapshot", {})
+        contents = self.call_tool("browser_snapshot", {})
+        return "\n".join([c.text for c in contents if c.type == "text"])
+
+    def page_screenshot(self) -> Image:
+        contents = self.call_tool("browser_take_screenshot", {})
+        content = [c for c in contents if c.type == "image"][0]
+        image_base64 = content.data
+        image = Image.open(BytesIO(base64.b64decode(image_base64)))
+        return image
 
     def goto(self, url: str) -> str:
-        tool_result = self.call_tool("browser_navigate", {"url": url})
-        return tool_result
+        contents = self.call_tool("browser_navigate", {"url": url})
+        return "\n".join([c.text for c in contents if c.type == "text"])
