@@ -1,15 +1,27 @@
+import json
+import logging
+
 from bgym import AbstractActionSet
 from tapeagents.tool_calling import FunctionCall, ToolCallAction, ToolSpec
 
 from agentlab.llm.llm_utils import parse_html_tags_raise
 
+logger = logging.getLogger(__name__)
+
 
 class ToolsActionSet(AbstractActionSet):
-    def __init__(self, actions:list[ToolSpec]):
+    multiaction: bool = False
+    strict: bool = False
+
+    def __init__(self, actions: list[ToolSpec]):
         self.actions = actions
 
     def describe(self, with_long_description: bool = True, with_examples: bool = True) -> str:
-        tools_description = "\n".join([action.description() for action in self.actions])
+        descs = []
+        for action in self.actions:
+            desc = f"## {action.description()}.\n Schema: {action.model_dump_json(indent=2)}"
+            descs.append(desc)
+        tools_description = "\n".join(descs)
         return tools_description
 
     def example_action(self, abstract: bool) -> str:
@@ -35,13 +47,26 @@ class ToolsActionSet(AbstractActionSet):
 }
 </action>
 """
+
     @classmethod
     def parse_action(cls, llm_output: str) -> ToolCallAction:
-        content_dict, valid, retry_message = parse_html_tags_raise(llm_output, keys=["action"])
-        if not valid or "action" not in content_dict:
-            raise ValueError(f"Invalid action: llm_output: {llm_output}, retry_message: {retry_message}")
-        action_str = content_dict["action"]
-        return ToolCallAction(function=FunctionCall(name=action_str["name"], arguments=action_str["arguments"]))
+        logger.info(f"Parsing action: {llm_output}")
+        if "<action>" in llm_output:
+            content_dict, valid, retry_message = parse_html_tags_raise(llm_output, keys=["action"])
+            if not valid or "action" not in content_dict:
+                raise ValueError(
+                    f"Invalid action: llm_output: {llm_output}, retry_message: {retry_message}"
+                )
+            action_str = content_dict["action"]
+        else:
+            action_str = llm_output
+        try:
+            action_dict = json.loads(action_str)
+        except json.JSONDecodeError:
+            raise ValueError(f"Failed to parse action: {action_str}")
+        return ToolCallAction(
+            function=FunctionCall(name=action_dict["name"], arguments=action_dict["arguments"])
+        )
 
     def to_python_code(self, action) -> str:
-        return action.model_dump_json(indent=2)
+        return action

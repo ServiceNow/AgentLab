@@ -1,12 +1,16 @@
 import logging
 import os
 
+from bgym import DEFAULT_BENCHMARKS
 from dotenv import load_dotenv
 
+from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_4o
+from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents.tapeagent.agent import TapeAgentArgs, load_config
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright
 from agentlab.benchmarks.miniwob import MiniWobBenchmark
 from agentlab.experiments.study import make_study
+from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
 logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[logging.StreamHandler()])
@@ -15,15 +19,26 @@ load_dotenv()
 
 if __name__ == "__main__":
     config = load_config("miniwob")
+
+    # benchmark = DEFAULT_BENCHMARKS["miniwob"]()
+    agent_args = GenericAgentArgs(
+        chat_model_args=CHAT_MODEL_ARGS_DICT["anthropic/claude-sonnet-4-20250514"],
+        flags=FLAGS_GPT_4o,
+    )
+
+    benchmark = MiniWobBenchmark(backend=MCPPlaywright())
+    # agent_args =TapeAgentArgs(agent_name=config.name, config=config)
+
+
     study = make_study(
-        benchmark=MiniWobBenchmark(backend=MCPPlaywright()),
-        agent_args=TapeAgentArgs(agent_name=config.name, config=config),
+        benchmark=benchmark,
+        agent_args=agent_args,
         comment=config.comment,
         logging_level=logging.INFO,
         logging_level_stdout=logging.INFO,
     )
     if os.environ.get("AGENTLAB_DEBUG"):
-        study.exp_args_list = study.exp_args_list[:1]
+        study.exp_args_list = study.exp_args_list[1:2]
         study.run(n_jobs=1, n_relaunch=1, parallel_backend="sequential")
     else:
         study.run(n_jobs=config.n_jobs, n_relaunch=1, parallel_backend=config.parallel_backend)

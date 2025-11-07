@@ -16,7 +16,9 @@ from warnings import warn
 import bgym
 from bgym import Benchmark
 from browsergym.experiments.agent import Agent, AgentInfo
+from tapeagents.tool_calling import ToolSpec
 
+from agentlab.actions import ToolsActionSet
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs
@@ -65,9 +67,12 @@ class GenericAgentArgs(AgentArgs):
     def close(self):
         return self.chat_model_args.close_server()
 
-    def make_agent(self):
+    def make_agent(self, actions: list[ToolSpec] | None = None):
         return GenericAgent(
-            chat_model_args=self.chat_model_args, flags=self.flags, max_retry=self.max_retry
+            chat_model_args=self.chat_model_args,
+            flags=self.flags,
+            max_retry=self.max_retry,
+            actions=actions,
         )
 
 
@@ -78,6 +83,7 @@ class GenericAgent(Agent):
         chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
+        actions: list[ToolSpec] | None = None,
     ):
 
         self.chat_llm = chat_model_args.make_model()
@@ -85,8 +91,13 @@ class GenericAgent(Agent):
         self.max_retry = max_retry
 
         self.flags = flags
-        self.action_set = self.flags.action.action_set.make_action_set()
-        self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
+        if actions is not None:
+            self.action_set = ToolsActionSet(actions=actions)
+            self.flags.action.action_set = self.action_set
+            self._obs_preprocessor = lambda obs: obs
+        else:
+            self.action_set = self.flags.action.action_set.make_action_set()
+            self._obs_preprocessor = dp.make_obs_preprocessor(flags.obs)
 
         self._check_flag_constancy()
         self.reset(seed=None)
