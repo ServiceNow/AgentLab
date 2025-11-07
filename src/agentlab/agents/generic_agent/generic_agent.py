@@ -168,7 +168,7 @@ class GenericAgent(Agent):
             stats=stats,
             extra_info={"chat_model_args": asdict(self.chat_model_args)},
         )
-        return ans_dict["action"], agent_info
+        return ans_dict["action"], asdict(agent_info)
 
     def reset(self, seed=None):
         self.seed = seed
