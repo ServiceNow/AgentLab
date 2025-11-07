@@ -26,8 +26,10 @@ class MCPPlaywright(MCPBrowserBackend):
     def step(self, action: ToolCallAction) -> str:
         tool_result = self._call_mcp(action)
         logger.info(f"Tool result: {tool_result}")
-        snapshot = self.call_tool("browser_snapshot", {})
-        return snapshot
+        return tool_result
+
+    def page_snapshot(self) -> str:
+        return self.call_tool("browser_snapshot", {})
 
     def goto(self, url: str) -> str:
         tool_result = self.call_tool("browser_navigate", {"url": url})

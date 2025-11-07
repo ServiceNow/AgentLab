@@ -1,10 +1,12 @@
-
+import logging
 import os
 from typing import Any, ClassVar
 
 from browsergym.miniwob import ALL_MINIWOB_TASKS
 
 from agentlab.benchmarks.web_task import AbstractWebTask
+
+logger = logging.getLogger(__name__)
 
 
 class MiniWobTask(AbstractWebTask):
@@ -17,10 +19,10 @@ class MiniWobTask(AbstractWebTask):
     remove_human_display: bool = True
     episode_max_time: int = 1000000
     max_turns: int = 10
+    validate_per_step: bool = True
     actions_whitelist: ClassVar[list[str]] = [
         "browser_press_key",
         "browser_type",
-        "browser_navigate",
         "browser_click",
         "browser_drag",
         "browser_hover",
@@ -29,9 +31,10 @@ class MiniWobTask(AbstractWebTask):
 
     def model_post_init(self, __context: Any):
         self.url = f"{self.base_url}/{self.subdomain}.html"
-        
+
     def get_setup_js(self) -> str:
         if self.remove_human_display:
+            logger.info("Remove human display")
             js = r"""
 let __display_ids = ['reward-display', 'click-canvas', 'sync-task-cover'];
 let __display_divs = {};
@@ -93,10 +96,12 @@ removeDisplay();
 Math.seedrandom(42);
 core.EPISODE_MAX_TIME = {self.episode_max_time};
 core.startEpisodeReal();
+start_time = Date.now();
 while (!WOB_TASK_READY) {{
   await new Promise(resolve => setTimeout(resolve, 100));
 }}
-return core.getUtterance();
+ready_time = Date.now();
+return {{'goal': core.getUtterance(), 'done': WOB_DONE_GLOBAL, 'task_start_time': ready_time - start_time}};
     """
         return f"async () => {{{js}}}"
 
@@ -113,29 +118,34 @@ return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GL
 return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GLOBAL, WOB_EPISODE_ID, WOB_TASK_READY];
 }"""
 
-
     def parse_validation_result(self, validation_result: str) -> tuple[float, dict]:
+        logger.info(f"Validation result: {validation_result}")
         chunks = [c.strip() for c in validation_result.split(",")]
         raw_reward = float(chunks[1])
-        done = bool(chunks[3])
+        done = chunks[3].strip().lower() == "true"
         reward = float(raw_reward > 0)
         return reward, {
-          "raw_reward": raw_reward,
-          "reward_reason": chunks[2],
-          "done": done,
+            "raw_reward": raw_reward,
+            "reward_reason": chunks[2],
+            "done": done,
         }
 
-def get_miniwob_tasks(base_url: str | None = None, remove_human_display: bool = True, episode_max_time: int = 1000000) -> list[MiniWobTask]:
+
+def get_miniwob_tasks(
+    base_url: str | None = None, remove_human_display: bool = True, episode_max_time: int = 1000000
+) -> list[MiniWobTask]:
     if base_url is None:
         base_url = os.environ.get("MINIWOB_URL")
         if base_url is None:
             raise ValueError("MINIWOB_URL environment variable is not set")
     return [
         MiniWobTask(
-            task_id=task.subdomain, 
-            desc=task.desc, 
-            subdomain=task.subdomain, 
-            base_url=base_url, 
-            remove_human_display=remove_human_display, 
-            episode_max_time=episode_max_time) for task in ALL_MINIWOB_TASKS
+            task_id=task.subdomain,
+            desc=task.desc,
+            subdomain=task.subdomain,
+            base_url=base_url,
+            remove_human_display=remove_human_display,
+            episode_max_time=episode_max_time,
+        )
+        for task in ALL_MINIWOB_TASKS
     ]
