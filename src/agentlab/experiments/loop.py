@@ -204,8 +204,12 @@ class StepInfo:
 
         self.profiling.action_exec_start = env_info.get("action_exec_start", None)
         self.profiling.action_exect_after_timeout = env_info["action_exec_stop"]
-        self.profiling.action_exec_stop = env_info["action_exec_stop"] - env_info["action_exec_timeout"]
-        self.profiling.wait_for_page_loading_start = env_info.get("wait_for_page_loading_start", None)
+        self.profiling.action_exec_stop = (
+            env_info["action_exec_stop"] - env_info["action_exec_timeout"]
+        )
+        self.profiling.wait_for_page_loading_start = env_info.get(
+            "wait_for_page_loading_start", None
+        )
         self.profiling.wait_for_page_loading_stop = env_info.get("wait_for_page_loading_stop", None)
         self.profiling.validation_start = env_info.get("validation_start", None)
         self.profiling.validation_stop = env_info.get("validation_stop", None)
@@ -233,7 +237,7 @@ class StepInfo:
 
         self.stats = stats
 
-    def save(self, exp_dir, save_json=False, save_screenshot=True, save_som=False):
+    def save(self, exp_dir, save_screenshot=True, save_som=False, save_json=False):
         # special treatment for some of the observation fields
         if isinstance(self.obs, dict):
             # save screenshots to separate files
@@ -241,11 +245,17 @@ class StepInfo:
             screenshot_som = self.obs.pop("screenshot_som", None)
 
             if save_screenshot and screenshot is not None:
-                img = Image.fromarray(screenshot)
+                if isinstance(screenshot, Image.Image):
+                    img = screenshot
+                else:
+                    img = Image.fromarray(screenshot)
                 img.save(exp_dir / f"screenshot_step_{self.step}.png")
 
             if save_som and screenshot_som is not None:
-                img = Image.fromarray(screenshot_som)
+                if isinstance(screenshot_som, Image.Image):
+                    img = screenshot_som
+                else:
+                    img = Image.fromarray(screenshot_som)
                 img.save(exp_dir / f"screenshot_som_step_{self.step}.png")
 
             # save goal object (which might contain images) to a separate file to save space
@@ -390,7 +400,7 @@ class ExpArgs:
 
             step_info = StepInfo(step=0)
             step_info.profiling.env_start = time.time()
-            self.obs, env_info = env.reset(seed=self.env_args.task_seed or 0)
+            step_info.obs, env_info = env.reset(seed=self.env_args.task_seed or 0)
             step_info.profiling.env_stop = time.time()
             step_info.task_info = env_info.get("task_info", None)
             if agent.obs_preprocessor:
@@ -402,7 +412,9 @@ class ExpArgs:
                 step_info.profiling.agent_start = time.time()
                 action, step_info.agent_info = agent.get_action(step_info.obs.copy())
                 step_info.profiling.agent_stop = time.time()
-                logger.debug(f"Agent chose action:\n {action}")
+                if step_info.agent_info.get("think", None):
+                    logger.info(f"Agent thought: {step_info.agent_info['think']}")
+                logger.debug(f"Agent action:\n {action}")
 
                 if action is None:
                     # will end the episode after saving the step info.
@@ -411,10 +423,6 @@ class ExpArgs:
                 step_info.save(self.exp_dir, self.save_screenshot, self.save_som)
 
                 self.maybe_send_chat(env, action, step_info)
-
-                if action is None:
-                    logger.debug("Agent returned None action. Ending episode.")
-                    break
 
                 episode_info.append(step_info)
 
@@ -433,6 +441,8 @@ class ExpArgs:
                     logger.debug(
                         f"Episode done: terminated: {step_info.terminated}, truncated: {step_info.truncated}."
                     )
+                    episode_info.append(step_info)
+                    break
 
         except Exception as e:
             err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
@@ -449,9 +459,7 @@ class ExpArgs:
         finally:
             try:
                 if step_info is not None:
-                    step_info.save(
-                        self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som
-                    )
+                    step_info.save(self.exp_dir, self.save_screenshot, self.save_som)
             except Exception as e:
                 logger.error(f"Error while saving step info in the finally block: {e}")
             try:
@@ -460,8 +468,7 @@ class ExpArgs:
                     and len(episode_info) > 0
                     and not (episode_info[-1].terminated or episode_info[-1].truncated)
                 ):
-                    e = KeyboardInterrupt("Early termination??")
-                    err_msg = f"Exception uncaught by agent or environment in task {self.env_args.task_name}.\n{type(e).__name__}:\n{e}"
+                    err_msg = "Last step in episode was not terminated or truncated."
                 logger.info("Saving experiment info.")
                 self.save_summary_info(episode_info, Path(self.exp_dir), err_msg, stack_trace)
                 if TapeAgent is not None and isinstance(agent, TapeAgent):
@@ -508,7 +515,7 @@ class ExpArgs:
         file_handler = logging.FileHandler(self.exp_dir / "experiment.log")
         file_handler.setLevel(self.logging_level)  # same level as console outputs
         formatter = logging.Formatter(
-            "%(asctime)s - %(process)d - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s - %(process)d - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
         )
         file_handler.setFormatter(formatter)
         # output handler
