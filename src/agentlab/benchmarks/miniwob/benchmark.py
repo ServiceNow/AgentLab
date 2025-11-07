@@ -23,6 +23,7 @@ class MiniWobBenchmark(AbstractBenchmark):
     high_level_action_set_args: ToolsActionSet = None
 
     def model_post_init(self, __context: Any) -> None:
+        self.name = f"miniwob_{self.backend.__class__.__name__.lower()}"
         self.env_args_list = []
         if self.dataset is None:
             self.dataset = get_miniwob_tasks()

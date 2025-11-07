@@ -31,6 +31,8 @@ class MiniWobTask(AbstractWebTask):
     ]
 
     def model_post_init(self, __context: Any):
+        if self.base_url.endswith("/"):
+            self.base_url = self.base_url[:-1]
         self.url = f"{self.base_url}/{self.subdomain}.html"
 
     def get_setup_js(self) -> str:
