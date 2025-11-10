@@ -6,7 +6,7 @@ from mcp.types import ImageContent, TextContent
 from PIL import Image
 from tapeagents.tool_calling import ToolCallAction
 
-from agentlab.backends.browser.base import MCPBrowserBackend
+from agentlab.backends.browser.mcp import MCPBrowserBackend
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class MCPPlaywright(MCPBrowserBackend):
         return result_str
 
     def step(self, action: ToolCallAction) -> dict:
-        contents = self._call_mcp(action)
+        contents = self.call_tool(action.function.name, action.function.arguments)
         logger.info(f"Step result has {len(contents)} contents")
         tool_result = "\n".join(
             [c.text for c in contents if c.type == "text" and "# Ran Playwright code" not in c.text]

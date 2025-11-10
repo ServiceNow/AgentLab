@@ -163,7 +163,7 @@ class MCPBrowserBackend(BrowserBackend):
         return tool_result.content
 
     def actions(self) -> tuple[ToolSpec]:
-        return self._mcp.actions()
+        return list(self._mcp.actions())
 
     def close(self) -> None:
         self._mcp.close()
