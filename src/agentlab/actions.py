@@ -1,9 +1,11 @@
 import json
 import logging
+from typing import Literal
 
 from bgym import AbstractActionSet
-from tapeagents.tool_calling import FunctionCall, ToolCallAction, ToolSpec
+from pydantic import BaseModel, Field
 
+from agentlab.backends.browser.base import FunctionCall, ToolCallAction, ToolSpec
 from agentlab.llm.llm_utils import parse_html_tags_raise
 
 logger = logging.getLogger(__name__)

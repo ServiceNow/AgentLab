@@ -1,7 +1,8 @@
 from typing import ClassVar
 
 from pydantic import BaseModel
-from tapeagents.tool_calling import ToolSpec
+
+from agentlab.backends.browser.base import ToolSpec
 
 
 class AbstractWebTask(BaseModel):
@@ -29,3 +30,6 @@ class AbstractWebTask(BaseModel):
 
     def parse_validation_result(self, validate_result: str) -> tuple[float, dict]:
         raise NotImplementedError
+
+    def obs_postprocess(self, obs: dict) -> dict:
+        return obs

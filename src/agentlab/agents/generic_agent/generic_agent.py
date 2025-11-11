@@ -10,13 +10,10 @@ the agent, including model arguments and flags for various behaviors.
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-from functools import partial
 from warnings import warn
 
-import bgym
 from bgym import Benchmark
 from browsergym.experiments.agent import Agent, AgentInfo
-from tapeagents.tool_calling import ToolSpec
 
 from agentlab.actions import ToolsActionSet
 from agentlab.agents import dynamic_prompting as dp
@@ -67,7 +64,7 @@ class GenericAgentArgs(AgentArgs):
     def close(self):
         return self.chat_model_args.close_server()
 
-    def make_agent(self, actions: list[ToolSpec] | None = None):
+    def make_agent(self, actions: list | None = None):
         return GenericAgent(
             chat_model_args=self.chat_model_args,
             flags=self.flags,
@@ -83,7 +80,7 @@ class GenericAgent(Agent):
         chat_model_args: BaseModelArgs,
         flags: GenericPromptFlags,
         max_retry: int = 4,
-        actions: list[ToolSpec] | None = None,
+        actions: list | None = None,
     ):
 
         self.chat_llm = chat_model_args.make_model()

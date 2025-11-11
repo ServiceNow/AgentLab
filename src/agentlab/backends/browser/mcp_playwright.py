@@ -2,11 +2,9 @@ import base64
 import logging
 from io import BytesIO
 
-from mcp.types import ImageContent, TextContent
 from PIL import Image
-from tapeagents.tool_calling import ToolCallAction
 
-from agentlab.backends.browser.mcp import MCPBrowserBackend
+from agentlab.backends.browser.mcp import MCPBrowserBackend, ToolCallAction
 
 logger = logging.getLogger(__name__)
 

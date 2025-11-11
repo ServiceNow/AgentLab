@@ -1,30 +1,14 @@
-import json
 import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
-
-from tapeagents.core import Action, Observation, StopStep
-from tapeagents.tool_calling import ToolCallAction, ToolSpec
 
 from agentlab.actions import ToolsActionSet
-from agentlab.backends.browser.base import BrowserBackend
+from agentlab.backends.browser.base import BrowserBackend, ToolCallAction, ToolSpec
 from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
 from agentlab.benchmarks.web_task import AbstractWebTask
 
 logger = logging.getLogger(__name__)
-
-
-class GoalObservation(Observation):
-    kind: Literal["goal_observation"] = "goal_observation"
-    goal: str
-
-
-class PageObservation(Observation):
-    kind: Literal["page_observation"] = "page_observation"
-    content: str
-
 
 class BrowserEnv(AbstractEnv):
     def __init__(
@@ -50,22 +34,23 @@ class BrowserEnv(AbstractEnv):
         page_content = self.backend.page_snapshot()
         screenshot = self.backend.page_screenshot()
         logger.info(f"Initial obs: {page_content}\n{screenshot}")
-        return {
+        obs = {
             "goal_object": [{"type": "text", "text": self.goal}],
             "pruned_html": page_content,
             "axtree_txt": page_content,
             "screenshot": screenshot,
             "last_action_error": "",
             "focused_element_bid": "none",
-        }, {}
+        }
+        return self.task.obs_postprocess(obs), {}
 
-    def step(self, action: ToolCallAction | str) -> tuple[Observation, float, bool, bool, dict]:
+    def step(self, action: ToolCallAction | str) -> tuple[dict, float, bool, bool, dict]:
         if isinstance(action, str):
             action = ToolsActionSet.parse_action(action)
         logger.info(f"BrowserEnv.step() called with action {action}")
 
         action_exec_start = time.time()
-        finished = isinstance(action, StopStep)
+        finished = action.function.name == "final_step"
         if finished:
             observation = {
                 "goal_object": [{"type": "text", "text": self.goal}],
@@ -76,6 +61,7 @@ class BrowserEnv(AbstractEnv):
             }
         else:
             observation = self._step(action)
+        observation = self.task.obs_postprocess(observation)
         action_exec_stop = time.time()
         self._turns += 1
         logger.info(f"Obs:\n{observation['pruned_html']}")
@@ -95,8 +81,7 @@ class BrowserEnv(AbstractEnv):
             "action_exec_stop": action_exec_stop,
             "action_exec_timeout": 0.0,
         } | other
-        obs_view = observation.short_view() if isinstance(observation, Observation) else observation
-        logger.info(f"Action result in observation: {obs_view}")
+        logger.info(f"Action result in observation: {observation}")
         return observation, reward, finished, truncated, env_info
 
     def _step(self, action: ToolCallAction) -> dict:
@@ -108,7 +93,7 @@ class BrowserEnv(AbstractEnv):
             "focused_element_bid": "none",
         }
 
-    def validate_task(self, action: Action, observation: PageObservation) -> tuple[float, dict]:
+    def validate_task(self, action: ToolCallAction, observation: dict) -> tuple[float, dict]:
         validate_js = self.task.get_step_validate_js()
         validate_result = self.backend.run_js(validate_js)
         reward, other = self.task.parse_validation_result(validate_result)
