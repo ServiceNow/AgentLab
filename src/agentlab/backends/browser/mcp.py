@@ -159,7 +159,7 @@ class MCPBrowserBackend(BrowserBackend):
     def call_tool(self, tool_name: str, arguments: dict) -> list[TextContent | ImageContent]:
         tool_result = self._mcp.call_tool(tool_name, arguments)
         if tool_result.isError:
-            return [TextContent(text=f"Error calling tool {tool_name}: {tool_result.error}")]
+            return [TextContent(text=f"Error calling tool {tool_name}")] + tool_result.content
         return tool_result.content
 
     def actions(self) -> tuple[ToolSpec]:
