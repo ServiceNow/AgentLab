@@ -1,9 +1,7 @@
 import json
 import logging
-from typing import Literal
 
 from bgym import AbstractActionSet
-from pydantic import BaseModel, Field
 
 from agentlab.backends.browser.base import FunctionCall, ToolCallAction, ToolSpec
 from agentlab.llm.llm_utils import parse_html_tags_raise
@@ -28,27 +26,22 @@ class ToolsActionSet(AbstractActionSet):
 
     def example_action(self, abstract: bool) -> str:
         if abstract:
-            return """<action>
-{
+            return """{
     "name": "<action_name>",
     "arguments": {
         "<argument_name_1>": "<argument_value_1>",
         "<argument_name_2>": "<argument_value_2>",
         ...
     }
-}
-</action>
-"""
+}"""
         else:
-            return """<action>
-{
-    "name": "browser_navigate",
+            return """{
+    "name": "browser_click",
     "arguments": {
-        "url": "https://www.google.com"
+        "element": "buttom with year 2022",
+        "ref": "e26"
     }
-}
-</action>
-"""
+}"""
 
     @classmethod
     def parse_action(cls, llm_output: str) -> ToolCallAction:
