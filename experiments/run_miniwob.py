@@ -8,6 +8,7 @@ from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_4o
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents.tapeagent.agent import TapeAgentArgs, load_config
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright
+from agentlab.backends.browser.playwright import PlaywrightSyncBackend
 from agentlab.benchmarks.miniwob import MiniWobBenchmark
 from agentlab.experiments.study import make_study
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
@@ -20,13 +21,16 @@ load_dotenv()
 if __name__ == "__main__":
     config = load_config("miniwob")
 
-    # benchmark = DEFAULT_BENCHMARKS["miniwob"]()
+    # benchmark = DEFAULT_BENCHMARKS["miniwob"](n_repeats=1)
+    benchmark = MiniWobBenchmark(backend=PlaywrightSyncBackend())
+
     agent_args = GenericAgentArgs(
         chat_model_args=CHAT_MODEL_ARGS_DICT["anthropic/claude-sonnet-4-20250514"],
         flags=FLAGS_GPT_4o,
     )
-
-    benchmark = MiniWobBenchmark(backend=MCPPlaywright())
+    # agent_args.flags.obs.use_ax_tree = False
+    # agent_args.flags.obs.use_html = True
+    # agent_args.flags.obs.use_focused_element = False
     # agent_args =TapeAgentArgs(agent_name=config.name, config=config)
 
 
@@ -38,7 +42,7 @@ if __name__ == "__main__":
         logging_level_stdout=logging.INFO,
     )
     if os.environ.get("AGENTLAB_DEBUG"):
-        study.exp_args_list = study.exp_args_list[1:2]
+        study.exp_args_list = study.exp_args_list[23:24]
         study.run(n_jobs=1, n_relaunch=1, parallel_backend="sequential")
     else:
         study.run(n_jobs=config.n_jobs, n_relaunch=1, parallel_backend=config.parallel_backend)

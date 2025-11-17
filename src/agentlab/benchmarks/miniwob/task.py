@@ -120,10 +120,14 @@ return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GL
 return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GLOBAL, WOB_EPISODE_ID, WOB_TASK_READY];
 }"""
 
-    def parse_validation_result(self, validation_result: str) -> tuple[float, dict]:
-        chunks = [c.strip() for c in validation_result.split(",")]
+    def parse_validation_result(self, validation_result: str | list) -> tuple[float, dict]:
+        if isinstance(validation_result, list):
+            chunks = validation_result
+            done = chunks[3]
+        else:
+            chunks = [c.strip() for c in validation_result.split(",")]
+            done = chunks[3].strip().lower() == "true"
         raw_reward = float(chunks[1])
-        done = chunks[3].strip().lower() == "true"
         reward = float(raw_reward > 0)
         return reward, {
             "raw_reward": raw_reward,

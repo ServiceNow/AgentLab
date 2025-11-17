@@ -1,53 +1,111 @@
-from playwright.sync_api import sync_playwright
+import logging
+from io import BytesIO
+from typing import Any, Callable
 
-from agentlab.backends.browser.base import BrowserBackend, ToolCallAction
+from PIL import Image
+from playwright.sync_api import Page, sync_playwright
+
+from agentlab.backends.browser.base import BrowserBackend, ToolCallAction, ToolSpec
+
+logger = logging.getLogger(__name__)
 
 
 class PlaywrightSyncBackend(BrowserBackend):
-    def __init__(self):
-        self.actions = {
-            "browser_press_key": lambda key: self.page.keyboard.press(key),
-            "browser_type": lambda text: self.page.type(text),
-            "browser_click": lambda selector: self.page.click(selector),
-            "browser_drag": lambda from_selector, to_selector: self.drag_and_drop(
-                from_selector, to_selector
-            ),
-            "browser_hover": lambda selector: self.page.hover(selector),
-            "browser_select_option": lambda selector: self.page.select_option(selector),
-            "browser_mouse_click_xy": lambda x, y: self.page.mouse.click(x, y),
+    _actions: dict[str, Callable]
+    _browser: Any
+    _page: Page
+
+    def model_post_init(self, __context: Any):
+        self._actions = {
+            "browser_press_key": self.browser_press_key,
+            "browser_type": self.browser_type,
+            "browser_click": self.browser_click,
+            "browser_drag": self.browser_drag,
+            "browser_hover": self.browser_hover,
+            "browser_select_option": self.browser_select_option,
+            "browser_mouse_click_xy": self.browser_mouse_click_xy,
         }
 
-    def drag_and_drop(self, from_selector: str, to_selector: str):
-        from_elem = self.page.locator(from_selector)
-        from_elem.hover(timeout=500)
-        self.page.mouse.down()
+    def browser_press_key(self, key: str):
+        """
+        Press a key on the keyboard.
+        """
+        self._page.keyboard.press(key)
 
-        to_elem = self.page.locator(to_selector)
+    def browser_type(self, text: str):
+        """
+        Type text into the focused element.
+        """
+        self._page.type(text)
+
+    def browser_click(self, selector: str):
+        """
+        Click on a selector.
+        """
+        self._page.click(selector)
+
+    def browser_drag(self, from_selector: str, to_selector: str):
+        """
+        Drag and drop from one selector to another.
+        """
+        from_elem = self._page.locator(from_selector)
+        from_elem.hover(timeout=500)
+        self._page.mouse.down()
+
+        to_elem = self._page.locator(to_selector)
         to_elem.hover(timeout=500)
-        self.page.mouse.up()
+        self._page.mouse.up()
+
+    def browser_hover(self, selector: str):
+        """
+        Hover over a given element.
+        """
+        self._page.hover(selector)
+
+    def browser_select_option(self, selector: str):
+        """
+        Select an option from a given element.
+        """
+        self._page.select_option(selector)
+
+    def browser_mouse_click_xy(self, x: int, y: int):
+        """
+        Click at a given x, y coordinate using the mouse.
+        """
+        self._page.mouse.click(x, y)
 
     def initialize(self):
-        self.browser = sync_playwright().start().chromium.launch(headless=True)
-        self.page = self.browser.new_page()
+        self._browser = sync_playwright().start().chromium.launch(headless=True, chromium_sandbox=True)
+        self._page = self._browser.new_page()
 
     def run_js(self, js: str):
-        return self.page.evaluate(js)
+        js_result = self._page.evaluate(js)
+        logger.info(f"JS result: {js_result}")
+        return js_result
 
     def goto(self, url: str):
-        self.page.goto(url)
+        self._page.goto(url)
 
     def page_snapshot(self):
-        return self.page.content()
+        return self._page.content()
 
     def page_screenshot(self):
-        return self.page.screenshot()
+        scr_bytes = self._page.screenshot()
+        return Image.open(BytesIO(scr_bytes))
 
     def step(self, action: ToolCallAction):
-        fn = self.actions[action.function.name]
-        return fn(**action.function.arguments)
-
-    def actions(self):
-        return self.page.actions()
+        fn = self._actions[action.function.name]
+        action_result = fn(**action.function.arguments)
+        snapshot = self.page_snapshot()
+        screenshot = self.page_screenshot()
+        return {
+            "pruned_html": f"{action_result or ''}\n{snapshot}",
+            "axtree_txt": snapshot,
+            "screenshot": screenshot,
+        }
+    def actions(self) -> tuple[ToolSpec]:
+        specs = [ToolSpec.from_function(fn) for fn in self._actions.values()]
+        return tuple(specs)
 
     def close(self):
-        self.browser.close()
+        self._browser.close()
