@@ -479,7 +479,7 @@ class VLLMChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             api_key_env_var="VLLM_API_KEY",
             client_class=OpenAI,
-            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            client_args={"base_url": os.getenv("VLLM_API_URL", "http://localhost:8000/v1")},
             pricing_func=None,
         )
 
@@ -549,6 +549,46 @@ class AnthropicChatModel(AbstractChatModel):
 class AnthropicModelArgs(BaseModelArgs):
     def make_model(self):
         return AnthropicChatModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
+
+
+class BedrockChatModel(AnthropicChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
+
+        if (
+            not os.getenv("AWS_REGION")
+            or not os.getenv("AWS_ACCESS_KEY")
+            or not os.getenv("AWS_SECRET_KEY")
+        ):
+            raise ValueError(
+                "AWS_REGION, AWS_ACCESS_KEY and AWS_SECRET_KEY must be set in the environment when using BedrockChatModel"
+            )
+
+        self.client = anthropic.AnthropicBedrock(
+            aws_region=os.getenv("AWS_REGION"),
+            aws_access_key=os.getenv("AWS_ACCESS_KEY"),
+            aws_secret_key=os.getenv("AWS_SECRET_KEY"),
+        )
+
+
+@dataclass
+class BedrockModelArgs(BaseModelArgs):
+    def make_model(self):
+        return BedrockChatModel(
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
