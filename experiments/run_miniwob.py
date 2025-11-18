@@ -22,16 +22,16 @@ if __name__ == "__main__":
     config = load_config("miniwob")
 
     # benchmark = DEFAULT_BENCHMARKS["miniwob"](n_repeats=1)
-    benchmark = MiniWobBenchmark(backend=PlaywrightSyncBackend())
+    benchmark = MiniWobBenchmark(backend=MCPPlaywright())
 
-    agent_args = GenericAgentArgs(
-        chat_model_args=CHAT_MODEL_ARGS_DICT["anthropic/claude-sonnet-4-20250514"],
-        flags=FLAGS_GPT_4o,
-    )
+    # agent_args = GenericAgentArgs(
+    #     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/openai/gpt-5-mini"],
+    #     flags=FLAGS_GPT_4o,
+    # )
     # agent_args.flags.obs.use_ax_tree = False
     # agent_args.flags.obs.use_html = True
     # agent_args.flags.obs.use_focused_element = False
-    # agent_args =TapeAgentArgs(agent_name=config.name, config=config)
+    agent_args = TapeAgentArgs(agent_name=config.name, config=config)
 
 
     study = make_study(
@@ -42,7 +42,7 @@ if __name__ == "__main__":
         logging_level_stdout=logging.INFO,
     )
     if os.environ.get("AGENTLAB_DEBUG"):
-        study.exp_args_list = study.exp_args_list[23:24]
+        study.exp_args_list = study.exp_args_list[23:27]
         study.run(n_jobs=1, n_relaunch=1, parallel_backend="sequential")
     else:
         study.run(n_jobs=config.n_jobs, n_relaunch=1, parallel_backend=config.parallel_backend)

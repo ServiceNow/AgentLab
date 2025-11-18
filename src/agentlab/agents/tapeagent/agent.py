@@ -1,17 +1,33 @@
 import logging
+import tempfile
 from dataclasses import dataclass
 from typing import Literal
 
 import bgym
 import hydra
+from litellm import ChatCompletionThinkingBlock
 from omegaconf import DictConfig
+from PIL import Image
 from pydantic import Field
 from tapeagents.agent import Agent
-from tapeagents.core import Action, Observation, StopStep, TapeMetadata, Thought
+from tapeagents.core import (
+    Action,
+    LLMOutputParsingFailureAction,
+    Observation,
+    SetNextNode,
+    StopStep,
+    TapeMetadata,
+    Thought,
+)
 from tapeagents.core import Tape as BaseTape
+from tapeagents.llms import LLMStream
+from tapeagents.nodes import FatalError, StandardNode
+from tapeagents.steps import ImageObservation
 from tapeagents.tool_calling import ToolSpec
+from termcolor import colored
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.backends.browser.base import ToolSpec as AgentlabToolSpec
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -27,8 +43,57 @@ class ExtendedMetadata(TapeMetadata):
     other: dict = {}
 
 
+class AgentResponse(Thought):
+    kind: Literal["agent_response"] = "agent_response"
+    response: str
+
+
+class AgentThinking(Thought):
+    kind: Literal["agent_thinking"] = "agent_thinking"
+    thinking: str
+
+
 class Tape(BaseTape):
     metadata: ExtendedMetadata = Field(default_factory=ExtendedMetadata)  # type: ignore
+
+
+class ToolCallNode(StandardNode):
+    use_known_actions: bool = True
+    use_function_calls: bool = True
+
+    def generate_steps(self, agent: Agent, tape: Tape, llm_stream: LLMStream):
+        new_steps = []
+        for event in llm_stream:
+            if event.output.get("reasoning_content"):
+                logger.info(colored(f"LLM reasoning:\n{event.output.reasoning_content}", "yellow"))
+                new_steps.append(AgentThinking(thinking=event.output.reasoning_content))
+            if event.output.get("thinking_blocks"):
+                for block in event.output.thinking_blocks:
+                    if isinstance(block, ChatCompletionThinkingBlock):
+                        logger.info(colored(f"LLM thinking block:\n{block}", "yellow"))
+                        new_steps.append(AgentThinking(thinking=block.content))
+            if event.output.content:
+                logger.info(colored(f"LLM output:\n{event.output.content}", "cyan"))
+                new_steps.append(AgentResponse(response=event.output.content))
+            if event.output.tool_calls:
+                logger.info(colored(f"LLM tool calls:\n{event.output.tool_calls}", "magenta"))
+                new_steps += [
+                    self.tool_call_to_step(agent, tool_call)
+                    for tool_call in event.output.tool_calls
+                ]
+        for step in new_steps:
+            yield step
+            if isinstance(step, LLMOutputParsingFailureAction):
+                yield SetNextNode(next_node=self.name)  # loop to the same node to retry
+                break
+        if not new_steps:
+            raise FatalError("No completions!")
+        if (
+            self.next_node
+            and not isinstance(new_steps[-1], StopStep)
+            and not any(isinstance(step, SetNextNode) for step in new_steps)
+        ):
+            yield SetNextNode(next_node=self.next_node)
 
 
 def load_config(config_name: str) -> DictConfig:
@@ -45,8 +110,16 @@ class TapeAgentArgs(AgentArgs):
         if actions is None:
             agent = hydra.utils.instantiate(self.config.agent)
         else:
+            tapeagents_actions = [
+                ToolSpec(**tool.model_dump()) if isinstance(tool, AgentlabToolSpec) else tool
+                for tool in actions
+            ]
             tools_description = "\n".join([action.description() for action in actions])
-            agent = hydra.utils.instantiate(self.config.agent, known_actions=actions, tools_description=tools_description)
+            agent = hydra.utils.instantiate(
+                self.config.agent,
+                known_actions=tapeagents_actions,
+                tools_description=tools_description,
+            )
         return TapeAgent(agent=agent)
 
 
@@ -64,6 +137,62 @@ class DictObservation(Observation):
     content: str
 
 
+class MarkdownObservation(Observation):
+    def llm_view(self, **kwargs) -> str:
+        return f"## Markdown:\n{self.content}"
+
+    def short_view(self, max_chars: int = 100) -> str:
+        return self.llm_view()[:max_chars]
+
+
+class GoalObservation(MarkdownObservation):
+    """
+    Contains task goal
+    """
+
+    kind: Literal["goal_observation"] = "goal_observation"  # type: ignore
+    goal: str
+
+    def llm_view(self, **kwargs) -> str:
+        return f"## Goal:\n{self.goal}"
+
+
+class HTMLPage(MarkdownObservation):
+    """
+    Contains page content
+    """
+
+    kind: Literal["html_page"] = "html_page"
+    html: str
+
+    def llm_view(self, **kwargs) -> str:
+        return f"## Page Content:\n{self.html}"
+
+
+class AXTreePage(MarkdownObservation):
+    """
+    Contains accessibility tree
+    """
+
+    kind: Literal["ax_tree_page"] = "ax_tree_page"
+    axtree: str
+
+    def llm_view(self, **kwargs) -> str:
+        return f"## Accessibility Tree:\n{self.axtree}"
+
+
+class ActionResult(MarkdownObservation):
+    """
+    Contains action result
+    """
+
+    kind: Literal["action_result"] = "action_result"
+    result: str
+
+    def llm_view(self, **kwargs) -> str:
+        return f"## Action Result:\n{self.result}"
+
+
 class TapeAgent(bgym.Agent):
     agent: Agent
     tape: Tape
@@ -73,11 +202,33 @@ class TapeAgent(bgym.Agent):
         self.agent = agent
         self.tape = Tape(steps=[])
 
-    def obs_preprocessor(self, obs: Observation | list[Observation]) -> list[Observation]:
+    def obs_preprocessor(self, obs: Observation | list[Observation] | dict) -> list[Observation]:
         if isinstance(obs, Observation):
             obs = [obs]
+        if isinstance(obs, dict):
+            obs_steps = []
+            if obs.get("goal_object"):
+                obs_steps.append(GoalObservation(goal=obs["goal_object"][0]["text"]))
+            if obs.get("action_result"):
+                obs_steps.append(ActionResult(result=obs["action_result"]))
+            if obs.get("pruned_html"):
+                obs_steps.append(HTMLPage(html=obs["pruned_html"]))
+            if obs.get("axtree_txt"):
+                obs_steps.append(AXTreePage(axtree=obs["axtree_txt"]))
+            if obs.get("screenshot"):
+                if isinstance(obs["screenshot"], Image.Image):
+                    tmp_image_path = tempfile.mktemp(suffix=".png")
+                    obs["screenshot"].save(tmp_image_path)
+                    obs_steps.append(ImageObservation(image_path=tmp_image_path))
+                else:
+                    raise ValueError(f"Expected Image.Image, got {type(obs['screenshot'])}")
+            if obs.get("last_action_error"):
+                obs_steps.append(ActionResult(result=f"Action error:\n{obs['last_action_error']}"))
+            assert len(obs_steps) > 0, f"Unknown dict observation, keys: {obs.keys()}"
+            obs = obs_steps
         assert isinstance(obs, list), f"Expected list of Observations, got {type(obs)}"
-        logger.info(f"Observations: {[type(o).__name__ for o in obs]}")
+        obs_view = "\n".join([o.short_view() for o in obs])
+        logger.info(colored(f"Observations:\n{obs_view}", "green"))
         return obs
 
     def get_action(self, obs: Observation | list[Observation]) -> tuple[Action, TapeAgentInfo]:

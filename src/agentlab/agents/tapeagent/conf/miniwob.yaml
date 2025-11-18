@@ -1,9 +1,9 @@
 defaults:
-  - llm: sonnet
-  - agent: plan_react_fcall
+  - llm: gpt5-mini
+  - agent: react
   - _self_
 
-name: miniwob_tapeagent
-comment: MiniWob TapeAgent
+name: miniwob
+comment: MiniWob Agent
 parallel_backend: ray
 n_jobs: 32
