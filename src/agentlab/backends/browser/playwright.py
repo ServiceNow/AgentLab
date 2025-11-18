@@ -43,11 +43,11 @@ class AsyncPlaywright(BrowserBackend):
         """
         await self._page.keyboard.press(key)
 
-    async def browser_type(self, text: str):
+    async def browser_type(self, selector: str, text: str):
         """
         Type text into the focused element.
         """
-        await self._page.type(text)
+        await self._page.type(selector, text)
 
     async def browser_click(self, selector: str):
         """
@@ -73,17 +73,17 @@ class AsyncPlaywright(BrowserBackend):
         """
         await self._page.hover(selector)
 
-    async def browser_select_option(self, selector: str):
+    async def browser_select_option(self, selector: str, value: str):
         """
         Select an option from a given element.
         """
-        await self._page.select_option(selector)
+        await self._page.select_option(selector, value)
 
     async def browser_mouse_click_xy(self, x: int, y: int):
         """
         Click at a given x, y coordinate using the mouse.
         """
-        await self._page.mouse.click(x, y)
+        await self._page.mouse.click(x, y, delay=100)
 
     def run_js(self, js: str):
         js_result = self._loop.run_until_complete(self._page.evaluate(js))
