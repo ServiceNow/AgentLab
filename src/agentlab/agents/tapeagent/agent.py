@@ -1,7 +1,7 @@
 import logging
 import tempfile
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import bgym
 import hydra
@@ -47,10 +47,16 @@ class AgentResponse(Thought):
     kind: Literal["agent_response"] = "agent_response"
     response: str
 
+    def llm_view(self, **kwargs) -> str:
+        return self.response
+
 
 class AgentThinking(Thought):
     kind: Literal["agent_thinking"] = "agent_thinking"
     thinking: str
+
+    def llm_view(self, **kwargs) -> str:
+        return self.thinking
 
 
 class Tape(BaseTape):
@@ -202,7 +208,10 @@ class TapeAgent(bgym.Agent):
         self.agent = agent
         self.tape = Tape(steps=[])
 
-    def obs_preprocessor(self, obs: Observation | list[Observation] | dict) -> list[Observation]:
+    def obs_preprocessor(self, obs: Any) -> list[Observation]:
+        return obs
+
+    def obs_to_steps(self, obs: Observation | list[Observation] | dict) -> list[Observation]:
         if isinstance(obs, Observation):
             obs = [obs]
         if isinstance(obs, dict):
@@ -231,8 +240,10 @@ class TapeAgent(bgym.Agent):
         logger.info(colored(f"Observations:\n{obs_view}", "green"))
         return obs
 
-    def get_action(self, obs: Observation | list[Observation]) -> tuple[Action, TapeAgentInfo]:
-        self.tape += obs  # type: ignore
+    def get_action(
+        self, obs: Observation | list[Observation] | dict
+    ) -> tuple[Action, TapeAgentInfo]:
+        self.tape += self.obs_to_steps(obs)
         thoughts: list[Thought] = []
         action = None
         while not action:
@@ -250,7 +261,8 @@ class TapeAgent(bgym.Agent):
                     # there could be control flow steps for switching nodes and if clauses
                     logger.info(f"Other step: {type(event.step)}")
         logger.info(f"Tape after run: ({len(self.tape)}) {[type(s).__name__ for s in self.tape]}")
-        return (action, TapeAgentInfo(thoughts=thoughts))
+        think_str = "\n".join([t.llm_view() for t in thoughts])
+        return (action, {"thoughts": thoughts, "think": think_str})
 
     @property
     def final_tape(self) -> Tape:
