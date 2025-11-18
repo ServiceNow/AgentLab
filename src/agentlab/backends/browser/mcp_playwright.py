@@ -35,7 +35,8 @@ class MCPPlaywright(MCPBrowserBackend):
         snapshot = self.page_snapshot()
         screenshot = self.page_screenshot()
         return {
-            "pruned_html": f"{tool_result}\n{snapshot}",
+            "tool_result": tool_result,
+            "pruned_html": "",
             "axtree_txt": snapshot,
             "screenshot": screenshot,
         }

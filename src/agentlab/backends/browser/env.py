@@ -33,16 +33,17 @@ class BrowserEnv(AbstractEnv):
             logger.info(f"Task goal: {self.goal}")
         page_content = self.backend.page_snapshot()
         screenshot = self.backend.page_screenshot()
-        logger.info(f"Initial obs: {page_content}\n{screenshot}")
         obs = {
             "goal_object": [{"type": "text", "text": self.goal}],
-            "pruned_html": page_content,
+            "pruned_html": "",
             "axtree_txt": page_content,
             "screenshot": screenshot,
             "last_action_error": "",
             "focused_element_bid": "none",
         }
-        return self.task.obs_postprocess(obs), {}
+        obs = self.task.obs_postprocess(obs)
+        logger.info(f"Initial obs: {obs}")
+        return obs, {}
 
     def step(self, action: ToolCallAction | str) -> tuple[dict, float, bool, bool, dict]:
         if isinstance(action, str):
@@ -62,9 +63,11 @@ class BrowserEnv(AbstractEnv):
         else:
             observation = self._step(action)
         observation = self.task.obs_postprocess(observation)
+
+
         action_exec_stop = time.time()
         self._turns += 1
-        logger.info(f"Obs:\n{observation['pruned_html']}")
+        logger.info(f"Obs: {observation}")
 
         truncated = self._turns >= self.max_turns
 
