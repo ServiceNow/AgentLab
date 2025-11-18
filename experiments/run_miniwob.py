@@ -4,11 +4,11 @@ import os
 from bgym import DEFAULT_BENCHMARKS
 from dotenv import load_dotenv
 
-from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_4o
+from agentlab.agents.generic_agent.agent_configs import GPT5_MINI_FLAGS
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents.tapeagent.agent import TapeAgentArgs, load_config
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright
-from agentlab.backends.browser.playwright import PlaywrightSyncBackend
+from agentlab.backends.browser.playwright import AsyncPlaywright
 from agentlab.benchmarks.miniwob import MiniWobBenchmark
 from agentlab.experiments.study import make_study
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
@@ -22,11 +22,12 @@ if __name__ == "__main__":
     config = load_config("miniwob")
 
     # benchmark = DEFAULT_BENCHMARKS["miniwob"](n_repeats=1)
-    benchmark = MiniWobBenchmark(backend=MCPPlaywright())
+    # benchmark = MiniWobBenchmark(backend=MCPPlaywright())
+    benchmark = MiniWobBenchmark(backend=AsyncPlaywright())
 
     # agent_args = GenericAgentArgs(
-    #     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/openai/gpt-5-mini"],
-    #     flags=FLAGS_GPT_4o,
+    #     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-mini-2025-08-07"],
+    #     flags=GPT5_MINI_FLAGS,
     # )
     # agent_args.flags.obs.use_ax_tree = False
     # agent_args.flags.obs.use_html = True

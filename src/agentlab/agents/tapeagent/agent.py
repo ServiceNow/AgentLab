@@ -12,6 +12,7 @@ from pydantic import Field
 from tapeagents.agent import Agent
 from tapeagents.core import (
     Action,
+    ControlFlow,
     LLMOutputParsingFailureAction,
     Observation,
     SetNextNode,
@@ -251,7 +252,7 @@ class TapeAgent(bgym.Agent):
                 if not event.step:
                     continue
                 self.tape = self.tape.append(event.step)
-                if isinstance(event.step, Thought):
+                if isinstance(event.step, Thought) and not isinstance(event.step, ControlFlow):
                     thoughts.append(event.step)
                     logger.info(f"Thought: {event.step.llm_view()}")
                 elif isinstance(event.step, Action) and not action:  # we use first action only

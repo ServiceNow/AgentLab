@@ -40,6 +40,9 @@ class ToolCallAction(BaseModel):
     id: str = ""
     function: FunctionCall
 
+    def llm_view(self, **kwargs) -> str:
+        return self.model_dump_json(indent=2)
+
 
 class ToolSpec(BaseModel):
     """

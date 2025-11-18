@@ -23,6 +23,7 @@ from browsergym.experiments.agent import Agent
 from browsergym.experiments.utils import count_tokens
 from dataclasses_json import DataClassJsonMixin
 from PIL import Image
+from pydantic import BaseModel
 from tqdm import tqdm
 
 from agentlab.backends.browser.env import BrowserEnvArgs
@@ -411,6 +412,7 @@ class ExpArgs:
                 logger.debug(f"Starting step {step_info.step}.")
                 step_info.profiling.agent_start = time.time()
                 action, step_info.agent_info = agent.get_action(step_info.obs.copy())
+                step_info.action = action.model_dump_json(indent=2) if isinstance(action, BaseModel) else str(action)
                 step_info.profiling.agent_stop = time.time()
                 if step_info.agent_info.get("think", None):
                     logger.info(f"Agent thought: {step_info.agent_info['think']}")
