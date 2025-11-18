@@ -6,4 +6,4 @@ defaults:
 name: miniwob
 comment: MiniWob Agent
 parallel_backend: ray
-n_jobs: 32
+n_jobs: 16

@@ -144,7 +144,9 @@ return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GL
     def obs_postprocess(self, obs: dict) -> dict:
         screenshot: Image.Image | None = obs.get("screenshot", None)
         if screenshot is not None:
-            obs["screenshot"] = screenshot.crop((0, 0, 332, 214)) # crop to 332x214 because this is the viewport size for MiniWob
+            obs["screenshot"] = screenshot.crop(
+                (0, 0, 332, 214)
+            )  # crop to 332x214 because this is the viewport size for MiniWob
         return obs
 
 

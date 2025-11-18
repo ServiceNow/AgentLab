@@ -43,7 +43,7 @@ class MCPPlaywright(MCPBrowserBackend):
         }
 
     def page_html(self) -> str:
-       return ""
+        return ""
 
     def page_axtree(self) -> str:
         contents = self.call_tool("browser_snapshot", {})

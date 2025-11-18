@@ -10,6 +10,7 @@ from agentlab.benchmarks.web_task import AbstractWebTask
 
 logger = logging.getLogger(__name__)
 
+
 class BrowserEnv(AbstractEnv):
     def __init__(
         self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, seed: int = 0
@@ -64,7 +65,6 @@ class BrowserEnv(AbstractEnv):
         else:
             observation = self._step(action)
         observation = self.task.obs_postprocess(observation)
-
 
         action_exec_stop = time.time()
         self._turns += 1
