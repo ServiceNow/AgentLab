@@ -32,16 +32,20 @@ class MCPPlaywright(MCPBrowserBackend):
         tool_result = "\n".join(
             [c.text for c in contents if c.type == "text" and "# Ran Playwright code" not in c.text]
         )
-        snapshot = self.page_snapshot()
+        html = self.page_html()
         screenshot = self.page_screenshot()
+        axtree = self.page_axtree()
         return {
             "tool_result": tool_result,
-            "pruned_html": "",
-            "axtree_txt": snapshot,
+            "pruned_html": html,
+            "axtree_txt": axtree,
             "screenshot": screenshot,
         }
 
-    def page_snapshot(self) -> str:
+    def page_html(self) -> str:
+       return ""
+
+    def page_axtree(self) -> str:
         contents = self.call_tool("browser_snapshot", {})
         return "\n".join([c.text for c in contents if c.type == "text"])
 

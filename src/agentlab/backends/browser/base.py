@@ -80,10 +80,13 @@ class BrowserBackend(BaseModel):
     def goto(self, url: str) -> str:
         raise NotImplementedError
 
-    def page_snapshot(self) -> str:
+    def page_html(self) -> str:
         raise NotImplementedError
 
     def page_screenshot(self) -> Image:
+        raise NotImplementedError
+
+    def page_axtree(self) -> str:
         raise NotImplementedError
 
     def step(self, action: ToolCallAction) -> str:

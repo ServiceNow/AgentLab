@@ -31,12 +31,13 @@ class BrowserEnv(AbstractEnv):
         if setup_js:
             self.goal = self.backend.run_js(setup_js)
             logger.info(f"Task goal: {self.goal}")
-        page_content = self.backend.page_snapshot()
+        html = self.backend.page_html()
         screenshot = self.backend.page_screenshot()
+        axtree = self.backend.page_axtree()
         obs = {
             "goal_object": [{"type": "text", "text": self.goal}],
-            "pruned_html": "",
-            "axtree_txt": page_content,
+            "pruned_html": html,
+            "axtree_txt": axtree,
             "screenshot": screenshot,
             "last_action_error": "",
             "focused_element_bid": "none",
@@ -89,12 +90,13 @@ class BrowserEnv(AbstractEnv):
 
     def _step(self, action: ToolCallAction) -> dict:
         obs_dict = self.backend.step(action)
-        return {
-            "goal_object": [{"type": "text", "text": self.goal}],
-            **obs_dict,
-            "last_action_error": "",
-            "focused_element_bid": "none",
-        }
+        if "goal_object" not in obs_dict:
+            obs_dict["goal_object"] = [{"type": "text", "text": self.goal}]
+        if "last_action_error" not in obs_dict:
+            obs_dict["last_action_error"] = ""
+        if "focused_element_bid" not in obs_dict:
+            obs_dict["focused_element_bid"] = "none"
+        return obs_dict
 
     def validate_task(self, action: ToolCallAction, observation: dict) -> tuple[float, dict]:
         validate_js = self.task.get_step_validate_js()
