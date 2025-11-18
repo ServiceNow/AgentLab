@@ -107,6 +107,12 @@ return core.getUtterance();
     """
         return f"async () => {{{js}}}"
 
+    def parse_setup_result(self, setup_result: str | dict | list) -> str:
+        if isinstance(setup_result, dict):
+            return setup_result["utterance"]
+        else:
+            return setup_result
+
     def get_teardown_js(self) -> str:
         return ""
 

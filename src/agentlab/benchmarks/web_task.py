@@ -19,6 +19,9 @@ class AbstractWebTask(BaseModel):
     def get_setup_js(self) -> str:
         raise NotImplementedError
 
+    def parse_setup_result(self, setup_result: str | dict | list) -> str:
+        raise NotImplementedError
+
     def get_teardown_js(self) -> str:
         raise NotImplementedError
 

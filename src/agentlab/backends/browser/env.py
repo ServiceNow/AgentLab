@@ -29,7 +29,7 @@ class BrowserEnv(AbstractEnv):
         self.backend.goto(self.task.url)
         setup_js = self.task.get_setup_js()
         if setup_js:
-            self.goal = self.backend.run_js(setup_js)
+            self.goal = self.task.parse_setup_result(self.backend.run_js(setup_js))
             logger.info(f"Task goal: {self.goal}")
         html = self.backend.page_html()
         screenshot = self.backend.page_screenshot()
