@@ -134,8 +134,11 @@ class MCPClient:
             for tool in self.tools.values()
         )
 
-    async def close(self) -> None:
+    async def aclose(self) -> None:
         await self.exit_stack.aclose()
+
+    def close(self) -> None:
+        self.loop.run_until_complete(self.aclose())
 
 
 class MCPBrowserBackend(BrowserBackend):
@@ -166,4 +169,7 @@ class MCPBrowserBackend(BrowserBackend):
         return list(self._mcp.actions())
 
     def close(self) -> None:
-        self._mcp.close()
+        try:
+            self._mcp.close()
+        except Exception:
+            pass
