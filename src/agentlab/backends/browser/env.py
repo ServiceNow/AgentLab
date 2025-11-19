@@ -11,6 +11,12 @@ from agentlab.benchmarks.web_task import AbstractWebTask
 logger = logging.getLogger(__name__)
 
 
+def final_step():
+    """
+    Finish the task execution.
+    """
+    pass
+
 class BrowserEnv(AbstractEnv):
     def __init__(
         self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, seed: int = 0
@@ -117,6 +123,8 @@ class BrowserEnv(AbstractEnv):
         logger.info(
             f"Filtered {len(filtered_actions)} actions out of {len(all_actions)} for task {self.task.dataset}"
         )
+        final_step_action = ToolSpec.from_function(final_step)
+        filtered_actions.append(final_step_action)
         return filtered_actions
 
 

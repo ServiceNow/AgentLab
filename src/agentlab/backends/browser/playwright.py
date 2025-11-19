@@ -28,8 +28,8 @@ class AsyncPlaywright(BrowserBackend):
             "browser_mouse_click_xy": self.browser_mouse_click_xy,
         }
 
-    def initialize(self):
-        self._loop = asyncio.get_event_loop()
+    def initialize(self, loop: asyncio.AbstractEventLoop | None = None):
+        self._loop = loop or asyncio.get_event_loop()
         self._loop.run_until_complete(self.ainitialize())
 
     async def ainitialize(self):
@@ -53,7 +53,7 @@ class AsyncPlaywright(BrowserBackend):
         """
         Click on a selector.
         """
-        await self._page.click(selector)
+        await self._page.click(selector, timeout=3000, strict=True)
 
     async def browser_drag(self, from_selector: str, to_selector: str):
         """
@@ -71,7 +71,7 @@ class AsyncPlaywright(BrowserBackend):
         """
         Hover over a given element.
         """
-        await self._page.hover(selector)
+        await self._page.hover(selector, timeout=3000, strict=True)
 
     async def browser_select_option(self, selector: str, value: str):
         """
@@ -105,7 +105,11 @@ class AsyncPlaywright(BrowserBackend):
 
     def step(self, action: ToolCallAction):
         fn = self._actions[action.function.name]
-        action_result = self._loop.run_until_complete(fn(**action.function.arguments))
+        try:
+            action_result = self._loop.run_until_complete(fn(**action.function.arguments))
+        except Exception as e:
+            logger.error(f"Error executing action {action.function.name}: {e}")
+            action_result = f"Error executing action {action.function.name}: {e}"
         html = self.page_html()
         screenshot = self.page_screenshot()
         axtree = self.page_axtree()
