@@ -62,6 +62,9 @@ class GenericPromptFlags(dp.Flags):
 
     # hint related
     use_task_hint: bool = False
+    hint_db_path: str| None = None
+    hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
+    hint_level: Literal["episode", "step"] = "episode"
     hint_type: str = "docs"
     hint_index_type: str = "sparse"
     hint_query_type: str = "direct"
