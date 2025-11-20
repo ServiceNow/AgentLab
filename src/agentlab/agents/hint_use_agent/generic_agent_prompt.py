@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
+from browsergym.core.action.base import AbstractActionSet
+
 from agentlab.agents import dynamic_prompting as dp
 from agentlab.agents.tool_use_agent.tool_use_agent import HintsSource
 from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.llm_utils import HumanMessage, parse_html_tags_raise
-from browsergym.core.action.base import AbstractActionSet
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class GenericPromptFlags(dp.Flags):
 
     # hint related
     use_task_hint: bool = False
-    hint_db_path: str| None = None
+    hint_db_path: str | None = None
     hint_retrieval_mode: Literal["direct", "llm", "emb"] = "direct"
     hint_level: Literal["episode", "step"] = "episode"
     hint_type: str = "docs"
