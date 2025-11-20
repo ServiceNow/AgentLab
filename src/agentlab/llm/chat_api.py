@@ -433,7 +433,7 @@ class AzureChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             client_class=OpenAI,
             client_args=client_args,
-            pricing_func=tracking.get_pricing_openai,
+            pricing_func=partial(tracking.get_pricing_litellm, model_name=model_name),
             log_probs=log_probs,
         )
 
