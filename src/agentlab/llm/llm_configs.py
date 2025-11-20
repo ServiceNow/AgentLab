@@ -95,6 +95,13 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=64_000,
         temperature=1e-1,
     ),
+    "openai/gpt-4.1-nano-2025-04-14": OpenAIModelArgs(
+        model_name="gpt-4.1-nano-2025-04-14",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
+    ),
     "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
         model_name="gpt-5-nano-2025-08-07",
         max_total_tokens=400_000,
@@ -119,6 +126,7 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
+    # ---------------- Azure ----------------#
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
         max_total_tokens=8_192,
