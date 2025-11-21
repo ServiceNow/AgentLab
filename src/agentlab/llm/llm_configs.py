@@ -7,6 +7,7 @@ from agentlab.llm.chat_api import (
     OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
+from agentlab.llm.litellm_api import LiteLLMModelArgs
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -356,5 +357,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=100_000 - 4_000,
         max_new_tokens=4_000,
         temperature=1e-1,
+    ),
+    # ---------------- Custom Apriel Endpoint ----------------#
+    "apriel/slam-15b": LiteLLMModelArgs(
+        model_name="openai/Slam-15B",
+        base_url="",
+        api_key="",
+        max_total_tokens=40_000,
+        max_new_tokens=15_000,
+        temperature=0.6,
     ),
 }

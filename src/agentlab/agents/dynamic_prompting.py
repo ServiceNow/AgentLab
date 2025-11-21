@@ -576,7 +576,7 @@ class ActionPrompt(PromptElement):
     _concrete_ex = """
 <action>
 click('a324')
-<end_action>
+</action>
 """
 
     def __init__(self, action_set: AbstractActionSet, action_flags: ActionFlags) -> None:
@@ -599,13 +599,13 @@ elements in the page is through bid which are specified in your observations.
         self._abstract_ex = f"""
 <action>
 {self.action_set.example_action(abstract=True)}
-<end_action>
+</action>
 """
 
     #         self._concrete_ex = f"""
     # <action>
     # {self.action_set.example_action(abstract=False)}
-    # <end_action>
+    # </action>
     # """
 
     def _parse_answer(self, text_answer):
@@ -790,7 +790,7 @@ class HistoryStep(Shrinkable):
             prompt += f"\n<think>\n{self.thought}\n</think>\n"
 
         if self.flags.use_action_history:
-            prompt += f"\n<action>\n{self.action}\n<end_action>\n"
+            prompt += f"\n<action>\n{self.action}\n</action>\n"
 
         # prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
         prompt += f"{self.error.prompt}"

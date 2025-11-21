@@ -242,7 +242,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
     ),
     use_plan=False,
     use_criticise=False,
-    use_thinking=True,
+    use_thinking=False,
     use_memory=False,
     use_concrete_example=True,
     use_abstract_example=True,

@@ -43,90 +43,37 @@ from agentlab.agents.generic_agent.generic_agent_prompt import GenericPromptFlag
 
 
 
+from agentlab.agents.generic_agent import AGENT_4o_MINI 
+from agentlab.agents.generic_agent.agent_configs import FLAGS_GPT_4o
 
+# Customize Apriel endpoint if needed
 
+apriel_flags=FLAGS_GPT_4o
 
-FLAGS_CUSTOM = GenericPromptFlags(
-    obs=dp.ObsFlags(
-        use_html=False,
-        use_ax_tree=True,
-        use_focused_element=True,
-        use_error_logs=True,
-        use_history=True,
-        use_past_error_logs=False,
-        use_action_history=True,
-        use_think_history=False,
-        use_diff=False,
-        html_type="pruned_html",
-        use_screenshot=False,
-        use_som=False,
-        extract_visible_tag=True,
-        extract_clickable_tag=False,
-        extract_coords="False",
-        filter_visible_elements_only=False,
-    ),
-    action=dp.ActionFlags(
-        action_set=HighLevelActionSetArgs(
-            subsets=["bid"],
-            multiaction=False,
-        ),
-        long_description=False,
-        individual_examples=True,
-    ),
-    use_plan=False,
-    use_criticise=False,
-    use_thinking=True,
-    use_memory=False,
-    use_concrete_example=True,
-    use_abstract_example=True,
-    use_hints=True,
-    enable_chat=False,
-    max_prompt_tokens=40_000,
-    be_cautious=True,
-    extra_instructions=None,
+apriel_flags.use_thinking=False
+apriel_flags.obs.use_think_history=False
+
+AGENT_SLAM_15B_CUSTOM = GenericAgentArgs(
+    chat_model_args=CHAT_MODEL_ARGS_DICT["apriel/slam-15b"],
+    flags=apriel_flags,
 )
 
-dic={"Qwen/Qwen3-8B": VLLMModelArgs(  # This is the example, already VLLMModelArgs
-        model_name="Qwen/Qwen3-8B",
-        training_total_tokens=128_000,
-        max_total_tokens=16000,
-        backend="vllm",
-        model_size=8,
-        n_gpus=2,
-        tensor_parallel_size=2,
-        # model_url="https://nonpaying-andra-coordinal.ngrok-free.dev/v1",
-    ),
-    "openai/gpt-oss-20b": VLLMModelArgs(
-        model_name="openai/gpt-oss-20b",
-        max_total_tokens=32_000,
-        model_size=21,
-        backend="vllm",
-        n_gpus=2,
-        tensor_parallel_size=2,
-    )
-    ,
-    "ServiceNow-AI/Apriel-1.5-15b-Thinker": VLLMModelArgs(
-    model_name="ServiceNow-AI/Apriel-1.5-15b-Thinker",
-    model_size=15,
-    max_total_tokens=40_000,
-    backend="vllm",
-    n_gpus=2,
-    tensor_parallel_size=2,
-    ),}
+# Override base_url, api_key, and model_name for custom endpoint
+AGENT_SLAM_15B_CUSTOM.chat_model_args.base_url = "https://infer-rc10-runai-nowllm.inference.ta121237.dgxcloud.ai/v1"
+AGENT_SLAM_15B_CUSTOM.chat_model_args.api_key = "-cPh_74qWJBTooW6MTf6ew:R1zzSE2wSYHwy8CdvPx3s3xdCuQRbhSiY7ydscQEOZw"
+AGENT_SLAM_15B_CUSTOM.chat_model_args.model_name = "openai/Slam-15B"  # Change model name if needed
+# You can also override other params like temperature
+# AGENT_SLAM_15B_CUSTOM.chat_model_args.temperature = 0.8
+# AGENT_SLAM_15B_CUSTOM.chat_model_args.max_new_tokens = 10_000
 
-FLAGS_CUSTOM.use_thinking = False
-FLAGS_CUSTOM.obs.use_think_history = False
-
-AGENT_CUSTOM = GenericAgentArgs(
-    chat_model_args=dic["ServiceNow-AI/Apriel-1.5-15b-Thinker"],
-     flags=FLAGS_CUSTOM,)
-
-AGENT_CUSTOM.chat_model_args.temperature = 0.6
 
 study = make_study(
-    benchmark="workarena_l2_agent_curriculum_eval",  # or "webarena", "workarena_l1" ...
-    agent_args=[AGENT_CUSTOM],
+    benchmark="workarena_l1",  # or "webarena", "workarena_l1" ...
+    agent_args=[AGENT_SLAM_15B_CUSTOM],  # Use the customized agent
     comment="My first study",
 )
 
-study.run(n_jobs=20, exp_root=Path("/home/toolkit/AGENTLAB_TEST/Workarena_l2/"), parallel_backend="ray")
+
+path = ""
+
+study.run(n_jobs=10, exp_root=Path(path), parallel_backend="ray")

@@ -23,6 +23,23 @@ from agentlab.llm.response_api import (
 
 litellm.modify_params = True
 
+# Register custom Apriel model with LiteLLM
+litellm.register_model(
+    {
+        "openai/Slam-15B": {
+            "max_tokens": 40000,
+            "max_input_tokens": 40000,
+            "max_output_tokens": 15000,
+            "input_cost_per_token": 0.0,
+            "output_cost_per_token": 0.0,
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "supports_function_calling": True,
+            "supports_vision": False,
+        }
+    }
+)
+
 
 class LiteLLMModel(BaseModelWithPricing):
     def __init__(
@@ -55,6 +72,38 @@ class LiteLLMModel(BaseModelWithPricing):
         except Exception as e:
             logging.error(f"Failed to get litellm model info: {e}")
 
+    def __call__(self, messages, *args, **kwargs):
+        """Override to handle both old Discussion/dict API and new APIPayload API.
+        
+        This provides backwards compatibility with old agent code that passes
+        Discussion objects or list of dicts as messages.
+        """
+        # Check if we're being called with the old API (Discussion/list of dicts)
+        from agentlab.llm.llm_utils import Discussion, AIMessage
+        from agentlab.llm.response_api import APIPayload
+        
+        if isinstance(messages, (Discussion, list)):
+            # Old API: convert to new APIPayload format
+            payload = APIPayload(messages=list(messages) if isinstance(messages, Discussion) else messages)
+            llm_output = super().__call__(payload)
+            
+            # Convert LLMOutput back to old dict format
+            # Combine think and action into content
+            content = ""
+            if llm_output.think:
+                content = llm_output.think
+            if llm_output.action:
+                content = content + "\n" + llm_output.action if content else llm_output.action
+            
+            return AIMessage(content)
+        else:
+            # New API: assume it's an APIPayload
+            return super().__call__(messages, *args, **kwargs)
+
+    def get_stats(self):
+        """Return statistics for compatibility with old agent code."""
+        return {}
+
     def _call_api(self, payload: APIPayload) -> "OpenAIChatCompletion":
         """
         Calls the LiteLLM API with the given payload.
@@ -67,7 +116,13 @@ class LiteLLMModel(BaseModelWithPricing):
         """
         input = []
         for msg in payload.messages:  # type: ignore
-            input.extend(msg.prepare_message())
+            # Handle both MessageBuilder objects and dict messages
+            if hasattr(msg, 'prepare_message'):
+                input.extend(msg.prepare_message())
+            elif isinstance(msg, dict):
+                input.append(msg)
+            else:
+                raise ValueError(f"Unsupported message type: {type(msg)}")
         api_params: Dict[str, Any] = {
             "model": self.model_name,
             "messages": input,
@@ -140,19 +195,21 @@ class LiteLLMModel(BaseModelWithPricing):
         Returns:
             str: The extracted content with reasoning wrapped in specified tags.
         """
-        message = response.choices[0].message
-        if not isinstance(message, dict):
-            message = message.to_dict()
-
-        reasoning_content = message.get("reasoning", None)
-        msg_content = message.get("text", "")  # works for Open-router
+        message = response.choices[-1].message
+        
+        # Extract reasoning_content and content from the message object
+        reasoning_content = getattr(message, "reasoning_content", None)
+        msg_content = getattr(message, "content", "")
+        
+        # Build the combined output
         if reasoning_content:
             # Wrap reasoning in <think> tags with newlines for clarity
             reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"
-            logging.debug("Extracting content from response.choices[i].message.reasoning")
+            logging.debug("Extracting content from response.choices[-1].message.reasoning_content")
         else:
             reasoning_content = ""
-        return f"{reasoning_content}{msg_content}{message.get('content', '')}"
+        
+        return f"{"reasoning_content"}{msg_content}"
 
     def _extract_tool_calls_from_response(self, response: OpenAIChatCompletion) -> ToolCalls | None:
         """Extracts tool calls from the response."""
