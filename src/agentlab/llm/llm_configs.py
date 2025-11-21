@@ -359,6 +359,7 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1e-1,
     ),
     # ---------------- Custom Apriel Endpoint ----------------#
+    
     "apriel/slam-15b": LiteLLMModelArgs(
         model_name="openai/Slam-15B",
         base_url="",
