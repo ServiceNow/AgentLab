@@ -43,8 +43,6 @@ from .agent_configs import (
     FLAGS_GPT_4o,
     GenericAgentArgs,
     AGENT_GPT5_MINI,
-    AGENT_SLAM_15B_RC11,
-    AGENT_SLAM_15B_RC10,
 )
 
 __all__ = [
@@ -82,6 +80,4 @@ __all__ = [
     "AGENT_AZURE_5_NANO_VISION",
     "AGENT_CLAUDE_SONNET_35_VISION",
     "AGENT_GPT5_MINI",
-    "AGENT_SLAM_15B_RC11",
-    "AGENT_SLAM_15B_RC10"
 ]
