@@ -1,9 +1,12 @@
 import logging
+import os
+import re
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, List, Dict
+from typing import Any, Dict, List
 
 import bgym
+import requests
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.tool_use_agent.cua_like_agent import (
     ADDITIONAL_ACTION_INSTRUCTIONS,
@@ -21,7 +24,12 @@ from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchm
 from agentlab.llm.base_api import BaseModelArgs
 from agentlab.llm.litellm_api import LiteLLMModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
-from agentlab.llm.response_api import APIPayload, LLMOutput, MessageBuilder, OpenAIChatCompletionAPIMessageBuilder
+from agentlab.llm.response_api import (
+    APIPayload,
+    LLMOutput,
+    MessageBuilder,
+    OpenAIChatCompletionAPIMessageBuilder,
+)
 from agentlab.llm.tracking import cost_tracker_decorator
 from bgym import Benchmark as BgymBenchmark
 from browsergym.core.observation import extract_screenshot
@@ -52,33 +60,42 @@ Using the screenshot to understand what is visible and actionable on the interfa
 
 Respond only with the action you perform—no explanation."""
 
-# TODO: guidance objects more concise (conversation like)
-
 DYNAMIC_GUIDANCE_AGENT_PLANNING_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
 Your role is to help an end-user achieve their goal by analyzing what is currently visible in the UI and deciding what they should do next.
 
-Using the current screenshot and the goal:
-- Create a short plan describing the steps needed to achieve the goal.
-- Suggest the next action the user should take right now.
+Using the provided information, reason about the goal and create a plan describing the steps needed to achieve that goal.
 
 Be factual, avoid assumptions beyond what is visible, and provide only relevant guidance.
 Your output must use the following structure:
-<plan>...</plan>
-<guidance>...</guidance>
-"""
+<plan>...</plan>"""
 
-DYNAMIC_GUIDANCE_AGENT_GUIDANCE_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
+DYNAMIC_GUIDANCE_AGENT_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
 Your role is to help an end-user achieve their goal by analyzing what is currently visible in the UI and deciding what they should do next.
 
-Using the goal, the plan, the current screenshot, and the user query, suggest the next action the user should take right now.
+Using provided information, suggest the immediate next action the user should take right now. Keep this answer concise and to the point. Use less than 20 words.
 
 Be factual, avoid assumptions beyond what is visible, and provide only relevant guidance.
 Your output must use the following structure:
-<guidance>...</guidance>
-"""
+<guidance>...</guidance>"""
 
 
-def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]]) -> List[MessageBuilder]:
+def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]], num_screenshots=5) -> List[MessageBuilder]:
+
+    # remove screenshots older than num_screenshots
+    messages = deepcopy(messages)
+    cntr = 0
+    for i in range(1, len(messages) + 1):
+        message = messages[-i]
+        if message["role"] == "tool" and message["content"][0]["type"] == "input_image":
+            cntr += 1
+            # HACK: change role to user
+            messages[-i]["role"] = "user"
+            if cntr > num_screenshots:
+                # HACK: remove screenshots older than num_screenshots
+                # change role to "user"
+                messages[-i] = {"role": "user", "content": [{"type": "input_text", "text": "[SCREENSHOT PLACEHOLDER]"}]}
+
+    # convert to messagesbuilder messages
     new_messages = []
     for message in messages:
         new_message = OpenAIChatCompletionAPIMessageBuilder(role=message["role"])
@@ -92,6 +109,7 @@ def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]]) -> List[Mes
                     new_message.add_image(content["image_url"])
         new_messages.append(new_message)
     return new_messages
+
 
 @dataclass
 class DynamicGuidanceAgentArgs(AgentArgs):
@@ -169,8 +187,13 @@ class DynamicGuidanceAgent(bgym.Agent):
 
         # custom
         self.screenshots = []
-        self.plan = None
+        # TODO: enable changing these flags via config
         self.first_iteration = True
+        self.use_docs_search = True
+        self.use_planning = True
+        self.use_hinting = False
+        self.plan_str = None
+        self.docs_str = None
         self.conversation_for_traces = []
 
         self.is_goal_set = False
@@ -187,134 +210,208 @@ class DynamicGuidanceAgent(bgym.Agent):
     def set_task_name(self, task_name: str):
         self.task_name = task_name
 
-    @cost_tracker_decorator
-    def get_action(self, obs: Any) -> float:
-        self.llm.reset_stats()
+    def get_docs(self, obs: Any) -> None:
+        # HACK: quick and dirty servicenow docs search
+        from bs4 import BeautifulSoup
+        from googleapiclient.discovery import build
+        from markdownify import markdownify as md
 
+        SECTION_LABEL_SELECTORS = [
+            "p.sectiontitle",
+            "p.tasklabel",
+            "p.sectiontitle.tasklabel",
+            # Add any others you see in the DOM:
+            "p.proceduretitle",
+            "p.prereqtitle",
+            "p.relatedtopicstitle",
+            "p.notetitle",
+        ]
+
+        # Map exact label text -> heading level (default h3 if not listed)
+        LABEL_LEVELS = {
+            "Before you begin": 2,
+            "Procedure": 2,
+            "About this task": 2,
+            "Role required": 3,
+            "Results": 2,
+            "Next steps": 2,
+            "Related topics": 2,
+        }
+
+        def promote_section_labels_to_headings(soup: BeautifulSoup):
+            for sel in SECTION_LABEL_SELECTORS:
+                for p in soup.select(sel):
+                    text = p.get_text(" ", strip=True)
+                    if not text:
+                        p.decompose()
+                        continue
+                    level = LABEL_LEVELS.get(text, 3)  # default to ### if unknown
+                    h = soup.new_tag(f"h{min(max(level,1),6)}")
+                    h.string = text
+                    p.replace_with(h)
+
+        def convert_html_to_markdown(html):
+
+            soup = BeautifulSoup(html, "html.parser")
+            # Drop obvious chrome if any slipped in
+            for sel in ["nav", "footer", "aside", ".breadcrumbs", "[role='navigation']"]:
+                for el in soup.select(sel):
+                    el.decompose()
+            promote_section_labels_to_headings(soup)
+
+            # Optional: demote multiple H1s to H2s (keep structure tidy)
+            h1s = soup.find_all("h1")
+            for h in h1s[1:]:
+                h.name = "h2"
+
+            cleaned_html = str(soup)
+
+            # Convert to Markdown
+            md_text = md(cleaned_html, heading_style="ATX", code_language=None, escape_asterisks=False)  # #, ##, ### …  # don't guess languages
+
+            # Tidy up whitespace
+            md_text = re.sub(r"\n{3,}", "\n\n", md_text).strip() + "\n"
+            return md_text
+
+        def extract_main_text(url: str):
+
+            # convert the url to the api endpoint format
+            url = url.replace("https://www.servicenow.com/docs/bundle/", "https://servicenow-be-prod.servicenow.com/api/bundle/")
+
+            response = requests.get(url, headers={"Accept": "application/json"})
+
+            page_content = response.json()
+            article_content = page_content["topic_html"]
+            article_text = convert_html_to_markdown(article_content)
+            return article_text
+
+        NUM_RESULTS = 3  # limit number of docs returned
+        DOMAIN = "servicenow.com/docs"  # e.g., "docs.servicenow.com" or None
+        USE_SITESEARCH_PARAM = True  # False => use "site:example.com" in the query instead
+        siterestrict = False
+
+        google_api_key = os.getenv("GOOGLE_API_KEY")
+        google_cse_id = os.getenv("GOOGLE_CSE_ID")
+        if not google_api_key or not google_cse_id:
+            raise ValueError("Missing GOOGLE_API_KEY or GOOGLE_CSE_ID in environment.")
+
+        search_engine = build("customsearch", "v1", developerKey=google_api_key)
+        cse = search_engine.cse()
+        if siterestrict:
+            cse = cse.siterestrict()
+
+        # TODO: enable LLM to generate search term
+        search_term = obs["goal_object"][0]["text"]
+
+        params = {
+            "q": search_term if not (DOMAIN and not USE_SITESEARCH_PARAM) else f"site:{DOMAIN} {search_term}",
+            "cx": google_cse_id,
+            "num": NUM_RESULTS,
+            "fields": "items(title,link,snippet)",
+        }
+
+        if DOMAIN and USE_SITESEARCH_PARAM:
+            params["siteSearch"] = DOMAIN
+            params["siteSearchFilter"] = "i"  # include only this domain
+
+        res = cse.list(**params).execute()
+        items = res.get("items", []) or []
+        all_texts = []
+        for i, it in enumerate(items, start=1):
+            title = it.get("title")
+            link = it.get("link")
+            snippet = it.get("snippet")
+
+            text = extract_main_text(link)
+            if text:
+                preview = text[:2500]
+                all_texts.append(preview)
+
+        self.docs_str = "\n\n----------------\n\n".join(all_texts)
+
+    # @cost_tracker_decorator
+    def get_plan(self, obs: Any) -> None:
         current_image_base64 = image_to_png_base64_url(obs["screenshot"])
         goal_str = obs["goal_object"][0]["text"]
-        if self.first_iteration:
-            # 0. First LLM call if goal is not set is to prompt the dynamic guidance
-            #    agent given the current state and the goal.
 
-            # TODO: add RAG step to retrieve from documentation
+        planning_messages = [
+            {"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_PLANNING_SYS_MSG},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": "[SCREENSHOT]",
+                    },
+                    {"type": "input_image", "image_url": current_image_base64},
+                    {
+                        "type": "input_text",
+                        "text": f"[GOAL]\n{goal_str}",
+                    },
+                ],
+            },
+        ]
+        if self.docs_str:
+            planning_messages.append({"role": "tool", "content": [{"type": "input_text", "text": f"[DOCS]\n{self.docs_str}"}]})
 
-            self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": f"[GOAL]\n{goal_str}"}]})
-            self.conversation_for_traces.append({"role": "tool", "content": [{"type": "input_image", "image_url": current_image_base64}]})
-            dynamic_guidance_messages = [
-                {"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_GUIDANCE_SYS_MSG},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": "[SCREENSHOT]",
-                        },
-                        {"type": "input_image", "image_url": current_image_base64},
-                        {
-                            "type": "input_text",
-                            "text": f"[GOAL]\n{goal_str}",
-                        },
-                    ],
-                },
-            ]
-            self.first_iteration = False
-
-        else:
-            # 1: based on observation and the last user llm action,
-            #    the user llm asks something like "what should I do next?"
-            summary_messages = [
-                {"role": "system", "content": USER_AGENT_SUMMARY_SYS_MSG},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_image",
-                            "image_url": self.screenshots[-1],
-                        },
-                        {
-                            "type": "input_text",
-                            "text": "[CURRENT SCREENSHOT]",
-                        },
-                        {
-                            "type": "input_image",
-                            "image_url": current_image_base64,
-                        },
-                        {
-                            "type": "input_text",
-                            "text": f"[LAST_ACTION]\n{obs['last_action']}",
-                        },
-                    ],
-                },
-            ]
-
-            summary_messages = prepare_messagesbuilder_messages(summary_messages)
-            summary_response = self.llm(
-                APIPayload(
-                    messages=summary_messages,
-                    reasoning_effort="low",
-                )
-            )
-            summary_response= summary_response.raw_response
-            summary_response_text = summary_response.choices[0].message.content
-            summary_response_text = summary_response_text.strip().split("<summary>")[1].split("</summary>")[0]
-
-            self.conversation_for_traces.append({"role": "tool", "content": [{"type": "input_image", "image_url": current_image_base64}]})
-            self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": summary_response_text}]})
-            # 2: based on the summary response, the agent llm instructs the user llm to perform a given action (in natural language)
-            dynamic_guidance_messages = [
-                {"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_GUIDANCE_SYS_MSG},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": f"[GOAL]\n{goal_str}",
-                        },
-                        {
-                            "type": "input_text",
-                            "text": f"[PLAN]\n{self.plan}",   
-                        },
-                        {
-                            "type": "input_text",
-                            "text": "[SCREENSHOT]",
-                        },
-                        {
-                            "type": "input_image",
-                            "image_url": current_image_base64,
-                        },
-                        {
-                            "type": "input_text",
-                            "text": f"[QUERY]\n{summary_response_text}",
-                        },
-                    ],
-                },
-            ]
-
-        # 2: using the screenshot of the current page, and given its original goal
-        #    the agent llm instructs the user llm to perform a given action (in natural language)
-        dynamic_guidance_messages = prepare_messagesbuilder_messages(dynamic_guidance_messages)
-        dynamic_guidance_response: LLMOutput = self.llm(
+        planning_messages = prepare_messagesbuilder_messages(planning_messages)
+        planning_response: LLMOutput = self.llm(
             APIPayload(
-                messages=dynamic_guidance_messages,
+                messages=planning_messages,
                 cache_tool_definition=True,
                 cache_complete_prompt=False,
                 use_cache_breakpoints=True,
                 reasoning_effort="low",
             )
         )
-        dynamic_guidance_response = dynamic_guidance_response.raw_response
-        dynamic_guidance_response_text = dynamic_guidance_response.choices[0].message.content
-        self.conversation_for_traces.append({"role": "assistant", "content": [{"type": "input_text", "text": dynamic_guidance_response_text}]})
-        if "<plan>" in dynamic_guidance_response_text:
-            # TODO: not used for now.
-            plan = dynamic_guidance_response_text.strip().split("<plan>")[1].split("</plan>")[0]
-            self.plan = plan
-        dynamic_guidance_response_text = dynamic_guidance_response_text.strip().split("<guidance>")[1].split("</guidance>")[0]
+        planning_response = planning_response.raw_response
+        planning_response_text = planning_response.choices[0].message.content
+        plan = planning_response_text.strip().split("<plan>")[1].split("</plan>")[0]
+        self.plan_str = plan
 
-        # 3: based on the current screenshot (for grounding) and the agent llm instruction ONLY,
-        #    the user llm performs one of the provided actions
+    # @cost_tracker_decorator
+    def get_user_summary(self, obs: Any) -> str:
+        current_image_base64 = image_to_png_base64_url(obs["screenshot"])
+        summary_messages = [
+            {"role": "system", "content": USER_AGENT_SUMMARY_SYS_MSG},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_image",
+                        "image_url": self.screenshots[-1],
+                    },
+                    {
+                        "type": "input_text",
+                        "text": "[CURRENT SCREENSHOT]",
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": current_image_base64,
+                    },
+                    {
+                        "type": "input_text",
+                        "text": f"[LAST_ACTION]\n{obs['last_action']}",
+                    },
+                ],
+            },
+        ]
 
+        summary_messages = prepare_messagesbuilder_messages(summary_messages)
+        summary_response = self.llm(
+            APIPayload(
+                messages=summary_messages,
+                reasoning_effort="low",
+            )
+        )
+        summary_response = summary_response.raw_response
+        summary_response_text = summary_response.choices[0].message.content
+        summary_response_text = summary_response_text.strip().split("<summary>")[1].split("</summary>")[0]
+        return summary_response_text
+
+    # @cost_tracker_decorator
+    def get_user_action(self, obs: Any, dynamic_guidance_response_text: str):
+        current_image_base64 = image_to_png_base64_url(obs["screenshot"])
         user_agent_action_sys_msg = deepcopy(USER_AGENT_ACTION_SYS_MSG)
 
         if self.config.multiaction:
@@ -354,7 +451,6 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-
         if self.config.use_generalized_bgym_action_tool:
             action = action_from_generalized_bgym_action_tool(user_action_response)
         else:
@@ -366,9 +462,68 @@ class DynamicGuidanceAgent(bgym.Agent):
         self.last_response = user_action_response
         self._responses.append(user_action_response)  # may be useful for debugging
 
+        return action
+
+    @cost_tracker_decorator
+    def get_action(self, obs: Any) -> float:
+        self.llm.reset_stats()
+
+        current_image_base64 = image_to_png_base64_url(obs["screenshot"])
+        goal_str = obs["goal_object"][0]["text"]
+
+        if self.use_docs_search and not self.docs_str:
+            self.get_docs(obs)
+
+        if self.use_planning and not self.plan_str:
+            self.get_plan(obs)
+
+        if self.use_hinting:
+            # TODO: add hinting module to Dynamic Guidance agent
+            pass
+
+        if self.first_iteration:
+            # Prepare context with available information
+            self.conversation_for_traces.append({"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_SYS_MSG})
+
+            user_content = [{"type": "input_text", "text": f"[GOAL]\n{goal_str}"}]
+            if self.docs_str:
+                user_content.append({"type": "input_text", "text": f"[DOCS]\n{self.docs_str}"})
+            if self.plan_str:
+                user_content.append({"type": "input_text", "text": f"[PLAN]\n{self.plan_str}"})
+            user_content.append({"type": "input_text", "text": f"[SCREENSHOT]"})
+            user_content.append({"type": "input_image", "image_url": current_image_base64})
+            self.conversation_for_traces.append({"role": "user", "content": user_content})
+            self.first_iteration = False
+
+        else:
+            user_summary = self.get_user_summary(obs)
+            self.conversation_for_traces.append(
+                {
+                    "role": "tool",
+                    "content": [{"type": "input_image", "image_url": current_image_base64}],
+                }
+            )
+            self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": user_summary}]})
+
+        # using the current context, the agent llm instructs the user llm to perform a given action (in natural language)
+        dynamic_guidance_messages = prepare_messagesbuilder_messages(deepcopy(self.conversation_for_traces))
+        dynamic_guidance_response: LLMOutput = self.llm(
+            APIPayload(
+                messages=dynamic_guidance_messages,
+                reasoning_effort="low",
+            )
+        )
+        dynamic_guidance_response = dynamic_guidance_response.raw_response
+        dynamic_guidance_response_text = dynamic_guidance_response.choices[0].message.content
+        self.conversation_for_traces.append({"role": "assistant", "content": [{"type": "input_text", "text": dynamic_guidance_response_text}]})
+        dynamic_guidance_response_text = dynamic_guidance_response_text.strip().split("<guidance>")[1].split("</guidance>")[0]
+
+        # based on the current screenshot (for grounding) and the agent llm instruction ONLY, the user llm performs one of the provided actions
+        action = self.get_user_action(obs, dynamic_guidance_response_text)
+
         self.screenshots.append(current_image_base64)
         self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": f"[TOOL CALL]\n{action}"}]})
-        
+
         chat_messages = prepare_messagesbuilder_messages(self.conversation_for_traces)
         agent_info = bgym.AgentInfo(
             think="",
