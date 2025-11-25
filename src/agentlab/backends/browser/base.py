@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Callable, Literal
 
 from langchain_core.utils.function_calling import convert_to_openai_tool
@@ -73,30 +74,39 @@ class ToolSpec(BaseModel):
         return cls.model_validate(convert_to_openai_tool(function))
 
 
-class BrowserBackend(BaseModel):
+class BrowserBackend(BaseModel, ABC):
+    @abstractmethod
     def initialize(self) -> None:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def run_js(self, js: str):
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def goto(self, url: str) -> str:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def page_html(self) -> str:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def page_screenshot(self) -> Image:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def page_axtree(self) -> str:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def step(self, action: ToolCallAction) -> str:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def actions(self) -> tuple[ToolSpec]:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def close(self) -> None:
-        raise NotImplementedError
+        pass
