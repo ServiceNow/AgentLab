@@ -4,7 +4,8 @@ from io import BytesIO
 
 from PIL import Image
 
-from agentlab.backends.browser.mcp import MCPBrowserBackend, ToolCallAction
+from agentlab.actions import ToolCallAction
+from agentlab.backends.browser.mcp import MCPBrowserBackend
 
 logger = logging.getLogger(__name__)
 

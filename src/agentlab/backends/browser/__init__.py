@@ -1,4 +1,5 @@
-from agentlab.backends.browser.base import BrowserBackend, FunctionCall, ToolCallAction, ToolSpec
+from agentlab.actions import FunctionCall, ToolCallAction, ToolSpec
+from agentlab.backends.browser.base import BrowserBackend
 from agentlab.backends.browser.env import BrowserEnv, BrowserEnvArgs
 from agentlab.backends.browser.mcp import MCPBrowserBackend, MCPClient
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright

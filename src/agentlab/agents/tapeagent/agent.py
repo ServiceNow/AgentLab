@@ -27,8 +27,8 @@ from tapeagents.steps import ImageObservation
 from tapeagents.tool_calling import ToolSpec
 from termcolor import colored
 
+from agentlab.actions import ToolSpec as AgentlabToolSpec
 from agentlab.agents.agent_args import AgentArgs
-from agentlab.backends.browser.base import ToolSpec as AgentlabToolSpec
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

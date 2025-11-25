@@ -3,8 +3,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from agentlab.actions import ToolsActionSet
-from agentlab.backends.browser.base import BrowserBackend, ToolCallAction, ToolSpec
+from agentlab.actions import ToolCallAction, ToolsActionSet, ToolSpec
+from agentlab.backends.browser.base import BrowserBackend
 from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
 from agentlab.benchmarks.web_task import AbstractWebTask
 

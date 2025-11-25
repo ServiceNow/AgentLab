@@ -10,7 +10,8 @@ from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp import Tool as MCPTool
 from mcp.types import CallToolResult, ImageContent, TextContent
 
-from agentlab.backends.browser.base import BrowserBackend, FunctionSpec, ToolCallAction, ToolSpec
+from agentlab.actions import FunctionSpec, ToolCallAction, ToolSpec
+from agentlab.backends.browser.base import BrowserBackend
 
 logger = logging.getLogger(__name__)
 

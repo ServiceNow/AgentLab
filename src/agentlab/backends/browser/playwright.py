@@ -6,7 +6,8 @@ from typing import Any, Callable
 from PIL import Image
 from playwright.async_api import Browser, Page, async_playwright
 
-from agentlab.backends.browser.base import BrowserBackend, ToolCallAction, ToolSpec
+from agentlab.actions import ToolCallAction, ToolSpec
+from agentlab.backends.browser.base import BrowserBackend
 
 logger = logging.getLogger(__name__)
 

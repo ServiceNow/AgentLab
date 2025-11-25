@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel
 
-from agentlab.backends.browser.base import ToolSpec
+from agentlab.actions import ToolSpec
 
 
 class AbstractWebTask(BaseModel):
