@@ -8,11 +8,13 @@ from dotenv import load_dotenv
 
 from agentlab.agents.generic_agent.agent_configs import GPT5_MINI_FLAGS
 from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
+from agentlab.agents.react_toolcall_agent import AgentConfig, LLMArgs, ReactToolCallAgentArgs
 from agentlab.agents.tapeagent.agent import TapeAgentArgs, load_config
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright
 from agentlab.backends.browser.playwright import AsyncPlaywright
 from agentlab.benchmarks.miniwob import MiniWobBenchmark
 from agentlab.experiments.study import make_study
+from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_configs import CHAT_MODEL_ARGS_DICT
 
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
@@ -32,7 +34,7 @@ def parse_args():
     )
     parser.add_argument(
         "--agent",
-        choices=["tape", "generic"],
+        choices=["tape", "generic", "react"],
         default="tape",
         help="Agent type to use (default: tape)",
     )
@@ -62,6 +64,11 @@ if __name__ == "__main__":
         agent_args = GenericAgentArgs(
             chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-mini-2025-08-07"],
             flags=GPT5_MINI_FLAGS,
+        )
+    elif args.agent == "react":
+        agent_args = ReactToolCallAgentArgs(
+            llm_args=LLMArgs(model_name="azure/gpt-5-mini", temperature=1.0, max_total_tokens=128000),
+            config=AgentConfig(),
         )
     else:
         agent_args = TapeAgentArgs(agent_name=config.name, config=config)

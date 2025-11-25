@@ -50,7 +50,6 @@ class BrowserEnv(AbstractEnv):
             "focused_element_bid": "none",
         }
         obs = self.task.obs_postprocess(obs)
-        logger.info(f"Initial obs: {obs}")
         return obs, {}
 
     def step(self, action: ToolCallAction | str) -> tuple[dict, float, bool, bool, dict]:
@@ -74,8 +73,6 @@ class BrowserEnv(AbstractEnv):
 
         action_exec_stop = time.time()
         self._turns += 1
-        logger.info(f"Obs: {observation}")
-
         truncated = self._turns >= self.max_turns
 
         if self.task.validate_per_step or finished or truncated:
