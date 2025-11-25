@@ -43,7 +43,6 @@ class AgentConfig:
     use_axtree: bool = False
     use_screenshot: bool = True
     max_actions: int = 10
-    max_retry: int = 4
     system_prompt: str = """
 You are an expert AI Agent trained to assist users with complex web tasks.
 Your role is to understand the goal, perform actions until the goal is accomplished and respond in a helpful and accurate manner.
