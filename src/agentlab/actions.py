@@ -119,3 +119,7 @@ class ToolsActionSet(AbstractActionSet):
 
     def to_python_code(self, action) -> str:
         return action
+
+    def tools(self) -> list[dict]:
+        """Returns the list of tool spec dicts for LLM consumption."""
+        return [tool.model_dump() for tool in self.actions]

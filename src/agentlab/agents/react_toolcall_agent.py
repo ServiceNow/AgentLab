@@ -56,7 +56,7 @@ Think along the following lines:
 4. List next steps to move towards the goal and propose next immediate action.
 Then produce the single function call that performs the proposed action. If the task is complete, produce the final step."""
     summarize_system_prompt: str = """
-You are a helpful assistant that summarizes conversation history. Following messages is the history to summarize:"""
+You are a helpful assistant that summarizes agent interaction history. Following messages is the history to summarize:"""
     summarize_prompt: str = """
 Summarize the presented agent interaction history concisely.
 Focus on:
@@ -76,6 +76,7 @@ class ReactToolCallAgent:
         config: AgentConfig,
     ):
         self.action_set = action_set
+        self.tools = self.action_set.tools()
         self.history: list[dict | Message] = [{"role": "system", "content": config.system_prompt}]
         self.llm = llm
         self.token_counter = token_counter
@@ -131,14 +132,13 @@ class ReactToolCallAgent:
             logger.warning("Max actions reached, stopping agent.")
             return ToolCall(name="final_step"), {}
 
-        self.history += self.obs_to_messages(self.obs_preprocessor(obs))
+        self.history += self.obs_to_messages(obs)
         self.maybe_compact_history()
-        tools = [tool.model_dump() for tool in self.action_set.actions]
         messages = self.history + [{"role": "user", "content": self.config.guidance}]
 
         try:
             logger.info(colored(f"Prompt:\n{pprint.pformat(messages, width=120)}", "blue"))
-            response = self.llm(tools=tools, messages=messages)
+            response = self.llm(tools=self.tools, messages=messages)
             message = response.choices[0].message  # type: ignore
         except Exception as e:
             logger.exception(f"Error getting LLM response: {e}. Prompt: {messages}")
@@ -155,6 +155,7 @@ class ReactToolCallAgent:
         return len(prev_actions) >= self.config.max_actions
 
     def thoughts_from_message(self, message: Message) -> str:
+        """Extract the agent's thoughts from the LLM message."""
         thoughts = []
         if reasoning := message.get("reasoning_content"):
             thoughts.append(reasoning)
@@ -168,6 +169,7 @@ class ReactToolCallAgent:
         return "\n\n".join(thoughts)
 
     def action_from_message(self, message: Message) -> ToolCall:
+        """Parse the ToolCall from the LLM message."""
         if message.tool_calls:
             if len(message.tool_calls) > 1:
                 logger.warning("Multiple tool calls found in LLM response, using the first one.")
