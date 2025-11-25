@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from agentlab.actions import ToolCallAction, ToolsActionSet, ToolSpec
+from agentlab.actions import ToolCall, ToolsActionSet, ToolSpec
 from agentlab.backends.browser.base import BrowserBackend
 from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
 from agentlab.benchmarks.web_task import AbstractWebTask
@@ -52,13 +52,13 @@ class BrowserEnv(AbstractEnv):
         obs = self.task.obs_postprocess(obs)
         return obs, {}
 
-    def step(self, action: ToolCallAction | str) -> tuple[dict, float, bool, bool, dict]:
+    def step(self, action: ToolCall | str) -> tuple[dict, float, bool, bool, dict]:
         if isinstance(action, str):
             action = ToolsActionSet.parse_action(action)
         logger.info(f"BrowserEnv.step() called with action {action}")
 
         action_exec_start = time.time()
-        finished = action.function.name == "final_step"
+        finished = action.name == "final_step"
         if finished:
             observation = {
                 "goal_object": [{"type": "text", "text": self.goal}],
@@ -91,7 +91,7 @@ class BrowserEnv(AbstractEnv):
         logger.info(f"Action result in observation: {observation}")
         return observation, reward, finished, truncated, env_info
 
-    def _step(self, action: ToolCallAction) -> dict:
+    def _step(self, action: ToolCall) -> dict:
         obs_dict = self.backend.step(action)
         if "goal_object" not in obs_dict:
             obs_dict["goal_object"] = [{"type": "text", "text": self.goal}]
@@ -101,7 +101,7 @@ class BrowserEnv(AbstractEnv):
             obs_dict["focused_element_bid"] = "none"
         return obs_dict
 
-    def validate_task(self, action: ToolCallAction, observation: dict) -> tuple[float, dict]:
+    def validate_task(self, action: ToolCall, observation: dict) -> tuple[float, dict]:
         validate_js = self.task.get_step_validate_js()
         validate_result = self.backend.run_js(validate_js)
         reward, other = self.task.parse_validation_result(validate_result)

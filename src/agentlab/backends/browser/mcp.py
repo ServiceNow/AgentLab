@@ -10,7 +10,7 @@ from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp import Tool as MCPTool
 from mcp.types import CallToolResult, ImageContent, TextContent
 
-from agentlab.actions import FunctionSpec, ToolCallAction, ToolSpec
+from agentlab.actions import FunctionSpec, ToolCall, ToolSpec
 from agentlab.backends.browser.base import BrowserBackend
 
 logger = logging.getLogger(__name__)
@@ -150,13 +150,12 @@ class MCPBrowserBackend(BrowserBackend):
         self._mcp = MCPClient(config_path=self.config_path)
         self._mcp.initialize()
 
-    def step(self, action: ToolCallAction) -> dict:
-        contents = self.call_tool(action.function.name, action.function.arguments)
+    def step(self, action: ToolCall) -> dict:
+        contents = self.call_tool(action.name, action.arguments)
         text = "\n".join([c.text for c in contents if c.type == "text"])
         images = [c for c in contents if c.type == "image"]
         return {
-            "pruned_html": text,
-            "axtree_txt": text,
+            "text": text,
             "screenshot": images[-1] if images else None,
         }
 

@@ -6,7 +6,7 @@ from typing import Any, Callable
 from PIL import Image
 from playwright.async_api import Browser, Page, async_playwright
 
-from agentlab.actions import ToolCallAction, ToolSpec
+from agentlab.actions import ToolCall, ToolSpec
 from agentlab.backends.browser.base import BrowserBackend
 
 logger = logging.getLogger(__name__)
@@ -106,13 +106,13 @@ class AsyncPlaywright(BrowserBackend):
         flat_axtree = flatten_axtree(axtree)
         return flat_axtree
 
-    def step(self, action: ToolCallAction):
-        fn = self._actions[action.function.name]
+    def step(self, action: ToolCall):
+        fn = self._actions[action.name]
         try:
-            action_result = self._loop.run_until_complete(fn(**action.function.arguments))
+            action_result = self._loop.run_until_complete(fn(**action.arguments))
         except Exception as e:
-            logger.error(f"Error executing action {action.function.name}: {e}")
-            action_result = f"Error executing action {action.function.name}: {e}"
+            action_result = f"Error executing action {action.name}: {e}"
+            logger.error(action_result)
         html = self.page_html()
         screenshot = self.page_screenshot()
         axtree = self.page_axtree()

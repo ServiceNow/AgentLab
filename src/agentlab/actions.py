@@ -1,10 +1,11 @@
 import json
 import logging
-from typing import Any, Callable, Literal
+from typing import Callable, Literal
+from uuid import uuid4
 
 from bgym import AbstractActionSet
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agentlab.llm.llm_utils import parse_html_tags_raise
 
@@ -26,22 +27,11 @@ class FunctionSpec(BaseModel):
     parameters: dict
 
 
-class FunctionCall(BaseModel):
-    """
-    A class representing a function call.
 
-    Attributes:
-        name (str): The name of the function being called.
-        arguments (Any): The arguments to be passed to the function.
-    """
-
+class ToolCall(BaseModel):
+    id: str = Field(default_factory=lambda: uuid4().hex)
     name: str
-    arguments: Any
-
-
-class ToolCallAction(BaseModel):
-    id: str = ""
-    function: FunctionCall
+    arguments: dict = Field(default_factory=dict)
 
     def llm_view(self, **kwargs) -> str:
         return self.model_dump_json(indent=2)
@@ -111,7 +101,7 @@ class ToolsActionSet(AbstractActionSet):
 }"""
 
     @classmethod
-    def parse_action(cls, llm_output: str) -> ToolCallAction:
+    def parse_action(cls, llm_output: str) -> ToolCall:
         logger.info(f"Parsing action: {llm_output}")
         if "<action>" in llm_output:
             content_dict, valid, retry_message = parse_html_tags_raise(llm_output, keys=["action"])
@@ -124,7 +114,7 @@ class ToolsActionSet(AbstractActionSet):
             action_dict = json.loads(action_str)
         except json.JSONDecodeError:
             raise ValueError(f"Failed to parse action: {action_str}")
-        return ToolCallAction(function=FunctionCall(name=action_dict["name"], arguments=action_dict["arguments"]))
+        return ToolCall(name=action_dict["name"], arguments=action_dict["arguments"])
 
     def to_python_code(self, action) -> str:
         return action

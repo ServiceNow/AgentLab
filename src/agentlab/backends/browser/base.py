@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from PIL import Image
 from pydantic import BaseModel
 
-from agentlab.actions import ToolCallAction, ToolSpec
+from agentlab.actions import ToolCall, ToolSpec
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class BrowserBackend(BaseModel, ABC):
         pass
 
     @abstractmethod
-    def step(self, action: ToolCallAction) -> str:
+    def step(self, action: ToolCall) -> dict:
         pass
 
     @abstractmethod

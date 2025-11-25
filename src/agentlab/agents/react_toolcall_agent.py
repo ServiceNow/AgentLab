@@ -10,7 +10,7 @@ from litellm.types.utils import Message, ModelResponse
 from PIL import Image
 from termcolor import colored
 
-from agentlab.actions import FunctionCall, ToolCallAction, ToolsActionSet, ToolSpec
+from agentlab.actions import ToolCall, ToolsActionSet, ToolSpec
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.llm.chat_api import BaseModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
@@ -112,15 +112,13 @@ class ReactToolCallAgent:
                 )
         return messages
 
-    def get_action(self, obs: dict) -> tuple[ToolCallAction, dict]:
+    def get_action(self, obs: dict) -> tuple[ToolCall, dict]:
         actions_count = len(
             [msg for msg in self.history if isinstance(msg, Message) and msg.tool_calls]
         )
         if actions_count >= self.config.max_actions:
             logger.warning("Max actions reached, stopping agent.")
-            stop_action = ToolCallAction(
-                id="stop", function=FunctionCall(name="final_step", arguments={})
-            )
+            stop_action = ToolCall(name="final_step")
             return stop_action, {}
         self.history += self.obs_to_messages(self.obs_preprocessor(obs))
         tools = [tool.model_dump() for tool in self.action_set.actions]
@@ -155,15 +153,14 @@ class ReactToolCallAgent:
             thoughts.append(message.content)
         return "\n\n".join(thoughts)
 
-    def action_from_message(self, message) -> ToolCallAction:
+    def action_from_message(self, message) -> ToolCall:
         if message.tool_calls:
             if len(message.tool_calls) > 1:
                 logger.warning("Multiple tool calls found in LLM response, using the first one.")
             tool_call = message.tool_calls[0]
+            name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)
-            action = ToolCallAction(
-                id=tool_call.id, function=FunctionCall(name=tool_call.function.name, arguments=args)
-            )
+            action = ToolCall(id=tool_call.id, name=name, arguments=args)
             self.last_tool_call_id = action.id
             logger.info(f"Parsed tool call action: {action}")
         else:
