@@ -19,9 +19,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Observation:
-    data: dict
+    data: dict # expected keys: goal_object, pruned_html, axtree_txt, screenshot, last_action_error, action_result
 
     def to_messages(self) -> list[dict]:
+        """
+        Convert the observation dictionary into a list of chat messages for Lite LLM
+        """
         messages = []
         tool_call_id = self.data.get("tool_call_id")
         if self.data.get("goal_object") and not tool_call_id: # its a first observation when there are no tool_call_id, so include goal
@@ -69,6 +72,9 @@ class Observation:
 
 @dataclass
 class LLMOutput:
+    """
+    LiteLLM output message containing all the llm response details, suitable for putting back into prompt to reuse KV cache
+    """
     message: Message
     def to_messages(self) -> list[Message]:
         return [self.message]
@@ -138,6 +144,7 @@ class ReactToolCallAgent:
         if not self.config.use_screenshot:
             obs.pop("screenshot", None)
         if self.last_tool_call_id:
+            # add tool_call_id to obs for linking observation to the last executed action
             obs["tool_call_id"] = self.last_tool_call_id
         return obs
 

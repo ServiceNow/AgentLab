@@ -35,8 +35,8 @@ def parse_args():
     parser.add_argument(
         "--agent",
         choices=["tape", "generic", "react"],
-        default="tape",
-        help="Agent type to use (default: tape)",
+        default="react",
+        help="Agent type to use (default: react)",
     )
     parser.add_argument(
         "--config",
