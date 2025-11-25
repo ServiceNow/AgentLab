@@ -43,7 +43,15 @@ class MCPPlaywright(MCPBrowserBackend):
         }
 
     def page_html(self) -> str:
-        return ""
+        contents = self.call_tool("browser_evaluate", {"function": "document.documentElement.outerHTML"})
+        raw_response = "\n".join([c.text for c in contents if c.type == "text"])
+        try:
+            _, half_response = raw_response.split("### Result", maxsplit=1)
+            result_str, _ = half_response.split("\n### Ran", maxsplit=1)
+            return result_str.strip()
+        except Exception as e:
+            logger.error(f"Error parsing page_html result: {e}. Raw result: {raw_response}")
+            return ""
 
     def page_axtree(self) -> str:
         contents = self.call_tool("browser_snapshot", {})
