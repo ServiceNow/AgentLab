@@ -133,18 +133,23 @@ class BrowserEnvArgs(AbstractEnvArgs):
     task: AbstractWebTask
     task_seed: int
     task_name: str
-    backend: BrowserBackend
+    backend_cls: type[BrowserBackend]
 
     def __init__(
-        self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, task_seed: int = 0
+        self,
+        task_name: str,
+        task: AbstractWebTask,
+        backend_cls: type[BrowserBackend],
+        task_seed: int = 0,
     ):
         self.task_name = task_name
         self.task = task
         self.task_seed = task_seed
-        self.backend = backend
+        self.backend_cls = backend_cls
 
     def make_env(self, exp_dir: Path) -> BrowserEnv:
+        backend = self.backend_cls()
         env = BrowserEnv(
-            task_name=self.task_name, task=self.task, backend=self.backend, seed=self.task_seed
+            task_name=self.task_name, task=self.task, backend=backend, seed=self.task_seed
         )
         return env

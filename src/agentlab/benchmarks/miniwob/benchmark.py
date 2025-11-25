@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict
 
 from agentlab.actions import ToolsActionSet
 from agentlab.backends.browser.base import BrowserBackend
@@ -15,20 +15,20 @@ logger = logging.getLogger(__name__)
 class MiniWobBenchmark(AbstractBenchmark):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    backend: BrowserBackend
+    backend_cls: type[BrowserBackend]
     name: str = "miniwob"
     env_args_list: list[BrowserEnvArgs] = None  # type: ignore
     dataset: list[MiniWobTask] = None  # type: ignore
     is_multi_tab: bool = False
-    high_level_action_set_args: ToolsActionSet = None
+    high_level_action_set_args: ToolsActionSet = None  # type: ignore
 
     def model_post_init(self, __context: Any) -> None:
-        self.name = f"miniwob_{self.backend.__class__.__name__.lower()}"
+        self.name = f"miniwob_{self.backend_cls.__name__.lower()}"
         self.env_args_list = []
         if self.dataset is None:
             self.dataset = get_miniwob_tasks()
         for task in self.dataset:
             name = f"miniwob.{task.task_id}"
-            env_args = BrowserEnvArgs(task_name=name, task=task, backend=self.backend)
+            env_args = BrowserEnvArgs(task_name=name, task=task, backend_cls=self.backend_cls)
             self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} miniwob tasks")
