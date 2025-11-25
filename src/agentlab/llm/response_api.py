@@ -982,6 +982,26 @@ class OpenRouterModelArgs(BaseModelArgs):
         return OpenAIChatCompletionAPIMessageBuilder
 
 
+@dataclass
+class AzureChatModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenAI
+    model."""
+
+    api = "openai"
+
+    def make_model(self):
+        return OpenAIChatCompletionModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            base_url=os.getenv("AZURE_OPENAI_ENDPOINT", None),
+            api_key=os.getenv("AZURE_OPENAI_API_KEY", None),
+        )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenAIChatCompletionAPIMessageBuilder
+
+
 def tool_call_to_python_code(func_name, kwargs):
     """Format a function name and kwargs dict into a Python function call string."""
     if kwargs is None:
