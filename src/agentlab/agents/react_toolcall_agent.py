@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Literal
 
-from litellm import completion
+from litellm import completion, token_counter
 from litellm.types.utils import Message, ModelResponse
 from PIL import Image
 from termcolor import colored
@@ -42,29 +42,43 @@ class AgentConfig:
     use_axtree: bool = False
     use_screenshot: bool = True
     max_actions: int = 10
+    max_history_tokens: int = 120000
     system_prompt: str = """
 You are an expert AI Agent trained to assist users with complex web tasks.
 Your role is to understand the goal, perform actions until the goal is accomplished and respond in a helpful and accurate manner.
 Keep your replies brief, concise, direct and on topic. Prioritize clarity and avoid over-elaboration.
-Do not express emotions or opinions.
-"""
+Do not express emotions or opinions."""
     guidance: str = """
 Think along the following lines:
 1. Summarize the last observation and describe the visible changes in the state.
 2. Evaluate action success, explain impact on task and next steps.
 3. If you see any errors in the last observation, think about it. If there is no error, just move on.
 4. List next steps to move towards the goal and propose next immediate action.
-Then produce the single function call that performs the proposed action. If the task is complete, produce the final step.
-"""
+Then produce the single function call that performs the proposed action. If the task is complete, produce the final step."""
+    summarize_system_prompt: str = """
+You are a helpful assistant that summarizes conversation history. Following messages is the history to summarize:"""
+    summarize_prompt: str = """
+Summarize the presented agent interaction history concisely.
+Focus on:
+- The original goal
+- Key actions taken and their outcomes
+- Important errors or obstacles encountered
+- Current progress toward the goal
+Provide a concise summary that preserves all information needed to continue the task."""
 
 
 class ReactToolCallAgent:
     def __init__(
-        self, action_set: ToolsActionSet, llm: Callable[..., ModelResponse], config: AgentConfig
+        self,
+        action_set: ToolsActionSet,
+        llm: Callable[..., ModelResponse],
+        token_counter: Callable[..., int],
+        config: AgentConfig,
     ):
         self.action_set = action_set
         self.history: list[dict | Message] = [{"role": "system", "content": config.system_prompt}]
         self.llm = llm
+        self.token_counter = token_counter
         self.config = config
         self.last_tool_call_id: str = ""
 
@@ -113,14 +127,12 @@ class ReactToolCallAgent:
         return messages
 
     def get_action(self, obs: dict) -> tuple[ToolCall, dict]:
-        actions_count = len(
-            [msg for msg in self.history if isinstance(msg, Message) and msg.tool_calls]
-        )
-        if actions_count >= self.config.max_actions:
+        if self.max_actions_reached():
             logger.warning("Max actions reached, stopping agent.")
-            stop_action = ToolCall(name="final_step")
-            return stop_action, {}
+            return ToolCall(name="final_step"), {}
+
         self.history += self.obs_to_messages(self.obs_preprocessor(obs))
+        self.maybe_compact_history()
         tools = [tool.model_dump() for tool in self.action_set.actions]
         messages = self.history + [{"role": "user", "content": self.config.guidance}]
 
@@ -136,21 +148,23 @@ class ReactToolCallAgent:
         self.history.append(message)
         thoughts = self.thoughts_from_message(message)
         action = self.action_from_message(message)
-        return action, {"think": thoughts}
+        return action, {"think": thoughts, "chat_messages": self.history}
+
+    def max_actions_reached(self) -> bool:
+        prev_actions = [msg for msg in self.history if isinstance(msg, Message) and msg.tool_calls]
+        return len(prev_actions) >= self.config.max_actions
 
     def thoughts_from_message(self, message: Message) -> str:
         thoughts = []
         if reasoning := message.get("reasoning_content"):
-            logger.info(colored(f"LLM reasoning:\n{reasoning}", "yellow"))
             thoughts.append(reasoning)
         if blocks := message.get("thinking_blocks"):
             for block in blocks:
                 if thinking := getattr(block, "content", None) or getattr(block, "thinking", None):
-                    logger.info(colored(f"LLM thinking block:\n{thinking}", "yellow"))
                     thoughts.append(thinking)
         if message.content:
-            logger.info(colored(f"LLM text output:\n{message.content}", "cyan"))
             thoughts.append(message.content)
+        logger.info(colored(f"LLM thoughts: {thoughts}", "cyan"))
         return "\n\n".join(thoughts)
 
     def action_from_message(self, message: Message) -> ToolCall:
@@ -167,6 +181,40 @@ class ReactToolCallAgent:
             raise ValueError(f"No tool call found in LLM response: {message}")
         return action
 
+    def maybe_compact_history(self):
+        tokens = self.token_counter(messages=self.history)
+        if tokens > self.config.max_history_tokens:
+            logger.info("Compacting history due to length.")
+            self.compact_history()
+            short_tokens = self.token_counter(messages=self.history)
+            logger.info(f"Compacted history from {tokens} to {short_tokens} tokens.")
+
+    def compact_history(self):
+        """
+        Compact the history by summarizing the first half of messages with the LLM.
+        Updates self.history in place by replacing the first half with the summary message.
+        """
+        system_msg = self.history[0]
+        rest = self.history[1:]
+        midpoint = len(rest) // 2
+        messages = [
+            {"role": "system", "content": self.config.summarize_system_prompt},
+            *rest[:midpoint],
+            {"role": "user", "content": self.config.summarize_prompt},
+        ]
+
+        try:
+            response = self.llm(messages=messages, tool_choice="none")
+            summary = response.choices[0].message.content  # type: ignore
+        except Exception as e:
+            logger.exception(f"Error compacting history: {e}")
+            raise
+
+        logger.info(colored(f"Compacted {midpoint} messages into summary:\n{summary}", "cyan"))
+        # Rebuild history: system + summary + remaining messages
+        summary_message = {"role": "user", "content": f"## Previous Interaction :\n{summary}"}
+        self.history = [system_msg, summary_message, *rest[midpoint:]]
+
 
 @dataclass
 class ReactToolCallAgentArgs(AgentArgs):
@@ -175,5 +223,6 @@ class ReactToolCallAgentArgs(AgentArgs):
 
     def make_agent(self, actions: list[ToolSpec]) -> ReactToolCallAgent:
         llm = self.llm_args.make_model()
+        counter = partial(token_counter, model=self.llm_args.model_name)
         action_set = ToolsActionSet(actions=actions)
-        return ReactToolCallAgent(action_set=action_set, llm=llm, config=self.config)
+        return ReactToolCallAgent(action_set, llm, counter, self.config)
