@@ -1,7 +1,10 @@
 import logging
 from copy import deepcopy
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, List, Dict
+
 import bgym
+from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.tool_use_agent.cua_like_agent import (
     ADDITIONAL_ACTION_INSTRUCTIONS,
     GeneralHints,
@@ -17,7 +20,9 @@ from agentlab.agents.tool_use_agent.cua_like_agent import (
 from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
 from agentlab.llm.base_api import BaseModelArgs
 from agentlab.llm.litellm_api import LiteLLMModelArgs
-from agentlab.llm.response_api import APIPayload, LLMOutput
+from agentlab.llm.llm_utils import image_to_png_base64_url
+from agentlab.llm.response_api import APIPayload, LLMOutput, MessageBuilder, OpenAIChatCompletionAPIMessageBuilder
+from agentlab.llm.tracking import cost_tracker_decorator
 from bgym import Benchmark as BgymBenchmark
 from browsergym.core.observation import extract_screenshot
 
@@ -47,6 +52,8 @@ Using the screenshot to understand what is visible and actionable on the interfa
 
 Respond only with the action you perform—no explanation."""
 
+# TODO: guidance objects more concise (conversation like)
+
 DYNAMIC_GUIDANCE_AGENT_PLANNING_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
 Your role is to help an end-user achieve their goal by analyzing what is currently visible in the UI and deciding what they should do next.
 
@@ -63,13 +70,30 @@ Your output must use the following structure:
 DYNAMIC_GUIDANCE_AGENT_GUIDANCE_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
 Your role is to help an end-user achieve their goal by analyzing what is currently visible in the UI and deciding what they should do next.
 
-Using the current screenshot and the user query, suggest the next action the user should take right now.
+Using the goal, the plan, the current screenshot, and the user query, suggest the next action the user should take right now.
 
 Be factual, avoid assumptions beyond what is visible, and provide only relevant guidance.
 Your output must use the following structure:
 <guidance>...</guidance>
 """
 
+
+def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]]) -> List[MessageBuilder]:
+    new_messages = []
+    for message in messages:
+        new_message = OpenAIChatCompletionAPIMessageBuilder(role=message["role"])
+        if isinstance(message["content"], str):
+            new_message.add_text(message["content"])
+        elif isinstance(message["content"], list):
+            for content in message["content"]:
+                if content["type"] == "input_text":
+                    new_message.add_text(content["text"])
+                elif content["type"] == "input_image":
+                    new_message.add_image(content["image_url"])
+        new_messages.append(new_message)
+    return new_messages
+
+@dataclass
 class DynamicGuidanceAgentArgs(AgentArgs):
     model_args: BaseModelArgs = None
     config: PromptConfig = None
@@ -104,14 +128,13 @@ class DynamicGuidanceAgentArgs(AgentArgs):
             self.config.obs.skip_preprocessing = True
 
         self.config.obs.use_tabs = benchmark.is_multi_tab
-        benchmark_action_set = (
-            deepcopy(benchmark.high_level_action_set_args).make_action_set().action_set
-        )
+        benchmark_action_set = deepcopy(benchmark.high_level_action_set_args).make_action_set().action_set
         # these actions are added based on the benchmark action set
         if "send_msg_to_user" in benchmark_action_set:
             self.config.action_subsets += ("chat",)
         if "report_infeasible" in benchmark_action_set:
             self.config.action_subsets += ("infeas",)
+
 
 class DynamicGuidanceAgent(bgym.Agent):
     def __init__(
@@ -144,6 +167,12 @@ class DynamicGuidanceAgent(bgym.Agent):
         self.last_response: LLMOutput = LLMOutput()
         self._responses: list[LLMOutput] = []
 
+        # custom
+        self.screenshots = []
+        self.plan = None
+        self.first_iteration = True
+        self.conversation_for_traces = []
+
         self.is_goal_set = False
 
     def obs_preprocessor(self, obs):
@@ -153,8 +182,6 @@ class DynamicGuidanceAgent(bgym.Agent):
         page = obs.pop("page", None)
         if page is not None:
             obs["screenshot"] = extract_screenshot(page)
-        else:
-            raise Exception("No page found in observation")
         return obs
 
     def set_task_name(self, task_name: str):
@@ -164,9 +191,16 @@ class DynamicGuidanceAgent(bgym.Agent):
     def get_action(self, obs: Any) -> float:
         self.llm.reset_stats()
 
-        if not self.is_goal_set:
+        current_image_base64 = image_to_png_base64_url(obs["screenshot"])
+        goal_str = obs["goal_object"][0]["text"]
+        if self.first_iteration:
             # 0. First LLM call if goal is not set is to prompt the dynamic guidance
             #    agent given the current state and the goal.
+
+            # TODO: add RAG step to retrieve from documentation
+
+            self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": f"[GOAL]\n{goal_str}"}]})
+            self.conversation_for_traces.append({"role": "tool", "content": [{"type": "input_image", "image_url": current_image_base64}]})
             dynamic_guidance_messages = [
                 {"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_GUIDANCE_SYS_MSG},
                 {
@@ -176,14 +210,15 @@ class DynamicGuidanceAgent(bgym.Agent):
                             "type": "input_text",
                             "text": "[SCREENSHOT]",
                         },
-                        {"type": "input_image", "image_url": f"data:image/png;base64,{after_image_base64}"},
+                        {"type": "input_image", "image_url": current_image_base64},
                         {
                             "type": "input_text",
-                            "text": f"[GOAL]\n{self.config.goal}",
+                            "text": f"[GOAL]\n{goal_str}",
                         },
                     ],
                 },
             ]
+            self.first_iteration = False
 
         else:
             # 1: based on observation and the last user llm action,
@@ -194,12 +229,8 @@ class DynamicGuidanceAgent(bgym.Agent):
                     "role": "user",
                     "content": [
                         {
-                            "type": "input_text",
-                            "text": "[PREVIOUS SCREENSHOT]",
-                        },
-                        {
                             "type": "input_image",
-                            "image_url": f"data:image/png;base64,{before_image_base64}",
+                            "image_url": self.screenshots[-1],
                         },
                         {
                             "type": "input_text",
@@ -207,24 +238,29 @@ class DynamicGuidanceAgent(bgym.Agent):
                         },
                         {
                             "type": "input_image",
-                            "image_url": f"data:image/png;base64,{after_image_base64}",
+                            "image_url": current_image_base64,
                         },
                         {
                             "type": "input_text",
-                            "text": f"[LAST_ACTION]\n{last_action}",
+                            "text": f"[LAST_ACTION]\n{obs['last_action']}",
                         },
                     ],
                 },
             ]
 
+            summary_messages = prepare_messagesbuilder_messages(summary_messages)
             summary_response = self.llm(
                 APIPayload(
                     messages=summary_messages,
                     reasoning_effort="low",
                 )
             )
-            summary_response_text = summary_response.output_text
+            summary_response= summary_response.raw_response
+            summary_response_text = summary_response.choices[0].message.content
+            summary_response_text = summary_response_text.strip().split("<summary>")[1].split("</summary>")[0]
 
+            self.conversation_for_traces.append({"role": "tool", "content": [{"type": "input_image", "image_url": current_image_base64}]})
+            self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": summary_response_text}]})
             # 2: based on the summary response, the agent llm instructs the user llm to perform a given action (in natural language)
             dynamic_guidance_messages = [
                 {"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_GUIDANCE_SYS_MSG},
@@ -233,11 +269,19 @@ class DynamicGuidanceAgent(bgym.Agent):
                     "content": [
                         {
                             "type": "input_text",
+                            "text": f"[GOAL]\n{goal_str}",
+                        },
+                        {
+                            "type": "input_text",
+                            "text": f"[PLAN]\n{self.plan}",   
+                        },
+                        {
+                            "type": "input_text",
                             "text": "[SCREENSHOT]",
                         },
                         {
                             "type": "input_image",
-                            "image_url": f"data:image/png;base64,{after_image_base64}",
+                            "image_url": current_image_base64,
                         },
                         {
                             "type": "input_text",
@@ -249,6 +293,7 @@ class DynamicGuidanceAgent(bgym.Agent):
 
         # 2: using the screenshot of the current page, and given its original goal
         #    the agent llm instructs the user llm to perform a given action (in natural language)
+        dynamic_guidance_messages = prepare_messagesbuilder_messages(dynamic_guidance_messages)
         dynamic_guidance_response: LLMOutput = self.llm(
             APIPayload(
                 messages=dynamic_guidance_messages,
@@ -258,13 +303,30 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-
-        dynamic_guidance_response_text = dynamic_guidance_response.output_text
+        dynamic_guidance_response = dynamic_guidance_response.raw_response
+        dynamic_guidance_response_text = dynamic_guidance_response.choices[0].message.content
+        self.conversation_for_traces.append({"role": "assistant", "content": [{"type": "input_text", "text": dynamic_guidance_response_text}]})
+        if "<plan>" in dynamic_guidance_response_text:
+            # TODO: not used for now.
+            plan = dynamic_guidance_response_text.strip().split("<plan>")[1].split("</plan>")[0]
+            self.plan = plan
+        dynamic_guidance_response_text = dynamic_guidance_response_text.strip().split("<guidance>")[1].split("</guidance>")[0]
 
         # 3: based on the current screenshot (for grounding) and the agent llm instruction ONLY,
         #    the user llm performs one of the provided actions
+
+        user_agent_action_sys_msg = deepcopy(USER_AGENT_ACTION_SYS_MSG)
+
+        if self.config.multiaction:
+            user_agent_action_sys_msg += "\nYou can take multiple actions in a single step, if needed."
+        else:
+            user_agent_action_sys_msg += "\nYou can only take one action at a time."
+
+        user_agent_action_sys_msg += "\nAvailable browsergym actions that can be returned with get_action:\n" + self.action_set.describe()
+        user_agent_action_sys_msg += ADDITIONAL_ACTION_INSTRUCTIONS
+
         user_action_messages = [
-            {"role": "system", "content": USER_AGENT_ACTION_SYS_MSG},
+            {"role": "system", "content": user_agent_action_sys_msg},
             {
                 "role": "user",
                 "content": [
@@ -274,7 +336,7 @@ class DynamicGuidanceAgent(bgym.Agent):
                     },
                     {
                         "type": "input_image",
-                        "image_url": f"data:image/png;base64,{after_image_base64}",
+                        "image_url": current_image_base64,
                     },
                     {
                         "type": "input_text",
@@ -283,7 +345,7 @@ class DynamicGuidanceAgent(bgym.Agent):
                 ],
             },
         ]
-
+        user_action_messages = prepare_messagesbuilder_messages(user_action_messages)
         user_action_response: LLMOutput = self.llm(
             APIPayload(
                 messages=user_action_messages,
@@ -293,9 +355,24 @@ class DynamicGuidanceAgent(bgym.Agent):
             )
         )
 
+        if self.config.use_generalized_bgym_action_tool:
+            action = action_from_generalized_bgym_action_tool(user_action_response)
+        else:
+            action = user_action_response.action
+
+        if action is None and self.config.use_noop_as_default_action:
+            action = "noop()"  # default action is noop if none is provided
+
+        self.last_response = user_action_response
+        self._responses.append(user_action_response)  # may be useful for debugging
+
+        self.screenshots.append(current_image_base64)
+        self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": f"[TOOL CALL]\n{action}"}]})
+        
+        chat_messages = prepare_messagesbuilder_messages(self.conversation_for_traces)
         agent_info = bgym.AgentInfo(
-            think=think,
-            chat_messages=messages,
+            think="",
+            chat_messages=chat_messages,
             stats=self.llm.stats.stats_dict,
         )
         return action, agent_info
