@@ -1,13 +1,12 @@
 import json
 import logging
 import pprint
-import time
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Literal
 
 from litellm import completion
-from litellm.types.utils import ChatCompletionMessageToolCall, Message, ModelResponse
+from litellm.types.utils import Message, ModelResponse
 from PIL import Image
 from termcolor import colored
 
@@ -160,15 +159,8 @@ class ReactToolCallAgent:
         if message.tool_calls:
             if len(message.tool_calls) > 1:
                 logger.warning("Multiple tool calls found in LLM response, using the first one.")
-            tool_call: ChatCompletionMessageToolCall = message.tool_calls[0]
-            assert isinstance(tool_call.function.name, str)
-            try:
-                args = json.loads(tool_call.function.arguments)
-            except json.JSONDecodeError as e:
-                logger.exception(
-                    f"Error in json parsing of tool call arguments, {e}: {tool_call.function.arguments}"
-                )
-                raise e
+            tool_call = message.tool_calls[0]
+            args = json.loads(tool_call.function.arguments)
             action = ToolCallAction(
                 id=tool_call.id, function=FunctionCall(name=tool_call.function.name, arguments=args)
             )
