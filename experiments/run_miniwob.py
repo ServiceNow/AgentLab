@@ -1,5 +1,7 @@
+import argparse
 import logging
 import os
+import sys
 
 from bgym import DEFAULT_BENCHMARKS
 from dotenv import load_dotenv
@@ -18,22 +20,51 @@ logging.basicConfig(level=logging.INFO, force=True, format=fmt, handlers=[loggin
 logger = logging.getLogger(__name__)
 load_dotenv()
 
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run MiniWob benchmark experiments")
+    parser.add_argument(
+        "--backend",
+        choices=["playwright", "mcp", "bgym"],
+        default="playwright",
+        help="Browser backend to use (default: playwright)",
+    )
+    parser.add_argument(
+        "--agent",
+        choices=["tape", "generic"],
+        default="tape",
+        help="Agent type to use (default: tape)",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="miniwob",
+        help="Hydra config name to load (default: miniwob)",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    config = load_config("miniwob")
+    args = parse_args()
+    config = load_config(args.config)
 
-    # benchmark = DEFAULT_BENCHMARKS["miniwob"](n_repeats=1)
-    # benchmark = MiniWobBenchmark(backend=MCPPlaywright())
-    benchmark = MiniWobBenchmark(backend=AsyncPlaywright())
+    if args.backend == "bgym":
+        benchmark = DEFAULT_BENCHMARKS["miniwob"](n_repeats=1)
+    elif args.backend == "playwright":
+        benchmark = MiniWobBenchmark(backend_cls=AsyncPlaywright)
+    elif args.backend == "mcp":
+        benchmark = MiniWobBenchmark(backend_cls=MCPPlaywright)
+    else:
+        raise ValueError(f"Unknown backend: {args.backend}")
 
-    # agent_args = GenericAgentArgs(
-    #     chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-mini-2025-08-07"],
-    #     flags=GPT5_MINI_FLAGS,
-    # )
-    # agent_args.flags.obs.use_ax_tree = False
-    # agent_args.flags.obs.use_html = True
-    # agent_args.flags.obs.use_focused_element = False
-    agent_args = TapeAgentArgs(agent_name=config.name, config=config)
-
+    if args.agent == "generic":
+        agent_args = GenericAgentArgs(
+            chat_model_args=CHAT_MODEL_ARGS_DICT["azure/gpt-5-mini-2025-08-07"],
+            flags=GPT5_MINI_FLAGS,
+        )
+    else:
+        agent_args = TapeAgentArgs(agent_name=config.name, config=config)
 
     study = make_study(
         benchmark=benchmark,
