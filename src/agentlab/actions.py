@@ -27,7 +27,6 @@ class FunctionSpec(BaseModel):
     parameters: dict
 
 
-
 class ToolCall(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     name: str
@@ -106,7 +105,9 @@ class ToolsActionSet(AbstractActionSet):
         if "<action>" in llm_output:
             content_dict, valid, retry_message = parse_html_tags_raise(llm_output, keys=["action"])
             if not valid or "action" not in content_dict:
-                raise ValueError(f"Invalid action: llm_output: {llm_output}, retry_message: {retry_message}")
+                raise ValueError(
+                    f"Invalid action: llm_output: {llm_output}, retry_message: {retry_message}"
+                )
             action_str = content_dict["action"]
         else:
             action_str = llm_output

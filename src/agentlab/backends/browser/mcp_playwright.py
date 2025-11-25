@@ -44,7 +44,9 @@ class MCPPlaywright(MCPBrowserBackend):
         }
 
     def page_html(self) -> str:
-        contents = self.call_tool("browser_evaluate", {"function": "document.documentElement.outerHTML"})
+        contents = self.call_tool(
+            "browser_evaluate", {"function": "document.documentElement.outerHTML"}
+        )
         raw_response = "\n".join([c.text for c in contents if c.type == "text"])
         try:
             _, half_response = raw_response.split("### Result", maxsplit=1)

@@ -17,6 +17,7 @@ def final_step():
     """
     pass
 
+
 class BrowserEnv(AbstractEnv):
     def __init__(
         self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, seed: int = 0

@@ -138,7 +138,7 @@ class ReactToolCallAgent:
         action = self.action_from_message(message)
         return action, {"think": thoughts}
 
-    def thoughts_from_message(self, message) -> str:
+    def thoughts_from_message(self, message: Message) -> str:
         thoughts = []
         if reasoning := message.get("reasoning_content"):
             logger.info(colored(f"LLM reasoning:\n{reasoning}", "yellow"))
@@ -153,7 +153,7 @@ class ReactToolCallAgent:
             thoughts.append(message.content)
         return "\n\n".join(thoughts)
 
-    def action_from_message(self, message) -> ToolCall:
+    def action_from_message(self, message: Message) -> ToolCall:
         if message.tool_calls:
             if len(message.tool_calls) > 1:
                 logger.warning("Multiple tool calls found in LLM response, using the first one.")
@@ -162,7 +162,7 @@ class ReactToolCallAgent:
             args = json.loads(tool_call.function.arguments)
             action = ToolCall(id=tool_call.id, name=name, arguments=args)
             self.last_tool_call_id = action.id
-            logger.info(f"Parsed tool call action: {action}")
+            logger.info(colored(f"Parsed tool call: {action}", "magenta"))
         else:
             raise ValueError(f"No tool call found in LLM response: {message}")
         return action
