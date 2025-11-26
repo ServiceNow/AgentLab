@@ -313,9 +313,6 @@ class TaskHint(Block):
     top_n: int = 4  # Number of top hints to return when using embedding retrieval
     embedder_model: str = "Qwen/Qwen3-Embedding-0.6B"  # Model for embedding hints
     embedder_server: str = "http://localhost:5000"
-    llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
-You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
-Choose hint topic for the task and return only its number, e.g. 1. If you don't know the answer, return -1."""
 
     def _init(self):
         """Initialize the block."""
@@ -326,7 +323,6 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
                 top_n=self.top_n,
                 embedder_model=self.embedder_model,
                 embedder_server=self.embedder_server,
-                llm_prompt=self.llm_prompt,
             )
 
     def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
