@@ -5,8 +5,10 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Literal
 
-from litellm import completion, token_counter
+import numpy as np
+from litellm import completion
 from litellm.types.utils import Message, ModelResponse
+from litellm.utils import token_counter
 from PIL import Image
 from termcolor import colored
 
@@ -67,6 +69,10 @@ Focus on:
 Provide a concise summary that preserves all information needed to continue the task."""
 
 
+def user_message(content: str | list[dict]) -> dict:
+    return {"role": "user", "content": content}
+
+
 class ReactToolCallAgent:
     def __init__(
         self,
@@ -90,41 +96,34 @@ class ReactToolCallAgent:
         """
         Convert the observation dictionary into a list of chat messages for Lite LLM
         """
+        images = {k: v for k, v in obs.items() if isinstance(v, (Image.Image, np.ndarray))}
+        texts = {k: v for k, v in obs.items() if k not in images and v is not None and v != ""}
         messages = []
-        if obs.get("goal_object") and not self.last_tool_call_id:
+
+        if not self.last_tool_call_id and (goal_obj := texts.pop("goal_object", None)):
             # its a first observation when there are no tool_call_id, so include goal
-            goal = obs["goal_object"][0]["text"]
-            messages.append({"role": "user", "content": f"## Goal:\n{goal}"})
-        text_obs = []
-        if result := obs.get("action_result"):
-            text_obs.append(f"## Action Result:\n{result}")
-        if error := obs.get("last_action_error"):
-            text_obs.append(f"## Action Error:\n{error}")
-        if self.config.use_html and (html := obs.get("pruned_html")):
-            text_obs.append(f"## HTML:\n{html}")
-        if self.config.use_axtree and (axtree := obs.get("axtree_txt")):
-            text_obs.append(f"## Accessibility Tree:\n{axtree}")
-        content = "\n\n".join(text_obs)
-        if content:
-            if self.last_tool_call_id:
-                message = {
-                    "role": "tool",
-                    "tool_call_id": self.last_tool_call_id,
-                    "content": content,
-                }
-            else:
-                message = {"role": "user", "content": content}
-            messages.append(message)
-        if self.config.use_screenshot and (scr := obs.get("screenshot")):
-            if isinstance(scr, Image.Image):
+            goal = goal_obj[0]["text"]
+            messages.append(user_message(f"Goal: {goal}"))
+
+        text = "\n\n".join([f"## {k}\n{v}" for k, v in texts.items()])
+        if self.last_tool_call_id:
+            message = {
+                "role": "tool",
+                "tool_call_id": self.last_tool_call_id,
+                "content": text,
+            }
+        else:
+            message = user_message(text)
+        messages.append(message)
+
+        if self.config.use_screenshot:
+            for caption, image in images.items():
                 image_content = [
-                    {"type": "image_url", "image_url": {"url": image_to_png_base64_url(scr)}}
+                    {"type": "text", "text": caption},
+                    {"type": "image_url", "image_url": {"url": image_to_png_base64_url(image)}},
                 ]
-                messages.append({"role": "user", "content": image_content})
-            else:
-                raise ValueError(
-                    f"Expected Image.Image in screenshot obs, got {type(obs['screenshot'])}"
-                )
+                messages.append(user_message(image_content))
+
         return messages
 
     def get_action(self, obs: dict) -> tuple[ToolCall, dict]:
