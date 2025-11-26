@@ -28,7 +28,6 @@ class MiniWobBenchmark(AbstractBenchmark):
         if self.dataset is None:
             self.dataset = get_miniwob_tasks()
         for task in self.dataset:
-            name = f"miniwob.{task.task_id}"
-            env_args = BrowserEnvArgs(task_name=name, task=task, backend_cls=self.backend_cls)
+            env_args = BrowserEnvArgs(task=task, backend_cls=self.backend_cls)
             self.env_args_list.append(env_args)
         logger.info(f"Loaded {len(self.env_args_list)} miniwob tasks")

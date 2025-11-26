@@ -8,7 +8,7 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp import Tool as MCPTool
-from mcp.types import CallToolResult, ImageContent, TextContent
+from mcp.types import CallToolResult, ContentBlock, TextContent
 
 from agentlab.actions import FunctionSpec, ToolCall, ToolSpec
 from agentlab.backends.browser.base import BrowserBackend
@@ -24,7 +24,7 @@ class MCPClient:
         self.tool_to_server: dict[str, str] = {}
         self.read_timeout_seconds = read_timeout_seconds
         self.exit_stack = AsyncExitStack()
-        self.loop = None
+        self.loop: asyncio.AbstractEventLoop
 
     def initialize(self):
         try:
@@ -125,15 +125,15 @@ class MCPClient:
             raise Exception(f"Tool {tool_name} not found in any of the MCP servers")
         return server_name
 
-    def actions(self) -> tuple[ToolSpec]:
-        return (
+    def actions(self) -> list[ToolSpec]:
+        return [
             ToolSpec(
                 function=FunctionSpec(
                     name=tool.name, description=tool.description or "", parameters=tool.inputSchema
                 )
             )
             for tool in self.tools.values()
-        )
+        ]
 
     async def aclose(self) -> None:
         await self.exit_stack.aclose()
@@ -144,7 +144,7 @@ class MCPClient:
 
 class MCPBrowserBackend(BrowserBackend):
     config_path: str
-    _mcp = None
+    _mcp: MCPClient
 
     def initialize(self) -> None:
         self._mcp = MCPClient(config_path=self.config_path)
@@ -152,20 +152,20 @@ class MCPBrowserBackend(BrowserBackend):
 
     def step(self, action: ToolCall) -> dict:
         contents = self.call_tool(action.name, action.arguments)
-        text = "\n".join([c.text for c in contents if c.type == "text"])
+        action_result = "\n".join([c.text for c in contents if c.type == "text"])
         images = [c for c in contents if c.type == "image"]
         return {
-            "text": text,
+            "action_result": action_result,
             "screenshot": images[-1] if images else None,
         }
 
-    def call_tool(self, tool_name: str, arguments: dict) -> list[TextContent | ImageContent]:
+    def call_tool(self, tool_name: str, arguments: dict) -> list[ContentBlock]:
         tool_result = self._mcp.call_tool(tool_name, arguments)
         if tool_result.isError:
-            return [TextContent(text=f"Error calling tool {tool_name}")] + tool_result.content
+            return [TextContent(type="text", text=f"Error calling tool {tool_name}")] + tool_result.content
         return tool_result.content
 
-    def actions(self) -> tuple[ToolSpec]:
+    def actions(self) -> list[ToolSpec]:
         return list(self._mcp.actions())
 
     def close(self) -> None:

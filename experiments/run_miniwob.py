@@ -11,7 +11,7 @@ from agentlab.agents.generic_agent.generic_agent import GenericAgentArgs
 from agentlab.agents.react_toolcall_agent import AgentConfig, LLMArgs, ReactToolCallAgentArgs
 from agentlab.agents.tapeagent.agent import TapeAgentArgs, load_config
 from agentlab.backends.browser.mcp_playwright import MCPPlaywright
-from agentlab.backends.browser.playwright import AsyncPlaywright
+from agentlab.backends.browser.playwright import SyncPlaywright
 from agentlab.benchmarks.miniwob import MiniWobBenchmark
 from agentlab.experiments.study import make_study
 from agentlab.llm.chat_api import BaseModelArgs
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     if args.backend == "bgym":
         benchmark = DEFAULT_BENCHMARKS["miniwob"](n_repeats=1)
     elif args.backend == "playwright":
-        benchmark = MiniWobBenchmark(backend_cls=AsyncPlaywright)
+        benchmark = MiniWobBenchmark(backend_cls=SyncPlaywright)
     elif args.backend == "mcp":
         benchmark = MiniWobBenchmark(backend_cls=MCPPlaywright)
     else:

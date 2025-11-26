@@ -15,7 +15,7 @@ DEFAULT_CONFIG_PATH = "src/agentlab/backends/browser/mcp_playwright.json"
 class MCPPlaywright(MCPBrowserBackend):
     config_path: str = DEFAULT_CONFIG_PATH
 
-    def run_js(self, js: str):
+    def evaluate_js(self, js: str):
         contents = self.call_tool("browser_evaluate", {"function": js})
         raw_response = "\n".join([c.text for c in contents if c.type == "text"])
         try:
@@ -30,14 +30,14 @@ class MCPPlaywright(MCPBrowserBackend):
     def step(self, action: ToolCall) -> dict:
         contents = self.call_tool(action.name, action.arguments)
         logger.info(f"Step result has {len(contents)} contents")
-        tool_result = "\n".join(
+        action_result = "\n".join(
             [c.text for c in contents if c.type == "text" and "# Ran Playwright code" not in c.text]
         )
         html = self.page_html()
         screenshot = self.page_screenshot()
         axtree = self.page_axtree()
         return {
-            "tool_result": tool_result,
+            "action_result": action_result,
             "pruned_html": html,
             "axtree_txt": axtree,
             "screenshot": screenshot,
@@ -60,7 +60,7 @@ class MCPPlaywright(MCPBrowserBackend):
         contents = self.call_tool("browser_snapshot", {})
         return "\n".join([c.text for c in contents if c.type == "text"])
 
-    def page_screenshot(self) -> Image:
+    def page_screenshot(self) -> Image.Image:
         contents = self.call_tool("browser_take_screenshot", {})
         content = [c for c in contents if c.type == "image"][0]
         image_base64 = content.data
