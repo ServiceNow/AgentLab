@@ -1,9 +1,0 @@
-defaults:
-  - llm: gpt5-mini
-  - agent: react
-  - _self_
-
-name: miniwob
-comment: MiniWob Agent
-parallel_backend: ray
-n_jobs: 8

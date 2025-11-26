@@ -1,6 +1,0 @@
-_target_: tapeagents.llms.LiteLLM
-model_name: azure/gpt-5-mini
-use_cache: false
-context_size: 128000
-parameters:
-  temperature: 1.0
