@@ -3,8 +3,8 @@ import os
 from typing import Any, ClassVar
 
 from browsergym.miniwob import ALL_MINIWOB_TASKS
-from PIL import Image
 
+from agentlab.backends.browser import BrowserBackend
 from agentlab.benchmarks.web_task import AbstractWebTask
 
 logger = logging.getLogger(__name__)
@@ -12,11 +12,10 @@ logger = logging.getLogger(__name__)
 
 class MiniWobTask(AbstractWebTask):
     dataset: str = "miniwob"
-    task_id: str
     desc: str
     subdomain: str
-    base_url: str = None
-    url: str = None
+    base_url: str = None # type: ignore
+    url: str = None # type: ignore
     remove_human_display: bool = True
     episode_max_time: int = 1000000
     max_turns: int = 10
@@ -36,7 +35,54 @@ class MiniWobTask(AbstractWebTask):
             self.base_url = self.base_url[:-1]
         self.url = f"{self.base_url}/{self.subdomain}.html"
 
-    def get_setup_js(self) -> str:
+
+    def setup(self, backend: BrowserBackend) -> tuple[str, dict]:
+        """
+        Set up everything needed to execute the task.
+
+        Args:
+            page: the active playwright page.
+
+        Returns:
+            goal: str, goal of the task.
+            info: dict, custom information from the task.
+        """
+        backend.goto(self.url)
+        setup_js = self._get_setup_js()
+        setup_result = backend.evaluate_js(setup_js)
+        goal, info = self._parse_setup_result(setup_result)
+        self._backend = backend
+        return goal, info
+
+    def teardown(self) -> None:
+        """
+        Tear down the task, clean up resources if needed.
+
+        Args:
+            page: the active playwright page.
+        """
+        teardown_js = self._get_teardown_js()
+        if teardown_js:
+            self._backend.evaluate_js(teardown_js)
+
+    def validate(self) -> tuple[float, dict]:
+        """
+        Validate the task, either per step or at the end.
+
+        Returns:
+            reward: float, the reward obtained.
+            info: dict, custom information from the validation.
+        """
+        validate_js = (
+            self._get_step_validate_js()
+            if self.validate_per_step
+            else self._get_task_validate_js()
+        )
+        validate_result = self._backend.evaluate_js(validate_js)
+        reward, info = self._parse_validation_result(validate_result)
+        return reward, info
+
+    def _get_setup_js(self) -> str:
         if self.remove_human_display:
             logger.info("Remove human display")
             js = r"""
@@ -107,29 +153,33 @@ return core.getUtterance();
     """
         return f"async () => {{{js}}}"
 
-    def parse_setup_result(self, setup_result: str | dict | list) -> str:
+    def _parse_setup_result(self, setup_result: str | dict | list) -> tuple[str, dict]:
         if isinstance(setup_result, dict):
-            return setup_result["utterance"]
+            return setup_result["utterance"], {}
+        elif isinstance(setup_result, str):
+            return setup_result, {}
         else:
-            return setup_result
+            raise ValueError(f"Unexpected setup_result type: {type(setup_result)}")
 
-    def get_teardown_js(self) -> str:
+    def _get_teardown_js(self) -> str:
         return ""
 
-    def get_step_validate_js(self) -> str:
+    def _get_step_validate_js(self) -> str:
         return """() => {
 return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GLOBAL, WOB_EPISODE_ID, WOB_TASK_READY];
 }"""
 
-    def get_task_validate_js(self) -> str:
+    def _get_task_validate_js(self) -> str:
         return """() => {
 return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GLOBAL, WOB_EPISODE_ID, WOB_TASK_READY];
 }"""
 
-    def parse_validation_result(self, validation_result: str | list) -> tuple[float, dict]:
+    def _parse_validation_result(self, validation_result: str | dict | list) -> tuple[float, dict]:
         if isinstance(validation_result, list):
             chunks = validation_result
             done = chunks[3]
+        elif isinstance(validation_result, dict):
+            raise ValueError("Validation result as dict is not supported")
         else:
             chunks = [c.strip() for c in validation_result.split(",")]
             done = chunks[3].strip().lower() == "true"
@@ -142,8 +192,7 @@ return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GL
         }
 
     def obs_postprocess(self, obs: dict) -> dict:
-        screenshot: Image.Image | None = obs.get("screenshot", None)
-        if screenshot is not None:
+        if screenshot := obs.get("screenshot", None):
             obs["screenshot"] = screenshot.crop(
                 (0, 0, 332, 214)
             )  # crop to 332x214 because this is the viewport size for MiniWob

@@ -3,6 +3,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from browsergym.core.task import AbstractBrowserTask
+
 from agentlab.actions import ToolCall, ToolsActionSet, ToolSpec
 from agentlab.backends.browser.base import BrowserBackend
 from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
@@ -15,30 +17,42 @@ def final_step():
     """
     Finish the task execution.
     """
-    pass
+    return {
+        "pruned_html": "Task finished",
+        "axtree_txt": "",
+        "last_action_error": "",
+        "focused_element_bid": "none",
+    }
 
 
 class BrowserEnv(AbstractEnv):
     def __init__(
-        self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, seed: int = 0
+        self, task_name: str, task: AbstractWebTask | AbstractBrowserTask, backend: BrowserBackend, seed: int = 0
     ):
         self.task_name = task_name
         self.task = task
         self.seed = seed
         self._turns = 0
-        self.max_turns = task.max_turns
         self.backend = backend
         self.backend.initialize()
         self.goal = ""
+        if isinstance(self.task, AbstractBrowserTask) and not self.backend.has_pw_page:
+            raise ValueError(
+                "Legacy task requires a backend with direct playwright page access."
+            )
 
     def reset(self, seed: int):
         self.seed = seed
-        logger.info(f"Open task URL: {self.task.url}")
-        self.backend.goto(self.task.url)
-        setup_js = self.task.get_setup_js()
-        if setup_js:
-            self.goal = self.task.parse_setup_result(self.backend.run_js(setup_js))
-            logger.info(f"Task goal: {self.goal}")
+        if isinstance(self.task, AbstractBrowserTask):
+            self.goal, task_info = self.task.setup(page=self.backend.page)
+            obs = self._get_obs()
+        else:
+            self.goal, task_info = self.task.setup(backend=self.backend) 
+            obs = self._get_obs()
+            obs = self.task.obs_postprocess(obs)
+        return obs, task_info
+
+    def _get_obs(self) -> dict:
         html = self.backend.page_html()
         screenshot = self.backend.page_screenshot()
         axtree = self.backend.page_axtree()
@@ -50,8 +64,7 @@ class BrowserEnv(AbstractEnv):
             "last_action_error": "",
             "focused_element_bid": "none",
         }
-        obs = self.task.obs_postprocess(obs)
-        return obs, {}
+        return obs
 
     def step(self, action: ToolCall | str) -> tuple[dict, float, bool, bool, dict]:
         if isinstance(action, str):
@@ -59,71 +72,64 @@ class BrowserEnv(AbstractEnv):
         logger.info(f"BrowserEnv.step() called with action {action}")
 
         action_exec_start = time.time()
-        finished = action.name == "final_step"
-        if finished:
-            observation = {
-                "goal_object": [{"type": "text", "text": self.goal}],
-                "pruned_html": "Task finished",
-                "axtree_txt": "",
-                "last_action_error": "",
-                "focused_element_bid": "none",
-            }
+        done = action.name == "final_step"
+        if done:
+            observation = final_step()
         else:
-            observation = self._step(action)
-        observation = self.task.obs_postprocess(observation)
-
+            observation = self.backend.step(action)
         action_exec_stop = time.time()
         self._turns += 1
-        truncated = self._turns >= self.max_turns
+        if isinstance(self.task, AbstractWebTask):
+            truncated = self._turns >= self.task.max_turns
+        else:
+            truncated = False
 
-        if self.task.validate_per_step or finished or truncated:
-            reward, other = self.validate_task(action, observation)
-            if other.get("done", False):
-                finished = True
+        observation = self.obs_postprocess(observation)
+
+        if isinstance(self.task, AbstractBrowserTask):
+            reward, done, _, info = self.task.validate(page=self.backend.page, chat_messages=[])
+        elif self.task.validate_per_step or done or truncated:
+            reward, info = self.task.validate()
+            if info.get("done", False):
+                done = True
         else:
             reward = 0.0
-            other = {}
+            info = {}
 
         env_info = {
+            **info,
             "action_exec_start": action_exec_start,
             "action_exec_stop": action_exec_stop,
-            "action_exec_timeout": 0.0,
-        } | other
+            "action_exec_timeout": 0.0
+        }
         logger.info(f"Action result in observation: {observation}")
-        return observation, reward, finished, truncated, env_info
+        return observation, reward, done, truncated, env_info
 
-    def _step(self, action: ToolCall) -> dict:
-        obs_dict = self.backend.step(action)
-        if "goal_object" not in obs_dict:
-            obs_dict["goal_object"] = [{"type": "text", "text": self.goal}]
-        if "last_action_error" not in obs_dict:
-            obs_dict["last_action_error"] = ""
-        if "focused_element_bid" not in obs_dict:
-            obs_dict["focused_element_bid"] = "none"
-        return obs_dict
-
-    def validate_task(self, action: ToolCall, observation: dict) -> tuple[float, dict]:
-        validate_js = self.task.get_step_validate_js()
-        validate_result = self.backend.run_js(validate_js)
-        reward, other = self.task.parse_validation_result(validate_result)
-        return reward, other
+    def obs_postprocess(self, obs: dict) -> dict:
+        if "goal_object" not in obs:
+            obs["goal_object"] = [{"type": "text", "text": self.goal}]
+        if "last_action_error" not in obs:
+            obs["last_action_error"] = ""
+        if "focused_element_bid" not in obs:
+            obs["focused_element_bid"] = "none"
+        if isinstance(self.task, AbstractWebTask):
+            obs = self.task.obs_postprocess(obs)
+        return obs
 
     def close(self):
-        teardown_js = self.task.get_teardown_js()
-        if teardown_js:
-            js_result_str = self.backend.run_js(teardown_js)
-            logger.info(f"Task teardown result: {js_result_str}")
-        self.backend.close()
+        self.task.teardown()
 
     def actions(self) -> list[ToolSpec]:
         all_actions = self.backend.actions()
-        filtered_actions = self.task.filter_actions(all_actions)
-        logger.info(
-            f"Filtered {len(filtered_actions)} actions out of {len(all_actions)} for task {self.task.dataset}"
-        )
+        if isinstance(self.task, AbstractWebTask):
+            filtered_actions = self.task.filter_actions(all_actions)
+            logger.info(
+                f"Filtered {len(filtered_actions)} actions out of {len(all_actions)} for dataset {self.task.dataset}"
+            )
+        else:
+            filtered_actions = all_actions
         final_step_action = ToolSpec.from_function(final_step)
-        filtered_actions.append(final_step_action)
-        return filtered_actions
+        return filtered_actions + [final_step_action]
 
 
 @dataclass
@@ -135,12 +141,11 @@ class BrowserEnvArgs(AbstractEnvArgs):
 
     def __init__(
         self,
-        task_name: str,
         task: AbstractWebTask,
         backend_cls: type[BrowserBackend],
         task_seed: int = 0,
     ):
-        self.task_name = task_name
+        self.task_name = f"{task.dataset}.{task.task_id}"
         self.task = task
         self.task_seed = task_seed
         self.backend_cls = backend_cls
