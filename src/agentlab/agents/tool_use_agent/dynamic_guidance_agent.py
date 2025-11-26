@@ -17,7 +17,6 @@ from agentlab.agents.tool_use_agent.cua_like_agent import (
     StructuredDiscussion,
     Summarizer,
     TaskHint,
-    action_from_generalized_bgym_action_tool,
     simple_bgym_action_tool,
 )
 from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
@@ -80,6 +79,16 @@ Be factual, avoid assumptions beyond what is visible, and provide only relevant 
 Your output must use the following structure:
 <guidance>...</guidance>"""
 
+def action_from_generalized_bgym_action_tool(response: LLMOutput, tool_name : str = "get_action") -> str | None:
+    """Extract the action string from the tool call in the LLM response."""
+    # TODO: multiaction does not seem to work right now. We only extract a single action and I am unsure how it is processed by the env afterwards.
+    action = None
+    if response.tool_calls is not None:
+        for tc in response.tool_calls.tool_calls:
+            if tc.name == tool_name:
+                action = tc.arguments.get("action")
+                break
+    return action
 
 def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]], num_screenshots=5) -> List[MessageBuilder]:
 
@@ -334,7 +343,6 @@ class DynamicGuidanceAgent(bgym.Agent):
                 all_texts.append(preview)
 
         self.docs_str = "\n\n----------------\n\n".join(all_texts)
-        print(self.docs_str)
 
     # @cost_tracker_decorator
     def get_plan(self, obs: Any) -> None:
@@ -510,13 +518,10 @@ class DynamicGuidanceAgent(bgym.Agent):
                 {"type": "input_text", "text": "[GOAL]"},
                 {"type": "input_text", "text": goal_str},
             ]
-            print(self.docs_str)
             if self.docs_str:
-                print("adding docs")
                 user_content.append({"type": "input_text", "text": "[DOCS]"})
                 user_content.append({"type": "input_text", "text": self.docs_str})
             if self.plan_str:
-                print("adding plan")
                 user_content.append({"type": "input_text", "text": "[PLAN]"})
                 user_content.append({"type": "input_text", "text": self.plan_str})
             user_content.append({"type": "input_text", "text": "[SCREENSHOT]"})
@@ -553,7 +558,6 @@ class DynamicGuidanceAgent(bgym.Agent):
 
         # based on the current screenshot (for grounding) and the agent llm instruction ONLY, the user llm performs one of the provided actions
         action = self.get_user_action(obs, dynamic_guidance_response_text)
-        print(action)
 
         self.screenshots.append(current_image_base64)
 
@@ -585,8 +589,7 @@ DYNAMIC_GUIDANCE_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=False),
     action_subsets=("coord",),
-    # TODO: enable multi tool call
-    multiaction=True,
+    multiaction=True, # multiaction enabled since dynamic guidance often tells the user to do 2-3 small actions in a row
     # TODO: reuse keep_last_n_obs to truncate screenshots (currently not doing it)
     keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
 )
