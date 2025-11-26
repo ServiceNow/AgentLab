@@ -21,7 +21,7 @@ def final_step():
         "pruned_html": "Task finished",
         "axtree_txt": "",
         "last_action_error": "",
-        "focused_element_bid": "none",
+        "focused_element_bid": "",
     }
 
 
@@ -62,7 +62,7 @@ class BrowserEnv(AbstractEnv):
             "axtree_txt": axtree,
             "screenshot": screenshot,
             "last_action_error": "",
-            "focused_element_bid": "none",
+            "focused_element_bid": "",
         }
         return obs
 
@@ -111,7 +111,7 @@ class BrowserEnv(AbstractEnv):
         if "last_action_error" not in obs:
             obs["last_action_error"] = ""
         if "focused_element_bid" not in obs:
-            obs["focused_element_bid"] = "none"
+            obs["focused_element_bid"] = ""
         if isinstance(self.task, AbstractWebTask):
             obs = self.task.obs_postprocess(obs)
         return obs
