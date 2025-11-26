@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--n-relaunch", type=int, default=3)
     parser.add_argument("--parallel-backend", type=str, default="ray")
     parser.add_argument("--reproducibility-mode", action="store_true")
+    parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
 
@@ -31,11 +32,12 @@ def main():
     benchmark = DEFAULT_BENCHMARKS[args.benchmark]()
 
     ##################### Shuffle env args list, pick subset
-    import numpy as np
-    rng = np.random.default_rng(42)
-    rng.shuffle(benchmark.env_args_list)
-    benchmark.env_args_list = benchmark.env_args_list[:33]
-    #####################
+    if args.debug:
+        import numpy as np
+        rng = np.random.default_rng(42)
+        rng.shuffle(benchmark.env_args_list)
+        benchmark.env_args_list = benchmark.env_args_list[:33]
+        #####################
 
     # for env_args in benchmark.env_args_list:
         # env_args.max_steps = 100
