@@ -37,7 +37,7 @@ from browsergym.core.observation import extract_screenshot
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-USER_AGENT_SUMMARY_SYS_MSG = """You are an agent in a multi-agent system for the ServiceNow platform. You are impersonate a real end user who is navigating ServiceNow and asking for help. Your task is to navigate the ServiceNow platform by asking guidance from the **Dynamic Guidance** agent.
+USER_AGENT_QUERY_SYS_MSG = """You are an agent in a multi-agent system for the ServiceNow platform. You are impersonate a real end user who is navigating ServiceNow and asking for help. Your task is to navigate the ServiceNow platform by asking guidance from the **Dynamic Guidance** agent.
 
 For each navigation step, you receive:
 - a screenshot of the *previous* UI state,
@@ -48,7 +48,7 @@ Using this context:
 - Briefly explain how the last action changed the interface or workflow (if at all).  
 - Then ask—conversationally and in the first person—what you should do next. Keep the request generic and concise. Do not specify any implied goal in your ask, just ask what is the next step.
 
-Write your response as a single concise paragraph inside `<summary>...</summary>` tags. Keep it natural, like you're chatting with someone helping you. Keep it under 40 words."""
+Write your response as a single concise paragraph inside `<query>...</query>` tags. Keep it natural, like you're chatting with someone helping you. Keep it under 40 words."""
 
 USER_AGENT_ACTION_SYS_MSG = """You are an agent in a multi-agent system for the ServiceNow platform. You are impersonate a real end user who is navigating ServiceNow. Your role at this stage is to execute an action based on guidance you've received.
 
@@ -69,6 +69,8 @@ Be factual, avoid assumptions beyond what is visible, and provide only relevant 
 Your output must use the following structure:
 <plan>...</plan>"""
 
+# TODO: bring prompt closer to prompt used in product: https://code.devsnc.com/dev/sn-help-assistant/blob/master/src/sn-help-assistant/behaviors/live-client/constants.js
+
 DYNAMIC_GUIDANCE_AGENT_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
 Your role is to help an end-user achieve their goal by analyzing what is currently visible in the UI and deciding what they should do next.
 
@@ -84,16 +86,21 @@ def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]], num_screens
     # remove screenshots older than num_screenshots
     messages = deepcopy(messages)
     cntr = 0
+    # go over messages in reverse order to remove old screenshots
+    # HACK: clean this up and improve logic
     for i in range(1, len(messages) + 1):
         message = messages[-i]
-        if message["role"] == "tool" and message["content"][0]["type"] == "input_image":
-            cntr += 1
-            # HACK: change role to user
-            messages[-i]["role"] = "user"
-            if cntr > num_screenshots:
-                # HACK: remove screenshots older than num_screenshots
-                # change role to "user"
-                messages[-i] = {"role": "user", "content": [{"type": "input_text", "text": "[SCREENSHOT PLACEHOLDER]"}]}
+        if message["role"] == "user":
+            # go over messages in normal order.
+            for j in range(len(message["content"]) - 1):
+                if message["content"][j]["type"] == "input_text" and message["content"][j]["text"] == "[SCREENSHOT]" and message["content"][j + 1]["type"] == "input_image":
+                    cntr += 1
+                    if cntr > num_screenshots:
+                        # replace both j and j+1 with a single j with message [SCREENSHOT PLACEHOLDER]
+                        message["content"][j] = {"type": "input_text", "text": "[SCREENSHOT PLACEHOLDER]"}
+                        message["content"] = message["content"][:j+1] + message["content"][j+2:]
+                        # TODO: support removing more than 1 screenshot per user turn
+                        break
 
     # convert to messagesbuilder messages
     new_messages = []
@@ -317,42 +324,43 @@ class DynamicGuidanceAgent(bgym.Agent):
         res = cse.list(**params).execute()
         items = res.get("items", []) or []
         all_texts = []
-        for i, it in enumerate(items, start=1):
-            title = it.get("title")
+        for it in items:
             link = it.get("link")
-            snippet = it.get("snippet")
-
             text = extract_main_text(link)
             if text:
                 preview = text[:2500]
+                if len(preview) < len(text):
+                    preview += "\n\n... [truncated]"
                 all_texts.append(preview)
 
         self.docs_str = "\n\n----------------\n\n".join(all_texts)
+        print(self.docs_str)
 
     # @cost_tracker_decorator
     def get_plan(self, obs: Any) -> None:
         current_image_base64 = image_to_png_base64_url(obs["screenshot"])
         goal_str = obs["goal_object"][0]["text"]
 
-        planning_messages = [
-            {"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_PLANNING_SYS_MSG},
+        planning_messages = [{"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_PLANNING_SYS_MSG}]
+        user_content = [
             {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": "[SCREENSHOT]",
-                    },
-                    {"type": "input_image", "image_url": current_image_base64},
-                    {
-                        "type": "input_text",
-                        "text": f"[GOAL]\n{goal_str}",
-                    },
-                ],
+                "type": "input_text",
+                "text": "[SCREENSHOT]",
+            },
+            {"type": "input_image", "image_url": current_image_base64},
+            {
+                "type": "input_text",
+                "text": "[GOAL]",
+            },
+            {
+                "type": "input_text",
+                "text": goal_str,
             },
         ]
         if self.docs_str:
-            planning_messages.append({"role": "tool", "content": [{"type": "input_text", "text": f"[DOCS]\n{self.docs_str}"}]})
+            user_content.append({"type": "input_text", "text": "[DOCS]"})
+            user_content.append({"type": "input_text", "text": self.docs_str})
+        planning_messages.append({"role": "user", "content": user_content})
 
         planning_messages = prepare_messagesbuilder_messages(planning_messages)
         planning_response: LLMOutput = self.llm(
@@ -370,13 +378,17 @@ class DynamicGuidanceAgent(bgym.Agent):
         self.plan_str = plan
 
     # @cost_tracker_decorator
-    def get_user_summary(self, obs: Any) -> str:
+    def get_user_query(self, obs: Any) -> str:
         current_image_base64 = image_to_png_base64_url(obs["screenshot"])
-        summary_messages = [
-            {"role": "system", "content": USER_AGENT_SUMMARY_SYS_MSG},
+        messages = [
+            {"role": "system", "content": USER_AGENT_QUERY_SYS_MSG},
             {
                 "role": "user",
                 "content": [
+                    {
+                        "type": "input_text",
+                        "text": "[PREVIOUS SCREENSHOT]",
+                    },
                     {
                         "type": "input_image",
                         "image_url": self.screenshots[-1],
@@ -391,23 +403,27 @@ class DynamicGuidanceAgent(bgym.Agent):
                     },
                     {
                         "type": "input_text",
-                        "text": f"[LAST_ACTION]\n{obs['last_action']}",
+                        "text": "[LAST_ACTION]",
+                    },
+                    {
+                        "type": "input_text",
+                        "text": obs["last_action"],
                     },
                 ],
             },
         ]
 
-        summary_messages = prepare_messagesbuilder_messages(summary_messages)
-        summary_response = self.llm(
+        messages = prepare_messagesbuilder_messages(messages)
+        response = self.llm(
             APIPayload(
-                messages=summary_messages,
+                messages=messages,
                 reasoning_effort="low",
             )
         )
-        summary_response = summary_response.raw_response
-        summary_response_text = summary_response.choices[0].message.content
-        summary_response_text = summary_response_text.strip().split("<summary>")[1].split("</summary>")[0]
-        return summary_response_text
+        response = response.raw_response
+        response_text = response.choices[0].message.content
+        response_text = response_text.strip().split("<query>")[1].split("</query>")[0]
+        return response_text
 
     # @cost_tracker_decorator
     def get_user_action(self, obs: Any, dynamic_guidance_response_text: str):
@@ -437,7 +453,11 @@ class DynamicGuidanceAgent(bgym.Agent):
                     },
                     {
                         "type": "input_text",
-                        "text": f"[INSTRUCTION]\n{dynamic_guidance_response_text}",
+                        "text": "[INSTRUCTION]",
+                    },
+                    {
+                        "type": "input_text",
+                        "text": dynamic_guidance_response_text,
                     },
                 ],
             },
@@ -451,6 +471,7 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
+        print(user_action_response)
         if self.config.use_generalized_bgym_action_tool:
             action = action_from_generalized_bgym_action_tool(user_action_response)
         else:
@@ -485,25 +506,37 @@ class DynamicGuidanceAgent(bgym.Agent):
             # Prepare context with available information
             self.conversation_for_traces.append({"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_SYS_MSG})
 
-            user_content = [{"type": "input_text", "text": f"[GOAL]\n{goal_str}"}]
+            user_content = [
+                {"type": "input_text", "text": "[GOAL]"},
+                {"type": "input_text", "text": goal_str},
+            ]
+            print(self.docs_str)
             if self.docs_str:
-                user_content.append({"type": "input_text", "text": f"[DOCS]\n{self.docs_str}"})
+                print("adding docs")
+                user_content.append({"type": "input_text", "text": "[DOCS]"})
+                user_content.append({"type": "input_text", "text": self.docs_str})
             if self.plan_str:
-                user_content.append({"type": "input_text", "text": f"[PLAN]\n{self.plan_str}"})
-            user_content.append({"type": "input_text", "text": f"[SCREENSHOT]"})
+                print("adding plan")
+                user_content.append({"type": "input_text", "text": "[PLAN]"})
+                user_content.append({"type": "input_text", "text": self.plan_str})
+            user_content.append({"type": "input_text", "text": "[SCREENSHOT]"})
             user_content.append({"type": "input_image", "image_url": current_image_base64})
             self.conversation_for_traces.append({"role": "user", "content": user_content})
             self.first_iteration = False
 
         else:
-            user_summary = self.get_user_summary(obs)
+            user_query = self.get_user_query(obs)
             self.conversation_for_traces.append(
                 {
-                    "role": "tool",
-                    "content": [{"type": "input_image", "image_url": current_image_base64}],
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "[SCREENSHOT]"},
+                        {"type": "input_image", "image_url": current_image_base64},
+                        {"type": "input_text", "text": "[QUERY]"},
+                        {"type": "input_text", "text": user_query},
+                    ],
                 }
             )
-            self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": user_summary}]})
 
         # using the current context, the agent llm instructs the user llm to perform a given action (in natural language)
         dynamic_guidance_messages = prepare_messagesbuilder_messages(deepcopy(self.conversation_for_traces))
@@ -520,9 +553,12 @@ class DynamicGuidanceAgent(bgym.Agent):
 
         # based on the current screenshot (for grounding) and the agent llm instruction ONLY, the user llm performs one of the provided actions
         action = self.get_user_action(obs, dynamic_guidance_response_text)
+        print(action)
 
         self.screenshots.append(current_image_base64)
-        self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": f"[TOOL CALL]\n{action}"}]})
+
+        # NOTE: we don't include the user action in the messages since the dynamic agent doesn't have access to the user action at inference time.
+        # self.conversation_for_traces.append({"role": "user", "content": [{"type": "input_text", "text": f"[TOOL CALL]\n{action}"}]})
 
         chat_messages = prepare_messagesbuilder_messages(self.conversation_for_traces)
         agent_info = bgym.AgentInfo(
@@ -549,6 +585,9 @@ DYNAMIC_GUIDANCE_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=False),
     action_subsets=("coord",),
+    # TODO: enable multi tool call
+    multiaction=True,
+    # TODO: reuse keep_last_n_obs to truncate screenshots (currently not doing it)
     keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
 )
 
