@@ -82,12 +82,13 @@ Your output must use the following structure:
 def action_from_generalized_bgym_action_tool(response: LLMOutput, tool_name : str = "get_action") -> str | None:
     """Extract the action string from the tool call in the LLM response."""
     # TODO: multiaction does not seem to work right now. We only extract a single action and I am unsure how it is processed by the env afterwards.
-    action = None
+    actions = []
     if response.tool_calls is not None:
         for tc in response.tool_calls.tool_calls:
             if tc.name == tool_name:
-                action = tc.arguments.get("action")
-                break
+                actions.append(tc.arguments.get("action"))
+
+    action = "\n".join(actions)
     return action
 
 def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]], num_screenshots=5) -> List[MessageBuilder]:
@@ -479,11 +480,12 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-        print(user_action_response)
         if self.config.use_generalized_bgym_action_tool:
             action = action_from_generalized_bgym_action_tool(user_action_response)
         else:
             action = user_action_response.action
+
+        print("ACTIONS:\n", action)
 
         if action is None and self.config.use_noop_as_default_action:
             action = "noop()"  # default action is noop if none is provided
