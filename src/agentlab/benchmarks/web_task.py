@@ -51,7 +51,6 @@ class AbstractWebTask(BaseModel, ABC):
             info: dict, custom information from the validation.
         """
 
-    @abstractmethod
     def cheat(self):
         """
         Solve the task using a pre-defined solution (optional).
