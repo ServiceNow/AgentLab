@@ -38,7 +38,7 @@ class MCPPlaywright(MCPBrowserBackend):
         axtree = self.page_axtree()
         return {
             "action_result": action_result,
-            "pruned_html": html,
+            "html": html,
             "axtree_txt": axtree,
             "screenshot": screenshot,
         }

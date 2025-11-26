@@ -58,7 +58,7 @@ class BrowserEnv(AbstractEnv):
         axtree = self.backend.page_axtree()
         obs = {
             "goal_object": [{"type": "text", "text": self.goal}],
-            "pruned_html": html,
+            "html": html,
             "axtree_txt": axtree,
             "screenshot": screenshot,
             "last_action_error": "",

@@ -96,11 +96,19 @@ class ReactToolCallAgent:
         """
         Convert the observation dictionary into a list of chat messages for Lite LLM
         """
+        goal_obj = obs.pop("goal_object", None)
+        if not self.config.use_html:
+            obs.pop("pruned_html", None)
+            obs.pop("html", None)
+        if not self.config.use_axtree:
+            obs.pop("axtree_txt", None)
+        if not self.config.use_screenshot:
+            obs.pop("screenshot", None)
         images = {k: v for k, v in obs.items() if isinstance(v, (Image.Image, np.ndarray))}
-        texts = {k: v for k, v in obs.items() if k not in images and v is not None and v != ""}
+        texts = {k: v for k, v in obs.items() if v is not None and isinstance(v, str) and v != ""}
         messages = []
 
-        if not self.last_tool_call_id and (goal_obj := texts.pop("goal_object", None)):
+        if not self.last_tool_call_id and goal_obj is not None and len(goal_obj) > 0 and "text" in goal_obj[0]:
             # its a first observation when there are no tool_call_id, so include goal
             goal = goal_obj[0]["text"]
             messages.append(user_message(f"Goal: {goal}"))

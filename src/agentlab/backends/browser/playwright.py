@@ -113,7 +113,7 @@ class SyncPlaywright(BrowserBackend):
         axtree = self.page_axtree()
         return {
             "action_result": action_result,
-            "pruned_html": html,
+            "html": html,
             "axtree_txt": axtree,
             "screenshot": screenshot,
         }
@@ -220,7 +220,7 @@ class AsyncPlaywright(AsyncBrowserBackend):
         axtree = await self.page_axtree()
         return {
             "action_result": action_result,
-            "pruned_html": html,
+            "html": html,
             "axtree_txt": axtree,
             "screenshot": screenshot,
         }
@@ -229,8 +229,7 @@ class AsyncPlaywright(AsyncBrowserBackend):
         return [ToolSpec.from_function(fn) for fn in self._actions.values()]
 
     async def close(self):
-        await self._browser.close()
-        await self._pw.stop()
+        await self._page.close()
 
 
 def flatten_axtree(axtree_dict: dict | None) -> str:

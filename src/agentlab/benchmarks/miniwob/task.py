@@ -3,6 +3,7 @@ import os
 from typing import Any, ClassVar
 
 from browsergym.miniwob import ALL_MINIWOB_TASKS
+from browsergym.utils.obs import prune_html
 
 from agentlab.backends.browser import BrowserBackend
 from agentlab.benchmarks.web_task import AbstractWebTask
@@ -192,6 +193,8 @@ return [WOB_REWARD_GLOBAL, WOB_RAW_REWARD_GLOBAL, WOB_REWARD_REASON, WOB_DONE_GL
         }
 
     def obs_postprocess(self, obs: dict) -> dict:
+        html = obs.pop("html", "")
+        obs["pruned_html"] = prune_html(html)
         if screenshot := obs.get("screenshot", None):
             obs["screenshot"] = screenshot.crop(
                 (0, 0, 332, 214)

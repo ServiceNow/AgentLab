@@ -152,11 +152,11 @@ class MCPBrowserBackend(BrowserBackend):
 
     def step(self, action: ToolCall) -> dict:
         contents = self.call_tool(action.name, action.arguments)
-        action_result = "\n".join([c.text for c in contents if c.type == "text"])
-        images = [c for c in contents if c.type == "image"]
+        action_result = "\n\n".join([c.text for c in contents if c.type == "text"])
+        images = {f"image_{i}":c for i,c in enumerate(contents) if c.type == "image"}
         return {
             "action_result": action_result,
-            "screenshot": images[-1] if images else None,
+            **images,
         }
 
     def call_tool(self, tool_name: str, arguments: dict) -> list[ContentBlock]:
