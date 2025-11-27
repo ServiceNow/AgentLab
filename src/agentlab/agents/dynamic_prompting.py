@@ -574,9 +574,9 @@ submit an action it will be sent to the browser and you will receive a new page.
 class ActionPrompt(PromptElement):
 
     _concrete_ex = """
-<action>
+[BEGIN FINAL RESPONSE]
 click('a324')
-</action>
+[END FINAL RESPONSE]
 """
 
     def __init__(self, action_set: AbstractActionSet, action_flags: ActionFlags) -> None:
@@ -597,9 +597,9 @@ elements in the page is through bid which are specified in your observations.
             f"# Action space:\n{action_set_generic_info}{action_description}{MacNote().prompt}\n"
         )
         self._abstract_ex = f"""
-<action>
+[BEGIN FINAL RESPONSE]
 {self.action_set.example_action(abstract=True)}
-</action>
+[END FINAL RESPONSE]
 """
 
     #         self._concrete_ex = f"""
@@ -790,7 +790,7 @@ class HistoryStep(Shrinkable):
             prompt += f"\n<think>\n{self.thought}\n</think>\n"
 
         if self.flags.use_action_history:
-            prompt += f"\n<action>\n{self.action}\n</action>\n"
+            prompt += f"\n[BEGIN FINAL RESPONSE]\n{self.action}\n[END FINAL RESPONSE]\n"
 
         # prompt += f"{self.error.prompt}{self.html_diff.prompt}{self.ax_tree_diff.prompt}"
         prompt += f"{self.error.prompt}"

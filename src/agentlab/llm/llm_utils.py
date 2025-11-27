@@ -85,9 +85,10 @@ def retry(
     while tries < n_retry:
         answer = chat(messages)
         # TODO: could we change this to not use inplace modifications ?
-        messages.append(answer)
+        ans_dict={"role": "assistant", "content": answer[0]["content"] + answer[1]["content"]}
+        messages.append(ans_dict)
         try:
-            return parser(answer["content"])
+            return parser(answer[0]["content"], answer[1]["content"])
         except ParseError as parsing_error:
             tries += 1
             if log:

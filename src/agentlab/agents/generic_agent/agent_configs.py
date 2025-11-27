@@ -242,7 +242,7 @@ FLAGS_GPT_4o = GenericPromptFlags(
     ),
     use_plan=False,
     use_criticise=False,
-    use_thinking=False,
+    use_thinking=True,
     use_memory=False,
     use_concrete_example=True,
     use_abstract_example=True,
@@ -315,6 +315,7 @@ AGENT_o3_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/openai/o3-mini"],
     flags=FLAGS_GPT_4o,
 )
+
 
 AGENT_o1_MINI = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/openai/o1-mini-2024-09-12"],

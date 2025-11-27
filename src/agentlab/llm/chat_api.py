@@ -295,6 +295,7 @@ class ChatModel(AbstractChatModel):
                     temperature=temperature,
                     max_completion_tokens=self.max_tokens,
                     logprobs=self.log_probs,
+                    reasoning_effort="medium",
                 )
 
                 if completion.usage is None:
@@ -324,13 +325,22 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            rec = split_reasoning_and_action(completion.choices[0].message.content)
-            res = AIMessage("<think>\nreasoning\n</think>" + rec[1])
+            # rec = split_reasoning_and_action(completion.choices[0].message.content)
+            think, action = _extract_thinking_content_from_response(completion) 
+            res_think = AIMessage(think if think else "")
+            res_action = AIMessage(action if action else "")
             if self.log_probs:
-                res["log_probs"] = completion.choices[0].log_probs
-            return res
+                res_think["log_probs"] = completion.choices[0].log_probs
+            return res_think, res_action
         else:
-            return [AIMessage(c.message.content) for c in completion.choices]
+            # For multiple samples, also return pairs of (think, action)
+            results = []
+            for c in completion.choices:
+                # Create a mock completion object for each choice
+                mock_completion = type('obj', (object,), {'choices': [c]})()
+                think, action = _extract_thinking_content_from_response(mock_completion)
+                results.append((AIMessage(think if think else ""), AIMessage(action if action else "")))
+            return results
 
     def get_stats(self):
         return {
@@ -605,3 +615,36 @@ def split_reasoning_and_action(s: str) -> Tuple[str, str]:
     return reasoning_wrapped, action_wrapped
 
 
+
+def _extract_thinking_content_from_response(response: openai.types.chat.ChatCompletion, wrap_tag="think"
+    ):
+        """Extracts the content from the message, including reasoning if available.
+        It wraps the reasoning around <think>...</think> for easy identification of reasoning content,
+        When LLM produces 'text' and 'reasoning' in the same message.
+        Note: The wrapping of 'thinking' content may not be nedeed and may be reconsidered.
+
+        Args:
+            response: The message object or dict containing content and reasoning.
+            wrap_tag: The tag name to wrap reasoning content (default: "think").
+
+        Returns:
+            str: The extracted content with reasoning wrapped in specified tags.
+        """
+        message = response.choices[0].message
+        if not isinstance(message, dict):
+            message = message.to_dict()
+
+        reasoning_content = message.get("reasoning_content", None) or message.get("reasoning", None)
+        msg_content = message.get("content", "")  # works for Open-router
+        
+        # Replace [BEGIN FINAL RESPONSE] and [END FINAL RESPONSE] with action tags
+        if "[BEGIN FINAL RESPONSE]" in msg_content and "[END FINAL RESPONSE]" in msg_content:
+            msg_content = msg_content.replace("[BEGIN FINAL RESPONSE]", "<action>").replace("[END FINAL RESPONSE]", "</action>")
+        
+        if reasoning_content:
+            # Wrap reasoning in <think> tags with newlines for clarity
+            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"
+            logging.debug("Extracting content from response.choices[i].message.reasoning")
+        else:
+            reasoning_content = ""
+        return reasoning_content, msg_content

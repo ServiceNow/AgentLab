@@ -22,6 +22,7 @@ from agentlab.llm.response_api import (
 )
 
 litellm.modify_params = True
+litellm.set_verbose = True
 
 # Register custom Apriel model with LiteLLM
 litellm.register_model(
