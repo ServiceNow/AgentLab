@@ -581,9 +581,10 @@ clicking the refresh button.
 
     do_share = os.getenv("AGENTXRAY_SHARE_GRADIO", "false").lower() == "true"
     port = os.getenv("AGENTXRAY_APP_PORT", None)
+    server_name = "0.0.0.0" if os.getenv("AGENTXRAY_PUBLIC", "false") == "true" else "127.0.0.1"
     if isinstance(port, str):
         port = int(port)
-    demo.launch(server_port=port, share=do_share)
+    demo.launch(server_name=server_name, server_port=port, share=do_share)
 
 
 def tab_select(evt: gr.SelectData):
