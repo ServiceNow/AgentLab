@@ -295,7 +295,6 @@ class ChatModel(AbstractChatModel):
                     temperature=temperature,
                     max_completion_tokens=self.max_tokens,
                     logprobs=self.log_probs,
-                    reasoning_effort="medium",
                 )
 
                 if completion.usage is None:
@@ -621,14 +620,18 @@ def _extract_thinking_content_from_response(response: openai.types.chat.ChatComp
         """Extracts the content from the message, including reasoning if available.
         It wraps the reasoning around <think>...</think> for easy identification of reasoning content,
         When LLM produces 'text' and 'reasoning' in the same message.
-        Note: The wrapping of 'thinking' content may not be nedeed and may be reconsidered.
+        
+        Handles multiple formats:
+        1. OpenAI/DeepSeek style: reasoning in separate 'reasoning_content' or 'reasoning' field
+        2. Apriel style: reasoning before [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] tags in content
+        3. Standard: content with <think>...</think> and <action>...</action> tags
 
         Args:
             response: The message object or dict containing content and reasoning.
             wrap_tag: The tag name to wrap reasoning content (default: "think").
 
         Returns:
-            str: The extracted content with reasoning wrapped in specified tags.
+            tuple: (reasoning_content, action_content) - reasoning wrapped in think tags, action wrapped in action tags
         """
         message = response.choices[0].message
         if not isinstance(message, dict):
@@ -637,14 +640,91 @@ def _extract_thinking_content_from_response(response: openai.types.chat.ChatComp
         reasoning_content = message.get("reasoning_content", None) or message.get("reasoning", None)
         msg_content = message.get("content", "")  # works for Open-router
         
-        # Replace [BEGIN FINAL RESPONSE] and [END FINAL RESPONSE] with action tags
-        if "[BEGIN FINAL RESPONSE]" in msg_content and "[END FINAL RESPONSE]" in msg_content:
-            msg_content = msg_content.replace("[BEGIN FINAL RESPONSE]", "<action>").replace("[END FINAL RESPONSE]", "</action>")
-        
+        # If we have explicit reasoning content from the API, use it
         if reasoning_content:
-            # Wrap reasoning in <think> tags with newlines for clarity
-            reasoning_content = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"
+            reasoning_wrapped = f"<{wrap_tag}>{reasoning_content}</{wrap_tag}>\n"
             logging.debug("Extracting content from response.choices[i].message.reasoning")
-        else:
-            reasoning_content = ""
-        return reasoning_content, msg_content
+            
+            # Check if msg_content has [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] tags
+            if "[BEGIN FINAL RESPONSE]" in msg_content and "[END FINAL RESPONSE]" in msg_content:
+                # Extract the last action between the tags
+                action_content = _extract_last_action_from_tags(msg_content)
+                action_wrapped = f"<action>\n{action_content}\n</action>"
+            else:
+                action_wrapped = msg_content
+            
+            return reasoning_wrapped, action_wrapped
+        
+        # No separate reasoning field - check if content has Apriel-style format
+        # Pattern: reasoning text followed by [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE]
+        if "[BEGIN FINAL RESPONSE]" in msg_content:
+            reasoning_text, action_content = _parse_apriel_format(msg_content)
+            
+            if reasoning_text:
+                reasoning_wrapped = f"<{wrap_tag}>\n{reasoning_text}\n</{wrap_tag}>"
+            else:
+                reasoning_wrapped = ""
+            
+            if action_content:
+                action_wrapped = f"<action>\n{action_content}\n</action>"
+            else:
+                action_wrapped = ""
+            
+            return reasoning_wrapped, action_wrapped
+        
+        # Fallback: no special format detected, return content as-is
+        return "", msg_content
+
+
+def _extract_last_action_from_tags(content: str) -> str:
+    """Extract the content from the LAST [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] block.
+    
+    Args:
+        content: The full message content
+        
+    Returns:
+        str: The content inside the last set of tags, or empty string if not found
+    """
+    import re
+    # Find all matches of [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE]
+    pattern = r'\[BEGIN FINAL RESPONSE\](.*?)\[END FINAL RESPONSE\]'
+    matches = re.findall(pattern, content, re.DOTALL)
+    
+    if matches:
+        # Return the last match, stripped of whitespace
+        return matches[-1].strip()
+    return ""
+
+
+def _parse_apriel_format(content: str) -> tuple:
+    """Parse Apriel-style format where reasoning comes before [BEGIN FINAL RESPONSE] tags.
+    
+    Extracts the LAST action block to handle cases where the model might output
+    multiple [BEGIN FINAL RESPONSE] blocks.
+    
+    Args:
+        content: The full message content in Apriel format
+        
+    Returns:
+        tuple: (reasoning_text, action_content)
+    """
+    import re
+    
+    # Find the position of the LAST [BEGIN FINAL RESPONSE] tag
+    last_begin_pos = content.rfind("[BEGIN FINAL RESPONSE]")
+    
+    if last_begin_pos == -1:
+        # No BEGIN tag found, return empty
+        return "", content
+    
+    # Everything before the last [BEGIN FINAL RESPONSE] is reasoning
+    reasoning_text = content[:last_begin_pos].strip()
+    
+    # Clean up common Apriel prefixes from reasoning
+    if reasoning_text.startswith("Here are my reasoning steps:"):
+        reasoning_text = reasoning_text[len("Here are my reasoning steps:"):].strip()
+    
+    # Extract the action content from the last block
+    action_content = _extract_last_action_from_tags(content)
+    
+    return reasoning_text, action_content
