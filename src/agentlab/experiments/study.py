@@ -30,16 +30,6 @@ from agentlab.experiments.multi_server import BaseServer
 
 logger = logging.getLogger(__name__)
 
-base_url="http://webarena2.eastus.cloudapp.azure.com/"
-os.environ["WA_SHOPPING"]       = f"{base_url}:8082/"
-os.environ["WA_SHOPPING_ADMIN"] = f"{base_url}:8083/admin"
-os.environ["WA_REDDIT"]         = f"{base_url}:8080"
-os.environ["WA_GITLAB"]         = f"{base_url}:9001"
-os.environ["WA_WIKIPEDIA"]      = f"{base_url}:8081/wikipedia_en_all_maxi_2022-05/A/User:The_other_Kiwix_guy/Landing"
-os.environ["WA_MAP"]            = f"{base_url}:443"
-os.environ["WA_HOMEPAGE"]       = f"{base_url}:80"
-os.environ["WA_FULL_RESET"]     = f""
-
 
 def make_study(
     agent_args: list[AgentArgs] | AgentArgs,
