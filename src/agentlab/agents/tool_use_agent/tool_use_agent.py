@@ -28,6 +28,7 @@ from agentlab.agents.agent_args import AgentArgs
 from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
 from agentlab.benchmarks.osworld import OSWorldActionSet
 from agentlab.llm.base_api import BaseModelArgs
+from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     APIPayload,
@@ -40,8 +41,10 @@ from agentlab.llm.response_api import (
     ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
+from agentlab.utils.hinting import HintsSource
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
@@ -310,45 +313,24 @@ class TaskHint(Block):
     top_n: int = 4  # Number of top hints to return when using embedding retrieval
     embedder_model: str = "Qwen/Qwen3-Embedding-0.6B"  # Model for embedding hints
     embedder_server: str = "http://localhost:5000"
-    llm_prompt: str = """We're choosing hints to help solve the following task:\n{goal}.\n
-You need to choose the most relevant hints topic from the following list:\n\nHint topics:\n{topics}\n
-Choose hint topic for the task and return only its number, e.g. 1. If you don't know the answer, return -1."""
 
     def _init(self):
         """Initialize the block."""
-        if Path(self.hint_db_rel_path).is_absolute():
-            hint_db_path = Path(self.hint_db_rel_path)
-        else:
-            hint_db_path = Path(__file__).parent / self.hint_db_rel_path
-        self.hint_db = pd.read_csv(hint_db_path, header=0, index_col=None, dtype=str)
-        if self.hint_retrieval_mode == "emb":
-            self.encode_hints()
-
-    def oai_embed(self, text: str):
-        response = self._oai_emb.create(input=text, model="text-embedding-3-small")
-        return response.data[0].embedding
-
-    def encode_hints(self):
-        self.uniq_hints = self.hint_db.drop_duplicates(subset=["hint"], keep="first")
-        logger.info(
-            f"Encoding {len(self.uniq_hints)} unique hints with semantic keys using {self.embedder_model} model."
-        )
-        hints = self.uniq_hints["hint"].tolist()
-        semantic_keys = self.uniq_hints["semantic_keys"].tolist()
-        lines = [f"{k}: {h}" for h, k in zip(hints, semantic_keys)]
-        emb_path = f"{self.hint_db_rel_path}.embs.npy"
-        assert os.path.exists(emb_path), f"Embedding file not found: {emb_path}"
-        logger.info(f"Loading hint embeddings from: {emb_path}")
-        emb_dict = np.load(emb_path, allow_pickle=True).item()
-        self.hint_embeddings = np.array([emb_dict[k] for k in lines])
-        logger.info(f"Loaded hint embeddings shape: {self.hint_embeddings.shape}")
+        if self.use_task_hint:
+            self.hints_source = HintsSource(
+                hint_db_path=self.hint_db_rel_path,
+                hint_retrieval_mode=self.hint_retrieval_mode,
+                top_n=self.top_n,
+                embedder_model=self.embedder_model,
+                embedder_server=self.embedder_server,
+            )
 
     def apply(self, llm, discussion: StructuredDiscussion, task_name: str) -> dict:
         if not self.use_task_hint:
             return {}
 
         goal = "\n".join([c.get("text", "") for c in discussion.groups[0].messages[1].content])
-        task_hints = self.choose_hints(llm, task_name, goal)
+        task_hints = self.hints_source.choose_hints(llm, task_name, goal)
 
         hints = []
         for hint in task_hints:
@@ -358,100 +340,12 @@ Choose hint topic for the task and return only its number, e.g. 1. If you don't 
 
         if len(hints) > 0:
             hints_str = (
-                "# Hints:\nHere are some hints for the task you are working on:\n"
+                "\n# Hints:\nHere are some hints for the task you are working on:\n"
                 + "\n".join(hints)
             )
             msg = llm.msg.user().add_text(hints_str)
 
             discussion.append(msg)
-
-    def choose_hints(self, llm, task_name: str, goal: str) -> list[str]:
-        """Choose hints based on the task name."""
-        if self.hint_retrieval_mode == "llm":
-            return self.choose_hints_llm(llm, goal)
-        elif self.hint_retrieval_mode == "direct":
-            return self.choose_hints_direct(task_name)
-        elif self.hint_retrieval_mode == "emb":
-            return self.choose_hints_emb(goal)
-        else:
-            raise ValueError(f"Unknown hint retrieval mode: {self.hint_retrieval_mode}")
-
-    def choose_hints_llm(self, llm, goal: str) -> list[str]:
-        """Choose hints using LLM to filter the hints."""
-        topic_to_hints = defaultdict(list)
-        for i, row in self.hint_db.iterrows():
-            topic_to_hints[row["semantic_keys"]].append(i)
-        hint_topics = list(topic_to_hints.keys())
-        topics = "\n".join([f"{i}. {h}" for i, h in enumerate(hint_topics)])
-        prompt = self.llm_prompt.format(goal=goal, topics=topics)
-        response = llm(APIPayload(messages=[llm.msg.user().add_text(prompt)]))
-        try:
-            hint_topic_idx = json.loads(response.think)
-            if hint_topic_idx < 0 or hint_topic_idx >= len(hint_topics):
-                logger.error(f"Wrong LLM hint id response: {response.think}, no hints")
-                return []
-            hint_topic = hint_topics[hint_topic_idx]
-            hint_indices = topic_to_hints[hint_topic]
-            df = self.hint_db.iloc[hint_indices].copy()
-            df = df.drop_duplicates(subset=["hint"], keep="first")  # leave only unique hints
-            hints = df["hint"].tolist()
-            logger.debug(f"LLM hint topic {hint_topic_idx}, chosen hints: {df['hint'].tolist()}")
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse LLM hint id response: {response.think}, no hints")
-            hints = []
-        return hints
-
-    def choose_hints_emb(self, goal: str) -> list[str]:
-        """Choose hints using embeddings to filter the hints."""
-        goal_embeddings = self._encode([goal], prompt="task description")
-        similarities = self._similarity(goal_embeddings.tolist(), self.hint_embeddings.tolist())
-        top_indices = similarities.argsort()[0][-self.top_n :].tolist()
-        logger.info(f"Top hint indices based on embedding similarity: {top_indices}")
-        hints = self.uniq_hints.iloc[top_indices]
-        logger.info(f"Embedding-based hints chosen: {hints}")
-        return hints["hint"].tolist()
-
-    def _encode(self, texts: list[str], prompt: str = "", timeout: int = 10, max_retries: int = 5):
-        """Call the encode API endpoint with timeout and retries"""
-        for attempt in range(max_retries):
-            try:
-                response = requests.post(
-                    f"{self.embedder_server}/encode",
-                    json={"texts": texts, "prompt": prompt},
-                    timeout=timeout,
-                )
-                embs = response.json()["embeddings"]
-                return np.asarray(embs)
-            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                if attempt == max_retries - 1:
-                    raise e
-                time.sleep(random.uniform(1, timeout))
-                continue
-
-    def _similarity(
-        self, texts1: list[str], texts2: list[str], timeout: int = 2, max_retries: int = 5
-    ):
-        """Call the similarity API endpoint with timeout and retries"""
-        for attempt in range(max_retries):
-            try:
-                response = requests.post(
-                    f"{self.embedder_server}/similarity",
-                    json={"texts1": texts1, "texts2": texts2},
-                    timeout=timeout,
-                )
-                similarities = response.json()["similarities"]
-                return np.asarray(similarities)
-            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                if attempt == max_retries - 1:
-                    raise e
-                time.sleep(random.uniform(1, timeout))
-                continue
-
-    def choose_hints_direct(self, task_name: str) -> list[str]:
-        hints = self.hint_db[
-            self.hint_db["task_name"].apply(lambda x: fnmatch.fnmatch(x, task_name))
-        ]
-        return hints["hint"].tolist()
 
 
 @dataclass

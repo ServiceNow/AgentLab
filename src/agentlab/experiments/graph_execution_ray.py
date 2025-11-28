@@ -3,9 +3,8 @@ import time
 
 import bgym
 import ray
-from ray.util import state
-
 from agentlab.experiments.exp_utils import _episode_timeout, run_exp
+from ray.util import state
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +78,7 @@ def poll_for_timeout(tasks: dict[str, ray.ObjectRef], timeout: float, poll_inter
                 try:
                     result = ray.get(task)
                 except Exception as e:
+                    logger.exception(f"Task failed: {e}")
                     result = e
                 results.append(result)
 

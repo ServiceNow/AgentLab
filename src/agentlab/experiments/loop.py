@@ -907,7 +907,6 @@ def _move_old_exp(exp_dir):
 
 def _get_env_name(task_name: str):
     """Register tasks if needed (lazy import) and return environment name."""
-
     # lazy import
     if task_name.startswith("miniwob"):
         import browsergym.miniwob

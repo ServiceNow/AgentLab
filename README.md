@@ -279,13 +279,15 @@ dynamic benchmarks.
 
 ## Variables
 Here's a list of relevant env. variables that are used by AgentLab:
-- `OPEAI_API_KEY` which is used by default for OpenAI LLMs.
+- `OPENAI_API_KEY` which is used by default for OpenAI LLMs.
 - `AZURE_OPENAI_API_KEY`, used by default for AzureOpenAI LLMs.
 - `AZURE_OPENAI_ENDPOINT` to specify your Azure endpoint.
 - `OPENAI_API_VERSION` for the Azure API.
 - `OPENROUTER_API_KEY` for the Openrouter API
 - `AGENTLAB_EXP_ROOT`, desired path for your experiments to be stored, defaults to `~/agentlab-results`.
 - `AGENTXRAY_SHARE_GRADIO`, which prompts AgentXRay to open a public tunnel on launch.
+- `RAY_PUBLIC_DASHBOARD` (true / false), used to specify whether the ray dashboard should be made publicly accessible (`0.0.0.0`) or not (`127.0.0.1`).
+- `RAY_DASHBOARD_PORT` (int), used to specify the port on which the ray dashboard should be accessible.
 
 ## Misc
 
