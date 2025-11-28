@@ -149,6 +149,48 @@ FLAGS_LLAMA3_70B = GenericPromptFlags(
     add_missparsed_messages=True,
 )
 
+# qwen3 default config - same as llama3-70b but with use_think_history=False
+FLAGS_QWEN3 = GenericPromptFlags(
+    obs=dp.ObsFlags(
+        use_html=False,
+        use_ax_tree=True,
+        use_focused_element=True,
+        use_error_logs=False,
+        use_history=True,
+        use_past_error_logs=False,
+        use_action_history=True,
+        use_think_history=False,  # Qwen3 doesn't include thinking history
+        use_diff=False,
+        html_type="pruned_html",
+        use_screenshot=False,
+        use_som=False,
+        extract_visible_tag=True,
+        extract_clickable_tag=False,
+        extract_coords="False",
+        filter_visible_elements_only=False,
+    ),
+    action=dp.ActionFlags(
+        action_set=HighLevelActionSetArgs(
+            subsets=["bid"],
+            multiaction=False,
+        ),
+        long_description=False,
+        individual_examples=True,
+    ),
+    use_plan=False,
+    use_criticise=False,
+    use_thinking=True,
+    use_memory=False,
+    use_concrete_example=True,
+    use_abstract_example=True,
+    use_hints=True,
+    enable_chat=False,
+    max_prompt_tokens=40_000,
+    be_cautious=True,
+    extra_instructions=None,
+    add_missparsed_messages=True,
+)
+
 AGENT_LLAMA3_70B = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["openrouter/meta-llama/llama-3-70b-instruct"],
     flags=FLAGS_LLAMA3_70B,
