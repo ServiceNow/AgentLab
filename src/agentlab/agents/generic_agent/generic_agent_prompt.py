@@ -153,12 +153,12 @@ Make sure to follow the template with proper tags:
         self.history.shrink()
         self.obs.shrink()
 
-    def _parse_answer(self, text_answer):
+    def _parse_answer(self, text_think, text_answer):
         ans_dict = {}
-        ans_dict.update(self.think.parse_answer(text_answer))
-        ans_dict.update(self.plan.parse_answer(text_answer))
-        ans_dict.update(self.memory.parse_answer(text_answer))
-        ans_dict.update(self.criticise.parse_answer(text_answer))
+        ans_dict.update(self.think.parse_answer(text_think))
+        ans_dict.update(self.plan.parse_answer(text_think))
+        ans_dict.update(self.memory.parse_answer(text_think))
+        ans_dict.update(self.criticise.parse_answer(text_think))
         ans_dict.update(self.action_prompt.parse_answer(text_answer))
         return ans_dict
 

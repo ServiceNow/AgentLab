@@ -324,12 +324,86 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            res = AIMessage(completion.choices[0].message.content)
+            think, action = self._extract_thinking_content_from_response(completion)
+            res_think = AIMessage(think or "")
+            res_action = AIMessage(action or "")
             if self.log_probs:
-                res["log_probs"] = completion.choices[0].log_probs
-            return res
+                res_think["log_probs"] = completion.choices[0].logprobs
+            return res_think, res_action
         else:
-            return [AIMessage(c.message.content) for c in completion.choices]
+            return [
+                self._build_think_action_pair(choice)
+                for choice in completion.choices
+            ]
+
+    def _extract_thinking_content_from_response(self, response, wrap_tag="think") -> tuple[str, str]:
+        """Extract reasoning and action content from an API response.
+        
+        Handles multiple formats:
+        1. OpenAI/DeepSeek: reasoning in 'reasoning_content' or 'reasoning' field
+        2. Apriel: reasoning before [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] tags
+        3. Standard: content as-is
+        
+        Args:
+            response: The API response object.
+            wrap_tag: Tag name to wrap reasoning content (default: "think").
+            
+        Returns:
+            tuple: (reasoning_wrapped, action_wrapped)
+        """
+        message = response.choices[0].message
+        msg_dict = message.to_dict() if hasattr(message, 'to_dict') else dict(message)
+        
+        reasoning = msg_dict.get("reasoning_content") or msg_dict.get("reasoning")
+        content = msg_dict.get("content", "") or msg_dict.get("text", "")
+        
+        # Case 1: Explicit reasoning field from API
+        if reasoning:
+            reasoning_wrapped = f"<{wrap_tag}>{reasoning}</{wrap_tag}>\n"
+            if "[BEGIN FINAL RESPONSE]" in content and "[END FINAL RESPONSE]" in content:
+                action = self._extract_last_action_from_tags(content)
+                action_wrapped = f"<action>\n{action}\n</action>"
+            else:
+                action_wrapped = content
+            return reasoning_wrapped, action_wrapped
+        
+        # Case 2: Apriel-style format in content
+        if "[BEGIN FINAL RESPONSE]" in content:
+            reasoning_text, action_text = self._parse_apriel_format(content)
+            reasoning_wrapped = f"<{wrap_tag}>\n{reasoning_text}\n</{wrap_tag}>" if reasoning_text else ""
+            action_wrapped = f"<action>\n{action_text}\n</action>" if action_text else ""
+            return reasoning_wrapped, action_wrapped
+        
+        # Case 3: No special format
+        return "", content
+
+    def _extract_last_action_from_tags(self, content: str) -> str:
+        """Extract content from the LAST [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] block."""
+        pattern = r'\[BEGIN FINAL RESPONSE\](.*?)\[END FINAL RESPONSE\]'
+        matches = re.findall(pattern, content, re.DOTALL)
+        return matches[-1].strip() if matches else ""
+
+    def _parse_apriel_format(self, content: str) -> tuple[str, str]:
+        """Parse Apriel format: reasoning before [BEGIN FINAL RESPONSE] tags."""
+        last_begin = content.rfind("[BEGIN FINAL RESPONSE]")
+        if last_begin == -1:
+            return "", content
+        
+        reasoning = content[:last_begin].strip()
+        if reasoning.startswith("Here are my reasoning steps:"):
+            reasoning = reasoning[len("Here are my reasoning steps:"):].strip()
+        
+        action = self._extract_last_action_from_tags(content)
+        return reasoning, action
+
+    def _build_think_action_pair(self, choice) -> tuple[AIMessage, AIMessage]:
+        """Build (think, action) pair from a single choice."""
+        # Create minimal response-like object for the extraction method
+        mock_response = type('MockResponse', (), {
+            'choices': [choice]
+        })()
+        think, action = self._extract_thinking_content_from_response(mock_response)
+        return AIMessage(think or ""), AIMessage(action or "")
 
     def get_stats(self):
         return {
@@ -481,6 +555,55 @@ class VLLMChatModel(ChatModel):
             client_class=OpenAI,
             client_args={"base_url": os.getenv("VLLM_API_URL", "http://localhost:8000/v1")},
             pricing_func=None,
+        )
+
+
+class AprielChatModel(ChatModel):
+    """Chat model for Apriel models hosted on DGX Cloud."""
+
+    def __init__(
+        self,
+        model_name="Slam-15B",
+        api_key=None,
+        base_url=None,
+        temperature=0.5,
+        max_tokens=15000,
+        max_retry=4,
+        min_retry_wait_time=60,
+    ):
+        base_url = base_url or os.getenv(
+            "APRIEL_API_URL",
+            ""
+        )
+        api_key = api_key or os.getenv("APRIEL_API_KEY")
+        
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retry=max_retry,
+            min_retry_wait_time=min_retry_wait_time,
+            client_class=OpenAI,
+            client_args={"base_url": base_url},
+            pricing_func=None,
+        )
+
+
+@dataclass
+class AprielModelArgs(BaseModelArgs):
+    """Serializable args for Apriel models."""
+    
+    base_url: str = None
+    api_key: str = None
+
+    def make_model(self):
+        return AprielChatModel(
+            model_name=self.model_name,
+            base_url=self.base_url,
+            api_key=self.api_key,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
         )
 
 
