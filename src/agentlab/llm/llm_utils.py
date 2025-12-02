@@ -83,17 +83,19 @@ def retry(
     """
     tries = 0
     while tries < n_retry:
-        answer = chat(messages)
+        think, action = chat(messages)
+        think_content, action_content = think["content"], action["content"]
+        
         # TODO: could we change this to not use inplace modifications ?
-        messages.append(answer)
+        messages.append({"role": "assistant", "content": think_content + action_content})
+        
         try:
-            return parser(answer["content"])
+            return parser(think_content, action_content)
         except ParseError as parsing_error:
             tries += 1
             if log:
-                msg = f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{answer['content']}\n[User]:\n{str(parsing_error)}"
-                logging.info(msg)
-            messages.append(dict(role="user", content=str(parsing_error)))
+                logging.info(f"Query failed. Retrying {tries}/{n_retry}.\n[LLM]:\n{action_content}\n[User]:\n{parsing_error}")
+            messages.append({"role": "user", "content": str(parsing_error)})
 
     raise ParseError(f"Could not parse a valid value after {n_retry} retries.")
 

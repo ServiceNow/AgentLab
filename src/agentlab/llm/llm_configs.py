@@ -7,6 +7,7 @@ from agentlab.llm.chat_api import (
     OpenAIModelArgs,
     OpenRouterModelArgs,
     SelfHostedModelArgs,
+    AprielModelArgs
 )
 
 default_oss_llms_args = {
@@ -374,5 +375,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=100_000 - 4_000,
         max_new_tokens=4_000,
         temperature=1e-1,
+    ),
+
+    "apriel/slam-15b": AprielModelArgs(
+        model_name="openai/Slam-15B",
+        base_url="",
+        api_key="",
+        max_total_tokens=40_000,
+        max_new_tokens=15_000,
+        temperature=0.6,
     ),
 }
