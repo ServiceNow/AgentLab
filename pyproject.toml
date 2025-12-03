@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "agentlab"
@@ -17,7 +17,7 @@ authors = [
     {name = "Aman Jaiswal", email = "aman.jaiswal@servicenow.com"},
 ]
 readme = "README.md"
-requires-python = ">3.10"
+requires-python = ">=3.11,<3.13"
 license = {text = "Apache-2.0"}
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -66,15 +66,19 @@ dev = [
     "pytest-xdist",
     "pytest-playwright",
 ]
-# tapeagents = [
-#     "tapeagents[converters]",
-# ]
 
 [project.urls]
-"Homepage" = "https://github.com/ServiceNow/AgentLab"
+Homepage = "https://github.com/ServiceNow/AgentLab"
 
-[tool.setuptools.dynamic]
-version = {attr = "agentlab.__version__"}
+[tool.hatch.version]
+source = "vcs" # use version from git tags
+fallback-version = "0.0.0"
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentlab"]
+[tool.hatch.build.hooks.vcs]
+version-file = "src/agentlab/_version.py"
+[tool.hatch.version.raw-options]
+version_scheme = "guess-next-dev"
 
 [tool.black]
 line-length = 100
@@ -93,6 +97,9 @@ exclude = '''
   | build
   | dist
 )/
+'''
+force-exclude = '''
+src/agentlab/_version\.py$
 '''
 
 [dependency-groups]
