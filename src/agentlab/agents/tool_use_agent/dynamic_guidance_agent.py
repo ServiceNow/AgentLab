@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 import bgym
+import faiss
+import pandas as pd
 import requests
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.agents.tool_use_agent.cua_like_agent import (
@@ -32,6 +34,8 @@ from agentlab.llm.response_api import (
 from agentlab.llm.tracking import cost_tracker_decorator
 from bgym import Benchmark as BgymBenchmark
 from browsergym.core.observation import extract_screenshot
+from datasets import Dataset, disable_progress_bar, enable_progress_bar
+from litellm import embedding
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -79,9 +83,10 @@ Be factual, avoid assumptions beyond what is visible, and provide only relevant 
 Your output must use the following structure:
 <guidance>...</guidance>"""
 
-def action_from_generalized_bgym_action_tool(response: LLMOutput, tool_name : str = "get_action") -> str | None:
+
+def action_from_generalized_bgym_action_tool(response: LLMOutput, tool_name: str = "get_action") -> str | None:
     """Extract the action string from the tool call in the LLM response."""
-    # TODO: multiaction does not seem to work right now. We only extract a single action and I am unsure how it is processed by the env afterwards.
+    # TODO: multiaction does not seem to work right now. We only extract a single action and I am unsure how it is processed by the env afterwards. make sure this works.
     actions = []
     if response.tool_calls is not None:
         for tc in response.tool_calls.tool_calls:
@@ -90,6 +95,7 @@ def action_from_generalized_bgym_action_tool(response: LLMOutput, tool_name : st
 
     action = "\n".join(actions)
     return action
+
 
 def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]], num_screenshots=5) -> List[MessageBuilder]:
 
@@ -103,12 +109,16 @@ def prepare_messagesbuilder_messages(messages: List[Dict[str, Any]], num_screens
         if message["role"] == "user":
             # go over messages in normal order.
             for j in range(len(message["content"]) - 1):
-                if message["content"][j]["type"] == "input_text" and message["content"][j]["text"] == "[SCREENSHOT]" and message["content"][j + 1]["type"] == "input_image":
+                if (
+                    message["content"][j]["type"] == "input_text"
+                    and message["content"][j]["text"] == "[SCREENSHOT]"
+                    and message["content"][j + 1]["type"] == "input_image"
+                ):
                     cntr += 1
                     if cntr > num_screenshots:
                         # replace both j and j+1 with a single j with message [SCREENSHOT PLACEHOLDER]
                         message["content"][j] = {"type": "input_text", "text": "[SCREENSHOT PLACEHOLDER]"}
-                        message["content"] = message["content"][:j+1] + message["content"][j+2:]
+                        message["content"] = message["content"][: j + 1] + message["content"][j + 2 :]
                         # TODO: support removing more than 1 screenshot per user turn
                         break
 
@@ -202,18 +212,37 @@ class DynamicGuidanceAgent(bgym.Agent):
         self.last_response: LLMOutput = LLMOutput()
         self._responses: list[LLMOutput] = []
 
+        # used to define whether to plan, do docs rag, episode-level hinting, ...
+        self.first_iteration = True
+
         # custom
         self.screenshots = []
         # TODO: enable changing these flags via config
-        self.first_iteration = True
         self.use_docs_search = True
         self.use_planning = True
         self.use_hinting = False
         self.plan_str = None
         self.docs_str = None
+        self.hints_str = None
         self.conversation_for_traces = []
 
-        self.is_goal_set = False
+        if self.use_hinting:
+            self.prepare_hints_db_index()
+
+    def prepare_hints_db_index(self):
+
+        # TODO: change hints path
+        hints_df = pd.read_csv("data/hints.csv")
+        hints_ds = Dataset.from_pandas(hints_df)
+
+        def get_batch_embeddings(batch):
+            embedding_response = embedding(model="gemini-embedding-001", input=batch, input_type="RETRIEVAL_DOCUMENT")
+            hints_embeddings = [elem["embedding"] for elem in embedding_response.data]
+            return {"embedding": hints_embeddings}
+
+        hints_ds = hints_ds.map(lambda x: {"embedding": get_batch_embeddings(x["hint"])}, batched=True, batch_size=512)
+        hints_ds.add_faiss_index(column="embedding", metric_type=faiss.METRIC_INNER_PRODUCT)
+        self.hints_ds = deepcopy(hints_ds)
 
     def obs_preprocessor(self, obs):
         obs = deepcopy(obs)
@@ -386,6 +415,19 @@ class DynamicGuidanceAgent(bgym.Agent):
         plan = planning_response_text.strip().split("<plan>")[1].split("</plan>")[0]
         self.plan_str = plan
 
+    def get_hints(self, obs: Any) -> str:
+        # TODO: enable query rewrite with LLM for hint retrieval
+        # TODO: enable step-level hinting
+        query_str = obs["goal_object"][0]["text"]
+
+        # TODO: parametrize embedding model
+        # NOTE: input_type could also be "QUESTION_ANSWERING"
+        embedding_response = embedding(model="gemini-embedding-001", input=[query_str], input_type="RETRIEVAL_QUERY")
+        query_embedding = embedding_response.data[0]["embedding"]
+        _, retrieved_hints = self.hints_ds.get_nearest_examples("embeddings", query_embedding, k=3)
+        retrieved_hints = retrieved_hints["hint"]
+        return "\n".join(["* " + hint for hint in retrieved_hints])
+
     # @cost_tracker_decorator
     def get_user_query(self, obs: Any) -> str:
         current_image_base64 = image_to_png_base64_url(obs["screenshot"])
@@ -484,8 +526,6 @@ class DynamicGuidanceAgent(bgym.Agent):
             action = action_from_generalized_bgym_action_tool(user_action_response)
         else:
             action = user_action_response.action
-
-        print("ACTIONS:\n", action)
 
         if action is None and self.config.use_noop_as_default_action:
             action = "noop()"  # default action is noop if none is provided
@@ -591,19 +631,24 @@ DYNAMIC_GUIDANCE_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=False),
     action_subsets=("coord",),
-    multiaction=True, # multiaction enabled since dynamic guidance often tells the user to do 2-3 small actions in a row
+    multiaction=True,  # multiaction enabled since dynamic guidance often tells the user to do 2-3 small actions in a row
     # TODO: reuse keep_last_n_obs to truncate screenshots (currently not doing it)
-    keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
+    keep_last_n_obs=5,
 )
 
 
-def get_dynamic_guidance_agent_config(model_name: str) -> DynamicGuidanceAgentArgs:
+def get_dynamic_guidance_agent_config(
+    model_name: str = "gemini-3.0-pro-preview",
+    embedding_model_name: str = "gemini-embedding-001",
+) -> DynamicGuidanceAgentArgs:
 
     return DynamicGuidanceAgentArgs(
         model_args=LiteLLMModelArgs(
             model_name=model_name,
+            embedding_model_name=embedding_model_name,
             max_new_tokens=2000,
             temperature=None,
+            vertex_location="global",
         ),
         config=DYNAMIC_GUIDANCE_PROMPT_CONFIG,
     )
