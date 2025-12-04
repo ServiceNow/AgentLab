@@ -1,4 +1,5 @@
 import logging
+import time
 from io import BytesIO
 from typing import Any, Callable
 
@@ -81,6 +82,10 @@ class SyncPlaywright(BrowserBackend):
     def browser_mouse_click_xy(self, x: int, y: int):
         """Click at a given x, y coordinate using the mouse."""
         self._page.mouse.click(x, y, delay=100)
+
+    def browser_wait(self, seconds: int):
+        """Wait for a given number of seconds, up to 10 seconds."""
+        time.sleep(min(seconds, 10))
 
     def evaluate_js(self, js: str):
         js_result = self._page.evaluate(js)

@@ -3,8 +3,6 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from browsergym.core.task import AbstractBrowserTask
-
 from agentlab.actions import ToolCall, ToolsActionSet, ToolSpec
 from agentlab.backends.browser.base import BrowserBackend
 from agentlab.benchmarks.abstract_env import AbstractEnv, AbstractEnvArgs
@@ -27,7 +25,7 @@ def final_step():
 
 class BrowserEnv(AbstractEnv):
     def __init__(
-        self, task_name: str, task: AbstractWebTask | AbstractBrowserTask, backend: BrowserBackend, seed: int = 0
+        self, task_name: str, task: AbstractWebTask, backend: BrowserBackend, seed: int = 0
     ):
         self.task_name = task_name
         self.task = task
@@ -36,20 +34,12 @@ class BrowserEnv(AbstractEnv):
         self.backend = backend
         self.backend.initialize()
         self.goal = ""
-        if isinstance(self.task, AbstractBrowserTask) and not self.backend.has_pw_page:
-            raise ValueError(
-                "Legacy task requires a backend with direct playwright page access."
-            )
 
     def reset(self, seed: int):
         self.seed = seed
-        if isinstance(self.task, AbstractBrowserTask):
-            self.goal, task_info = self.task.setup(page=self.backend.page)
-            obs = self._get_obs()
-        else:
-            self.goal, task_info = self.task.setup(backend=self.backend) 
-            obs = self._get_obs()
-            obs = self.task.obs_postprocess(obs)
+        self.goal, task_info = self.task.setup(backend=self.backend)
+        obs = self._get_obs()
+        obs = self.task.obs_postprocess(obs)
         return obs, task_info
 
     def _get_obs(self) -> dict:
@@ -86,21 +76,15 @@ class BrowserEnv(AbstractEnv):
 
         observation = self.obs_postprocess(observation)
 
-        if isinstance(self.task, AbstractBrowserTask):
-            reward, done, _, info = self.task.validate(page=self.backend.page, chat_messages=[])
-        elif self.task.validate_per_step or done or truncated:
-            reward, info = self.task.validate()
-            if info.get("done", False):
-                done = True
-        else:
-            reward = 0.0
-            info = {}
+        reward, info = self.task.validate()
+        if info.get("done", False):
+            done = True
 
         env_info = {
             **info,
             "action_exec_start": action_exec_start,
             "action_exec_stop": action_exec_stop,
-            "action_exec_timeout": 0.0
+            "action_exec_timeout": 0.0,
         }
         logger.info(f"Action result in observation: {observation}")
         return observation, reward, done, truncated, env_info
