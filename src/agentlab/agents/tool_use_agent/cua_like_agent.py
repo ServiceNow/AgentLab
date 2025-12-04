@@ -1,20 +1,12 @@
-import fnmatch
 import json
 import logging
 import os
-import random
-import time
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from copy import copy, deepcopy
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any, Literal
 
 import bgym
-import numpy as np
-import pandas as pd
-import requests
 from bgym import Benchmark as BgymBenchmark
 from browsergym.core.observation import extract_screenshot
 from browsergym.utils.obs import (
@@ -26,25 +18,17 @@ from browsergym.utils.obs import (
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.benchmarks.abstract_env import AbstractBenchmark as AgentLabBenchmark
-from agentlab.benchmarks.osworld import OSWorldActionSet
 from agentlab.llm.base_api import BaseModelArgs
-from agentlab.llm.chat_api import ChatModel
 from agentlab.llm.litellm_api import LiteLLMModelArgs
 from agentlab.llm.llm_utils import image_to_png_base64_url
 from agentlab.llm.response_api import (
     APIPayload,
-    ClaudeResponseModelArgs,
     LLMOutput,
     MessageBuilder,
-    OpenAIChatModelArgs,
-    OpenAIResponseModelArgs,
-    OpenRouterModelArgs,
-    AzureChatModelArgs,
-    ToolCalls,
 )
 from agentlab.llm.tracking import cost_tracker_decorator
 from agentlab.utils.hinting import HintsSource
-from agentlab.agents import agent_utils
+
 
 
 logger = logging.getLogger(__name__)
