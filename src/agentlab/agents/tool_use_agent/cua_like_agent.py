@@ -30,7 +30,6 @@ from agentlab.llm.tracking import cost_tracker_decorator
 from agentlab.utils.hinting import HintsSource
 
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -84,7 +83,6 @@ simple_bgym_action_tool = {
 def action_from_generalized_bgym_action_tool(
     response: LLMOutput, tool_name: str = "perform_action"
 ) -> tuple[str | None, str | None]:
-    
     """Extract the action string from the tool call in the LLM response."""
     action, think = None, None
     if response.tool_calls is not None:
@@ -284,7 +282,6 @@ class Obs(Block):
                     discussion, obs["last_action"], self._last_observation
                 )
                 
-
             obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
             obs_msg.add_text(f"AXTree:\n{AXTREE_NOTE}\n{obs['axtree_txt']}")
@@ -685,8 +682,8 @@ CUA_PROMPT_CONFIG = PromptConfig(
     action_subsets=("coord",),
     keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
     multiaction=True,
-    use_noop_as_default_action = False,
-    use_generalized_bgym_action_tool = True
+    use_noop_as_default_action=False,
+    use_generalized_bgym_action_tool=True,
 )
 
 
