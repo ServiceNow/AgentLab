@@ -914,8 +914,12 @@ def _get_env_name(task_name: str):
         import browsergym.workarena
     elif task_name.startswith("webarena"):
         import browsergym.webarena
-        import browsergym.webarena_verified
         import browsergym.webarenalite
+
+        try:
+            import browsergym.webarena_verified
+        except ImportError:
+            logger.warning("browsergym.webarena_verified not found. Skipping import.")
     elif task_name.startswith("visualwebarena"):
         import browsergym.visualwebarena
     elif task_name.startswith("assistantbench"):
