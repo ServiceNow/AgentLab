@@ -44,6 +44,7 @@ class AgentConfig:
     use_axtree: bool = False
     use_screenshot: bool = True
     max_actions: int = 10
+    max_obs_chars: int = 100000 # truncate long observations to N chars
     max_history_tokens: int = 120000
     system_prompt: str = """
 You are an expert AI Agent trained to assist users with complex web tasks.
@@ -113,7 +114,7 @@ class ReactToolCallAgent:
             goal = goal_obj[0]["text"]
             messages.append(user_message(f"Goal: {goal}"))
 
-        text = "\n\n".join([f"## {k}\n{v}" for k, v in texts.items()])
+        text = "\n\n".join([f"## {k}\n{v}" for k, v in texts.items()])[:self.config.max_obs_chars]
         if self.last_tool_call_id:
             message = {
                 "role": "tool",
@@ -182,6 +183,7 @@ class ReactToolCallAgent:
                 logger.warning("Multiple tool calls found in LLM response, using the first one.")
             tool_call = message.tool_calls[0]
             name = tool_call.function.name
+            assert name, "Tool call must have a name."
             args = json.loads(tool_call.function.arguments)
             action = ToolCall(id=tool_call.id, name=name, arguments=args)
             self.last_tool_call_id = action.id
@@ -213,7 +215,7 @@ class ReactToolCallAgent:
         ]
 
         try:
-            response = self.llm(messages=messages, tool_choice="none")
+            response = self.llm(messages=messages)
             summary = response.choices[0].message.content  # type: ignore
         except Exception as e:
             logger.exception(f"Error compacting history: {e}")
@@ -224,11 +226,19 @@ class ReactToolCallAgent:
         summary_message = {"role": "user", "content": f"## Previous Interaction :\n{summary}"}
         self.history = [system_msg, summary_message, *rest[midpoint:]]
 
+    def get_training_pairs(self) -> list[tuple[list[dict | Message], Message]]:
+        input_output_pairs = []
+        prev_history = []
+        for msg in self.history:
+            if isinstance(msg, Message):
+                input_output_pairs.append((prev_history, msg))
+            prev_history.append(msg)
+        return input_output_pairs
 
 @dataclass
 class ReactToolCallAgentArgs(AgentArgs):
-    llm_args: LLMArgs | None = None
-    config: AgentConfig | None = None
+    llm_args: LLMArgs = None # type: ignore
+    config: AgentConfig = None # type: ignore
 
     def make_agent(self, actions: list[ToolSpec]) -> ReactToolCallAgent:
         llm = self.llm_args.make_model()
