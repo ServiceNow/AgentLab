@@ -39,8 +39,8 @@ AGENT_SLAM_15B = GenericAgentArgs(
     chat_model_args=CHAT_MODEL_ARGS_DICT["apriel/slam-15b"],
     flags=apriel_flags,
 )
-AGENT_SLAM_15B.chat_model_args.base_url = "https://apriel1p6-15b-runai-nowllm.inference.ta121237.dgxcloud.ai/v1"
-AGENT_SLAM_15B.chat_model_args.api_key = "-cPh_74qWJBTooW6MTf6ew:R1zzSE2wSYHwy8CdvPx3s3xdCuQRbhSiY7ydscQEOZw"
+AGENT_SLAM_15B.chat_model_args.base_url = ""
+AGENT_SLAM_15B.chat_model_args.api_key = ""
 AGENT_SLAM_15B.chat_model_args.model_name = "Apriel-1p6-15B-Thinker"
 
 # Run study
