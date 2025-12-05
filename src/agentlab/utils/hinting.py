@@ -52,7 +52,6 @@ Choose hint topic for the task and return only its number. Use the following out
             self.hint_db_path,
             header=0,
             index_col=None,
-            dtype=str,
             converters={
                 "trace_paths_json": lambda x: json.loads(x) if pd.notna(x) else [],
                 "source_trace_goals": lambda x: json.loads(x) if pd.notna(x) else [],
