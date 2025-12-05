@@ -43,6 +43,7 @@ class SyncPlaywright(BrowserBackend):
             _pw = sync_playwright().start()
         if _browser is None:
             _browser = _pw.chromium.launch(headless=True, chromium_sandbox=True)
+
         self._page = _browser.new_page()
 
     @property
@@ -93,7 +94,16 @@ class SyncPlaywright(BrowserBackend):
         return js_result
 
     def goto(self, url: str):
+        """Navigate to a specified URL."""
         self._page.goto(url)
+
+    def browser_back(self):
+        """Navigate back in browser history."""
+        self._page.go_back()
+
+    def browser_forward(self):
+        """Navigate forward in browser history."""
+        self._page.go_forward()
 
     def page_html(self) -> str:
         return self._page.content()
@@ -157,7 +167,7 @@ class AsyncPlaywright(AsyncBrowserBackend):
         if _apw is None:
             _apw = await async_playwright().start()
         if _abrowser is None:
-            _abrowser = await _apw.chromium.launch(headless=True, chromium_sandbox=True)
+            _abrowser = await _apw.chromium.launch(headless=False, chromium_sandbox=True)
         self._page = await _abrowser.new_page()
 
     async def browser_press_key(self, key: str):

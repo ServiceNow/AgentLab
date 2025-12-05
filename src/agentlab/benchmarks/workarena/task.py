@@ -24,23 +24,23 @@ class WorkarenaTask(AbstractWebTask):
     actions_whitelist: ClassVar[list[str]] = [
         "browser_press_key",
         "browser_type",
-        "browser_click",
-        "browser_drag",
-        "browser_hover",
         "browser_select_option",
         "browser_mouse_click_xy",
         "browser_wait",
+        "browser_back",
+        "browser_forward",
     ]
 
     def setup(self, backend: BrowserBackend) -> tuple[str, dict]:
         if not backend.has_pw_page:
             raise ValueError("Workarena task requires a backend with playwright page access.")
         self._backend = backend
-        self._task_obj = self.task_cls(instance=self.instance, seed=self.seed) # type: ignore
+        self._task_obj = self.task_cls(instance=self.instance, seed=self.seed)  # type: ignore
         self.url = self._task_obj.start_url
         goal, info = self._task_obj.setup(backend.page)
+        backend.goto(self.url)
         logger.info(f"Current backend page URL: {backend.page.url}")
-        # backend.goto(self.url)
+
         return goal, info
 
     def teardown(self) -> None:

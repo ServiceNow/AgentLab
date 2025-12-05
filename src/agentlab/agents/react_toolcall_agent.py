@@ -145,7 +145,7 @@ class ReactToolCallAgent:
         messages = self.history + [{"role": "user", "content": self.config.guidance}]
 
         try:
-            logger.info(colored(f"Prompt:\n{pprint.pformat(messages, width=120)}", "blue"))
+            logger.info(colored(f"Prompt:\n{pprint.pformat([str(m)[:500] for m in messages], width=120)}", "blue"))
             response = self.llm(tools=self.tools, messages=messages)
             message = response.choices[0].message  # type: ignore
         except Exception as e:
