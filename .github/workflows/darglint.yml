@@ -29,8 +29,5 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen 
 
-      - name: List packages
-        run: uv pip list
-
       - name: Darglint checks
         run: uv run darglint -v 2 -z short src/

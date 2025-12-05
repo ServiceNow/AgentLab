@@ -281,7 +281,7 @@ class Obs(Block):
                 self.overlay_last_screenshot_with_action(
                     discussion, obs["last_action"], self._last_observation
                 )
-                
+
             obs_msg.add_image(image_to_png_base64_url(screenshot))
         if self.use_axtree:
             obs_msg.add_text(f"AXTree:\n{AXTREE_NOTE}\n{obs['axtree_txt']}")
@@ -617,7 +617,7 @@ class ToolUseAgent(bgym.Agent):
             APIPayload(
                 messages=messages,
                 tools=self.tools,
-                tool_choice="any",  
+                tool_choice="any",
                 cache_tool_definition=True,
                 cache_complete_prompt=False,
                 use_cache_breakpoints=True,
@@ -631,7 +631,7 @@ class ToolUseAgent(bgym.Agent):
             think = response.think
 
         if action is None and self.config.use_noop_as_default_action:
-            action = "noop()" 
+            action = "noop()"
 
         last_summary = self.discussion.get_last_summary()
         if last_summary is not None:
