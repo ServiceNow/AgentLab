@@ -680,7 +680,7 @@ CUA_PROMPT_CONFIG = PromptConfig(
     general_hints=GeneralHints(use_hints=False),
     task_hint=TaskHint(use_task_hint=False),
     action_subsets=("coord",),
-    keep_last_n_obs=5,  # max 20 no more than 20 screenshots for claude
+    keep_last_n_obs=5,  # no more than 20 screenshots for claude
     multiaction=True,
     use_noop_as_default_action=False,
     use_generalized_bgym_action_tool=True,
