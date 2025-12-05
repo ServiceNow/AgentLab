@@ -339,43 +339,47 @@ class ChatModel(AbstractChatModel):
     def _extract_thinking_content_from_response(self, response, wrap_tag="think") -> tuple[str, str]:
         """Extract reasoning and action content from an API response.
         
-        Handles multiple formats:
-        1. OpenAI/DeepSeek: reasoning in 'reasoning_content' or 'reasoning' field
-        2. Apriel: reasoning before [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] tags
-        3. Standard: content as-is
+        Logic:
+        1. If reasoning_content exists: use it as think, use content as action 
+           (remove BEGIN/END FINAL RESPONSE tokens if present, add action tags)
+        2. If reasoning_content is empty: search content for last BEGIN/END FINAL RESPONSE block,
+           use everything before as think, use content inside tags as action
         
         Args:
             response: The API response object.
             wrap_tag: Tag name to wrap reasoning content (default: "think").
             
         Returns:
-            tuple: (reasoning_wrapped, action_wrapped)
+            tuple: (think_wrapped, action_wrapped)
         """
         message = response.choices[0].message
         msg_dict = message.to_dict() if hasattr(message, 'to_dict') else dict(message)
         
-        reasoning = msg_dict.get("reasoning_content") or msg_dict.get("reasoning")
-        content = msg_dict.get("content", "") or msg_dict.get("text", "")
+        reasoning = msg_dict.get("reasoning_content") or msg_dict.get("reasoning") or ""
+        content = msg_dict.get("content", "") or msg_dict.get("text", "") or ""
         
         # Case 1: Explicit reasoning field from API
         if reasoning:
-            reasoning_wrapped = f"<{wrap_tag}>{reasoning}</{wrap_tag}>\n"
-            if "[BEGIN FINAL RESPONSE]" in content and "[END FINAL RESPONSE]" in content:
-                action = self._extract_last_action_from_tags(content)
-                action_wrapped = f"<action>\n{action}\n</action>"
-            else:
-                action_wrapped = content
-            return reasoning_wrapped, action_wrapped
+            think_wrapped = f"<{wrap_tag}>{reasoning}</{wrap_tag}>"
+            # Remove BEGIN/END FINAL RESPONSE tokens from content if present
+            action_text = self._remove_final_response_tokens(content)
+            action_wrapped = f"<action>{action_text}</action>"
+            return think_wrapped, action_wrapped
         
-        # Case 2: Apriel-style format in content
-        if "[BEGIN FINAL RESPONSE]" in content:
-            reasoning_text, action_text = self._parse_apriel_format(content)
-            reasoning_wrapped = f"<{wrap_tag}>\n{reasoning_text}\n</{wrap_tag}>" if reasoning_text else ""
-            action_wrapped = f"<action>\n{action_text}\n</action>" if action_text else ""
-            return reasoning_wrapped, action_wrapped
+        # Case 2: No reasoning field - parse content for BEGIN/END FINAL RESPONSE
+        if "[BEGIN FINAL RESPONSE]" in content and "[END FINAL RESPONSE]" in content:
+            think_text, action_text = self._parse_apriel_format(content)
+            think_wrapped = f"<{wrap_tag}>{think_text}</{wrap_tag}>" if think_text else ""
+            action_wrapped = f"<action>{action_text}</action>" if action_text else ""
+            return think_wrapped, action_wrapped
         
-        # Case 3: No special format
-        return "", content
+        # Case 3: No special format - return content as action
+        return "", f"<action>{content}</action>" if content else ""
+
+    def _remove_final_response_tokens(self, content: str) -> str:
+        """Remove [BEGIN FINAL RESPONSE] and [END FINAL RESPONSE] tokens from content."""
+        result = content.replace("[BEGIN FINAL RESPONSE]", "").replace("[END FINAL RESPONSE]", "")
+        return result.strip()
 
     def _extract_last_action_from_tags(self, content: str) -> str:
         """Extract content from the LAST [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] block."""
