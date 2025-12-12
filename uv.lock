@@ -32,43 +32,39 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ray", extra = ["default"] },
     { name = "requests" },
-    { name = "safetensors" },
     { name = "tiktoken" },
     { name = "torch" },
-    { name = "transformers" },
 ]
 
 [package.optional-dependencies]
+hint = [
+    { name = "sentence-transformers" },
+]
+transformers = [
+    { name = "transformers" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "black", extra = ["jupyter"] },
     { name = "blacken-docs" },
+    { name = "darglint" },
     { name = "flaky" },
+    { name = "ipykernel" },
+    { name = "pip" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-playwright" },
     { name = "pytest-xdist" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "darglint" },
-    { name = "ipykernel" },
-    { name = "pip" },
-]
-hint = [
-    { name = "sentence-transformers" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.62.0" },
-    { name = "black", extras = ["jupyter"], marker = "extra == 'dev'", specifier = ">=24.2.0" },
-    { name = "blacken-docs", marker = "extra == 'dev'" },
     { name = "browsergym", specifier = ">=0.7.1" },
     { name = "contexttimer" },
     { name = "dask" },
     { name = "distributed" },
-    { name = "flaky", marker = "extra == 'dev'" },
     { name = "gitpython" },
     { name = "gradio", specifier = ">=5.5" },
     { name = "gymnasium", specifier = ">=0.27" },
@@ -80,30 +76,32 @@ requires-dist = [
     { name = "openai", specifier = ">=1.7,<2" },
     { name = "pandas" },
     { name = "pillow" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pydantic", specifier = "~=2.9" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "==7.3.2" },
-    { name = "pytest-playwright", marker = "extra == 'dev'" },
-    { name = "pytest-xdist", marker = "extra == 'dev'" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-slugify" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "ray", extras = ["default"] },
     { name = "requests" },
-    { name = "safetensors", specifier = ">=0.4.0" },
+    { name = "sentence-transformers", marker = "extra == 'hint'", specifier = ">=5.0.0" },
     { name = "tiktoken" },
     { name = "torch", specifier = ">=2.2.2" },
-    { name = "transformers", specifier = ">=4.38.2" },
+    { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.38.2" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["hint", "transformers"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "black", extras = ["jupyter"], specifier = ">=24.2.0" },
+    { name = "blacken-docs" },
     { name = "darglint", specifier = ">=1.8.1" },
+    { name = "flaky" },
     { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "pip", specifier = ">=25.2" },
+    { name = "pre-commit" },
+    { name = "pytest", specifier = "==7.3.2" },
+    { name = "pytest-playwright" },
+    { name = "pytest-xdist" },
 ]
-hint = [{ name = "sentence-transformers", specifier = ">=5.0.0" }]
 
 [[package]]
 name = "aiofiles"

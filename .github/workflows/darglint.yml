@@ -27,10 +27,7 @@ jobs:
         run: uv python install 3.12 # this fails in 3.11
 
       - name: Install dependencies
-        run: uv sync --frozen --extra dev
-
-      - name: List packages
-        run: uv pip list
+        run: uv sync --frozen 
 
       - name: Darglint checks
         run: uv run darglint -v 2 -z short src/
