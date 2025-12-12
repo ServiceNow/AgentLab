@@ -331,33 +331,32 @@ class ChatModel(AbstractChatModel):
                 res_think["log_probs"] = completion.choices[0].logprobs
             return res_think, res_action
         else:
-            return [
-                self._build_think_action_pair(choice)
-                for choice in completion.choices
-            ]
+            return [self._build_think_action_pair(choice) for choice in completion.choices]
 
-    def _extract_thinking_content_from_response(self, response, wrap_tag="think") -> tuple[str, str]:
+    def _extract_thinking_content_from_response(
+        self, response, wrap_tag="think"
+    ) -> tuple[str, str]:
         """Extract reasoning and action content from an API response.
-        
+
         Logic:
-        1. If reasoning_content exists: use it as think, use content as action 
+        1. If reasoning_content exists: use it as think, use content as action
            (remove BEGIN/END FINAL RESPONSE tokens if present, add action tags)
         2. If reasoning_content is empty: search content for last BEGIN/END FINAL RESPONSE block,
            use everything before as think, use content inside tags as action
-        
+
         Args:
             response: The API response object.
             wrap_tag: Tag name to wrap reasoning content (default: "think").
-            
+
         Returns:
             tuple: (think_wrapped, action_wrapped)
         """
         message = response.choices[0].message
-        msg_dict = message.to_dict() if hasattr(message, 'to_dict') else dict(message)
-        
+        msg_dict = message.to_dict() if hasattr(message, "to_dict") else dict(message)
+
         reasoning = msg_dict.get("reasoning_content") or msg_dict.get("reasoning") or ""
         content = msg_dict.get("content", "") or msg_dict.get("text", "") or ""
-        
+
         # Case 1: Explicit reasoning field from API
         if reasoning:
             think_wrapped = f"<{wrap_tag}>{reasoning}</{wrap_tag}>"
@@ -365,14 +364,14 @@ class ChatModel(AbstractChatModel):
             action_text = self._remove_final_response_tokens(content)
             action_wrapped = f"<action>{action_text}</action>"
             return think_wrapped, action_wrapped
-        
+
         # Case 2: No reasoning field - parse content for BEGIN/END FINAL RESPONSE
         if "[BEGIN FINAL RESPONSE]" in content and "[END FINAL RESPONSE]" in content:
             think_text, action_text = self._parse_apriel_format(content)
             think_wrapped = f"<{wrap_tag}>{think_text}</{wrap_tag}>" if think_text else ""
             action_wrapped = f"<action>{action_text}</action>" if action_text else ""
             return think_wrapped, action_wrapped
-        
+
         # Case 3: No special format - return content as action
         return "", f"<action>{content}</action>" if content else ""
 
@@ -383,7 +382,7 @@ class ChatModel(AbstractChatModel):
 
     def _extract_last_action_from_tags(self, content: str) -> str:
         """Extract content from the LAST [BEGIN FINAL RESPONSE]...[END FINAL RESPONSE] block."""
-        pattern = r'\[BEGIN FINAL RESPONSE\](.*?)\[END FINAL RESPONSE\]'
+        pattern = r"\[BEGIN FINAL RESPONSE\](.*?)\[END FINAL RESPONSE\]"
         matches = re.findall(pattern, content, re.DOTALL)
         return matches[-1].strip() if matches else ""
 
@@ -392,20 +391,18 @@ class ChatModel(AbstractChatModel):
         last_begin = content.rfind("[BEGIN FINAL RESPONSE]")
         if last_begin == -1:
             return "", content
-        
+
         reasoning = content[:last_begin].strip()
         if reasoning.startswith("Here are my reasoning steps:"):
-            reasoning = reasoning[len("Here are my reasoning steps:"):].strip()
-        
+            reasoning = reasoning[len("Here are my reasoning steps:") :].strip()
+
         action = self._extract_last_action_from_tags(content)
         return reasoning, action
 
     def _build_think_action_pair(self, choice) -> tuple[AIMessage, AIMessage]:
         """Build (think, action) pair from a single choice."""
         # Create minimal response-like object for the extraction method
-        mock_response = type('MockResponse', (), {
-            'choices': [choice]
-        })()
+        mock_response = type("MockResponse", (), {"choices": [choice]})()
         think, action = self._extract_thinking_content_from_response(mock_response)
         return AIMessage(think or ""), AIMessage(action or "")
 
@@ -575,12 +572,9 @@ class AprielChatModel(ChatModel):
         max_retry=4,
         min_retry_wait_time=60,
     ):
-        base_url = base_url or os.getenv(
-            "APRIEL_API_URL",
-            ""
-        )
+        base_url = base_url or os.getenv("APRIEL_API_URL", "")
         api_key = api_key or os.getenv("APRIEL_API_KEY")
-        
+
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -597,7 +591,7 @@ class AprielChatModel(ChatModel):
 @dataclass
 class AprielModelArgs(BaseModelArgs):
     """Serializable args for Apriel models."""
-    
+
     base_url: str = None
     api_key: str = None
 
@@ -619,6 +613,7 @@ class AnthropicChatModel(AbstractChatModel):
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
+        pricing_func=None,
     ):
         self.model_name = model_name
         self.temperature = temperature
@@ -627,6 +622,22 @@ class AnthropicChatModel(AbstractChatModel):
 
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
+
+        # Get pricing information
+        if pricing_func:
+            pricings = pricing_func()
+            try:
+                self.input_cost = float(pricings[model_name]["prompt"])
+                self.output_cost = float(pricings[model_name]["completion"])
+            except KeyError:
+                logging.warning(
+                    f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+                )
+                self.input_cost = 0.0
+                self.output_cost = 0.0
+        else:
+            self.input_cost = 0.0
+            self.output_cost = 0.0
 
     def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
         # Convert OpenAI format to Anthropic format
@@ -655,13 +666,28 @@ class AnthropicChatModel(AbstractChatModel):
 
                 response = self.client.messages.create(**kwargs)
 
+                usage = getattr(response, "usage", {})
+                new_input_tokens = getattr(usage, "input_tokens", 0)
+                output_tokens = getattr(usage, "output_tokens", 0)
+                cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
+                cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
+                cache_read_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
+                )
+                cache_write_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+                )
+                cost = (
+                    new_input_tokens * self.input_cost
+                    + output_tokens * self.output_cost
+                    + cache_read_tokens * cache_read_cost
+                    + cache_write_tokens * cache_write_cost
+                )
                 # Track usage if available
-                if hasattr(tracking.TRACKER, "instance"):
-                    tracking.TRACKER.instance(
-                        response.usage.input_tokens,
-                        response.usage.output_tokens,
-                        0,  # cost calculation would need pricing info
-                    )
+                if hasattr(tracking.TRACKER, "instance") and isinstance(
+                    tracking.TRACKER.instance, tracking.LLMTracker
+                ):
+                    tracking.TRACKER.instance(new_input_tokens, output_tokens, cost)
 
                 return AIMessage(response.content[0].text)
 
@@ -679,6 +705,7 @@ class AnthropicModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+            pricing_func=partial(tracking.get_pricing_litellm, model_name=self.model_name),
         )
 
 
