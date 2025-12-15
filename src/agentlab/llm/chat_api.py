@@ -433,7 +433,7 @@ class AzureChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             client_class=OpenAI,
             client_args=client_args,
-            pricing_func=tracking.get_pricing_openai,
+            pricing_func=tracking.partial(tracking.get_pricing_litellm, model_name=model_name),
             log_probs=log_probs,
         )
 
@@ -492,6 +492,7 @@ class AnthropicChatModel(AbstractChatModel):
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
+        pricing_func=None,
     ):
         self.model_name = model_name
         self.temperature = temperature
@@ -500,6 +501,22 @@ class AnthropicChatModel(AbstractChatModel):
 
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
+
+        # Get pricing information
+        if pricing_func:
+            pricings = pricing_func()
+            try:
+                self.input_cost = float(pricings[model_name]["prompt"])
+                self.output_cost = float(pricings[model_name]["completion"])
+            except KeyError:
+                logging.warning(
+                    f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+                )
+                self.input_cost = 0.0
+                self.output_cost = 0.0
+        else:
+            self.input_cost = 0.0
+            self.output_cost = 0.0
 
     def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
         # Convert OpenAI format to Anthropic format
@@ -528,13 +545,29 @@ class AnthropicChatModel(AbstractChatModel):
 
                 response = self.client.messages.create(**kwargs)
 
+                usage = getattr(response, "usage", {})
+                new_input_tokens = getattr(usage, "input_tokens", 0)
+                output_tokens = getattr(usage, "output_tokens", 0)
+                cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
+                cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
+                cache_read_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
+                )
+                cache_write_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+                )
+                cost = (
+                    new_input_tokens * self.input_cost
+                    + output_tokens * self.output_cost
+                    + cache_read_tokens * cache_read_cost
+                    + cache_write_tokens * cache_write_cost
+                )
+
                 # Track usage if available
-                if hasattr(tracking.TRACKER, "instance"):
-                    tracking.TRACKER.instance(
-                        response.usage.input_tokens,
-                        response.usage.output_tokens,
-                        0,  # cost calculation would need pricing info
-                    )
+                if hasattr(tracking.TRACKER, "instance") and isinstance(
+                    tracking.TRACKER.instance, tracking.LLMTracker
+                ):
+                    tracking.TRACKER.instance(new_input_tokens, output_tokens, cost)
 
                 return AIMessage(response.content[0].text)
 
@@ -552,6 +585,7 @@ class AnthropicModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+            pricing_func=partial(tracking.get_pricing_litellm, model_name=self.model_name),
         )
 
 
