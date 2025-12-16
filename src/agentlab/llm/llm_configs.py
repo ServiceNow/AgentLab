@@ -119,6 +119,33 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
+    "openai/gpt-5-high-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+        reasoning_effort="high",
+    ),
+    "openai/gpt-5-nano-high-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-nano-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+        reasoning_effort="high",
+    ),
+    "openai/gpt-5-mini-high-2025-08-07": OpenAIModelArgs(
+        model_name="gpt-5-mini-2025-08-07",
+        max_total_tokens=400_000,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
+        temperature=1,  # gpt-5 supports temperature of 1 only
+        vision_support=True,
+        reasoning_effort="high",
+    ),
     "azure/gpt-35-turbo/gpt-35-turbo": AzureModelArgs(
         model_name="gpt-35-turbo",
         max_total_tokens=8_192,
@@ -190,6 +217,59 @@ CHAT_MODEL_ARGS_DICT = {
         max_new_tokens=128_000,
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
+    ),
+    "azure/gpt-5-high-2025-08-07": AzureModelArgs(
+        model_name="gpt-5",
+        max_total_tokens=400_000,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
+        temperature=1,  # temperature param not supported by gpt-5
+        vision_support=True,
+        reasoning_effort="high",
+    ),
+    "azure/gpt-5-mini-high-2025-08-07": AzureModelArgs(
+        model_name="gpt-5-mini",
+        max_total_tokens=400_000,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
+        temperature=1,  # temperature param not supported by gpt-5
+        vision_support=True,
+        reasoning_effort="high",
+    ),
+    "azure/gpt-5-nano-high-2025-08-07": AzureModelArgs(
+        model_name="gpt-5-nano",
+        max_total_tokens=400_000,
+        max_input_tokens=256_000,
+        max_new_tokens=128_000,
+        temperature=1,  # temperature param not supported by gpt-5
+        vision_support=True,
+        reasoning_effort="high",
+    ),
+    "azure/o3-high-2025-04-16": AzureModelArgs(
+        model_name="o3",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=100_000,
+        temperature=1,
+        vision_support=False,
+        reasoning_effort="high",
+    ),
+    "azure/o3-mini-2025-01-31": AzureModelArgs(
+        model_name="o3-mini",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=100_000,
+        temperature=1,
+        vision_support=False,
+    ),
+    "azure/o3-mini-high-2025-01-31": AzureModelArgs(
+        model_name="o3-mini",
+        max_total_tokens=200_000,
+        max_input_tokens=200_000,
+        max_new_tokens=100_000,
+        temperature=1,
+        vision_support=False,
+        reasoning_effort="high",
     ),
     # ---------------- Anthropic ----------------#
     "anthropic/claude-3-7-sonnet-20250219": AnthropicModelArgs(
@@ -349,5 +429,14 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=100_000 - 4_000,
         max_new_tokens=4_000,
         temperature=1e-1,
+    ),
+    # apriel 2.0
+    "apriel-2-rc12": SelfHostedModelArgs(
+        model_name="apriel-2-rc12",
+        max_total_tokens=200_000,
+        max_input_tokens=100_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=0.6,
+        backend="vllm",
     ),
 }

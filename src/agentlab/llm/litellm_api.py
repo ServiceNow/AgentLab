@@ -45,6 +45,7 @@ class LiteLLMModel(BaseModelWithPricing):
             client_args["base_url"] = base_url
         if api_key is not None:
             client_args["api_key"] = api_key
+        client_args["vertex_location"] = "global"
         self.client = partial(completion, **client_args)
         self.init_pricing_tracker(pricing_api="litellm")
         self.use_only_first_toolcall = use_only_first_toolcall

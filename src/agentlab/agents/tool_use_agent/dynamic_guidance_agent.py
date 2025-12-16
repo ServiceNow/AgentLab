@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 import bgym
 import faiss
+import numpy as np
 import pandas as pd
 import requests
 from agentlab.agents.agent_args import AgentArgs
@@ -62,6 +63,17 @@ You are provided:
 Using the screenshot to understand what is visible and actionable on the interface, interpret the instruction and carry out the corresponding action. If using tools is required, invoke them appropriately based on the instruction and what the screenshot allows.
 
 Respond only with the action you perform—no explanation."""
+
+USER_ACTION_HINT_QUERY_SYS_MSG = """You are an agent in a multi-agent system for the ServiceNow platform. Your job is to generate a search query based on the provided context in order to search a *hint* database to help you solve the user's goal.
+
+You are provided:
+- the user goal
+- a screenshot showing the current UI state, and 
+- [optional] the previous user query detailing the state of the UI at the time the query was made.
+
+Using this context, generate a search query that will help you find the relevant hint to solve the user's goal.
+
+Write your response as a single concise sentence or paragraph inside `<query>...</query>` tags. Keep it under 40 words."""
 
 DYNAMIC_GUIDANCE_AGENT_PLANNING_SYS_MSG = """You are the **Dynamic Guidance** agent in a multi-agent ServiceNow system. 
 Your role is to help an end-user achieve their goal by analyzing what is currently visible in the UI and deciding what they should do next.
@@ -220,7 +232,8 @@ class DynamicGuidanceAgent(bgym.Agent):
         # TODO: enable changing these flags via config
         self.use_docs_search = True
         self.use_planning = True
-        self.use_hinting = False
+        # self.use_hinting = False
+        self.use_hinting = True
         self.plan_str = None
         self.docs_str = None
         self.hints_str = None
@@ -232,17 +245,18 @@ class DynamicGuidanceAgent(bgym.Agent):
     def prepare_hints_db_index(self):
 
         # TODO: change hints path
-        hints_df = pd.read_csv("data/hints.csv")
-        hints_ds = Dataset.from_pandas(hints_df)
+        hints_db_path = "/mnt/agentlab_results/2025-12-16_01-40-08_dg-us-anthropic-claude-sonnet-4-5-20250929-v1-0-on-workarena-dynamic-guidance/hints/us.anthropic.claude-sonnet-4-5-20250929-v1:0/hints_db.csv"
+        # hints_db_path = "/mnt/agentlab_results/2025-11-18_20-21-04_cua-us-anthropic-claude-sonnet-4-5-20250929-v1-0-on-webarena/hints/us.anthropic.claude-sonnet-4-5-20250929-v1:0/hints_db.csv"
+        hints_df = pd.read_csv(hints_db_path)
+        self.hints_ds = Dataset.from_pandas(hints_df)
 
         def get_batch_embeddings(batch):
             embedding_response = embedding(model="gemini-embedding-001", input=batch, input_type="RETRIEVAL_DOCUMENT")
             hints_embeddings = [elem["embedding"] for elem in embedding_response.data]
-            return {"embedding": hints_embeddings}
+            return hints_embeddings
 
-        hints_ds = hints_ds.map(lambda x: {"embedding": get_batch_embeddings(x["hint"])}, batched=True, batch_size=512)
-        hints_ds.add_faiss_index(column="embedding", metric_type=faiss.METRIC_INNER_PRODUCT)
-        self.hints_ds = deepcopy(hints_ds)
+        self.hints_ds = self.hints_ds.map(lambda x: {"embedding": get_batch_embeddings(x["hint"])}, batched=True, batch_size=32)
+        self.hints_ds.add_faiss_index(column="embedding", metric_type=faiss.METRIC_INNER_PRODUCT)
 
     def obs_preprocessor(self, obs):
         obs = deepcopy(obs)
@@ -415,18 +429,71 @@ class DynamicGuidanceAgent(bgym.Agent):
         plan = planning_response_text.strip().split("<plan>")[1].split("</plan>")[0]
         self.plan_str = plan
 
-    def get_hints(self, obs: Any) -> str:
+    def get_hints(self, obs: Any, previous_user_message: str | None = None) -> None:
         # TODO: enable query rewrite with LLM for hint retrieval
-        # TODO: enable step-level hinting
-        query_str = obs["goal_object"][0]["text"]
+        goal_str = obs["goal_object"][0]["text"]
+        current_image_base64 = image_to_png_base64_url(obs["screenshot"])
+
+        messages = [
+            {"role": "system", "content": USER_ACTION_HINT_QUERY_SYS_MSG},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": "[GOAL]",
+                    },
+                    {
+                        "type": "input_text",
+                        "text": goal_str,
+                    },
+                    {
+                        "type": "input_text",
+                        "text": "[SCREENSHOT]",
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": current_image_base64,
+                    },
+                ],
+            },
+        ]
+
+        if previous_user_message is not None:
+            messages[-1]["content"] += [
+                {
+                    "type": "input_text",
+                    "text": "[PREVIOUS USER MESSAGE]",
+                },
+                {
+                    "type": "input_text",
+                    "text": previous_user_message,
+                },
+            ]
+
+        hint_query_messages = prepare_messagesbuilder_messages(messages)    
+        hint_query_response: LLMOutput = self.llm(
+            APIPayload(
+                messages=hint_query_messages,
+                reasoning_effort="low",
+            )
+        )
+
+        hint_query_response = hint_query_response.raw_response
+        hint_query_str = hint_query_response.choices[0].message.content
+        hint_query_str = hint_query_str.strip().split("<query>")[1].split("</query>")[0]
 
         # TODO: parametrize embedding model
         # NOTE: input_type could also be "QUESTION_ANSWERING"
-        embedding_response = embedding(model="gemini-embedding-001", input=[query_str], input_type="RETRIEVAL_QUERY")
+        embedding_response = embedding(model="gemini-embedding-001", input=[hint_query_str], input_type="RETRIEVAL_QUERY")
         query_embedding = embedding_response.data[0]["embedding"]
-        _, retrieved_hints = self.hints_ds.get_nearest_examples("embeddings", query_embedding, k=3)
+        _, retrieved_hints = self.hints_ds.get_nearest_examples("embedding", np.array(query_embedding), k=3)
         retrieved_hints = retrieved_hints["hint"]
-        return "\n".join(["* " + hint for hint in retrieved_hints])
+        self.hints_str = "\n".join(["* " + hint for hint in retrieved_hints])
+
+    def get_step_hints(self, obs: Any) -> None:
+        # TODO: enable step-level hinting
+        pass
 
     # @cost_tracker_decorator
     def get_user_query(self, obs: Any) -> str:
@@ -548,11 +615,11 @@ class DynamicGuidanceAgent(bgym.Agent):
         if self.use_planning and not self.plan_str:
             self.get_plan(obs)
 
-        if self.use_hinting:
-            # TODO: add hinting module to Dynamic Guidance agent
-            pass
-
         if self.first_iteration:
+
+            if self.use_hinting:
+                self.get_hints(obs)
+
             # Prepare context with available information
             self.conversation_for_traces.append({"role": "system", "content": DYNAMIC_GUIDANCE_AGENT_SYS_MSG})
 
@@ -563,6 +630,9 @@ class DynamicGuidanceAgent(bgym.Agent):
             if self.docs_str:
                 user_content.append({"type": "input_text", "text": "[DOCS]"})
                 user_content.append({"type": "input_text", "text": self.docs_str})
+            if self.hints_str:
+                user_content.append({"type": "input_text", "text": "[HINTS]"})
+                user_content.append({"type": "input_text", "text": self.hints_str})
             if self.plan_str:
                 user_content.append({"type": "input_text", "text": "[PLAN]"})
                 user_content.append({"type": "input_text", "text": self.plan_str})
@@ -584,6 +654,18 @@ class DynamicGuidanceAgent(bgym.Agent):
                     ],
                 }
             )
+
+            if self.use_hinting:
+                self.get_hints(obs, user_query)
+                self.conversation_for_traces.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "[HINTS]"},
+                            {"type": "input_text", "text": self.hints_str},
+                        ],
+                    }
+                )
 
         # using the current context, the agent llm instructs the user llm to perform a given action (in natural language)
         dynamic_guidance_messages = prepare_messagesbuilder_messages(deepcopy(self.conversation_for_traces))
@@ -608,7 +690,7 @@ class DynamicGuidanceAgent(bgym.Agent):
 
         chat_messages = prepare_messagesbuilder_messages(self.conversation_for_traces)
         agent_info = bgym.AgentInfo(
-            think="",
+            think=dynamic_guidance_response_text,
             chat_messages=chat_messages,
             stats=self.llm.stats.stats_dict,
         )
@@ -645,10 +727,27 @@ def get_dynamic_guidance_agent_config(
     return DynamicGuidanceAgentArgs(
         model_args=LiteLLMModelArgs(
             model_name=model_name,
-            embedding_model_name=embedding_model_name,
-            max_new_tokens=2000,
+            # embedding_model_name=embedding_model_name,
+            max_new_tokens=20000,
             temperature=None,
-            vertex_location="global",
+        ),
+        config=DYNAMIC_GUIDANCE_PROMPT_CONFIG,
+    )
+
+
+def get_dynamic_guidance_agent_config_with_hint(
+    model_name: str = "gemini-3.0-pro-preview",
+    embedding_model_name: str = "gemini-embedding-001",
+    hints_db_path: str = None,
+    hint_retrieval_mode: str = "direct",
+) -> DynamicGuidanceAgentArgs:
+    # NOTE: this is the same as the other one, we hardcode some stuff in the class for now...
+    return DynamicGuidanceAgentArgs(
+        model_args=LiteLLMModelArgs(
+            model_name=model_name,
+            # embedding_model_name=embedding_model_name,
+            max_new_tokens=20000,
+            temperature=None,
         ),
         config=DYNAMIC_GUIDANCE_PROMPT_CONFIG,
     )

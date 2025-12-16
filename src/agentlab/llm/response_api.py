@@ -475,6 +475,7 @@ class OpenAIResponseModel(BaseModelWithPricing):
         api_key: Optional[str] = None,
         temperature: float | None = None,
         max_tokens: int | None = 100,
+        extra_client_args: Optional[dict] = None,
     ):
         self.action_space_as_tools = True  # this should be a config
         super().__init__(  # This is passed to BaseModel
@@ -485,6 +486,8 @@ class OpenAIResponseModel(BaseModelWithPricing):
             client_args["base_url"] = base_url
         if api_key is not None:
             client_args["api_key"] = api_key
+        if extra_client_args is not None:
+            client_args.update(extra_client_args)
         self.client = OpenAI(**client_args)
         # Init pricing tracker after super() so that all attributes have been set.
         self.init_pricing_tracker(pricing_api="openai")  # Use the PricingMixin
@@ -920,6 +923,26 @@ class OpenAIResponseModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+        )
+
+    def get_message_builder(self) -> MessageBuilder:
+        return OpenAIResponseAPIMessageBuilder
+
+@dataclass
+class AzureOpenAIResponseModelArgs(BaseModelArgs):
+    """Serializable object for instantiating a generic chat model with an OpenAI
+    model."""
+
+    api = "openai"
+
+    def make_model(self):
+        return OpenAIResponseModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            base_url=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            extra_client_args={"default_query": {"api-version": "preview"}},
         )
 
     def get_message_builder(self) -> MessageBuilder:

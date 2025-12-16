@@ -49,6 +49,7 @@ class EnvArgs(DataClassJsonMixin):
     storage_state: Optional[str | Path | dict] = None
     task_kwargs: Optional[dict] = None  # use default value from BrowserGym
     pre_observation_delay: float = None  # seconds, wait for JS events to be fired
+    timeout: float = None
 
     def make_env(
         self, action_mapping, exp_dir, exp_task_kwargs: dict = {}, use_raw_page_output=True
@@ -80,6 +81,8 @@ class EnvArgs(DataClassJsonMixin):
             extra_kwargs["task_kwargs"] = self.task_kwargs
         if exp_task_kwargs:
             extra_kwargs["task_kwargs"] = extra_kwargs.get("task_kwargs", {}) | exp_task_kwargs
+        if self.timeout is not None:
+            extra_kwargs["timeout"] = self.timeout
 
         # assistantbench hack, write the task output (agent prediction) to a file in the experiment's directory
         # TODO: find a better way to deal with this
@@ -910,6 +913,8 @@ def _get_env_name(task_name: str):
     # lazy import
     if task_name.startswith("miniwob"):
         import browsergym.miniwob
+    elif task_name.startswith("workarenax"):
+        import browsergym.workarenax
     elif task_name.startswith("workarena"):
         import browsergym.workarena
     elif task_name.startswith("webarena"):

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-
+from typing import Optional
 
 class AbstractChatModel(ABC):
     @abstractmethod
@@ -22,6 +22,7 @@ class BaseModelArgs(ABC):
     temperature: float = 0.1
     vision_support: bool = False
     log_probs: bool = False
+    reasoning_effort: Optional[str] = None
 
     @abstractmethod
     def make_model(self) -> AbstractChatModel:

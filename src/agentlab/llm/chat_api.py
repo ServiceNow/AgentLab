@@ -87,6 +87,7 @@ class OpenRouterModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             log_probs=self.log_probs,
+            reasoning_effort=self.reasoning_effort,
         )
 
 
@@ -101,6 +102,7 @@ class OpenAIModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             log_probs=self.log_probs,
+            reasoning_effort=self.reasoning_effort,
         )
 
 
@@ -118,6 +120,7 @@ class AzureModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             log_probs=self.log_probs,
+            reasoning_effort=self.reasoning_effort,
         )
 
 
@@ -239,6 +242,7 @@ class ChatModel(AbstractChatModel):
         client_args=None,
         pricing_func=None,
         log_probs=False,
+        reasoning_effort=None,
     ):
         assert max_retry > 0, "max_retry should be greater than 0"
 
@@ -248,6 +252,7 @@ class ChatModel(AbstractChatModel):
         self.max_retry = max_retry
         self.min_retry_wait_time = min_retry_wait_time
         self.log_probs = log_probs
+        self.reasoning_effort = reasoning_effort
 
         # Get the API key from the environment variable if not provided
         if api_key_env_var:
@@ -295,6 +300,7 @@ class ChatModel(AbstractChatModel):
                     temperature=temperature,
                     max_completion_tokens=self.max_tokens,
                     logprobs=self.log_probs,
+                    reasoning_effort=self.reasoning_effort,
                 )
 
                 if completion.usage is None:
@@ -324,12 +330,17 @@ class ChatModel(AbstractChatModel):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
-            res = AIMessage(completion.choices[0].message.content)
+            res_text = completion.choices[0].message.content
+            if res_text is not None:
+                res_text = res_text.removesuffix("<|end|>").strip()
+            else:
+                res_text = ""
+            res = AIMessage(res_text)
             if self.log_probs:
                 res["log_probs"] = completion.choices[0].log_probs
             return res
         else:
-            return [AIMessage(c.message.content) for c in completion.choices]
+            return [AIMessage(c.message.content.removesuffix("<|end|>").strip()) for c in completion.choices]
 
     def get_stats(self):
         return {
@@ -348,6 +359,7 @@ class OpenAIChatModel(ChatModel):
         max_retry=4,
         min_retry_wait_time=60,
         log_probs=False,
+        reasoning_effort=None,
     ):
         if max_tokens is None:
             max_tokens = NOT_GIVEN
@@ -362,6 +374,7 @@ class OpenAIChatModel(ChatModel):
             client_class=OpenAI,
             pricing_func=partial(tracking.get_pricing_litellm, model_name=model_name),
             log_probs=log_probs,
+            reasoning_effort=reasoning_effort,
         )
 
 
@@ -405,6 +418,7 @@ class AzureChatModel(ChatModel):
         max_retry=4,
         min_retry_wait_time=60,
         log_probs=False,
+        reasoning_effort=None,
     ):
         api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
         assert (
@@ -435,6 +449,7 @@ class AzureChatModel(ChatModel):
             client_args=client_args,
             pricing_func=tracking.get_pricing_openai,
             log_probs=log_probs,
+            reasoning_effort=reasoning_effort,
         )
 
 
@@ -479,7 +494,7 @@ class VLLMChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             api_key_env_var="VLLM_API_KEY",
             client_class=OpenAI,
-            client_args={"base_url": "http://0.0.0.0:8000/v1"},
+            client_args={"base_url": os.getenv("VLLM_API_URL", "http://0.0.0.0:8000/v1")},
             pricing_func=None,
         )
 
