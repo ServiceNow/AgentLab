@@ -246,7 +246,6 @@ class DynamicGuidanceAgent(bgym.Agent):
 
         # TODO: change hints path
         hints_db_path = "/mnt/agentlab_results/2025-12-16_01-40-08_dg-us-anthropic-claude-sonnet-4-5-20250929-v1-0-on-workarena-dynamic-guidance/hints/us.anthropic.claude-sonnet-4-5-20250929-v1:0/hints_db.csv"
-        # hints_db_path = "/mnt/agentlab_results/2025-11-18_20-21-04_cua-us-anthropic-claude-sonnet-4-5-20250929-v1-0-on-webarena/hints/us.anthropic.claude-sonnet-4-5-20250929-v1:0/hints_db.csv"
         hints_df = pd.read_csv(hints_db_path)
         self.hints_ds = Dataset.from_pandas(hints_df)
 
@@ -345,48 +344,52 @@ class DynamicGuidanceAgent(bgym.Agent):
             article_text = convert_html_to_markdown(article_content)
             return article_text
 
-        NUM_RESULTS = 3  # limit number of docs returned
-        DOMAIN = "servicenow.com/docs"  # e.g., "docs.servicenow.com" or None
-        USE_SITESEARCH_PARAM = True  # False => use "site:example.com" in the query instead
-        siterestrict = False
+        try:
+            NUM_RESULTS = 3  # limit number of docs returned
+            DOMAIN = "servicenow.com/docs"  # e.g., "docs.servicenow.com" or None
+            USE_SITESEARCH_PARAM = True  # False => use "site:example.com" in the query instead
+            siterestrict = False
 
-        google_api_key = os.getenv("GOOGLE_API_KEY")
-        google_cse_id = os.getenv("GOOGLE_CSE_ID")
-        if not google_api_key or not google_cse_id:
-            raise ValueError("Missing GOOGLE_API_KEY or GOOGLE_CSE_ID in environment.")
+            google_api_key = os.getenv("GOOGLE_API_KEY")
+            google_cse_id = os.getenv("GOOGLE_CSE_ID")
+            if not google_api_key or not google_cse_id:
+                raise ValueError("Missing GOOGLE_API_KEY or GOOGLE_CSE_ID in environment.")
 
-        search_engine = build("customsearch", "v1", developerKey=google_api_key)
-        cse = search_engine.cse()
-        if siterestrict:
-            cse = cse.siterestrict()
+            search_engine = build("customsearch", "v1", developerKey=google_api_key)
+            cse = search_engine.cse()
+            if siterestrict:
+                cse = cse.siterestrict()
 
-        # TODO: enable LLM to generate search term
-        search_term = obs["goal_object"][0]["text"]
+            # TODO: enable LLM to generate search term
+            search_term = obs["goal_object"][0]["text"]
 
-        params = {
-            "q": search_term if not (DOMAIN and not USE_SITESEARCH_PARAM) else f"site:{DOMAIN} {search_term}",
-            "cx": google_cse_id,
-            "num": NUM_RESULTS,
-            "fields": "items(title,link,snippet)",
-        }
+            params = {
+                "q": search_term if not (DOMAIN and not USE_SITESEARCH_PARAM) else f"site:{DOMAIN} {search_term}",
+                "cx": google_cse_id,
+                "num": NUM_RESULTS,
+                "fields": "items(title,link,snippet)",
+            }
 
-        if DOMAIN and USE_SITESEARCH_PARAM:
-            params["siteSearch"] = DOMAIN
-            params["siteSearchFilter"] = "i"  # include only this domain
+            if DOMAIN and USE_SITESEARCH_PARAM:
+                params["siteSearch"] = DOMAIN
+                params["siteSearchFilter"] = "i"  # include only this domain
 
-        res = cse.list(**params).execute()
-        items = res.get("items", []) or []
-        all_texts = []
-        for it in items:
-            link = it.get("link")
-            text = extract_main_text(link)
-            if text:
-                preview = text[:2500]
-                if len(preview) < len(text):
-                    preview += "\n\n... [truncated]"
-                all_texts.append(preview)
+            res = cse.list(**params).execute()
+            items = res.get("items", []) or []
+            all_texts = []
+            for it in items:
+                link = it.get("link")
+                text = extract_main_text(link)
+                if text:
+                    preview = text[:2500]
+                    if len(preview) < len(text):
+                        preview += "\n\n... [truncated]"
+                    all_texts.append(preview)
 
-        self.docs_str = "\n\n----------------\n\n".join(all_texts)
+            self.docs_str = "\n\n----------------\n\n".join(all_texts)
+        except:
+            logger.warning("Failed to get docs - Failure with Google Search API and parsing. Falling back to empty string.")
+            self.docs_str = ""
 
     # @cost_tracker_decorator
     def get_plan(self, obs: Any) -> None:
@@ -424,10 +427,15 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-        planning_response = planning_response.raw_response
-        planning_response_text = planning_response.choices[0].message.content
-        plan = planning_response_text.strip().split("<plan>")[1].split("</plan>")[0]
-        self.plan_str = plan
+        try:
+            planning_response = planning_response.raw_response
+            planning_response_text = planning_response.choices[0].message.content
+            plan = planning_response_text.strip().split("<plan>")[1].split("</plan>")[0]
+            self.plan_str = plan
+        except:
+            # fallback
+            logger.warning("Failed to get plan - Failed to parse LLM response")
+            self.plan_str = ""
 
     def get_hints(self, obs: Any, previous_user_message: str | None = None) -> None:
         # TODO: enable query rewrite with LLM for hint retrieval
@@ -479,21 +487,26 @@ class DynamicGuidanceAgent(bgym.Agent):
             )
         )
 
-        hint_query_response = hint_query_response.raw_response
-        hint_query_str = hint_query_response.choices[0].message.content
-        hint_query_str = hint_query_str.strip().split("<query>")[1].split("</query>")[0]
+        try:
+            hint_query_response = hint_query_response.raw_response
+            hint_query_str = hint_query_response.choices[0].message.content
+            hint_query_str = hint_query_str.strip().split("<query>")[1].split("</query>")[0]
+        except:
+            # fallback
+            logger.warning("Failed to get hint query - Failed to parse LLM response. Falling back to goal string.")
+            hint_query_str = goal_str
 
         # TODO: parametrize embedding model
         # NOTE: input_type could also be "QUESTION_ANSWERING"
-        embedding_response = embedding(model="gemini-embedding-001", input=[hint_query_str], input_type="RETRIEVAL_QUERY")
-        query_embedding = embedding_response.data[0]["embedding"]
-        _, retrieved_hints = self.hints_ds.get_nearest_examples("embedding", np.array(query_embedding), k=3)
-        retrieved_hints = retrieved_hints["hint"]
-        self.hints_str = "\n".join(["* " + hint for hint in retrieved_hints])
-
-    def get_step_hints(self, obs: Any) -> None:
-        # TODO: enable step-level hinting
-        pass
+        try:
+            embedding_response = embedding(model="gemini-embedding-001", input=[hint_query_str], input_type="RETRIEVAL_QUERY")
+            query_embedding = embedding_response.data[0]["embedding"]
+            _, retrieved_hints = self.hints_ds.get_nearest_examples("embedding", np.array(query_embedding), k=3)
+            retrieved_hints = retrieved_hints["hint"]
+            self.hints_str = "\n".join(["* " + hint for hint in retrieved_hints])
+        except:
+            logger.warning("Failed to get hints - Failed to retrieve nearest examples. Falling back to empty string.")
+            self.hints_str = ""
 
     # @cost_tracker_decorator
     def get_user_query(self, obs: Any) -> str:
@@ -538,9 +551,14 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-        response = response.raw_response
-        response_text = response.choices[0].message.content
-        response_text = response_text.strip().split("<query>")[1].split("</query>")[0]
+        try:
+            response = response.raw_response
+            response_text = response.choices[0].message.content
+            response_text = response_text.strip().split("<query>")[1].split("</query>")[0]
+        except:
+            # fallback
+            logger.warning("Failed to get user query - Failed to parse LLM response. Falling back to goal string.")
+            response_text = self.obs["goal_object"][0]["text"]
         return response_text
 
     # @cost_tracker_decorator
@@ -675,10 +693,14 @@ class DynamicGuidanceAgent(bgym.Agent):
                 reasoning_effort="low",
             )
         )
-        dynamic_guidance_response = dynamic_guidance_response.raw_response
-        dynamic_guidance_response_text = dynamic_guidance_response.choices[0].message.content
-        self.conversation_for_traces.append({"role": "assistant", "content": [{"type": "input_text", "text": dynamic_guidance_response_text}]})
-        dynamic_guidance_response_text = dynamic_guidance_response_text.strip().split("<guidance>")[1].split("</guidance>")[0]
+        try:
+            dynamic_guidance_response = dynamic_guidance_response.raw_response
+            dynamic_guidance_response_text = dynamic_guidance_response.choices[0].message.content
+            self.conversation_for_traces.append({"role": "assistant", "content": [{"type": "input_text", "text": dynamic_guidance_response_text}]})
+            dynamic_guidance_response_text = dynamic_guidance_response_text.strip().split("<guidance>")[1].split("</guidance>")[0]
+        except:
+            logger.warning("Failed to get dynamic guidance - Failed to parse LLM response. Falling back to empty string.")
+            dynamic_guidance_response_text = "Wait for a couple of seconds and try again."
 
         # based on the current screenshot (for grounding) and the agent llm instruction ONLY, the user llm performs one of the provided actions
         action = self.get_user_action(obs, dynamic_guidance_response_text)
