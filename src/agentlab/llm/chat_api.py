@@ -119,7 +119,9 @@ class OpenAIModelArgs(BaseModelArgs):
 class AzureModelArgs(BaseModelArgs):
     """Serializable object for instantiating a generic chat model with an Azure model."""
 
-    deployment_name: str = None  # NOTE: deployment_name is deprecated for Azure OpenAI and won't be used.
+    deployment_name: str = (
+        None  # NOTE: deployment_name is deprecated for Azure OpenAI and won't be used.
+    )
 
     def make_model(self):
         return AzureChatModel(
@@ -217,7 +219,9 @@ class RetryError(Exception):
 def handle_error(error, itr, min_retry_wait_time, max_retry):
     if not isinstance(error, openai.OpenAIError):
         raise error
-    logging.warning(f"Failed to get a response from the API: \n{error}\n" f"Retrying... ({itr+1}/{max_retry})")
+    logging.warning(
+        f"Failed to get a response from the API: \n{error}\n" f"Retrying... ({itr+1}/{max_retry})"
+    )
     wait_time = _extract_wait_time(
         error.args[0],
         min_retry_wait_time=min_retry_wait_time,
@@ -316,13 +320,18 @@ class ChatModel(AbstractChatModel):
                 self.error_types.append(error_type)
 
         if not completion:
-            raise RetryError(f"Failed to get a response from the API after {self.max_retry} retries\n" f"Last error: {error_type}")
+            raise RetryError(
+                f"Failed to get a response from the API after {self.max_retry} retries\n"
+                f"Last error: {error_type}"
+            )
 
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if hasattr(tracking.TRACKER, "instance") and isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+        if hasattr(tracking.TRACKER, "instance") and isinstance(
+            tracking.TRACKER.instance, tracking.LLMTracker
+        ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
@@ -409,12 +418,18 @@ class AzureChatModel(ChatModel):
         log_probs=False,
     ):
         api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
-        assert api_key, "AZURE_OPENAI_API_KEY has to be defined in the environment when using AzureChatModel"
+        assert (
+            api_key
+        ), "AZURE_OPENAI_API_KEY has to be defined in the environment when using AzureChatModel"
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        assert endpoint, "AZURE_OPENAI_ENDPOINT has to be defined in the environment when using AzureChatModel"
+        assert (
+            endpoint
+        ), "AZURE_OPENAI_ENDPOINT has to be defined in the environment when using AzureChatModel"
 
         if deployment_name is not None:
-            logging.info(f"Deployment name is deprecated for Azure OpenAI and won't be used. Using model name: {model_name}.")
+            logging.info(
+                f"Deployment name is deprecated for Azure OpenAI and won't be used. Using model name: {model_name}."
+            )
 
         client_args = {
             "base_url": endpoint,
@@ -546,8 +561,12 @@ class AnthropicChatModel(AbstractChatModel):
                 output_tokens = getattr(usage, "output_tokens", 0)
                 cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
                 cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
-                cache_read_cost = self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
-                cache_write_cost = self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+                cache_read_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
+                )
+                cache_write_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+                )
                 cost = (
                     new_input_tokens * self.input_cost
                     + output_tokens * self.output_cost
@@ -556,7 +575,9 @@ class AnthropicChatModel(AbstractChatModel):
                 )
 
                 # Track usage if available
-                if hasattr(tracking.TRACKER, "instance") and isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+                if hasattr(tracking.TRACKER, "instance") and isinstance(
+                    tracking.TRACKER.instance, tracking.LLMTracker
+                ):
                     tracking.TRACKER.instance(new_input_tokens, output_tokens, cost)
 
                 return AIMessage(response.content[0].text)
@@ -593,8 +614,14 @@ class BedrockChatModel(AnthropicChatModel):
         self.max_tokens = max_tokens
         self.max_retry = max_retry
 
-        if not os.getenv("AWS_REGION") or not os.getenv("AWS_ACCESS_KEY") or not os.getenv("AWS_SECRET_KEY"):
-            raise ValueError("AWS_REGION, AWS_ACCESS_KEY and AWS_SECRET_KEY must be set in the environment when using BedrockChatModel")
+        if (
+            not os.getenv("AWS_REGION")
+            or not os.getenv("AWS_ACCESS_KEY")
+            or not os.getenv("AWS_SECRET_KEY")
+        ):
+            raise ValueError(
+                "AWS_REGION, AWS_ACCESS_KEY and AWS_SECRET_KEY must be set in the environment when using BedrockChatModel"
+            )
 
         self.client = anthropic.AnthropicBedrock(
             aws_region=os.getenv("AWS_REGION"),
@@ -684,13 +711,18 @@ class LiteLLMChatModel(AbstractChatModel):
                 self.error_types.append(error_type)
 
         if not completion:
-            raise RetryError(f"Failed to get a response from the API after {self.max_retry} retries\n" f"Last error: {error_type}")
+            raise RetryError(
+                f"Failed to get a response from the API after {self.max_retry} retries\n"
+                f"Last error: {error_type}"
+            )
 
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
-        if hasattr(tracking.TRACKER, "instance") and isinstance(tracking.TRACKER.instance, tracking.LLMTracker):
+        if hasattr(tracking.TRACKER, "instance") and isinstance(
+            tracking.TRACKER.instance, tracking.LLMTracker
+        ):
             tracking.TRACKER.instance(input_tokens, output_tokens, cost)
 
         if n_samples == 1:
@@ -704,7 +736,10 @@ class LiteLLMChatModel(AbstractChatModel):
                 res["log_probs"] = completion.choices[0].log_probs
             return res
         else:
-            return [AIMessage(c.message.content.removesuffix("<|end|>").strip()) for c in completion.choices]
+            return [
+                AIMessage(c.message.content.removesuffix("<|end|>").strip())
+                for c in completion.choices
+            ]
 
     def get_stats(self):
         return {
