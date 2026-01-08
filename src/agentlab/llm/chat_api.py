@@ -98,7 +98,6 @@ class LiteLLMModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             log_probs=self.log_probs,
-            reasoning_effort=self.reasoning_effort,
         )
 
 
@@ -653,7 +652,6 @@ class LiteLLMChatModel(AbstractChatModel):
         client_args=None,
         pricing_func=None,
         log_probs=False,
-        reasoning_effort=None,
     ):
         assert max_retry > 0, "max_retry should be greater than 0"
 

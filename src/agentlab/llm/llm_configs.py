@@ -201,68 +201,6 @@ CHAT_MODEL_ARGS_DICT = {
         temperature=1,  # temperature param not supported by gpt-5
         vision_support=True,
     ),
-    "azure/gpt-5-high-2025-08-07": AzureModelArgs(
-        model_name="gpt-5",
-        max_total_tokens=400_000,
-        max_input_tokens=256_000,
-        max_new_tokens=128_000,
-        temperature=1,  # temperature param not supported by gpt-5
-        vision_support=True,
-        reasoning_effort="high",
-    ),
-    "azure/gpt-5-mini-high-2025-08-07": AzureModelArgs(
-        model_name="gpt-5-mini",
-        max_total_tokens=400_000,
-        max_input_tokens=256_000,
-        max_new_tokens=128_000,
-        temperature=1,  # temperature param not supported by gpt-5
-        vision_support=True,
-        reasoning_effort="high",
-    ),
-    "azure/gpt-5-nano-high-2025-08-07": AzureModelArgs(
-        model_name="gpt-5-nano",
-        max_total_tokens=400_000,
-        max_input_tokens=256_000,
-        max_new_tokens=128_000,
-        temperature=1,  # temperature param not supported by gpt-5
-        vision_support=True,
-        reasoning_effort="high",
-    ),
-    "azure/gpt-oss-120b": AzureModelArgs(
-        model_name="gpt-oss-120b",
-        max_total_tokens=200_000,
-        max_input_tokens=200_000,
-        max_new_tokens=100_000,
-        temperature=1,
-        vision_support=False,
-        reasoning_effort="low",
-    ),
-    "azure/o3-high-2025-04-16": AzureModelArgs(
-        model_name="o3",
-        max_total_tokens=200_000,
-        max_input_tokens=200_000,
-        max_new_tokens=100_000,
-        temperature=1,
-        vision_support=False,
-        reasoning_effort="high",
-    ),
-    "azure/o3-mini-2025-01-31": AzureModelArgs(
-        model_name="o3-mini",
-        max_total_tokens=200_000,
-        max_input_tokens=200_000,
-        max_new_tokens=100_000,
-        temperature=1,
-        vision_support=False,
-    ),
-    "azure/o3-mini-high-2025-01-31": AzureModelArgs(
-        model_name="o3-mini",
-        max_total_tokens=200_000,
-        max_input_tokens=200_000,
-        max_new_tokens=100_000,
-        temperature=1,
-        vision_support=False,
-        reasoning_effort="high",
-    ),
     # ---------------- Anthropic ----------------#
     "anthropic/claude-3-7-sonnet-20250219": AnthropicModelArgs(
         model_name="claude-3-7-sonnet-20250219",
