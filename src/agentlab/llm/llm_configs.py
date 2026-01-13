@@ -1,13 +1,13 @@
-from openai import NOT_GIVEN
-
 from agentlab.llm.chat_api import (
     AnthropicModelArgs,
     AzureModelArgs,
     BedrockModelArgs,
+    LiteLLMModelArgs,
     OpenAIModelArgs,
     OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
+from openai import NOT_GIVEN
 
 default_oss_llms_args = {
     "n_retry_server": 4,
