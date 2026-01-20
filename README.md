@@ -52,7 +52,7 @@ AgentLab Features:
 | Benchmark | Setup  <br> Link | # Task <br> Template| Seed  <br> Diversity | Max  <br> Step | Multi-tab | Hosted Method | BrowserGym <br> Leaderboard |
 |-----------|------------|---------|----------------|-----------|-----------|---------------|----------------------|
 | [WebArena](https://webarena.dev/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena/README.md) | 812 | None | 30 | yes | self hosted (docker) | soon |
-| [WebArena-Verified](https://github.com/ServiceNow/webarena-verified) | [setup](https://github.com/ServiceNow/BrowserGym/blob/wa_verified/browsergym/webarena_verified/README.md) | 812 | None | 30 | yes | self hosted | soon |
+| [WebArena-Verified](https://github.com/ServiceNow/webarena-verified) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena_verified/README.md) | 812 | None | 30 | yes | self hosted | soon |
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L1 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 33 | High | 30 | no | demo instance | soon |
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L2 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L3 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
