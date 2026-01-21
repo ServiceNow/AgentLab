@@ -389,6 +389,13 @@ class Study(AbstractStudy):
             avg_step_timeout=self.avg_step_timeout,
         )
 
+    def get_journal_entries(self, strict_reproducibility=True, headers=None):
+        """Get the journal entries for the study."""
+        _, summary_df, _ = self.get_results()
+        return repro.create_journal_entries(
+            self.reproducibility_info, summary_df, strict_reproducibility, headers
+        )
+
     def append_to_journal(self, strict_reproducibility=True):
         """Append the study to the journal.
 
@@ -396,12 +403,11 @@ class Study(AbstractStudy):
             strict_reproducibility: bool
                 If True, incomplete experiments will raise an error.
         """
-        _, summary_df, _ = self.get_results()
-        repro.append_to_journal(
-            self.reproducibility_info,
-            summary_df,
-            strict_reproducibility=strict_reproducibility,
+        journal_path, headers = repro.get_headers_from_journal()
+        rows = self.get_journal_entries(
+            strict_reproducibility=strict_reproducibility, headers=headers
         )
+        repro.write_entries_to_journal(journal_path, rows)
 
     @property
     def name(self):
