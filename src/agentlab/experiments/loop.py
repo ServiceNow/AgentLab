@@ -427,6 +427,8 @@ class ExpArgs:
             )
 
             logger.debug("Environment created.")
+            if hasattr(agent, "set_env"):
+                agent.set_env(env)
             step_info = StepInfo(step=0)
             episode_info = [step_info]
             step_info.from_reset(

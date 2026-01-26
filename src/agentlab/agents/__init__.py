@@ -11,3 +11,5 @@ This module contains the agent implementations for AgentLab. With currently:
 
 - VisualWebArenaAgent: An implementation of the agent used in WebArena and VisualWebArena
 """
+
+from agentlab.agents.cheating_agent import CHEATING_AGENT, CheatingAgentArgs
