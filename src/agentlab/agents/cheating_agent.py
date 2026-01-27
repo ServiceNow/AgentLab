@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Iterable
+import inspect
 import logging
 
 import bgym
@@ -15,6 +16,7 @@ class CheatingAgentArgs(AgentArgs):
     cheat_method: str = "cheat"
     stop_on_exhausted: bool = True
     fail_fast: bool = True
+    fallback_action: str = "scroll(0, 0)"
 
     def __post_init__(self):
         try:
@@ -31,6 +33,7 @@ class CheatingAgentArgs(AgentArgs):
             cheat_method=self.cheat_method,
             stop_on_exhausted=self.stop_on_exhausted,
             fail_fast=self.fail_fast,
+            fallback_action=self.fallback_action,
         )
 
 
@@ -41,15 +44,19 @@ class CheatingAgent(Agent):
         cheat_method: str = "cheat",
         stop_on_exhausted: bool = True,
         fail_fast: bool = True,
+        fallback_action: str = "scroll(0, 0)",
     ):
         self.action_set = action_set_args.make_action_set()
         self._cheat_method = cheat_method
         self._stop_on_exhausted = stop_on_exhausted
         self._fail_fast = fail_fast
+        self._fallback_action = fallback_action
         self._env = None
         self._task = None
         self._oracle_actions = None
         self._oracle_index = 0
+        self._mode = None  # "actions", "single", or "compositional"
+        self._cheat_executed = False
         self._logger = logging.getLogger(__name__)
 
     def set_env(self, env):
@@ -83,16 +90,25 @@ class CheatingAgent(Agent):
                 return page
         return None
 
-    def _call_cheat(self, cheat_fn, obs):
+    def _call_cheat(self, cheat_fn, obs, subtask_idx: int | None = None):
         page = self._get_page()
         chat_messages = self._get_chat_messages()
 
         self._logger.debug(
-            "Calling cheat() with page=%s chat_messages=%s obs_keys=%s",
+            "Calling cheat() with page=%s chat_messages=%s subtask_idx=%s obs_keys=%s",
             "yes" if page is not None else "no",
             "yes" if chat_messages is not None else "no",
+            subtask_idx,
             list(obs.keys()) if isinstance(obs, dict) else type(obs).__name__,
         )
+
+        if subtask_idx is not None:
+            try:
+                sig = inspect.signature(cheat_fn)
+                if "subtask_idx" in sig.parameters and page is not None and chat_messages is not None:
+                    return cheat_fn(page, chat_messages, subtask_idx)
+            except (ValueError, TypeError):
+                pass
 
         if page is not None and chat_messages is not None:
             try:
@@ -158,38 +174,47 @@ class CheatingAgent(Agent):
             return list(oracle)
         raise TypeError(f"Unsupported oracle type: {type(oracle)}")
 
-    def _init_oracle(self, obs):
-        if self._oracle_actions is not None:
-            return
-
+    def _get_task_or_error(self):
         task = self._task
         if task is None and self._env is not None:
             task = getattr(getattr(self._env, "unwrapped", self._env), "task", None)
-
         if task is None:
             raise RuntimeError(
                 "CheatingAgent needs access to env.task. Ensure the experiment loop "
                 "calls agent.set_env(env) after env creation."
             )
+        return task
 
-        cheat_fn = getattr(task, self._cheat_method, None)
-        if cheat_fn is None:
-            raise RuntimeError(
-                f"Task {type(task).__name__} has no {self._cheat_method}() method."
-            )
+    def _is_compositional_task(self, task) -> bool:
+        return hasattr(task, "subtasks") or hasattr(task, "valid_index")
 
-        oracle = self._call_cheat(cheat_fn, obs)
+    def _get_subtask_index(self, task) -> int:
+        if hasattr(task, "valid_index"):
+            try:
+                return int(task.valid_index)
+            except Exception:
+                pass
+        return 0
 
+    def _handle_oracle_return(self, oracle, obs):
         self._logger.info(
             "cheat() returned type=%s value_preview=%s",
             type(oracle).__name__,
             repr(oracle)[:200],
         )
 
-        self._oracle_actions = self._extract_oracle_actions(oracle)
-        self._oracle_index = 0
+        if oracle is None:
+            self._logger.info(
+                "cheat() returned None; using fallback action: %s", self._fallback_action
+            )
+            chat_messages = self._get_chat_messages()
+            if isinstance(chat_messages, list) and chat_messages:
+                last = chat_messages[-1]
+                self._logger.info("last_chat_message=%s", repr(last)[:200])
+            return False
 
-        if self._fail_fast and len(self._oracle_actions) == 0:
+        actions = self._extract_oracle_actions(oracle)
+        if self._fail_fast and len(actions) == 0:
             page = self._get_page()
             chat_messages = self._get_chat_messages()
             page_type = type(page).__name__ if page is not None else "None"
@@ -208,25 +233,66 @@ class CheatingAgent(Agent):
                 f"obs_keys={obs_keys}"
             )
 
-        self._logger.debug("oracle_actions_len=%d", len(self._oracle_actions))
+        if len(actions) > 0:
+            self._oracle_actions = actions
+            self._oracle_index = 0
+            self._mode = "actions"
+            self._logger.debug("oracle_actions_len=%d", len(self._oracle_actions))
+            return True
+
+        return False
 
     def get_action(self, obs):
-        self._init_oracle(obs)
+        task = self._get_task_or_error()
+        cheat_fn = getattr(task, self._cheat_method, None)
+        if cheat_fn is None:
+            raise RuntimeError(
+                f"Task {type(task).__name__} has no {self._cheat_method}() method."
+            )
 
-        if self._oracle_index >= len(self._oracle_actions):
-            action = None if self._stop_on_exhausted else ""
+        if self._mode is None:
+            self._mode = "compositional" if self._is_compositional_task(task) else "single"
+            self._logger.debug("CheatingAgent mode=%s", self._mode)
+
+        if self._mode == "actions":
+            if self._oracle_index >= len(self._oracle_actions):
+                action = None if self._stop_on_exhausted else ""
+            else:
+                action = self._oracle_actions[self._oracle_index]
+            if self._fail_fast and (action is None or action == ""):
+                raise RuntimeError("Oracle produced empty action; failing fast.")
+            self._oracle_index += 1
+        elif self._mode == "compositional":
+            subtask_idx = self._get_subtask_index(task)
+            oracle = self._call_cheat(cheat_fn, obs, subtask_idx=subtask_idx)
+            switched = self._handle_oracle_return(oracle, obs)
+            if switched:
+                action = self._oracle_actions[self._oracle_index]
+                self._oracle_index += 1
+            else:
+                action = self._fallback_action
         else:
-            action = self._oracle_actions[self._oracle_index]
-
-        if self._fail_fast and (action is None or action == ""):
-            raise RuntimeError("Oracle produced empty action; failing fast.")
+            if not self._cheat_executed:
+                oracle = self._call_cheat(cheat_fn, obs)
+                switched = self._handle_oracle_return(oracle, obs)
+                self._cheat_executed = True
+                if switched:
+                    action = self._oracle_actions[self._oracle_index]
+                    self._oracle_index += 1
+                else:
+                    action = self._fallback_action
+            else:
+                action = self._fallback_action
 
         agent_info = AgentInfo(
             think="oracle",
             chat_messages=[],
-            stats={"oracle_step": self._oracle_index, "oracle_len": len(self._oracle_actions)},
+            stats={
+                "oracle_step": self._oracle_index,
+                "oracle_len": len(self._oracle_actions) if self._oracle_actions else 0,
+                "mode": self._mode,
+            },
         )
-        self._oracle_index += 1
         return action, agent_info
 
 
