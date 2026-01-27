@@ -61,6 +61,8 @@ class CheatingAgent(Agent):
         self._oracle_index = 0
         self._mode = None  # "actions", "single", or "compositional"
         self._cheat_executed = False
+        self._subtask_idx = 0
+        self._subtask_count = None
         self._logger = logging.getLogger(__name__)
 
     def set_env(self, env):
@@ -227,10 +229,14 @@ class CheatingAgent(Agent):
     def _is_compositional_task(self, task) -> bool:
         return hasattr(task, "subtasks") or hasattr(task, "valid_index")
 
-    def _get_subtask_index(self, task) -> int:
-        if hasattr(task, "valid_index"):
+    def _get_subtask_count(self, task) -> int:
+        try:
+            return len(task)
+        except Exception:
+            pass
+        if hasattr(task, "subtasks"):
             try:
-                return int(task.valid_index)
+                return len(task.subtasks)
             except Exception:
                 pass
         return 0
@@ -302,12 +308,19 @@ class CheatingAgent(Agent):
                 raise RuntimeError("Oracle produced empty action; failing fast.")
             self._oracle_index += 1
         elif self._mode == "compositional":
-            subtask_idx = self._get_subtask_index(task)
-            oracle = self._call_cheat(cheat_fn, obs, subtask_idx=subtask_idx)
-            switched = self._handle_oracle_return(oracle, obs)
-            if switched:
-                action = self._oracle_actions[self._oracle_index]
-                self._oracle_index += 1
+            if self._subtask_count is None:
+                self._subtask_count = self._get_subtask_count(task)
+                self._logger.info("Compositional task with %s subtasks", self._subtask_count)
+            if self._subtask_idx < (self._subtask_count or 0):
+                self._logger.info("Cheating subtask %s/%s", self._subtask_idx + 1, self._subtask_count)
+                oracle = self._call_cheat(cheat_fn, obs, subtask_idx=self._subtask_idx)
+                self._subtask_idx += 1
+                switched = self._handle_oracle_return(oracle, obs)
+                if switched:
+                    action = self._oracle_actions[self._oracle_index]
+                    self._oracle_index += 1
+                else:
+                    action = self._fallback_action
             else:
                 action = self._fallback_action
         else:
