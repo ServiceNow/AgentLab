@@ -12,14 +12,14 @@ from agentlab.agents import CHEATING_AGENT
 from agentlab.experiments.study import make_study
 
 # Force DEBUG logging (including CheatingAgent internals)
-logging.basicConfig(level=logging.DEBUG)
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
-for handler in root_logger.handlers:
-    handler.setLevel(logging.DEBUG)
-logging.getLogger("agentlab.agents.cheating_agent").setLevel(logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
+# root_logger = logging.getLogger()
+# root_logger.setLevel(logging.DEBUG)
+# for handler in root_logger.handlers:
+#     handler.setLevel(logging.DEBUG)
+# logging.getLogger("agentlab.agents.cheating_agent").setLevel(logging.DEBUG)
 
-benchmarks = ["workarena_l1", "workarena_l2", "workarena_l3"]
+benchmarks = ["workarena_l3_agent_curriculum_eval"]
 
 # Number of parallel jobs
 n_jobs = 1
