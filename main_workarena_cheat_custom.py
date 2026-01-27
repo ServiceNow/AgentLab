@@ -1,5 +1,5 @@
 """
-Run CheatingAgent with cheat_custom adapters on a small WorkArena L1 subset.
+Run CheatingAgent with cheat_custom adapters on a small WorkArena subset.
 """
 
 import logging
@@ -11,10 +11,15 @@ from agentlab.cheat_custom.workarena_adapters import register_workarena_cheat_cu
 from agentlab.experiments.study import make_study
 
 TASK_IDS = [
-    "workarena.servicenow.all-menu",
-    "workarena.servicenow.filter-incident-list",
-    "workarena.servicenow.create-incident",
-    "workarena.servicenow.order-apple-watch",
+    # L1 tasks (kept for later):
+    # "workarena.servicenow.all-menu",
+    # "workarena.servicenow.filter-incident-list",
+    # "workarena.servicenow.create-incident",
+    # "workarena.servicenow.order-apple-watch",
+    # L3 tasks (navigate + do):
+    "workarena.servicenow.navigate-and-create-incident-l3",
+    "workarena.servicenow.navigate-and-filter-incident-list-l3",
+    "workarena.servicenow.navigate-and-order-apple-watch-l3",
 ]
 
 # Number of parallel jobs
@@ -29,7 +34,7 @@ CHEATING_AGENT.snow_browser_timeout_ms = 120_000
 if __name__ == "__main__":
     register_workarena_cheat_customs()
 
-    benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l1"]()
+    benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l3"]()
     benchmark.env_args_list = [
         env_args for env_args in benchmark.env_args_list if env_args.task_name in TASK_IDS
     ]
@@ -41,7 +46,7 @@ if __name__ == "__main__":
     study = make_study(
         benchmark=benchmark,
         agent_args=[CHEATING_AGENT],
-        comment="cheat_custom L1 subset",
+        comment="cheat_custom L3 subset",
     )
     study.avg_step_timeout = avg_step_timeout
     study.run(

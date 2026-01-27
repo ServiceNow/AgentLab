@@ -77,6 +77,7 @@ Part 1 has been implemented in `enterprise/AgentLab/` with the following concret
   - `cheat_method` default is now `cheat_custom`.
   - `cheat_custom` path **fails fast** on missing or empty actions.
   - `ensure_cheat_custom(task)` is called so each task has a `cheat_custom` method (real or stub).
+  - **Compositional subtasks now advance via `valid_index`**, allowing multiple `cheat_custom` calls per subtask (multi‑phase flows).
 - **Backwards compatibility preserved**:
   - Existing `cheat()` behavior remains unchanged when `cheat_method="cheat"`.
   - Trajectory/log layout is unchanged; `step.action` is now the real action string when `cheat_custom` is used.
@@ -180,7 +181,15 @@ This is the heavy‑lift section. Each task that needs action‑space trajectori
 - `workarena.servicenow.create-incident` → form actions (`fill`, `select_option`, `click`)
 - `workarena.servicenow.order-apple-watch` → multi‑phase catalog flow (Hardware → item → quantity → order)
 
-**Coverage so far:** 4 / 33 L1 tasks (based on WorkArena `TASK_CATEGORY_MAP`).
+**Implemented adapters (L3 pilot):**
+- `workarena.servicenow.navigate-and-create-incident-l3` → compositional delegation
+- `workarena.servicenow.navigate-and-filter-incident-list-l3` → compositional delegation
+- `workarena.servicenow.navigate-and-order-apple-watch-l3` → compositional delegation
+
+**Building‑block adapter (used by L3):**
+- `UpdatePrivateTask` → list search + open record → set state + update (multi‑phase)
+
+**Coverage so far:** 4 / 33 L1 tasks, 3 pilot L3 tasks.
 
 **Known gaps / risks discovered:**
 - `Order*` tasks can be **multi‑phase**; `cheat_custom` must be callable more than once for a single task.

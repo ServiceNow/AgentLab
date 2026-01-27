@@ -1,7 +1,7 @@
 import logging
 from urllib import parse
 
-from agentlab.cheat_custom.registry import register_cheat_custom
+from agentlab.cheat_custom.registry import register_cheat_custom, ensure_cheat_custom
 
 logger = logging.getLogger(__name__)
 
@@ -145,9 +145,8 @@ def cheat_custom_create_incident(task, page, chat_messages=None, subtask_idx=Non
     if iframe is None:
         raise RuntimeError("Could not find gsft_main iframe for form")
 
-    current_url = page.evaluate("() => window.location.href")
-    if current_url and current_url.endswith("_list.do"):
-        new_btn = iframe.locator("#sysverb_new")
+    new_btn = iframe.locator("#sysverb_new")
+    if new_btn.count() > 0:
         return [f"click('{_bid_from_locator(new_btn, 'New button')}')"]
 
     if task.table_metadata is None:
@@ -229,12 +228,83 @@ def cheat_custom_order_apple_watch(task, page, chat_messages=None, subtask_idx=N
     return [f"goto('{_escape(task.start_url)}')"]
 
 
+def cheat_custom_update_private_task(task, page, chat_messages=None, subtask_idx=None):
+    if page is None:
+        raise RuntimeError("UpdatePrivateTask requires a Playwright page")
+    iframe = page.frame(name="gsft_main")
+    if iframe is None:
+        raise RuntimeError("Could not find gsft_main iframe for private task")
+
+    search_field = iframe.get_by_label("Search a specific field of the Tasks list")
+    if search_field.count() > 0:
+        actions: list[str] = []
+        search_bid = _bid_from_locator(search_field, "task search field")
+        actions.append(f"select_option('{search_bid}', 'number')")
+        search_input = iframe.locator('input[aria-label="Search"]')
+        search_input_bid = _bid_from_locator(search_input, "task search input")
+        if not getattr(task, "private_task_id", None):
+            raise RuntimeError("UpdatePrivateTask missing private_task_id")
+        actions.append(f"fill('{search_input_bid}', '{_escape(task.private_task_id)}')")
+        actions.append(f"press('{search_input_bid}', 'Enter')")
+        record_link = iframe.get_by_label(f"Open record: {task.private_task_id}")
+        actions.append(f"click('{_bid_from_locator(record_link, 'open private task')}')")
+        actions.append("noop(1500)")
+        return actions
+
+    state_select = iframe.get_by_label("state")
+    if state_select.count() == 0:
+        state_select = iframe.get_by_label("State")
+    state_bid = _bid_from_locator(state_select, "state select")
+    option = "3" if getattr(task, "set_as_completed", True) else "7"
+    update_btn = iframe.locator("#sysverb_update")
+    if update_btn.count() == 0:
+        update_btn = iframe.get_by_text("update")
+    update_bid = _bid_from_locator(update_btn, "update button")
+    return [
+        f"select_option('{state_bid}', '{option}')",
+        f"click('{update_bid}')",
+    ]
+
+
+def cheat_custom_compositional(task, page=None, chat_messages=None, subtask_idx=None):
+    if subtask_idx is None:
+        raise RuntimeError("cheat_custom_compositional requires subtask_idx")
+    subtasks = getattr(task, "subtasks", None)
+    if not subtasks:
+        raise RuntimeError("Compositional task has no subtasks")
+    if subtask_idx < 0 or subtask_idx >= len(subtasks):
+        raise RuntimeError(f"Invalid subtask_idx {subtask_idx} (len={len(subtasks)})")
+    subtask = subtasks[subtask_idx]
+    ensure_cheat_custom(subtask)
+    cheat_fn = getattr(subtask, "cheat_custom", None)
+    if cheat_fn is None:
+        raise RuntimeError(f"Subtask {type(subtask).__name__} missing cheat_custom")
+    return cheat_fn(page, chat_messages)
+
+
+def _register_task_id(task_id: str, fn) -> None:
+    try:
+        import browsergym.workarena as wa
+    except Exception as exc:
+        logger.warning("Could not import WorkArena for task lookup: %s", exc)
+        return
+    for task_cls in getattr(wa, "ALL_WORKARENA_TASKS", []):
+        try:
+            if getattr(task_cls, "get_task_id", None) and task_cls.get_task_id() == task_id:
+                register_cheat_custom(task_cls, fn)
+                return
+        except Exception:
+            continue
+    logger.warning("Could not find WorkArena task class for %s", task_id)
+
+
 def register_workarena_cheat_customs() -> None:
     try:
         from browsergym.workarena.tasks.navigation import AllMenuTask
         from browsergym.workarena.tasks.list import FilterIncidentListTask
         from browsergym.workarena.tasks.form import CreateIncidentTask
         from browsergym.workarena.tasks.service_catalog import OrderAppleWatchTask
+        from browsergym.workarena.tasks.compositional.update_task import UpdatePrivateTask
     except Exception as exc:
         logger.warning("Could not import WorkArena tasks: %s", exc)
         return
@@ -243,3 +313,15 @@ def register_workarena_cheat_customs() -> None:
     register_cheat_custom(FilterIncidentListTask, cheat_custom_filter_incident_list)
     register_cheat_custom(CreateIncidentTask, cheat_custom_create_incident)
     register_cheat_custom(OrderAppleWatchTask, cheat_custom_order_apple_watch)
+    register_cheat_custom(UpdatePrivateTask, cheat_custom_update_private_task)
+
+    # L3 compositional tasks (delegate to subtasks)
+    _register_task_id(
+        "workarena.servicenow.navigate-and-create-incident-l3", cheat_custom_compositional
+    )
+    _register_task_id(
+        "workarena.servicenow.navigate-and-filter-incident-list-l3", cheat_custom_compositional
+    )
+    _register_task_id(
+        "workarena.servicenow.navigate-and-order-apple-watch-l3", cheat_custom_compositional
+    )

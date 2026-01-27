@@ -378,6 +378,14 @@ class CheatingAgent(Agent):
                     self._logger.info(
                         "Compositional task with %s subtasks", self._subtask_count
                     )
+                valid_index = getattr(task, "valid_index", None)
+                if isinstance(valid_index, int) and valid_index > self._subtask_idx:
+                    self._logger.info(
+                        "cheat_custom advancing subtask index from %s to %s (validated)",
+                        self._subtask_idx,
+                        valid_index,
+                    )
+                    self._subtask_idx = valid_index
                 if self._subtask_idx >= (self._subtask_count or 0):
                     raise RuntimeError("cheat_custom() exhausted all subtasks.")
                 self._logger.info(
@@ -386,6 +394,7 @@ class CheatingAgent(Agent):
                     self._subtask_count,
                 )
                 oracle = self._call_cheat(cheat_fn, obs, subtask_idx=self._subtask_idx)
+                # Mirror cheat() compositional behavior: advance after each new oracle.
                 self._subtask_idx += 1
             else:
                 oracle = self._call_cheat(cheat_fn, obs)
