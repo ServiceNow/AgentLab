@@ -6,6 +6,8 @@ Copy and modify locally as needed; don't push changes upstream.
 
 import logging
 
+import bgym
+
 from agentlab.agents import CHEATING_AGENT
 from agentlab.experiments.study import make_study
 
@@ -19,8 +21,12 @@ parallel_backend = "ray"
 
 if __name__ == "__main__":
     for benchmark in benchmarks:
+        benchmark_obj = bgym.DEFAULT_BENCHMARKS[benchmark]()
+        for env_args in benchmark_obj.env_args_list:
+            env_args.headless = True
+
         study = make_study(
-            benchmark=benchmark,
+            benchmark=benchmark_obj,
             agent_args=[CHEATING_AGENT],
             comment="cheat trajectories",
         )

@@ -61,6 +61,46 @@ class CheatingAgent(Agent):
                 return None
         return None
 
+    def _get_page(self):
+        env = self._env
+        if env is None:
+            return None
+        unwrapped = getattr(env, "unwrapped", env)
+        for attr in ("page", "_page", "pw_page"):
+            page = getattr(unwrapped, attr, None)
+            if page is not None:
+                return page
+        return None
+
+    def _call_cheat(self, cheat_fn, obs):
+        page = self._get_page()
+        chat_messages = self._get_chat_messages()
+
+        if page is not None and chat_messages is not None:
+            try:
+                return cheat_fn(page, chat_messages)
+            except TypeError:
+                pass
+        if page is not None:
+            try:
+                return cheat_fn(page)
+            except TypeError:
+                pass
+        if chat_messages is not None:
+            try:
+                return cheat_fn(chat_messages)
+            except TypeError:
+                pass
+        try:
+            return cheat_fn(obs, chat_messages)
+        except TypeError:
+            pass
+        try:
+            return cheat_fn(obs)
+        except TypeError:
+            pass
+        return cheat_fn()
+
     def _extract_oracle_actions(self, oracle: Any) -> list[str]:
         if oracle is None:
             return []
@@ -97,20 +137,7 @@ class CheatingAgent(Agent):
                 f"Task {type(task).__name__} has no {self._cheat_method}() method."
             )
 
-        chat_messages = self._get_chat_messages()
-        try:
-            oracle = cheat_fn()
-        except TypeError:
-            try:
-                oracle = cheat_fn(obs)
-            except TypeError:
-                if chat_messages is not None:
-                    try:
-                        oracle = cheat_fn(chat_messages)
-                    except TypeError:
-                        oracle = cheat_fn(obs, chat_messages)
-                else:
-                    oracle = cheat_fn(obs, chat_messages)
+        oracle = self._call_cheat(cheat_fn, obs)
 
         self._oracle_actions = self._extract_oracle_actions(oracle)
         self._oracle_index = 0
