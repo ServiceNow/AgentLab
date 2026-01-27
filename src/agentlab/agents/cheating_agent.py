@@ -7,13 +7,14 @@ import bgym
 from browsergym.experiments.agent import Agent, AgentInfo
 
 from agentlab.agents.agent_args import AgentArgs
+from agentlab.cheat_custom import ensure_cheat_custom
 
 
 @dataclass
 class CheatingAgentArgs(AgentArgs):
-    """Agent that executes oracle actions from task.cheat()."""
+    """Agent that executes oracle actions from task.cheat_custom() or task.cheat()."""
 
-    cheat_method: str = "cheat"
+    cheat_method: str = "cheat_custom"
     stop_on_exhausted: bool = True
     fail_fast: bool = True
     fallback_action: str = "scroll(0, 0)"
@@ -43,7 +44,7 @@ class CheatingAgent(Agent):
     def __init__(
         self,
         action_set_args,
-        cheat_method: str = "cheat",
+        cheat_method: str = "cheat_custom",
         stop_on_exhausted: bool = True,
         fail_fast: bool = True,
         fallback_action: str = "scroll(0, 0)",
@@ -51,6 +52,7 @@ class CheatingAgent(Agent):
     ):
         self.action_set = action_set_args.make_action_set()
         self._cheat_method = cheat_method
+        self._cheat_custom_only = cheat_method == "cheat_custom"
         self._stop_on_exhausted = stop_on_exhausted
         self._fail_fast = fail_fast
         self._fallback_action = fallback_action
@@ -68,6 +70,8 @@ class CheatingAgent(Agent):
     def set_env(self, env):
         self._env = env
         self._task = getattr(getattr(env, "unwrapped", env), "task", None)
+        if self._cheat_custom_only:
+            ensure_cheat_custom(self._task)
         if self._snow_browser_timeout_ms is not None:
             try:
                 import browsergym.workarena.config as wa_cfg
@@ -175,6 +179,21 @@ class CheatingAgent(Agent):
         except TypeError:
             pass
         return cheat_fn()
+
+    def _normalize_cheat_custom_actions(self, oracle: Any, obs) -> list[str]:
+        actions = self._extract_oracle_actions(oracle)
+        if not actions:
+            raise RuntimeError(
+                "cheat_custom() returned no actions; cannot proceed. "
+                f"oracle_type={type(oracle).__name__} oracle_preview={repr(oracle)[:200]} "
+                f"obs_keys={list(obs.keys()) if isinstance(obs, dict) else type(obs).__name__}"
+            )
+        bad = [a for a in actions if not isinstance(a, str) or a == ""]
+        if bad:
+            raise RuntimeError(
+                f"cheat_custom() returned invalid actions: {bad[:3]} (total={len(bad)})"
+            )
+        return actions
 
     def _extract_oracle_actions(self, oracle: Any) -> list[str]:
         if oracle is None:
@@ -289,11 +308,16 @@ class CheatingAgent(Agent):
 
     def get_action(self, obs):
         task = self._get_task_or_error()
+        if self._cheat_custom_only:
+            ensure_cheat_custom(task)
         cheat_fn = getattr(task, self._cheat_method, None)
         if cheat_fn is None:
             raise RuntimeError(
                 f"Task {type(task).__name__} has no {self._cheat_method}() method."
             )
+
+        if self._cheat_custom_only:
+            return self._get_action_cheat_custom(obs, task, cheat_fn)
 
         if self._mode is None:
             self._mode = "compositional" if self._is_compositional_task(task) else "single"
@@ -335,6 +359,44 @@ class CheatingAgent(Agent):
                     action = self._fallback_action
             else:
                 action = self._fallback_action
+
+        agent_info = AgentInfo(
+            think="oracle",
+            chat_messages=[],
+            stats={
+                "oracle_step": self._oracle_index,
+                "oracle_len": len(self._oracle_actions) if self._oracle_actions else 0,
+            },
+        )
+        return action, agent_info
+
+    def _get_action_cheat_custom(self, obs, task, cheat_fn):
+        if self._oracle_actions is None or self._oracle_index >= len(self._oracle_actions):
+            if self._is_compositional_task(task):
+                if self._subtask_count is None:
+                    self._subtask_count = self._get_subtask_count(task)
+                    self._logger.info(
+                        "Compositional task with %s subtasks", self._subtask_count
+                    )
+                if self._subtask_idx >= (self._subtask_count or 0):
+                    raise RuntimeError("cheat_custom() exhausted all subtasks.")
+                self._logger.info(
+                    "cheat_custom subtask %s/%s",
+                    self._subtask_idx + 1,
+                    self._subtask_count,
+                )
+                oracle = self._call_cheat(cheat_fn, obs, subtask_idx=self._subtask_idx)
+                self._subtask_idx += 1
+            else:
+                oracle = self._call_cheat(cheat_fn, obs)
+
+            self._oracle_actions = self._normalize_cheat_custom_actions(oracle, obs)
+            self._oracle_index = 0
+
+        action = self._oracle_actions[self._oracle_index]
+        if not isinstance(action, str) or action == "":
+            raise RuntimeError(f"cheat_custom() produced invalid action: {action!r}")
+        self._oracle_index += 1
 
         agent_info = AgentInfo(
             think="oracle",
