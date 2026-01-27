@@ -123,14 +123,37 @@ class CheatingAgent(Agent):
         if oracle is None:
             return []
         if isinstance(oracle, dict):
-            if "actions" in oracle:
-                oracle = oracle["actions"]
-            elif "trajectory" in oracle:
-                oracle = oracle["trajectory"]
+            for key in (
+                "actions",
+                "action",
+                "trajectory",
+                "steps",
+                "actions_list",
+                "oracle_actions",
+            ):
+                if key in oracle:
+                    oracle = oracle[key]
+                    break
+            else:
+                if len(oracle) == 1:
+                    oracle = next(iter(oracle.values()))
+                else:
+                    return []
         if isinstance(oracle, tuple) and oracle and isinstance(oracle[0], (list, tuple)):
             oracle = oracle[0]
         if isinstance(oracle, str):
             return [oracle]
+        if isinstance(oracle, list):
+            if len(oracle) == 0:
+                return []
+            if all(isinstance(x, dict) and "action" in x for x in oracle):
+                return [x["action"] for x in oracle]
+            if all(isinstance(x, (list, tuple)) for x in oracle):
+                flat = []
+                for sub in oracle:
+                    flat.extend(list(sub))
+                return flat
+            return list(oracle)
         if isinstance(oracle, Iterable):
             return list(oracle)
         raise TypeError(f"Unsupported oracle type: {type(oracle)}")
@@ -157,7 +180,7 @@ class CheatingAgent(Agent):
 
         oracle = self._call_cheat(cheat_fn, obs)
 
-        self._logger.debug(
+        self._logger.info(
             "cheat() returned type=%s value_preview=%s",
             type(oracle).__name__,
             repr(oracle)[:200],
@@ -167,7 +190,23 @@ class CheatingAgent(Agent):
         self._oracle_index = 0
 
         if self._fail_fast and len(self._oracle_actions) == 0:
-            raise RuntimeError("cheat() returned no actions; cannot proceed.")
+            page = self._get_page()
+            chat_messages = self._get_chat_messages()
+            page_type = type(page).__name__ if page is not None else "None"
+            page_url = getattr(page, "url", None) if page is not None else None
+            if isinstance(chat_messages, list):
+                chat_summary = f"list(len={len(chat_messages)})"
+            elif chat_messages is None:
+                chat_summary = "None"
+            else:
+                chat_summary = type(chat_messages).__name__
+            obs_keys = list(obs.keys()) if isinstance(obs, dict) else type(obs).__name__
+            raise RuntimeError(
+                "cheat() returned no actions; cannot proceed. "
+                f"oracle_type={type(oracle).__name__} oracle_preview={repr(oracle)[:200]} "
+                f"page_type={page_type} page_url={page_url} chat_messages={chat_summary} "
+                f"obs_keys={obs_keys}"
+            )
 
         self._logger.debug("oracle_actions_len=%d", len(self._oracle_actions))
 
