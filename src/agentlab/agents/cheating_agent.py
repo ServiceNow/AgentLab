@@ -290,7 +290,6 @@ class CheatingAgent(Agent):
             stats={
                 "oracle_step": self._oracle_index,
                 "oracle_len": len(self._oracle_actions) if self._oracle_actions else 0,
-                "mode": self._mode,
             },
         )
         return action, agent_info
