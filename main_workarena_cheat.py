@@ -4,6 +4,13 @@ Convenience script to run the CheatingAgent on WorkArena L1-L3.
 Copy and modify locally as needed; don't push changes upstream.
 """
 
+import os
+
+# This is very import for runtime. DO NOT remove!
+os.environ.pop("SNOW_INSTANCE_PWD", None)
+os.environ.pop("SNOW_INSTANCE_URL", None)
+os.environ.pop("SNOW_INSTANCE_UNAME", None)
+
 import logging
 
 import bgym

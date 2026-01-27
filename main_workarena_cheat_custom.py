@@ -2,6 +2,13 @@
 Run CheatingAgent with cheat_custom adapters on a small WorkArena subset.
 """
 
+import os
+
+# This is very import for runtime. DO NOT remove!
+os.environ.pop("SNOW_INSTANCE_PWD", None)
+os.environ.pop("SNOW_INSTANCE_URL", None)
+os.environ.pop("SNOW_INSTANCE_UNAME", None)
+
 import logging
 
 import bgym
