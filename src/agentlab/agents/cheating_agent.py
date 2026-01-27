@@ -104,9 +104,34 @@ class CheatingAgent(Agent):
                 return page
         return None
 
+    def _get_context(self):
+        page = self._get_page()
+        if page is None:
+            return None
+        return getattr(page, "context", None)
+
     def _call_cheat(self, cheat_fn, obs, subtask_idx: int | None = None):
         page = self._get_page()
         chat_messages = self._get_chat_messages()
+
+        if page is not None and self._snow_browser_timeout_ms is not None:
+            try:
+                page.set_default_timeout(int(self._snow_browser_timeout_ms))
+                self._logger.info(
+                    "Set page default timeout to %sms", int(self._snow_browser_timeout_ms)
+                )
+            except Exception as e:
+                self._logger.warning("Failed to set page timeout: %s", e)
+        if self._snow_browser_timeout_ms is not None:
+            context = self._get_context()
+            if context is not None:
+                try:
+                    context.set_default_timeout(int(self._snow_browser_timeout_ms))
+                    self._logger.info(
+                        "Set context default timeout to %sms", int(self._snow_browser_timeout_ms)
+                    )
+                except Exception as e:
+                    self._logger.warning("Failed to set context timeout: %s", e)
 
         self._logger.debug(
             "Calling cheat() with page=%s chat_messages=%s subtask_idx=%s obs_keys=%s",
