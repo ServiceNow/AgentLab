@@ -48,31 +48,33 @@ def _build_filter_query(task) -> str:
 
     columns = task.filter_columns
     values = task.filter_values
+    operators = getattr(task, "filter_operators", None) or ["is"] * len(columns)
     kind = task.filter_kind
     list_info = task.list_info
 
     predicates = []
-    for col, val in zip(columns, values):
-        if val is None or val == "":
+    for col, val, op in zip(columns, values, operators):
+        op_norm = str(op or "is").strip().lower()
+
+        if op_norm in {"is empty", "isempty"} or val is None or val == "":
             predicates.append(f"{col}ISEMPTY")
+            continue
+        if op_norm in {"is not empty", "isnotempty"}:
+            predicates.append(f"{col}ISNOTEMPTY")
             continue
 
         col_info = list_info["columns"][col]
         col_type = col_info.get("type")
+        mapped_val = val
 
         if col_type == "choice":
             choices = col_info.get("choices", {})
-            internal = None
             for key, display in choices.items():
                 if display == val:
-                    internal = key
+                    mapped_val = key
                     break
-            if internal is None:
-                internal = val
-            predicates.append(f"{col}={internal}")
-            continue
 
-        if col_type == "reference":
+        if col_type == "reference" and op_norm in {"is", "=", "equals", "equal"}:
             ref_table = col_info.get("reference")
             ref_field = col_info.get("reference_attributes", {}).get("display_field")
             if ref_table and ref_field:
@@ -89,12 +91,26 @@ def _build_filter_query(task) -> str:
                 except Exception as exc:
                     raise RuntimeError(f"Failed to resolve reference {col}={val}: {exc}")
                 if res:
-                    predicates.append(f"{col}={res[0]['sys_id']}")
-                    continue
-            predicates.append(f"{col}={val}")
-            continue
+                    mapped_val = res[0]["sys_id"]
 
-        predicates.append(f"{col}={val}")
+        if op_norm in {"is", "=", "equals", "equal"}:
+            predicates.append(f"{col}={mapped_val}")
+        elif op_norm in {"is not", "!=", "not", "is not equal to"}:
+            predicates.append(f"{col}!={mapped_val}")
+        elif op_norm in {"contains", "contain"}:
+            predicates.append(f"{col}LIKE{mapped_val}")
+        elif op_norm in {"does not contain", "not contains", "not contain"}:
+            predicates.append(f"{col}NOT LIKE{mapped_val}")
+        elif op_norm in {"starts with", "startswith"}:
+            predicates.append(f"{col}STARTSWITH{mapped_val}")
+        elif op_norm in {"ends with", "endswith"}:
+            predicates.append(f"{col}ENDSWITH{mapped_val}")
+        elif op_norm in {"greater than", ">"}:
+            predicates.append(f"{col}>{mapped_val}")
+        elif op_norm in {"less than", "<"}:
+            predicates.append(f"{col}<{mapped_val}")
+        else:
+            predicates.append(f"{col}={mapped_val}")
 
     sep = "^OR" if kind == "OR" else "^"
     return sep.join(predicates)
@@ -108,6 +124,12 @@ def cheat_custom_all_menu(task, page=None, chat_messages=None, subtask_idx=None)
 
 
 def cheat_custom_filter_incident_list(task, page=None, chat_messages=None, subtask_idx=None):
+    query = _build_filter_query(task)
+    url = _append_query(task.start_url, query)
+    return [f"goto('{_escape(url)}')"]
+
+
+def cheat_custom_filter_list(task, page=None, chat_messages=None, subtask_idx=None):
     query = _build_filter_query(task)
     url = _append_query(task.start_url, query)
     return [f"goto('{_escape(url)}')"]
@@ -266,6 +288,83 @@ def cheat_custom_update_private_task(task, page, chat_messages=None, subtask_idx
     ]
 
 
+def cheat_custom_send_chat_message(task, page=None, chat_messages=None, subtask_idx=None):
+    message = getattr(task, "message", "")
+    return [f"send_msg_to_user('{_escape(str(message))}')"]
+
+
+def cheat_custom_delete_record(task, page, chat_messages=None, subtask_idx=None):
+    if page is None:
+        raise RuntimeError("DeleteRecordTask requires a Playwright page")
+    page_url = getattr(page, "url", "") or ""
+
+    record_sys_id = None
+    field_name = getattr(task, "field_name", None)
+    field_value = getattr(task, "field_value", None)
+    table_name = getattr(task, "table_name", None)
+    if field_name and field_value and table_name:
+        from browsergym.workarena.api.utils import table_api_call
+
+        result = table_api_call(
+            instance=task.instance,
+            table=table_name,
+            params={"sysparm_query": f"{field_name}={field_value}", "sysparm_fields": "sys_id"},
+        )["result"]
+        if result:
+            record_sys_id = result[0]["sys_id"]
+    if record_sys_id is None:
+        record_sys_id = getattr(task, "record_sys_id", None)
+    if record_sys_id and record_sys_id in page_url:
+        iframe = page.frame(name="gsft_main")
+        if iframe is not None:
+            delete_btn = iframe.locator("#sysverb_delete")
+            if delete_btn.count() == 0:
+                delete_btn = iframe.get_by_text("delete")
+            if delete_btn.count() > 0:
+                delete_bid = _bid_from_locator(delete_btn.first, "delete button")
+                confirm = iframe.locator("button:has-text('Delete')")
+                if confirm.count() == 0:
+                    confirm = iframe.locator("button:has-text('OK')")
+                if confirm.count() == 0:
+                    confirm = iframe.locator("button:has-text('Yes')")
+                actions = [f"click('{delete_bid}')"]
+                if confirm.count() > 0:
+                    confirm_bid = _bid_from_locator(confirm.first, "confirm delete")
+                    actions.append(f"click('{confirm_bid}')")
+                else:
+                    actions.append("noop(1000)")
+                return actions
+    table_name = getattr(task, "table_name", None)
+    if record_sys_id and table_name:
+        from browsergym.workarena.api.utils import db_delete_from_table
+
+        db_delete_from_table(
+            instance=task.instance,
+            table=table_name,
+            sys_id=record_sys_id,
+        )
+
+    return ["noop(1000)"]
+
+
+def cheat_custom_infeasible_compositional(task, page=None, chat_messages=None, subtask_idx=None):
+    if subtask_idx is None:
+        raise RuntimeError("cheat_custom_infeasible_compositional requires subtask_idx")
+    subtasks = getattr(task, "subtasks", None)
+    if not subtasks:
+        raise RuntimeError("Infeasible compositional task has no subtasks")
+    cheat_index = len(subtasks) - 1 if getattr(task, "level", 2) == 2 else len(subtasks) - 3
+    if subtask_idx == cheat_index:
+        reason = ""
+        if getattr(task, "provide_reason", False):
+            reasons = getattr(task, "infeasible_reasons", None) or []
+            reason = ", ".join([str(r) for r in reasons if r is not None])
+        return [f"report_infeasible('{_escape(reason)}')"]
+    subtask = subtasks[subtask_idx]
+    ensure_cheat_custom(subtask)
+    return subtask.cheat_custom(page, chat_messages)
+
+
 def cheat_custom_compositional(task, page=None, chat_messages=None, subtask_idx=None):
     if subtask_idx is None:
         raise RuntimeError("cheat_custom_compositional requires subtask_idx")
@@ -302,18 +401,32 @@ def register_workarena_cheat_customs() -> None:
     try:
         from browsergym.workarena.tasks.navigation import AllMenuTask
         from browsergym.workarena.tasks.list import FilterIncidentListTask
+        from browsergym.workarena.tasks.list import FilterListTask
         from browsergym.workarena.tasks.form import CreateIncidentTask
         from browsergym.workarena.tasks.service_catalog import OrderAppleWatchTask
         from browsergym.workarena.tasks.compositional.update_task import UpdatePrivateTask
+        from browsergym.workarena.tasks.compositional.delete_record import (
+            DeleteRecordTask,
+            DeleteExpenseLineExpenseManagementTask,
+            DeleteExpenseLineKnapsack,
+        )
+        from browsergym.workarena.tasks.send_chat_message import (
+            SendChatMessageForBudgetAllocationTask,
+        )
     except Exception as exc:
         logger.warning("Could not import WorkArena tasks: %s", exc)
         return
 
     register_cheat_custom(AllMenuTask, cheat_custom_all_menu)
     register_cheat_custom(FilterIncidentListTask, cheat_custom_filter_incident_list)
+    register_cheat_custom(FilterListTask, cheat_custom_filter_list)
     register_cheat_custom(CreateIncidentTask, cheat_custom_create_incident)
     register_cheat_custom(OrderAppleWatchTask, cheat_custom_order_apple_watch)
     register_cheat_custom(UpdatePrivateTask, cheat_custom_update_private_task)
+    register_cheat_custom(DeleteRecordTask, cheat_custom_delete_record)
+    register_cheat_custom(DeleteExpenseLineExpenseManagementTask, cheat_custom_delete_record)
+    register_cheat_custom(DeleteExpenseLineKnapsack, cheat_custom_delete_record)
+    register_cheat_custom(SendChatMessageForBudgetAllocationTask, cheat_custom_send_chat_message)
 
     # L3 compositional tasks (delegate to subtasks)
     _register_task_id(
@@ -325,3 +438,83 @@ def register_workarena_cheat_customs() -> None:
     _register_task_id(
         "workarena.servicenow.navigate-and-order-apple-watch-l3", cheat_custom_compositional
     )
+
+    # L2 infeasible navigate-and-do tasks
+    for task_id in [
+        "workarena.servicenow.infeasible-navigate-and-create-change-request-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-create-hardware-asset-l2",
+        "workarena.servicenow.infeasible-navigate-and-create-hardware-asset-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-create-incident-l2",
+        "workarena.servicenow.infeasible-navigate-and-create-problem-l2",
+        "workarena.servicenow.infeasible-navigate-and-create-user-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-asset-list-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-asset-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-change-request-list-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-change-request-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-hardware-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-incident-list-l2",
+        "workarena.servicenow.infeasible-navigate-and-filter-user-list-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-apple-watch-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-developer-laptop-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-ipad-mini-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-ipad-mini-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-ipad-pro-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-loaner-laptop-l2",
+        "workarena.servicenow.infeasible-navigate-and-order-standard-laptop-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-asset-list-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-asset-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-hardware-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-incident-list-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-incident-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-service-catalog-item-list-with-reason-l2",
+        "workarena.servicenow.infeasible-navigate-and-sort-user-list-l2",
+    ]:
+        _register_task_id(task_id, cheat_custom_infeasible_compositional)
+
+    # L2 expense management tasks (delegate to subtasks)
+    for task_id in [
+        "workarena.servicenow.amount-based-expense-management-large-l2",
+        "workarena.servicenow.amount-based-expense-management-medium-l2",
+        "workarena.servicenow.basic-expense-management-large-l2",
+        "workarena.servicenow.basic-expense-management-medium-l2",
+        "workarena.servicenow.basic-expense-management-small-l2",
+        "workarena.servicenow.date-based-expense-management-large-l2",
+        "workarena.servicenow.date-based-expense-management-medium-l2",
+        "workarena.servicenow.date-based-expense-management-small-l2",
+        "workarena.servicenow.easy-expense-management-large-l2",
+        "workarena.servicenow.easy-expense-management-medium-l2",
+        "workarena.servicenow.easy-expense-management-small-l2",
+    ]:
+        _register_task_id(task_id, cheat_custom_compositional)
+
+    # L2 maximize investment return tasks (delegate to subtasks)
+    for task_id in [
+        "workarena.servicenow.filter-random-expenses-and-delete-wrong-investments-medium-l2",
+        "workarena.servicenow.filter-random-expenses-and-find-total-return-large-l2",
+        "workarena.servicenow.filter-random-expenses-and-find-total-return-medium-l2",
+        "workarena.servicenow.filter-random-expenses-and-find-total-return-small-l2",
+        "workarena.servicenow.filter-random-expenses-and-select-investments-large-l2",
+        "workarena.servicenow.filter-random-expenses-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-random-expenses-and-select-investments-small-l2",
+        "workarena.servicenow.filter-random-expenses-find-total-return-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-single-item-expenses-and-delete-wrong-investments-large-l2",
+        "workarena.servicenow.filter-single-item-expenses-and-delete-wrong-investments-medium-l2",
+        "workarena.servicenow.filter-single-item-expenses-and-find-total-return-large-l2",
+        "workarena.servicenow.filter-single-item-expenses-and-find-total-return-medium-l2",
+        "workarena.servicenow.filter-single-item-expenses-and-find-total-return-small-l2",
+        "workarena.servicenow.filter-single-item-expenses-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-single-item-expenses-find-total-return-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-single-item-uniform-expenses-and-delete-wrong-investments-small-l2",
+        "workarena.servicenow.filter-single-item-uniform-expenses-and-select-investments-large-l2",
+        "workarena.servicenow.filter-single-item-uniform-expenses-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-single-item-uniform-expenses-find-total-return-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-three-items-uniform-expenses-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-three-items-uniform-expenses-find-total-return-and-select-investments-large-l2",
+        "workarena.servicenow.filter-three-items-uniform-expenses-find-total-return-and-select-investments-medium-l2",
+        "workarena.servicenow.filter-trivial-expenses-and-find-total-return-large-l2",
+        "workarena.servicenow.filter-trivial-expenses-and-select-investments-large-l2",
+        "workarena.servicenow.filter-trivial-expenses-find-total-return-and-select-investments-large-l2",
+        "workarena.servicenow.filter-trivial-expenses-find-total-return-and-select-investments-small-l2",
+        "workarena.servicenow.filter-two-items-uniform-expenses-and-select-investments-small-l2",
+    ]:
+        _register_task_id(task_id, cheat_custom_compositional)

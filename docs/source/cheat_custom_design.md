@@ -189,7 +189,16 @@ This is the heavy‑lift section. Each task that needs action‑space trajectori
 **Building‑block adapter (used by L3):**
 - `UpdatePrivateTask` → list search + open record → set state + update (multi‑phase)
 
-**Coverage so far:** 4 / 33 L1 tasks, 3 pilot L3 tasks.
+**Implemented adapters (L2 Batch 1):**
+- `InfeasibleCompositionalTask` → `report_infeasible(...)` on infeasible subtask, delegate otherwise
+- `FilterListTask` → `goto(start_url?sysparm_query=...)` (supports `contains`, `equals`, etc.)
+- `SendChatMessageForBudgetAllocationTask` → `send_msg_to_user(...)`
+- `DeleteRecordTask` (+ expense line subclasses) → delete via action-space adapter (fallback to API delete when needed)
+- Batch 1 task IDs: all infeasible navigate‑and‑do L2, expense management L2, maximize investment return L2 (see §2.7.3)
+
+**Coverage so far:** 4 / 33 L1 tasks, 3 pilot L3 tasks, 65 L2 bases (67 IDs) in Batch 1.
+
+**Prioritization guidance:** Use `enterprise/AgentLab/longmemevalv2_trajectory_collection_journal.json` to prioritize which tasks to implement next (focus on tasks with no successful trajectory).
 
 **Known gaps / risks discovered:**
 - `Order*` tasks can be **multi‑phase**; `cheat_custom` must be callable more than once for a single task.
@@ -263,6 +272,139 @@ These will be the most difficult to convert and should be prioritized:
 1. L1 atomic tasks (simpler, smaller surface area)
 2. L2 tasks with shallow subtasks
 3. L3 compositional tasks
+
+## 2.7 L2 Batch 1 Design (Infeasible + Expense/Investment)
+
+**Batch scope (from `longmemevalv2_trajectory_collection_journal.json`):** 65 base tasks / 67 missing L2 task IDs.
+
+**Modules covered:**
+- `browsergym.workarena.tasks.compositional.navigate_and_do_infeasible` (27 bases / 29 IDs)
+- `browsergym.workarena.tasks.compositional.expense_management` (11 bases / 11 IDs)
+- `browsergym.workarena.tasks.compositional.maximize_investment_return` (27 bases / 27 IDs)
+
+### 2.7.1 Common mechanics we will implement once
+
+1) **Infeasible reporting**
+   - Tasks subclass `InfeasibleCompositionalTask`; validation expects the last chat message to have role `"infeasible"`.
+   - `cheat_custom` should return a single `report_infeasible(reason)` action **on the infeasible subtask**.
+   - If `task.provide_reason` is `True`, use `", ".join(task.infeasible_reasons)` (or the first reason).
+   - If `task.provide_reason` is `False`, pass an empty string (the infeasible reasons list is `[""]`, so empty is acceptable).
+   - For non‑infeasible subtasks in the same compositional chain, emit a minimal action (`noop()` or `goto(...)`) to keep the action queue non‑empty.
+
+2) **Generic list filtering (FilterListTask)**
+   - Implement `cheat_custom` for `FilterListTask` to **skip UI clicks** and instead `goto()` the list URL with a `sysparm_query` built from:
+     - `filter_columns`, `filter_operators`, `filter_values`, and `filter_kind` (AND/OR).
+   - Reuse the same query‑builder logic across Expense/Investment tasks.
+
+3) **Generic record deletion (DeleteRecordTask)**
+   - Implement `cheat_custom` for `DeleteRecordTask` (and its subclasses) to:
+     - `goto(list_url?sysparm_query=<field>=<value>)`
+     - open the record (by number or first row)
+     - click **Delete** and confirm.
+   - This is shared by `DeleteExpenseLineExpenseManagementTask` and `DeleteExpenseLineKnapsack`.
+
+4) **Chat message emission**
+   - Implement `cheat_custom` for `SendChatMessageForBudgetAllocationTask` to return
+     `send_msg_to_user(self.message)`.
+   - This covers all “total return”, “investments only”, and “return + investments” variants.
+
+### 2.7.2 Batch‑specific design notes
+
+**A) Infeasible Navigate‑and‑Do tasks**
+- These L2 tasks use two subtasks: `AllMenuTask` (not validated) + an infeasible task (also not validated).
+- Validation only checks for the infeasible chat message, so the adapter should:
+  - return a small action list for the first subtask (e.g., `noop()` or `goto(task.start_url)`), and
+  - return `report_infeasible(...)` for the last subtask.
+- No actual form/list/catalog action is required.
+
+**B) Expense Management tasks**
+- These are `FilterAndDoTask` subclasses that create duplicate expense lines and require deletion of specific rows.
+- Subtasks include: `AllMenuTask`, `FilterListTask`, and multiple `DeleteExpenseLineExpenseManagementTask` entries.
+- Adapter strategy:
+  - For `AllMenuTask`, reuse the existing `all-menu` adapter (`goto(final_url)`).
+  - For `FilterListTask`, use the generic sysparm query `goto`.
+  - For each delete subtask, use the generic `DeleteRecordTask` adapter.
+
+**C) Maximize Investment Return tasks**
+- These tasks reuse the same list/filter mechanics and add **chat output** and/or **deletions**.
+- Subtasks include `AllMenuTask`, `FilterListTask`, `SendChatMessageForBudgetAllocationTask`, and possibly `DeleteExpenseLineKnapsack`.
+- Adapter strategy:
+  - `SendChatMessageForBudgetAllocationTask` → `send_msg_to_user(self.message)`
+  - `DeleteExpenseLineKnapsack` → generic delete adapter
+  - Filtering/navigation as above.
+
+### 2.7.3 Batch 1 task IDs (bases)
+
+**navigate_and_do_infeasible**
+- workarena.servicenow.infeasible-navigate-and-create-change-request-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-create-hardware-asset-l2
+- workarena.servicenow.infeasible-navigate-and-create-hardware-asset-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-create-incident-l2
+- workarena.servicenow.infeasible-navigate-and-create-problem-l2
+- workarena.servicenow.infeasible-navigate-and-create-user-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-filter-asset-list-l2
+- workarena.servicenow.infeasible-navigate-and-filter-asset-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-filter-change-request-list-l2
+- workarena.servicenow.infeasible-navigate-and-filter-change-request-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-filter-hardware-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-filter-incident-list-l2
+- workarena.servicenow.infeasible-navigate-and-filter-user-list-l2
+- workarena.servicenow.infeasible-navigate-and-order-apple-watch-l2
+- workarena.servicenow.infeasible-navigate-and-order-developer-laptop-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-order-ipad-mini-l2
+- workarena.servicenow.infeasible-navigate-and-order-ipad-mini-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-order-ipad-pro-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-order-loaner-laptop-l2
+- workarena.servicenow.infeasible-navigate-and-order-standard-laptop-l2
+- workarena.servicenow.infeasible-navigate-and-sort-asset-list-l2
+- workarena.servicenow.infeasible-navigate-and-sort-asset-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-sort-hardware-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-sort-incident-list-l2
+- workarena.servicenow.infeasible-navigate-and-sort-incident-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-sort-service-catalog-item-list-with-reason-l2
+- workarena.servicenow.infeasible-navigate-and-sort-user-list-l2
+
+**expense_management**
+- workarena.servicenow.amount-based-expense-management-large-l2
+- workarena.servicenow.amount-based-expense-management-medium-l2
+- workarena.servicenow.basic-expense-management-large-l2
+- workarena.servicenow.basic-expense-management-medium-l2
+- workarena.servicenow.basic-expense-management-small-l2
+- workarena.servicenow.date-based-expense-management-large-l2
+- workarena.servicenow.date-based-expense-management-medium-l2
+- workarena.servicenow.date-based-expense-management-small-l2
+- workarena.servicenow.easy-expense-management-large-l2
+- workarena.servicenow.easy-expense-management-medium-l2
+- workarena.servicenow.easy-expense-management-small-l2
+
+**maximize_investment_return**
+- workarena.servicenow.filter-random-expenses-and-delete-wrong-investments-medium-l2
+- workarena.servicenow.filter-random-expenses-and-find-total-return-large-l2
+- workarena.servicenow.filter-random-expenses-and-find-total-return-medium-l2
+- workarena.servicenow.filter-random-expenses-and-find-total-return-small-l2
+- workarena.servicenow.filter-random-expenses-and-select-investments-large-l2
+- workarena.servicenow.filter-random-expenses-and-select-investments-medium-l2
+- workarena.servicenow.filter-random-expenses-and-select-investments-small-l2
+- workarena.servicenow.filter-random-expenses-find-total-return-and-select-investments-medium-l2
+- workarena.servicenow.filter-single-item-expenses-and-delete-wrong-investments-large-l2
+- workarena.servicenow.filter-single-item-expenses-and-delete-wrong-investments-medium-l2
+- workarena.servicenow.filter-single-item-expenses-and-find-total-return-large-l2
+- workarena.servicenow.filter-single-item-expenses-and-find-total-return-medium-l2
+- workarena.servicenow.filter-single-item-expenses-and-find-total-return-small-l2
+- workarena.servicenow.filter-single-item-expenses-and-select-investments-medium-l2
+- workarena.servicenow.filter-single-item-expenses-find-total-return-and-select-investments-medium-l2
+- workarena.servicenow.filter-single-item-uniform-expenses-and-delete-wrong-investments-small-l2
+- workarena.servicenow.filter-single-item-uniform-expenses-and-select-investments-large-l2
+- workarena.servicenow.filter-single-item-uniform-expenses-and-select-investments-medium-l2
+- workarena.servicenow.filter-single-item-uniform-expenses-find-total-return-and-select-investments-medium-l2
+- workarena.servicenow.filter-three-items-uniform-expenses-and-select-investments-medium-l2
+- workarena.servicenow.filter-three-items-uniform-expenses-find-total-return-and-select-investments-large-l2
+- workarena.servicenow.filter-three-items-uniform-expenses-find-total-return-and-select-investments-medium-l2
+- workarena.servicenow.filter-trivial-expenses-and-find-total-return-large-l2
+- workarena.servicenow.filter-trivial-expenses-and-select-investments-large-l2
+- workarena.servicenow.filter-trivial-expenses-find-total-return-and-select-investments-large-l2
+- workarena.servicenow.filter-trivial-expenses-find-total-return-and-select-investments-small-l2
+- workarena.servicenow.filter-two-items-uniform-expenses-and-select-investments-small-l2
 
 ## 2.6 Validation Checklist per Task
 
