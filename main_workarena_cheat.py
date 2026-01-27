@@ -24,6 +24,10 @@ benchmarks = ["workarena_l3_agent_curriculum_eval"]
 # Number of parallel jobs
 n_jobs = 1
 parallel_backend = "ray"
+avg_step_timeout = 120  # seconds per step used for Ray cancel timeout
+
+# Increase WorkArena Playwright default timeout (ms)
+CHEATING_AGENT.snow_browser_timeout_ms = 120_000
 
 if __name__ == "__main__":
     for benchmark in benchmarks:
@@ -36,6 +40,7 @@ if __name__ == "__main__":
             agent_args=[CHEATING_AGENT],
             comment="cheat trajectories",
         )
+        study.avg_step_timeout = avg_step_timeout
         study.run(
             n_jobs=n_jobs,
             parallel_backend=parallel_backend,

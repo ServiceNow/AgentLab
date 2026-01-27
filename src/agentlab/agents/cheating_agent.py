@@ -17,6 +17,7 @@ class CheatingAgentArgs(AgentArgs):
     stop_on_exhausted: bool = True
     fail_fast: bool = True
     fallback_action: str = "scroll(0, 0)"
+    snow_browser_timeout_ms: int | None = None
 
     def __post_init__(self):
         try:
@@ -34,6 +35,7 @@ class CheatingAgentArgs(AgentArgs):
             stop_on_exhausted=self.stop_on_exhausted,
             fail_fast=self.fail_fast,
             fallback_action=self.fallback_action,
+            snow_browser_timeout_ms=self.snow_browser_timeout_ms,
         )
 
 
@@ -45,12 +47,14 @@ class CheatingAgent(Agent):
         stop_on_exhausted: bool = True,
         fail_fast: bool = True,
         fallback_action: str = "scroll(0, 0)",
+        snow_browser_timeout_ms: int | None = None,
     ):
         self.action_set = action_set_args.make_action_set()
         self._cheat_method = cheat_method
         self._stop_on_exhausted = stop_on_exhausted
         self._fail_fast = fail_fast
         self._fallback_action = fallback_action
+        self._snow_browser_timeout_ms = snow_browser_timeout_ms
         self._env = None
         self._task = None
         self._oracle_actions = None
@@ -62,6 +66,16 @@ class CheatingAgent(Agent):
     def set_env(self, env):
         self._env = env
         self._task = getattr(getattr(env, "unwrapped", env), "task", None)
+        if self._snow_browser_timeout_ms is not None:
+            try:
+                import browsergym.workarena.config as wa_cfg
+
+                wa_cfg.SNOW_BROWSER_TIMEOUT = int(self._snow_browser_timeout_ms)
+                self._logger.info(
+                    "Set WorkArena SNOW_BROWSER_TIMEOUT=%sms", wa_cfg.SNOW_BROWSER_TIMEOUT
+                )
+            except Exception as e:
+                self._logger.warning("Could not set WorkArena timeout: %s", e)
 
     def _get_chat_messages(self):
         env = self._env
