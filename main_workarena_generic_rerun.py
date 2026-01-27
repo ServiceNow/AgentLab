@@ -49,31 +49,31 @@ avg_step_timeout = 1200  # seconds per step used for Ray cancel timeout
 max_steps = 50  # override WorkArena default episode length (was 15 in your env)
 
 # Benchmark to run (change as needed)
-BENCHMARK_NAME = "workarena_l2_agent_curriculum_eval"
+# BENCHMARK_NAME = "workarena_l2_agent_curriculum_eval"
+BENCHMARK_NAME = "workarena_l1"
 
 if __name__ == "__main__":
+    def _full_task_id(env_args) -> str:
+        task_seed = getattr(env_args, "task_seed", None)
+        if task_seed is None:
+            return env_args.task_name
+        return f"{env_args.task_name}_{task_seed}"
+
     journal_path = os.path.join(
         os.path.dirname(__file__),
         "longmemevalv2_trajectory_collection_journal.json",
     )
     successful_task_ids: set[str] = set()
-    successful_base_ids: set[str] = set()
     if os.path.exists(journal_path):
         import json
 
         with open(journal_path, "r", encoding="utf-8") as f:
             journal = json.load(f)
         for entry in journal:
-            task_id = entry.get("task_id")
-            if not task_id:
-                continue
-            records = entry.get("trajectory_records", [])
-            if any(r.get("reward") == 1 for r in records):
+            task_id = entry["task_id"]
+            records = entry["trajectory_records"]
+            if any(r["reward"] == 1 for r in records):
                 successful_task_ids.add(task_id)
-                if "_" in task_id:
-                    base, suffix = task_id.rsplit("_", 1)
-                    if suffix.isdigit():
-                        successful_base_ids.add(base)
 
     if MODEL_NAME not in CHAT_MODEL_ARGS_DICT:
         raise ValueError(
@@ -98,15 +98,14 @@ if __name__ == "__main__":
         benchmark.env_args_list = [
             env_args
             for env_args in benchmark.env_args_list
-            if env_args.task_name in TASK_IDS
+            if _full_task_id(env_args) in TASK_IDS
         ]
 
-    if successful_task_ids or successful_base_ids:
+    if successful_task_ids:
         benchmark.env_args_list = [
             env_args
             for env_args in benchmark.env_args_list
-            if env_args.task_name not in successful_task_ids
-            and env_args.task_name not in successful_base_ids
+            if _full_task_id(env_args) not in successful_task_ids
         ]
 
     print(f"Running {len(benchmark.env_args_list)} tasks after filter")

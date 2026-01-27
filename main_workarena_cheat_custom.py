@@ -45,13 +45,18 @@ max_steps = 50  # override WorkArena default episode length (was 15 in your env)
 CHEATING_CUSTOM_AGENT.snow_browser_timeout_ms = 120_000
 
 if __name__ == "__main__":
+    def _full_task_id(env_args) -> str:
+        task_seed = getattr(env_args, "task_seed", None)
+        if task_seed is None:
+            return env_args.task_name
+        return f"{env_args.task_name}_{task_seed}"
+
     log_reasoning_effort_reminder(CHEATING_CUSTOM_AGENT)
     register_workarena_cheat_customs()
 
     benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l2_agent_curriculum_eval"]()
 
     missing_l2_task_ids = set()
-    missing_l2_base_ids = set()
     batch1_base_ids = {
         # Infeasible navigate-and-do
         "workarena.servicenow.infeasible-navigate-and-create-change-request-with-reason-l2",
@@ -133,26 +138,21 @@ if __name__ == "__main__":
         with open(journal_path, "r", encoding="utf-8") as f:
             journal = json.load(f)
         for entry in journal:
-            task_id = entry.get("task_id")
-            if not task_id or "-l2_" not in task_id:
+            task_id = entry["task_id"]
+            if "-l2_" not in task_id:
                 continue
-            records = entry.get("trajectory_records", [])
-            if not any(r.get("reward") == 1 for r in records):
+            records = entry["trajectory_records"]
+            if not any(r["reward"] == 1 for r in records):
                 missing_l2_task_ids.add(task_id)
-                if "_" in task_id:
-                    base, suffix = task_id.rsplit("_", 1)
-                    if suffix.isdigit():
-                        missing_l2_base_ids.add(base)
 
     # benchmark.env_args_list = [
-    #     env_args for env_args in benchmark.env_args_list if env_args.task_name in TASK_IDS
+    #     env_args for env_args in benchmark.env_args_list if _full_task_id(env_args) in TASK_IDS
     # ]
-    if missing_l2_base_ids:
-        missing_l2_base_ids = missing_l2_base_ids.intersection(batch1_base_ids)
+    if missing_l2_task_ids:
         benchmark.env_args_list = [
             env_args
             for env_args in benchmark.env_args_list
-            if env_args.task_name in missing_l2_base_ids
+            if _full_task_id(env_args) in missing_l2_task_ids
         ]
     print(
         "Running "
