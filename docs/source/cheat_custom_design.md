@@ -172,6 +172,21 @@ This ensures:
 
 This is the heavy‑lift section. Each task that needs action‑space trajectories must implement `cheat_custom` **as an AgentLab adapter**, not by editing WorkArena.
 
+## Part 2 Status (In Progress)
+
+**Implemented adapters (L1 pilot):**
+- `workarena.servicenow.all-menu` → `goto(final_url)`
+- `workarena.servicenow.filter-incident-list` → `goto(start_url?sysparm_query=...)`
+- `workarena.servicenow.create-incident` → form actions (`fill`, `select_option`, `click`)
+- `workarena.servicenow.order-apple-watch` → multi‑phase catalog flow (Hardware → item → quantity → order)
+
+**Coverage so far:** 4 / 33 L1 tasks (based on WorkArena `TASK_CATEGORY_MAP`).
+
+**Known gaps / risks discovered:**
+- `Order*` tasks can be **multi‑phase**; `cheat_custom` must be callable more than once for a single task.
+- Form tasks require **tab switching** to surface fields; `cheat_custom` needs to click tab headers before filling.
+- List filter tasks can be simplified by **direct URL query** when reference/choice values are mapped to internal values.
+
 ## 2.1 General Per‑Task Workflow
 
 For each task class:
@@ -287,3 +302,12 @@ For each task with `cheat_custom`:
 - `enterprise/WorkArena-Reference` is the authoritative source for task logic, but **do not modify it**.
 - Focus on creating **action‑string trajectories**, not on changing behavior of `cheat()`.
 - Start with a small L1 subset to validate the end‑to‑end pipeline.
+
+## Next Planned Work (Part 2)
+
+1) Expand L1 coverage by category:
+   - **List filters:** filter‑asset, filter‑change‑request, filter‑hardware, filter‑service‑catalog‑item, filter‑user
+   - **Forms:** create‑change‑request, create‑hardware‑asset, create‑problem, create‑user
+   - **Catalog:** order‑apple‑mac‑book‑pro15, order‑developer‑laptop, order‑development‑laptop‑p‑c, order‑ipad‑mini, order‑ipad‑pro, order‑loaner‑laptop, order‑sales‑laptop, order‑standard‑laptop
+   - **Dashboards:** single‑chart value/min‑max, multi‑chart value/min‑max
+2) After L1 completion, move to L2/L3 compositional subtasks in priority order.

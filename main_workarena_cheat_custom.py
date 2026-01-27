@@ -21,6 +21,7 @@ TASK_IDS = [
 n_jobs = 1
 parallel_backend = "ray"
 avg_step_timeout = 120  # seconds per step used for Ray cancel timeout
+max_steps = 50  # override WorkArena default episode length (was 15 in your env)
 
 # Increase WorkArena Playwright default timeout (ms)
 CHEATING_AGENT.snow_browser_timeout_ms = 120_000
@@ -35,6 +36,7 @@ if __name__ == "__main__":
 
     for env_args in benchmark.env_args_list:
         env_args.headless = True
+        env_args.max_steps = max_steps
 
     study = make_study(
         benchmark=benchmark,
