@@ -1,5 +1,5 @@
 """
-Run CheatingAgent with cheat_custom adapters on a small WorkArena subset.
+Run CheatingCustomAgent with cheat_custom adapters on a small WorkArena subset.
 """
 
 import os
@@ -18,7 +18,7 @@ import logging
 
 import bgym
 
-from agentlab.agents import CHEATING_AGENT
+from agentlab.agents import CHEATING_CUSTOM_AGENT
 from agentlab.cheat_custom.workarena_adapters import register_workarena_cheat_customs
 from agentlab.experiments.study import make_study
 
@@ -41,7 +41,7 @@ avg_step_timeout = 1200  # seconds per step used for Ray cancel timeout
 max_steps = 50  # override WorkArena default episode length (was 15 in your env)
 
 # Increase WorkArena Playwright default timeout (ms)
-CHEATING_AGENT.snow_browser_timeout_ms = 120_000
+CHEATING_CUSTOM_AGENT.snow_browser_timeout_ms = 120_000
 
 if __name__ == "__main__":
     register_workarena_cheat_customs()
@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     study = make_study(
         benchmark=benchmark,
-        agent_args=[CHEATING_AGENT],
+        agent_args=[CHEATING_CUSTOM_AGENT],
         comment="cheat_custom L2 missing-success subset",
     )
     study.avg_step_timeout = avg_step_timeout

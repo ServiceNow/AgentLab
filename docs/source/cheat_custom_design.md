@@ -73,8 +73,9 @@ Part 1 has been implemented in `enterprise/AgentLab/` with the following concret
   - Provides a registry for `cheat_custom` implementations.
   - Populates **stubs for all WorkArena tasks** via `browsergym.workarena.ALL_WORKARENA_TASKS`.
   - Attaches `cheat_custom` to task classes/instances on demand.
-- **CheatingAgent defaults to cheat_custom**: `src/agentlab/agents/cheating_agent.py`.
-  - `cheat_method` default is now `cheat_custom`.
+- **CheatingCustomAgent defaults to cheat_custom**: `src/agentlab/agents/cheating_custom_agent.py`.
+  - `cheat_method` default is `cheat_custom`.
+  - `CheatingAgent` now defaults to `cheat` in `src/agentlab/agents/cheating_agent.py`.
   - `cheat_custom` path **fails fast** on missing or empty actions.
   - `ensure_cheat_custom(task)` is called so each task has a `cheat_custom` method (real or stub).
   - **Compositional subtasks now advance via `valid_index`**, allowing multiple `cheat_custom` calls per subtask (multi‑phase flows).
@@ -101,9 +102,9 @@ cheat_custom(page, chat_messages, subtask_idx=None) -> list[str]
 **Required error behavior**:
 - When `cheat_custom` is selected and a task does not provide it (or returns empty/invalid), raise a clear error. No silent fallback.
 
-## 1.2 New Agent Behavior (CheatingAgent)
+## 1.2 New Agent Behavior (CheatingCustomAgent)
 
-Update the CheatingAgent to prefer `cheat_custom` if present:
+Update the CheatingCustomAgent to prefer `cheat_custom` if present:
 
 **High‑level algorithm**:
 1. On each step, check if task has `cheat_custom`.
@@ -436,7 +437,7 @@ For each task with `cheat_custom`:
 
 **Part 1 (General Codebase)**
 - Add `cheat_custom` contract in tasks (optional method).
-- Update CheatingAgent to prefer `cheat_custom` and execute returned action strings sequentially.
+- Update CheatingCustomAgent to prefer `cheat_custom` and execute returned action strings sequentially.
 - Ensure compositional tasks iterate subtasks in order.
 - Implement AgentLab registry/adapters and stub methods per task (fail fast).
 - Keep trajectory/log formats compatible with existing runs.

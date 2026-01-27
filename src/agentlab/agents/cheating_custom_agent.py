@@ -11,10 +11,10 @@ from agentlab.cheat_custom import ensure_cheat_custom
 
 
 @dataclass
-class CheatingAgentArgs(AgentArgs):
-    """Agent that executes oracle actions from task.cheat() (or task.cheat_custom() if configured)."""
+class CheatingCustomAgentArgs(AgentArgs):
+    """Agent that executes oracle actions from task.cheat_custom() or task.cheat()."""
 
-    cheat_method: str = "cheat"
+    cheat_method: str = "cheat_custom"
     stop_on_exhausted: bool = True
     fail_fast: bool = True
     fallback_action: str = "scroll(0, 0)"
@@ -22,7 +22,7 @@ class CheatingAgentArgs(AgentArgs):
 
     def __post_init__(self):
         try:
-            self.agent_name = "CheatingAgent"
+            self.agent_name = "CheatingCustomAgent"
         except AttributeError:
             pass
 
@@ -30,7 +30,7 @@ class CheatingAgentArgs(AgentArgs):
         self.action_set_args = benchmark.high_level_action_set_args
 
     def make_agent(self):
-        return CheatingAgent(
+        return CheatingCustomAgent(
             action_set_args=self.action_set_args,
             cheat_method=self.cheat_method,
             stop_on_exhausted=self.stop_on_exhausted,
@@ -40,11 +40,11 @@ class CheatingAgentArgs(AgentArgs):
         )
 
 
-class CheatingAgent(Agent):
+class CheatingCustomAgent(Agent):
     def __init__(
         self,
         action_set_args,
-        cheat_method: str = "cheat",
+        cheat_method: str = "cheat_custom",
         stop_on_exhausted: bool = True,
         fail_fast: bool = True,
         fallback_action: str = "scroll(0, 0)",
@@ -240,7 +240,7 @@ class CheatingAgent(Agent):
             task = getattr(getattr(self._env, "unwrapped", self._env), "task", None)
         if task is None:
             raise RuntimeError(
-                "CheatingAgent needs access to env.task. Ensure the experiment loop "
+                "CheatingCustomAgent needs access to env.task. Ensure the experiment loop "
                 "calls agent.set_env(env) after env creation."
             )
         return task
@@ -321,7 +321,7 @@ class CheatingAgent(Agent):
 
         if self._mode is None:
             self._mode = "compositional" if self._is_compositional_task(task) else "single"
-            self._logger.debug("CheatingAgent mode=%s", self._mode)
+            self._logger.debug("CheatingCustomAgent mode=%s", self._mode)
 
         if self._mode == "actions":
             if self._oracle_index >= len(self._oracle_actions):
@@ -418,4 +418,4 @@ class CheatingAgent(Agent):
         return action, agent_info
 
 
-CHEATING_AGENT = CheatingAgentArgs()
+CHEATING_CUSTOM_AGENT = CheatingCustomAgentArgs()

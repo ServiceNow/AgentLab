@@ -13,3 +13,7 @@ This module contains the agent implementations for AgentLab. With currently:
 """
 
 from agentlab.agents.cheating_agent import CHEATING_AGENT, CheatingAgentArgs
+from agentlab.agents.cheating_custom_agent import (
+    CHEATING_CUSTOM_AGENT,
+    CheatingCustomAgentArgs,
+)
