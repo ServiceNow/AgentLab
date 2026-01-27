@@ -45,6 +45,22 @@ class CheatingAgent(Agent):
         self._env = env
         self._task = getattr(getattr(env, "unwrapped", env), "task", None)
 
+    def _get_chat_messages(self):
+        env = self._env
+        if env is None:
+            return None
+        chat = getattr(getattr(env, "unwrapped", env), "chat", None)
+        if chat is None:
+            return None
+        if hasattr(chat, "messages"):
+            return chat.messages
+        if hasattr(chat, "get_messages"):
+            try:
+                return chat.get_messages()
+            except TypeError:
+                return None
+        return None
+
     def _extract_oracle_actions(self, oracle: Any) -> list[str]:
         if oracle is None:
             return []
@@ -81,10 +97,20 @@ class CheatingAgent(Agent):
                 f"Task {type(task).__name__} has no {self._cheat_method}() method."
             )
 
+        chat_messages = self._get_chat_messages()
         try:
             oracle = cheat_fn()
         except TypeError:
-            oracle = cheat_fn(obs)
+            try:
+                oracle = cheat_fn(obs)
+            except TypeError:
+                if chat_messages is not None:
+                    try:
+                        oracle = cheat_fn(chat_messages)
+                    except TypeError:
+                        oracle = cheat_fn(obs, chat_messages)
+                else:
+                    oracle = cheat_fn(obs, chat_messages)
 
         self._oracle_actions = self._extract_oracle_actions(oracle)
         self._oracle_index = 0
