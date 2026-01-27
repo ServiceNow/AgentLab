@@ -19,6 +19,7 @@ from agentlab.agents.generic_agent import (
     AGENT_CLAUDE_SONNET_35,
     AGENT_GPT5_MINI,
 )
+from agentlab.experiments.loop import log_reasoning_effort_reminder
 from agentlab.experiments.study import Study
 
 logging.getLogger().setLevel(logging.INFO)
@@ -51,6 +52,8 @@ n_jobs = 4  # Make sure to use 1 job when debugging in VSCode
 
 
 if __name__ == "__main__":  # necessary for dask backend
+    for agent_arg in agent_args:
+        log_reasoning_effort_reminder(agent_arg)
 
     if reproducibility_mode:
         [a.set_reproducibility_mode() for a in agent_args]

@@ -14,6 +14,14 @@ default_oss_llms_args = {
     "temperature": 0.01,
 }
 
+GPT5_REASONING_EFFORT_DEFAULT = "medium"
+GPT5_REASONING_EFFORT_BY_MODEL = {
+    "openai/gpt-5-nano-2025-08-07": GPT5_REASONING_EFFORT_DEFAULT,
+    "openai/gpt-5-mini-2025-08-07": GPT5_REASONING_EFFORT_DEFAULT,
+    "openai/gpt-5-2025-08-07": GPT5_REASONING_EFFORT_DEFAULT,
+    "openai/gpt-5.2": GPT5_REASONING_EFFORT_DEFAULT,
+}
+
 CLOSED_SOURCE_APIS = [
     "openai",
     "reka",
@@ -109,6 +117,7 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
         temperature=1,  # temperature param not supported by gpt-5
+        reasoning_effort=GPT5_REASONING_EFFORT_BY_MODEL["openai/gpt-5-nano-2025-08-07"],
         vision_support=True,
     ),
     "openai/gpt-5-mini-2025-08-07": OpenAIModelArgs(
@@ -117,6 +126,7 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
         temperature=1,  # temperature param not supported by gpt-5
+        reasoning_effort=GPT5_REASONING_EFFORT_BY_MODEL["openai/gpt-5-mini-2025-08-07"],
         vision_support=True,
     ),
     "openai/gpt-5-2025-08-07": OpenAIModelArgs(
@@ -125,6 +135,16 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=400_000 - 4_000,
         max_new_tokens=4_000,
         temperature=1,  # temperature param not supported by gpt-5
+        reasoning_effort=GPT5_REASONING_EFFORT_BY_MODEL["openai/gpt-5-2025-08-07"],
+        vision_support=True,
+    ),
+    "openai/gpt-5.2": OpenAIModelArgs(
+        model_name="gpt-5.2",
+        max_total_tokens=400_000,
+        max_input_tokens=400_000 - 4_000,
+        max_new_tokens=4_000,
+        temperature=1,  # temperature param not supported by gpt-5
+        reasoning_effort=GPT5_REASONING_EFFORT_BY_MODEL["openai/gpt-5.2"],
         vision_support=True,
     ),
     # ---------------- Azure ----------------#

@@ -16,6 +16,7 @@ from agentlab.agents.tool_use_agent.tool_use_agent import (
     GPT_4_1,
     ToolUseAgentArgs,
 )
+from agentlab.experiments.loop import log_reasoning_effort_reminder
 from agentlab.experiments.study import Study
 
 logging.getLogger().setLevel(logging.INFO)
@@ -60,6 +61,8 @@ parallel_backend = "ray"
 # parallel_backend = "sequential"  # activate sequential backend for debugging in VSCode
 
 if __name__ == "__main__":  # necessary for dask backend
+    for agent_config in agent_configs:
+        log_reasoning_effort_reminder(agent_config)
 
     if relaunch:
         #  relaunch an existing study

@@ -36,6 +36,55 @@ logger = logging.getLogger(__name__)
 SEED_MAX = 2 ^ 32  # arbitrary max value (exclusive), seems large enough
 
 
+def _get_model_args_from_agent_args(agent_args):
+    for attr in ("chat_model_args", "model_args"):
+        model_args = getattr(agent_args, attr, None)
+        if model_args is not None:
+            return model_args, attr
+    return None, None
+
+
+def _suffix_agent_name_with_reasoning_effort(agent_name, model_name, reasoning_effort):
+    if reasoning_effort is None:
+        return agent_name
+    suffix = f"{model_name}-re-{reasoning_effort}"
+    if suffix in agent_name:
+        return agent_name
+    if model_name in agent_name:
+        return agent_name.replace(model_name, suffix)
+    return f"{agent_name}-re-{reasoning_effort}"
+
+
+def get_agent_name_with_reasoning_effort(agent_args):
+    model_args, _ = _get_model_args_from_agent_args(agent_args)
+    if model_args is None:
+        return agent_args.agent_name
+    model_name = getattr(model_args, "model_name", None)
+    if not isinstance(model_name, str) or not model_name.startswith("gpt-5"):
+        return agent_args.agent_name
+    reasoning_effort = getattr(model_args, "reasoning_effort", None)
+    return _suffix_agent_name_with_reasoning_effort(
+        agent_args.agent_name, model_name, reasoning_effort
+    )
+
+
+def log_reasoning_effort_reminder(agent_args, logger_override=None):
+    logger_to_use = logger_override or logger
+    model_args, source_attr = _get_model_args_from_agent_args(agent_args)
+    if model_args is None:
+        return
+    model_name = getattr(model_args, "model_name", None)
+    if not isinstance(model_name, str) or not model_name.startswith("gpt-5"):
+        return
+    effort = getattr(model_args, "reasoning_effort", None)
+    if effort == "medium":
+        logger_to_use.info(
+            "GPT-5 reasoning_effort is set to 'medium' for %s. Override via %s.reasoning_effort if needed.",
+            model_name,
+            source_attr,
+        )
+
+
 @dataclass
 class EnvArgs(DataClassJsonMixin):
     task_name: str
@@ -368,7 +417,8 @@ class ExpArgs:
 
         if self.exp_name is None:
             task_name = self.env_args.task_name
-            self.exp_name = f"{self.agent_args.agent_name}_on_{task_name}_{self.env_args.task_seed}"
+            agent_name = get_agent_name_with_reasoning_effort(self.agent_args)
+            self.exp_name = f"{agent_name}_on_{task_name}_{self.env_args.task_seed}"
 
         # if exp_dir exists, it means it's a re-run, move the old one
         if self.exp_dir is not None:
@@ -414,6 +464,7 @@ class ExpArgs:
         env, step_info, err_msg, stack_trace = None, None, None, None
         try:
             logger.info(f"Running experiment {self.exp_name} in:\n  {self.exp_dir}")
+            log_reasoning_effort_reminder(self.agent_args)
             agent = self.agent_args.make_agent()
             if hasattr(agent, "set_task_name"):
                 agent.set_task_name(self.env_args.task_name)

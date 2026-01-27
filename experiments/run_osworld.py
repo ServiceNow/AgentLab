@@ -4,6 +4,7 @@ import os
 
 from agentlab.agents.tool_use_agent.tool_use_agent import OSWORLD_CLAUDE
 from agentlab.benchmarks.osworld import OsworldBenchmark
+from agentlab.experiments.loop import log_reasoning_effort_reminder
 from agentlab.experiments.study import Study, make_study
 
 fmt = "%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(funcName)s() - %(message)s"
@@ -33,6 +34,8 @@ def main():
         OSWORLD_CLAUDE,
         #    OSWORLD_OAI # performs poorly.
     ]  # type: ignore
+    for agent_arg in agent_args:
+        log_reasoning_effort_reminder(agent_arg)
     parallel_backend = "ray"
     os.environ["AGENTLAB_DEBUG"] = os.environ.get("AGENTLAB_DEBUG", "1")
 

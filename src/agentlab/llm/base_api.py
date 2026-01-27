@@ -22,6 +22,7 @@ class BaseModelArgs(ABC):
     temperature: float = 0.1
     vision_support: bool = False
     log_probs: bool = False
+    reasoning_effort: str | None = None
 
     @abstractmethod
     def make_model(self) -> AbstractChatModel:

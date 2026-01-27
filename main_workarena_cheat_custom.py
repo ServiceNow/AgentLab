@@ -20,6 +20,7 @@ import bgym
 
 from agentlab.agents import CHEATING_CUSTOM_AGENT
 from agentlab.cheat_custom.workarena_adapters import register_workarena_cheat_customs
+from agentlab.experiments.loop import log_reasoning_effort_reminder
 from agentlab.experiments.study import make_study
 
 # TASK_IDS = [
@@ -44,6 +45,7 @@ max_steps = 50  # override WorkArena default episode length (was 15 in your env)
 CHEATING_CUSTOM_AGENT.snow_browser_timeout_ms = 120_000
 
 if __name__ == "__main__":
+    log_reasoning_effort_reminder(CHEATING_CUSTOM_AGENT)
     register_workarena_cheat_customs()
 
     benchmark = bgym.DEFAULT_BENCHMARKS["workarena_l2_agent_curriculum_eval"]()

@@ -112,6 +112,7 @@ class OpenAIModelArgs(BaseModelArgs):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             log_probs=self.log_probs,
+            reasoning_effort=self.reasoning_effort,
         )
 
 
@@ -212,6 +213,10 @@ def _extract_wait_time(error_message, min_retry_wait_time=60):
     return min_retry_wait_time
 
 
+def _is_gpt5_series(model_name: str) -> bool:
+    return model_name.startswith("gpt-5")
+
+
 class RetryError(Exception):
     pass
 
@@ -250,6 +255,7 @@ class ChatModel(AbstractChatModel):
         client_args=None,
         pricing_func=None,
         log_probs=False,
+        reasoning_effort=None,
     ):
         assert max_retry > 0, "max_retry should be greater than 0"
 
@@ -259,6 +265,7 @@ class ChatModel(AbstractChatModel):
         self.max_retry = max_retry
         self.min_retry_wait_time = min_retry_wait_time
         self.log_probs = log_probs
+        self.reasoning_effort = reasoning_effort
 
         # Get the API key from the environment variable if not provided
         if api_key_env_var:
@@ -299,14 +306,17 @@ class ChatModel(AbstractChatModel):
             self.retries += 1
             temperature = temperature if temperature is not None else self.temperature
             try:
-                completion = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    n=n_samples,
-                    temperature=temperature,
-                    max_completion_tokens=self.max_tokens,
-                    logprobs=self.log_probs,
-                )
+                request_params = {
+                    "model": self.model_name,
+                    "messages": messages,
+                    "n": n_samples,
+                    "temperature": temperature,
+                    "max_completion_tokens": self.max_tokens,
+                    "logprobs": self.log_probs,
+                }
+                if self.reasoning_effort is not None:
+                    request_params["reasoning_effort"] = self.reasoning_effort
+                completion = self.client.chat.completions.create(**request_params)
 
                 if completion.usage is None:
                     raise OpenRouterError(
@@ -359,9 +369,15 @@ class OpenAIChatModel(ChatModel):
         max_retry=4,
         min_retry_wait_time=60,
         log_probs=False,
+        reasoning_effort=None,
     ):
         if max_tokens is None:
             max_tokens = NOT_GIVEN
+        if _is_gpt5_series(model_name) and reasoning_effort is None:
+            raise ValueError(
+                "GPT-5 series requires reasoning_effort to be set (e.g., 'medium'). "
+                "Set chat_model_args.reasoning_effort in llm_configs.py or your custom config."
+            )
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -373,6 +389,7 @@ class OpenAIChatModel(ChatModel):
             client_class=OpenAI,
             pricing_func=partial(tracking.get_pricing_litellm, model_name=model_name),
             log_probs=log_probs,
+            reasoning_effort=reasoning_effort,
         )
 
 

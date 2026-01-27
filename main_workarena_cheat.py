@@ -21,6 +21,7 @@ import logging
 import bgym
 
 from agentlab.agents import CHEATING_AGENT
+from agentlab.experiments.loop import log_reasoning_effort_reminder
 from agentlab.experiments.study import make_study
 
 # Force DEBUG logging (including CheatingAgent internals)
@@ -43,6 +44,7 @@ max_steps = 50  # override WorkArena default episode length (was 15 in your env)
 CHEATING_AGENT.snow_browser_timeout_ms = 120_000
 
 if __name__ == "__main__":
+    log_reasoning_effort_reminder(CHEATING_AGENT)
     for benchmark in benchmarks:
         benchmark_obj = bgym.DEFAULT_BENCHMARKS[benchmark]()
         for env_args in benchmark_obj.env_args_list:
