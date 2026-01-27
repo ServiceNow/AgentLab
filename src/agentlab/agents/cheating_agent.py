@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Iterable
+import logging
 
 import bgym
 from browsergym.experiments.agent import Agent, AgentInfo
@@ -13,6 +14,7 @@ class CheatingAgentArgs(AgentArgs):
 
     cheat_method: str = "cheat"
     stop_on_exhausted: bool = True
+    fail_fast: bool = True
 
     def __post_init__(self):
         try:
@@ -28,18 +30,27 @@ class CheatingAgentArgs(AgentArgs):
             action_set_args=self.action_set_args,
             cheat_method=self.cheat_method,
             stop_on_exhausted=self.stop_on_exhausted,
+            fail_fast=self.fail_fast,
         )
 
 
 class CheatingAgent(Agent):
-    def __init__(self, action_set_args, cheat_method: str = "cheat", stop_on_exhausted: bool = True):
+    def __init__(
+        self,
+        action_set_args,
+        cheat_method: str = "cheat",
+        stop_on_exhausted: bool = True,
+        fail_fast: bool = True,
+    ):
         self.action_set = action_set_args.make_action_set()
         self._cheat_method = cheat_method
         self._stop_on_exhausted = stop_on_exhausted
+        self._fail_fast = fail_fast
         self._env = None
         self._task = None
         self._oracle_actions = None
         self._oracle_index = 0
+        self._logger = logging.getLogger(__name__)
 
     def set_env(self, env):
         self._env = env
@@ -75,6 +86,13 @@ class CheatingAgent(Agent):
     def _call_cheat(self, cheat_fn, obs):
         page = self._get_page()
         chat_messages = self._get_chat_messages()
+
+        self._logger.debug(
+            "Calling cheat() with page=%s chat_messages=%s obs_keys=%s",
+            "yes" if page is not None else "no",
+            "yes" if chat_messages is not None else "no",
+            list(obs.keys()) if isinstance(obs, dict) else type(obs).__name__,
+        )
 
         if page is not None and chat_messages is not None:
             try:
@@ -139,8 +157,19 @@ class CheatingAgent(Agent):
 
         oracle = self._call_cheat(cheat_fn, obs)
 
+        self._logger.debug(
+            "cheat() returned type=%s value_preview=%s",
+            type(oracle).__name__,
+            repr(oracle)[:200],
+        )
+
         self._oracle_actions = self._extract_oracle_actions(oracle)
         self._oracle_index = 0
+
+        if self._fail_fast and len(self._oracle_actions) == 0:
+            raise RuntimeError("cheat() returned no actions; cannot proceed.")
+
+        self._logger.debug("oracle_actions_len=%d", len(self._oracle_actions))
 
     def get_action(self, obs):
         self._init_oracle(obs)
@@ -149,6 +178,9 @@ class CheatingAgent(Agent):
             action = None if self._stop_on_exhausted else ""
         else:
             action = self._oracle_actions[self._oracle_index]
+
+        if self._fail_fast and (action is None or action == ""):
+            raise RuntimeError("Oracle produced empty action; failing fast.")
 
         agent_info = AgentInfo(
             think="oracle",

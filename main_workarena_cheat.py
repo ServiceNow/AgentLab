@@ -11,7 +11,13 @@ import bgym
 from agentlab.agents import CHEATING_AGENT
 from agentlab.experiments.study import make_study
 
-logging.getLogger().setLevel(logging.INFO)
+# Force DEBUG logging (including CheatingAgent internals)
+logging.basicConfig(level=logging.DEBUG)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+for handler in root_logger.handlers:
+    handler.setLevel(logging.DEBUG)
+logging.getLogger("agentlab.agents.cheating_agent").setLevel(logging.DEBUG)
 
 benchmarks = ["workarena_l1", "workarena_l2", "workarena_l3"]
 
