@@ -52,6 +52,7 @@ AgentLab Features:
 | Benchmark | Setup  <br> Link | # Task <br> Template| Seed  <br> Diversity | Max  <br> Step | Multi-tab | Hosted Method | BrowserGym <br> Leaderboard |
 |-----------|------------|---------|----------------|-----------|-----------|---------------|----------------------|
 | [WebArena](https://webarena.dev/) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena/README.md) | 812 | None | 30 | yes | self hosted (docker) | soon |
+| [WebArena-Verified](https://github.com/ServiceNow/webarena-verified) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/webarena_verified/README.md) | 812 | None | 30 | yes | self hosted | soon |
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L1 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 33 | High | 30 | no | demo instance | soon |
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L2 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
 | [WorkArena](https://github.com/ServiceNow/WorkArena) L3 | [setup](https://github.com/ServiceNow/WorkArena?tab=readme-ov-file#getting-started) | 341 | High | 50 | no | demo instance | soon |
@@ -334,3 +335,5 @@ Here is an example of how they can be used:
 ```tex
 We use the AgentLab framework to run and manage our experiments \cite{workarena2024,chezelles2025browsergym}.
 ```
+## Traces
+Traces from “The BrowserGym Ecosystem for Web Agent Research” paper are available in [Huggingface](https://huggingface.co/datasets/agentlabtraces/agentlabtraces/tree/main).

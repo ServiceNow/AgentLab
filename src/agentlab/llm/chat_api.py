@@ -6,13 +6,12 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Optional
 
+import agentlab.llm.tracking as tracking
 import anthropic
 import openai
-from openai import NOT_GIVEN, OpenAI
-
-import agentlab.llm.tracking as tracking
 from agentlab.llm.base_api import AbstractChatModel, BaseModelArgs
 from agentlab.llm.llm_utils import AIMessage, Discussion
+from openai import NOT_GIVEN, OpenAI
 
 
 def make_system_message(content: str) -> dict:
@@ -88,6 +87,18 @@ class OpenRouterModelArgs(BaseModelArgs):
             max_tokens=self.max_new_tokens,
             log_probs=self.log_probs,
             reasoning_effort=self.reasoning_effort,
+        )
+
+
+@dataclass
+class LiteLLMModelArgs(BaseModelArgs):
+
+    def make_model(self):
+        return LiteLLMChatModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            log_probs=self.log_probs,
         )
 
 
@@ -447,7 +458,7 @@ class AzureChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             client_class=OpenAI,
             client_args=client_args,
-            pricing_func=tracking.get_pricing_openai,
+            pricing_func=tracking.partial(tracking.get_pricing_litellm, model_name=model_name),
             log_probs=log_probs,
             reasoning_effort=reasoning_effort,
         )
@@ -494,7 +505,7 @@ class VLLMChatModel(ChatModel):
             min_retry_wait_time=min_retry_wait_time,
             api_key_env_var="VLLM_API_KEY",
             client_class=OpenAI,
-            client_args={"base_url": os.getenv("VLLM_API_URL", "http://0.0.0.0:8000/v1")},
+            client_args={"base_url": os.getenv("VLLM_API_URL", "http://localhost:8000/v1")},
             pricing_func=None,
         )
 
@@ -507,6 +518,7 @@ class AnthropicChatModel(AbstractChatModel):
         temperature=0.5,
         max_tokens=100,
         max_retry=4,
+        pricing_func=None,
     ):
         self.model_name = model_name
         self.temperature = temperature
@@ -515,6 +527,22 @@ class AnthropicChatModel(AbstractChatModel):
 
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
+
+        # Get pricing information
+        if pricing_func:
+            pricings = pricing_func()
+            try:
+                self.input_cost = float(pricings[model_name]["prompt"])
+                self.output_cost = float(pricings[model_name]["completion"])
+            except KeyError:
+                logging.warning(
+                    f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+                )
+                self.input_cost = 0.0
+                self.output_cost = 0.0
+        else:
+            self.input_cost = 0.0
+            self.output_cost = 0.0
 
     def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
         # Convert OpenAI format to Anthropic format
@@ -543,13 +571,29 @@ class AnthropicChatModel(AbstractChatModel):
 
                 response = self.client.messages.create(**kwargs)
 
+                usage = getattr(response, "usage", {})
+                new_input_tokens = getattr(usage, "input_tokens", 0)
+                output_tokens = getattr(usage, "output_tokens", 0)
+                cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
+                cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
+                cache_read_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
+                )
+                cache_write_cost = (
+                    self.input_cost * tracking.ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
+                )
+                cost = (
+                    new_input_tokens * self.input_cost
+                    + output_tokens * self.output_cost
+                    + cache_read_tokens * cache_read_cost
+                    + cache_write_tokens * cache_write_cost
+                )
+
                 # Track usage if available
-                if hasattr(tracking.TRACKER, "instance"):
-                    tracking.TRACKER.instance(
-                        response.usage.input_tokens,
-                        response.usage.output_tokens,
-                        0,  # cost calculation would need pricing info
-                    )
+                if hasattr(tracking.TRACKER, "instance") and isinstance(
+                    tracking.TRACKER.instance, tracking.LLMTracker
+                ):
+                    tracking.TRACKER.instance(new_input_tokens, output_tokens, cost)
 
                 return AIMessage(response.content[0].text)
 
@@ -567,4 +611,153 @@ class AnthropicModelArgs(BaseModelArgs):
             model_name=self.model_name,
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
+            pricing_func=partial(tracking.get_pricing_litellm, model_name=self.model_name),
         )
+
+
+class BedrockChatModel(AnthropicChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+    ):
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
+
+        if (
+            not os.getenv("AWS_REGION")
+            or not os.getenv("AWS_ACCESS_KEY")
+            or not os.getenv("AWS_SECRET_KEY")
+        ):
+            raise ValueError(
+                "AWS_REGION, AWS_ACCESS_KEY and AWS_SECRET_KEY must be set in the environment when using BedrockChatModel"
+            )
+
+        self.client = anthropic.AnthropicBedrock(
+            aws_region=os.getenv("AWS_REGION"),
+            aws_access_key=os.getenv("AWS_ACCESS_KEY"),
+            aws_secret_key=os.getenv("AWS_SECRET_KEY"),
+        )
+
+
+@dataclass
+class BedrockModelArgs(BaseModelArgs):
+    def make_model(self):
+        return BedrockChatModel(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+        )
+
+
+class LiteLLMChatModel(AbstractChatModel):
+    def __init__(
+        self,
+        model_name,
+        api_key=None,
+        temperature=0.5,
+        max_tokens=100,
+        max_retry=4,
+        min_retry_wait_time=60,
+        api_key_env_var=None,
+        client_class=OpenAI,
+        client_args=None,
+        pricing_func=None,
+        log_probs=False,
+    ):
+        assert max_retry > 0, "max_retry should be greater than 0"
+
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retry = max_retry
+        self.min_retry_wait_time = min_retry_wait_time
+        self.log_probs = log_probs
+
+        # Get pricing information
+        if pricing_func:
+            pricings = pricing_func()
+            try:
+                self.input_cost = float(pricings[model_name]["prompt"])
+                self.output_cost = float(pricings[model_name]["completion"])
+            except KeyError:
+                logging.warning(
+                    f"Model {model_name} not found in the pricing information, prices are set to 0. Maybe try upgrading langchain_community."
+                )
+                self.input_cost = 0.0
+                self.output_cost = 0.0
+        else:
+            self.input_cost = 0.0
+            self.output_cost = 0.0
+
+    def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+        from litellm import completion as litellm_completion
+
+        # Initialize retry tracking attributes
+        self.retries = 0
+        self.success = False
+        self.error_types = []
+
+        completion = None
+        e = None
+        for itr in range(self.max_retry):
+            self.retries += 1
+            temperature = temperature if temperature is not None else self.temperature
+            try:
+                completion = litellm_completion(
+                    model=self.model_name,
+                    messages=messages,
+                )
+
+                if completion.usage is None:
+                    raise OpenRouterError(
+                        "The completion object does not contain usage information. This is likely a bug in the OpenRouter API."
+                    )
+
+                self.success = True
+                break
+            except openai.OpenAIError as e:
+                error_type = handle_error(e, itr, self.min_retry_wait_time, self.max_retry)
+                self.error_types.append(error_type)
+
+        if not completion:
+            raise RetryError(
+                f"Failed to get a response from the API after {self.max_retry} retries\n"
+                f"Last error: {error_type}"
+            )
+
+        input_tokens = completion.usage.prompt_tokens
+        output_tokens = completion.usage.completion_tokens
+        cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+
+        if hasattr(tracking.TRACKER, "instance") and isinstance(
+            tracking.TRACKER.instance, tracking.LLMTracker
+        ):
+            tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+
+        if n_samples == 1:
+            res_text = completion.choices[0].message.content
+            if res_text is not None:
+                res_text = res_text.removesuffix("<|end|>").strip()
+            else:
+                res_text = ""
+            res = AIMessage(res_text)
+            if self.log_probs:
+                res["log_probs"] = completion.choices[0].log_probs
+            return res
+        else:
+            return [
+                AIMessage(c.message.content.removesuffix("<|end|>").strip())
+                for c in completion.choices
+            ]
+
+    def get_stats(self):
+        return {
+            "n_retry_llm": self.retries,
+            # "busted_retry_llm": int(not self.success), # not logged if it occurs anyways
+        }

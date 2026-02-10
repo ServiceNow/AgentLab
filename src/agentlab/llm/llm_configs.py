@@ -1,12 +1,13 @@
-from openai import NOT_GIVEN
-
 from agentlab.llm.chat_api import (
     AnthropicModelArgs,
     AzureModelArgs,
+    BedrockModelArgs,
+    LiteLLMModelArgs,
     OpenAIModelArgs,
     OpenRouterModelArgs,
     SelfHostedModelArgs,
 )
+from openai import NOT_GIVEN
 
 default_oss_llms_args = {
     "n_retry_server": 4,
@@ -94,6 +95,13 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=128_000,
         max_new_tokens=64_000,
         temperature=1e-1,
+    ),
+    "openai/gpt-4.1-nano-2025-04-14": OpenAIModelArgs(
+        model_name="gpt-4.1-nano-2025-04-14",
+        max_total_tokens=128_000,
+        max_input_tokens=128_000,
+        max_new_tokens=16_384,
+        vision_support=True,
     ),
     "openai/gpt-5-nano-2025-08-07": OpenAIModelArgs(
         model_name="gpt-5-nano-2025-08-07",
@@ -279,6 +287,22 @@ CHAT_MODEL_ARGS_DICT = {
     ),
     "anthropic/claude-sonnet-4-20250514": AnthropicModelArgs(
         model_name="claude-sonnet-4-20250514",
+        max_new_tokens=16_384,
+        temperature=1e-1,
+    ),
+    # ------------ Anthropic / Bedrock ------------#
+    "bedrock/claude-3-7-sonnet": BedrockModelArgs(
+        model_name="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        max_new_tokens=16_384,
+        temperature=1e-1,
+    ),
+    "bedrock/claude-4-0-sonnet": BedrockModelArgs(
+        model_name="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        max_new_tokens=16_384,
+        temperature=1e-1,
+    ),
+    "bedrock/claude-4-5-sonnet": BedrockModelArgs(
+        model_name="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         max_new_tokens=16_384,
         temperature=1e-1,
     ),

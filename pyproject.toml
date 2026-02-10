@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "agentlab"
@@ -17,7 +17,7 @@ authors = [
     {name = "Aman Jaiswal", email = "aman.jaiswal@servicenow.com"},
 ]
 readme = "README.md"
-requires-python = ">3.10"
+requires-python = ">=3.11,<3.13"
 license = {text = "Apache-2.0"}
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -49,32 +49,32 @@ dependencies = [
     "pillow",
     "gymnasium>=0.27",
     "torch>=2.2.2",
-    "safetensors>=0.4.0",
-    "transformers>=4.38.2",
     "anthropic>=0.62.0",
     "litellm>=1.75.3",
     "python-dotenv>=1.1.1",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "black[jupyter]>=24.2.0",
-    "blacken-docs",
-    "pre-commit",
-    "pytest==7.3.2",
-    "flaky",
-    "pytest-xdist",
-    "pytest-playwright",
+hint = [
+    "sentence-transformers>=5.0.0",
 ]
-# tapeagents = [
-#     "tapeagents[converters]",
-# ]
+transformers = [
+    "transformers>=4.38.2", 
+]
+
 
 [project.urls]
-"Homepage" = "https://github.com/ServiceNow/AgentLab"
+Homepage = "https://github.com/ServiceNow/AgentLab"
 
-[tool.setuptools.dynamic]
-version = {attr = "agentlab.__version__"}
+[tool.hatch.version]
+source = "vcs" # use version from git tags
+fallback-version = "0.0.0"
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentlab"]
+[tool.hatch.build.hooks.vcs]
+version-file = "src/agentlab/_version.py"
+[tool.hatch.version.raw-options]
+version_scheme = "guess-next-dev"
 
 [tool.black]
 line-length = 100
@@ -94,15 +94,22 @@ exclude = '''
   | dist
 )/
 '''
+force-exclude = '''
+src/agentlab/_version\.py$
+'''
 
 [dependency-groups]
 dev = [
     "darglint>=1.8.1",
     "ipykernel>=6.30.1",
     "pip>=25.2",
-]
-hint = [
-    "sentence-transformers>=5.0.0",
+    "black[jupyter]>=24.2.0",
+    "blacken-docs",
+    "pre-commit",
+    "pytest==7.3.2",
+    "flaky",
+    "pytest-xdist",
+    "pytest-playwright",
 ]
 
 

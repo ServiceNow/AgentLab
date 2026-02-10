@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="FocusAgent: Simple Yet Effective Ways of Trimming the Large Context of Web Agents">
+  <meta name="keywords" content="FocusAgent, Web Agents, LLM, Context Trimming, Security, Efficiency">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusAgent: Simple Yet Effective Ways of Trimming the Large Context of Web Agents</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="../static/css/bulma.min.css">
+  <link rel="stylesheet" href="../static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="../static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="../static/css/index.css">
+  <link rel="icon" href="../static/images/favicon.ico">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="../static/js/bulma-carousel.min.js"></script>
+  <script src="../static/js/bulma-slider.min.js"></script>
+  <script src="../static/js/index.js"></script>
+</head>
+
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">FocusAgent: Simple Yet Effective Ways of Trimming the Large Context of Web Agents</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Imene Kerboua,
+            </span>
+            <span class="author-block">
+              Sahar Omidi Shayegan,
+            </span>
+            <span class="author-block">
+              Megh Thakkar,
+            </span>
+            <span class="author-block">
+              Xing Han Lù,
+            </span>
+            <span class="author-block">
+              Léo Boisvert,
+            </span>
+            <span class="author-block">
+              Massimo Caccia,
+            </span>
+            <span class="author-block">
+              Jérémy Espinas,
+            </span>
+            <span class="author-block">
+              Alexandre Aussem,
+            </span>
+            <span class="author-block">
+              Véronique Eglin,
+            </span>
+            <span class="author-block">
+              Alexandre Lacoste
+            </span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2510.03204" 
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/ServiceNow/AgentLab"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- arXiv Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2510.03204"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                  </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Web agents powered by large language models (LLMs) must process lengthy web page observations to complete 
+            user goals; these pages often exceed tens of thousands of tokens. This saturates context limits and 
+            increases computational cost processing; moreover, processing full pages exposes agents to security risks 
+            such as prompt injection.
+          </p>
+          <p>
+            Existing pruning strategies either discard relevant content or retain irrelevant context, leading to 
+            suboptimal action prediction. We introduce FocusAgent, a simple yet effective approach that leverages 
+            a lightweight LLM retriever to extract the most relevant lines from accessibility tree (AxTree) observations, 
+            guided by task goals.
+          </p>
+          <p>
+            By pruning noisy and irrelevant content, FocusAgent enables efficient reasoning while reducing vulnerability 
+            to injection attacks. Experiments on WorkArena and WebArena benchmarks show that FocusAgent matches the 
+            performance of strong baselines, while reducing observation size by over 50%. Furthermore, a variant of 
+            FocusAgent significantly reduces the success rate of prompt-injection attacks, including banner and pop-up 
+            attacks, while maintaining task success performance in attack-free settings.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Key Innovations</h2>
+    
+    <div class="columns is-multiline">
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Context Trimming</h3>
+            <p class="content">
+              Intelligent pruning of web page observations using lightweight LLM retrievers, 
+              reducing context size by over 50% while maintaining performance.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Security Enhancement</h3>
+            <p class="content">
+              Significant reduction in vulnerability to prompt injection attacks, 
+              including banner and pop-up attacks, while preserving task performance.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Efficiency Gains</h3>
+            <p class="content">
+              Reduced computational costs and faster processing by focusing on 
+              relevant content extracted from accessibility tree observations.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Goal-Guided Retrieval</h3>
+            <p class="content">
+              Task-aware content extraction that maintains relevance while 
+              eliminating noise and irrelevant context from web page observations.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Technical Approach</h2>
+    
+    <div class="columns is-multiline">
+      <div class="column is-full">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Lightweight LLM Retriever</h3>
+            <div class="columns">
+              <div class="column">
+                <p class="content">
+                  FocusAgent employs a lightweight language model as a retriever to identify and extract 
+                  the most relevant lines from accessibility tree observations. This approach ensures 
+                  that critical information is preserved while eliminating redundant or irrelevant content.
+                </p>
+              </div>
+              <div class="column">
+                <ul>
+                  <li>Task-goal guided selection</li>
+                  <li>Accessibility tree processing</li>
+                  <li>Relevance-based filtering</li>
+                  <li>Computational efficiency</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-full">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Observation Pruning Strategy</h3>
+            <div class="columns">
+              <div class="column">
+                <p class="content">
+                  Unlike existing approaches that either discard relevant content or retain irrelevant context, 
+                  FocusAgent's pruning strategy is designed to maintain optimal action prediction capabilities 
+                  while significantly reducing observation size.
+                </p>
+              </div>
+              <div class="column">
+                <ul>
+                  <li>Smart content selection</li>
+                  <li>Noise reduction</li>
+                  <li>Context size optimization</li>
+                  <li>Performance preservation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-full">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Security-Aware Design</h3>
+            <div class="columns">
+              <div class="column">
+                <p class="content">
+                  By removing potentially malicious content and focusing on task-relevant information, 
+                  FocusAgent reduces exposure to prompt injection attacks while maintaining high 
+                  performance on legitimate tasks.
+                </p>
+              </div>
+              <div class="column">
+                <ul>
+                  <li>Injection attack mitigation</li>
+                  <li>Banner attack protection</li>
+                  <li>Pop-up attack defense</li>
+                  <li>Maintained task success</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Experimental Results</h2>
+    <div class="content">
+      <div class="columns">
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content has-text-centered">
+              <h4 class="title is-2">50%+</h4>
+              <p class="subtitle">Context Reduction</p>
+              <p>Significant reduction in observation size while maintaining performance</p>
+            </div>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content has-text-centered">
+              <h4 class="title is-2">2</h4>
+              <p class="subtitle">Benchmark Evaluation</p>
+              <p>Validated on WorkArena and WebArena benchmarks</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="columns">
+        <div class="column">
+          <h4 class="title is-5">Performance Metrics</h4>
+          <ul>
+            <li><strong>Efficiency:</strong> Over 50% reduction in observation size</li>
+            <li><strong>Accuracy:</strong> Matches performance of strong baselines</li>
+            <li><strong>Security:</strong> Significant reduction in attack success rates</li>
+            <li><strong>Robustness:</strong> Maintained performance in attack-free settings</li>
+          </ul>
+        </div>
+        <div class="column">
+          <h4 class="title is-5">Evaluation Benchmarks</h4>
+          <ul>
+            <li><strong>WorkArena:</strong> Enterprise-focused web agent tasks</li>
+            <li><strong>WebArena:</strong> Realistic web-based scenarios</li>
+            <li><strong>Attack Scenarios:</strong> Banner and pop-up injection attacks</li>
+            <li><strong>Baseline Comparison:</strong> State-of-the-art web agents</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Impact and Applications</h2>
+    
+    <div class="columns is-multiline">
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Practical Deployment</h3>
+            <p class="content">
+              FocusAgent provides a practical solution for deploying web agents in 
+              real-world scenarios where computational efficiency and security are critical.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Cost Reduction</h3>
+            <p class="content">
+              Significant reduction in computational costs through efficient context processing, 
+              making web agents more accessible and scalable.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">Security Benefits</h3>
+            <p class="content">
+              Enhanced security against prompt injection attacks, enabling safer 
+              deployment of web agents in enterprise and production environments.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="column is-half">
+        <div class="card">
+          <div class="card-content">
+            <h3 class="title is-4">General Applicability</h3>
+            <p class="content">
+              The approach is simple yet effective, making it easily adaptable to 
+              various web agent architectures and deployment scenarios.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">BibTeX</h2>
+    <div class="content">
+      <pre><code>@article{kerboua2025focusagent,
+  title={FocusAgent: Simple Yet Effective Ways of Trimming the Large Context of Web Agents},
+  author={Kerboua, Imene and Shayegan, Sahar Omidi and Thakkar, Megh and L{\\`u}, Xing Han and Boisvert, L{\\'e}o and Caccia, Massimo and Espinas, J{\\'e}r{\\'e}my and Aussem, Alexandre and Gasse, Maxime and Chapados, Nicolas and others},
+  journal={arXiv preprint arXiv:2510.03204},
+  year={2025}
+}</code></pre>
+      <button class="button is-small" onclick="navigator.clipboard.writeText(document.querySelector('pre code').textContent)">
+        <span class="icon"><i class="fas fa-copy"></i></span>
+        <span>Copy</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template">Academic Project Page Template</a>.
+        <br>
+        Part of the <a href="../index.html">AgentLab Research Hub</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
