@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--browser",
+        "firefox",
+        "--headless",
+        "--isolated",
+        "--caps",
+        "vision"
+      ],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": ""
+      }
+    }
+  }
+}
