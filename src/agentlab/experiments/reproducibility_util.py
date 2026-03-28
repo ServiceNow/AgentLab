@@ -325,6 +325,21 @@ def append_to_journal(
     info, report_df: pd.DataFrame, journal_path=None, strict_reproducibility=True
 ):
     """Append the info and results to the reproducibility journal."""
+    journal_path, headers = get_headers_from_journal(journal_path)
+
+    rows = create_journal_entries(info, report_df, strict_reproducibility, headers)
+
+    write_entries_to_journal(journal_path, rows)
+
+
+def write_entries_to_journal(journal_path, rows):
+    with open(journal_path, "a", newline="") as file:
+        writer = csv.writer(file)
+        for row in rows:
+            writer.writerow(row)
+
+
+def get_headers_from_journal(journal_path=None):
     if journal_path is None:
         try:
             _get_repo(agentlab)  # if not based on git clone, this will raise an error
@@ -340,6 +355,13 @@ def append_to_journal(
 
     logging.info(f"Appending to journal {journal_path}")
 
+    headers = None
+    if journal_path.exists():
+        headers = _get_csv_headers(journal_path)
+    return journal_path, headers
+
+
+def create_journal_entries(info, report_df, strict_reproducibility=True, headers=None):
     if len(report_df) != len(info["agent_names"]):
         raise ValueError(
             "Mismatch between the number of agents in reproducibility info and the summary report."
@@ -348,12 +370,7 @@ def append_to_journal(
     report_df = _verify_report(
         report_df, info["agent_names"], strict_reproducibility=strict_reproducibility
     )
-
     rows = []
-    headers = None
-    if journal_path.exists():
-        headers = _get_csv_headers(journal_path)
-
     if headers is None:  # first creation
         headers = list(info.keys())
         headers[headers.index("agent_names")] = "agent_name"
@@ -367,8 +384,4 @@ def append_to_journal(
         _add_result_to_info(info_copy, report_df)
 
         rows.append([str(info_copy[key]) for key in headers])
-
-    with open(journal_path, "a", newline="") as file:
-        writer = csv.writer(file)
-        for row in rows:
-            writer.writerow(row)
+    return rows
