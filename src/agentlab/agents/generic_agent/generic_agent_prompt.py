@@ -202,7 +202,7 @@ relevant and update it if necessary.
 Provide a multi step plan that will guide you to accomplish the goal. There
 should always be steps to verify if the previous action had an effect. The plan
 can be revisited at each steps. Specifically, if there was something unexpected.
-The plan should be cautious and favor exploring befor submitting.
+The plan should be cautious and favor exploring before submitting.
 </plan>
 
 <step>Integer specifying the step of current action
