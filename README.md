@@ -63,6 +63,7 @@ AgentLab Features:
 | [Mind2Web-live](https://huggingface.co/datasets/iMeanAI/Mind2Web-Live) (soon) | - | - | None | - | - | live web | soon |
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
 | [OSWorld](https://os-world.github.io/) | [setup](https://github.com/ServiceNow/AgentLab/blob/main/src/agentlab/benchmarks/osworld.md) | 369 | None | - | - | self hosted  | soon |
+| [OpenApps](https://facebookresearch.github.io/OpenApps/) | [setup](https://facebookresearch.github.io/OpenApps/) | 11 | None | 30 | no | self hosted | soon |
 | [TimeWarp](https://timewarp-web.github.io/) | [setup](https://github.com/sparklabutah/timewarp) | 1386 | None | 30 | yes | self hosted | soon |
 
 
