@@ -338,3 +338,88 @@ We use the AgentLab framework to run and manage our experiments \cite{workarena2
 ```
 ## Traces
 Traces from “The BrowserGym Ecosystem for Web Agent Research” paper are available in [Huggingface](https://huggingface.co/datasets/agentlabtraces/agentlabtraces/tree/main).
+
+## Frequently Asked Questions (FAQ)
+
+### What is AgentLab?
+
+AgentLab is an open-source framework from ServiceNow for developing and evaluating web agents. It provides easy large-scale parallel experiments, building blocks for web agents, and unified LLM API support.
+
+### What benchmarks does AgentLab support?
+
+| Benchmark | Task Templates | Max Steps | Multi-tab | Hosted Method |
+|-----------|---------------|-----------|-----------|---------------|
+| WebArena | 812 | 30 | Yes | Docker |
+| WebArena-Verified | 812 | 30 | Yes | Self hosted |
+| WorkArena L1/L2/L3 | 33/341/341 | 30/50 | No | Demo instance |
+| WebLinx | 31586 | 1 | No | Dataset |
+| VisualWebArena | 910 | 30 | Yes | Docker |
+| AssistantBench | 214 | 30 | Yes | Live web |
+| GAIA | - | - | - | Live web (soon) |
+| MiniWoB | 125 | 10 | No | Static files |
+| OSWorld | 369 | - | - | Self hosted |
+| TimeWarp | 1386 | 30 | Yes | Self hosted |
+
+### How do I install AgentLab?
+
+```bash
+pip install agentlab
+playwright install
+```
+
+AgentLab requires Python 3.11 or 3.12.
+
+### What LLM providers are supported?
+
+| Provider | Setup |
+|----------|-------|
+| OpenAI | `export OPENAI_API_KEY=your_key` |
+| OpenRouter | `export OPENROUTER_API_KEY=your_key` |
+| Azure | Configure in settings |
+| Self-hosted (TGI) | Configure endpoint |
+
+### How do I run experiments?
+
+1. Set environment variables:
+   ```bash
+   export AGENTLAB_EXP_ROOT=<results directory>
+   export OPENAI_API_KEY=<your key>
+   ```
+
+2. Prepare benchmark (see setup links above)
+
+3. Launch experiments with ray parallelization
+
+### What features does AgentLab provide?
+
+| Feature | Description |
+|---------|-------------|
+| Parallel Experiments | Scale experiments with ray |
+| Unified LLM API | Single interface for multiple providers |
+| BrowserGym Integration | Standard web agent interface |
+| Reproducibility | Built-in reproducibility features |
+| Leaderboard | Unified benchmark leaderboard |
+
+### Where is the leaderboard?
+
+Visit [Hugging Face Leaderboard](https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard) for benchmark results.
+
+### What is BrowserGym?
+
+BrowserGym is the underlying interface for web agent benchmarks. See [BrowserGym repo](https://github.com/ServiceNow/BrowserGym) for details.
+
+### Is AgentLab free to use?
+
+AgentLab is open-source under Apache 2.0 license. It is meant for research, not consumer products.
+
+### How can I contribute?
+
+Contributions welcome via GitHub. See [AgentLab repo](https://github.com/ServiceNow/AgentLab) for guidelines.
+
+### Where can I get help?
+
+| Resource | Link |
+|----------|------|
+| GitHub | [ServiceNow/AgentLab](https://github.com/ServiceNow/AgentLab) |
+| BrowserGym Paper | [arXiv](https://arxiv.org/abs/2412.05467) |
+| Leaderboard | [HF Spaces](https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard) |
