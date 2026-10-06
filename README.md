@@ -35,6 +35,15 @@
 > AgentLab is meant to provide an open, easy-to-use and extensible framework to accelerate the field of web agent research.
 > It is not meant to be a consumer product. Use with caution!
 
+> [!NOTE]
+> **AgentLab is not deprecated**, existing code keeps working and PRs are still
+> welcome, but there's no official maintainer actively driving new features right now.
+> If you're building eval or RL-training infra for agentic benchmarks, check out
+> **[CUBE](https://github.com/The-AI-Alliance/cube-standard)**, a community protocol
+> from the same lineage that generalizes the benchmark-wrapping problem AgentLab and
+> BrowserGym solved for the web to any agentic benchmark, on any infra. CUBE is where
+> the team's active energy is going.
+
 AgentLab is a framework for developing and evaluating agents on a variety of
 [benchmarks](#-supported-benchmarks) supported by
 [BrowserGym](https://github.com/ServiceNow/BrowserGym). It is presented in more details in our [BrowserGym ecosystem paper](https://arxiv.org/abs/2412.05467)
