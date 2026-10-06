@@ -64,6 +64,7 @@ AgentLab Features:
 | [MiniWoB](https://miniwob.farama.org/index.html) | [setup](https://github.com/ServiceNow/BrowserGym/blob/main/browsergym/miniwob/README.md) | 125 | Medium | 10 | no | self hosted (static files) | soon |
 | [OSWorld](https://os-world.github.io/) | [setup](https://github.com/ServiceNow/AgentLab/blob/main/src/agentlab/benchmarks/osworld.md) | 369 | None | - | - | self hosted  | soon |
 | [TimeWarp](https://timewarp-web.github.io/) | [setup](https://github.com/sparklabutah/timewarp) | 1386 | None | 30 | yes | self hosted | soon |
+| [Knows](https://alexgill321.github.io/KNOWS-benchmark/) | [setup](https://github.com/alexgill321/KNOWS-benchmark) | 110 | None | 120 | yes | live web | soon |
 
 
 ## 🛠️ Setup AgentLab
