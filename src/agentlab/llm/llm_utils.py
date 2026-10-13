@@ -532,7 +532,9 @@ def get_tokenizer(model_name="gpt-4"):
 
         return AutoTokenizer.from_pretrained(model_name)
     except Exception as e:
-        logging.info(f"Could not find a tokenizer for model {model_name}: {e} Defaulting to gpt-4.")
+        logging.warning(
+            f"Could not find a tokenizer for model {model_name}: {e} Defaulting to gpt-4."
+        )
     return tiktoken.encoding_for_model("gpt-4")
 
 
