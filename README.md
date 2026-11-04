@@ -158,7 +158,25 @@ disables workers until the study is terminated and relaunched. If you are runnin
 or with a small number of workers, this could halt your entire study until you manually kill and
 relaunch it. In the Ray parallel backend, we've implemented a system to automatically terminate jobs
 exceeding a specified timeout. This feature is particularly useful when task hanging limits your
-experiments. 
+experiments.
+
+Each Ray experiment uses its own `env_args.max_steps * avg_step_timeout` budget,
+capped by `episode_timeout` when set. Without `max_steps`, the default is ten
+hours. Budgets apply to running attempts, excluding time queued for workers or
+dependencies. A timeout first requests cooperative cancellation; after 60 seconds
+without completion, the worker is force killed. Runtime measurements use Ray's
+task-state service; when state information is unavailable, no deadline is inferred
+from submission time. Sequential and joblib execution do not enforce these budgets.
+
+Dependency graphs are validated before agent servers start or experiment
+directories are prepared. Duplicate IDs, missing dependencies, and cycles raise
+`ValueError`. Ray and sequential execution both honor dependencies regardless of
+input order; joblib rejects nonempty dependency graphs, so use Ray or sequential
+for these studies. Failed Ray tasks are returned as exceptions by experiment ID;
+dependents of a raised task do not run, while independent branches finish. The
+launcher prepares and closes each shared agent argument object once, and releases
+acquired agents even if preparation or execution fails. Cleanup attempts continue
+when one resource fails to close, preserving the original execution error.
 
 ### Debugging
 

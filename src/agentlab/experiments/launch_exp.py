@@ -7,6 +7,7 @@ import bgym
 
 from agentlab.experiments.exp_utils import run_exp
 from agentlab.experiments.loop import ExpArgs, yield_all_exp_results
+from agentlab.experiments.task_graph import TaskGraph
 
 RAY_PUBLIC_DASHBOARD = os.environ.get("RAY_PUBLIC_DASHBOARD", "false") == "true"
 RAY_DASHBOARD_PORT = os.environ.get("RAY_DASHBOARD_PORT")
@@ -19,94 +20,123 @@ def run_experiments(
     parallel_backend="ray",
     avg_step_timeout=60,
 ):
-    """Run a list of ExpArgs in parallel.
+    """Run experiments with validated dependencies and managed agent resources.
 
-    To ensure optimal parallelism, make sure ExpArgs.depend_on is set correctly
-    and the backend is set to dask.
+    Ray and sequential execution support ``ExpArgs.depends_on`` regardless of
+    input order. Joblib supports independent experiments only; a dependency graph
+    is rejected before preparing agents or creating experiment directories.
+    Shared agent argument objects are prepared and closed once per invocation.
 
     Args:
-        n_jobs: int
-            Number of parallel jobs.
-        exp_args_list: list[ExpArgs]
-            List of ExpArgs objects.
-        study_dir: Path
-            Directory where the experiments will be saved.
-        parallel_backend: str
-            Parallel backend to use. Either "joblib", "ray" or "sequential".
-            The only backend that supports webarena graph dependencies correctly is ray or sequential.
-        avg_step_timeout: int
-            Will raise a TimeoutError if the episode is not finished after env_args.max_steps * avg_step_timeout seconds.
+        n_jobs: Number of parallel workers (ignored for sequential execution).
+        exp_args_list: Experiments to prepare and run.
+        study_dir: Directory where experiments will be saved.
+        parallel_backend: One of "joblib", "ray", or "sequential".
+        avg_step_timeout: Ray runtime budget per environment step. Each episode
+            uses its own max_steps and optional episode_timeout cap. Other
+            backends do not enforce episode timeouts.
 
     Raises:
-        ValueError: If the parallel_backend is not recognized.
+        ValueError: If the backend, dependency graph, or Ray deadlines are invalid.
+        BaseException: If preparation, execution, or resource cleanup fails.
     """
-
-    if len(exp_args_list) == 0:
+    if not exp_args_list:
         logging.warning("No experiments to run.")
         return
+    if parallel_backend not in ("joblib", "ray", "sequential"):
+        raise ValueError(f"Unknown parallel_backend: {parallel_backend}")
+
+    # Assign identities without preparing directories or starting model servers.
+    for exp_args in exp_args_list:
+        if exp_args.exp_id is None:
+            exp_args.make_id()
+    graph = TaskGraph(exp_args_list)
+    if parallel_backend == "joblib" and graph.has_dependencies:
+        raise ValueError("joblib does not support experiment dependencies; use ray or sequential")
+    if parallel_backend == "ray":
+        from agentlab.experiments.graph_execution_ray import _experiment_timeouts
+
+        _experiment_timeouts(graph.experiments, avg_step_timeout)
 
     study_dir = Path(study_dir)
     study_dir.mkdir(parents=True, exist_ok=True)
-
-    # if n_jobs == 1 and parallel_backend != "sequential":
-    #     logging.warning("Only 1 job, switching to sequential backend.")
-    #     parallel_backend = "sequential"
-
     logging.info(f"Saving experiments to {study_dir}")
-    for exp_args in exp_args_list:
-        exp_args.agent_args.prepare()
-        exp_args.prepare(exp_root=study_dir)
+    agents = []
+    agent_ids = set()
+    primary_error = None
     try:
+        for exp_args in graph.experiments:
+            agent = exp_args.agent_args
+            if id(agent) not in agent_ids:
+                agent_ids.add(id(agent))
+                # Register before preparation: a failing prepare may already
+                # have started a server and still needs its matching close.
+                agents.append(agent)
+                agent.prepare()
+            exp_args.prepare(exp_root=study_dir)
+
         if parallel_backend == "joblib":
             from joblib import Parallel, delayed
 
-            # split sequential (should be no longer needed with dependencies)
-            sequential_exp_args, exp_args_list = _split_sequential_exp(exp_args_list)
-
-            logging.info(
-                f"Running {len(sequential_exp_args)} in sequential first. The remaining {len(exp_args_list)} will be run in parallel."
-            )
-            for exp_args in sequential_exp_args:
+            sequential, parallel = _split_sequential_exp(graph.experiments)
+            for exp_args in sequential:
                 run_exp(exp_args, avg_step_timeout=avg_step_timeout)
-
             Parallel(n_jobs=n_jobs, prefer="processes")(
                 delayed(run_exp)(exp_args, avg_step_timeout=avg_step_timeout)
-                for exp_args in exp_args_list
+                for exp_args in parallel
             )
-
-        # dask will be deprecated, as there was issues. use ray instead
-        # elif parallel_backend == "dask":
-        #     from agentlab.experiments.graph_execution_dask import (
-        #         execute_task_graph,
-        #         make_dask_client,
-        #     )
-
-        #     with make_dask_client(n_worker=n_jobs):
-        #         execute_task_graph(exp_args_list)
         elif parallel_backend == "ray":
-            from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
-
-            ray.init(
-                num_cpus=n_jobs,
-                dashboard_host="0.0.0.0" if RAY_PUBLIC_DASHBOARD else "127.0.0.1",
-                dashboard_port=None if RAY_DASHBOARD_PORT is None else int(RAY_DASHBOARD_PORT),
-            )
-            try:
-                execute_task_graph(exp_args_list, avg_step_timeout=avg_step_timeout)
-            finally:
-                ray.shutdown()
-        elif parallel_backend == "sequential":
-            for exp_args in exp_args_list:
-                run_exp(exp_args, avg_step_timeout=avg_step_timeout)
+            _run_ray_experiments(n_jobs, graph.experiments, avg_step_timeout)
         else:
-            raise ValueError(f"Unknown parallel_backend: {parallel_backend}")
+            for exp_args in graph.ordered_experiments:
+                run_exp(exp_args, avg_step_timeout=avg_step_timeout)
+    except BaseException as error:
+        primary_error = error
+        raise
     finally:
-        # will close servers even if there is an exception or ctrl+c
-        # servers won't be closed if the script is killed with kill -9 or segfaults.
-        logging.info("All jobs are finished. Calling agent_args.close() on all agents...")
-        for exp_args in exp_args_list:
-            exp_args.agent_args.close()
+        logging.info("Closing prepared agent resources...")
+        _cleanup_resources([agent.close for agent in reversed(agents)], primary_error)
         logging.info(f"Experiment finished and saved in {study_dir}.")
+
+
+def _cleanup_resources(callbacks, primary_error):
+    """Attempt all releases, preserving the original failure when there is one."""
+    errors = []
+    for close in callbacks:
+        try:
+            close()
+        except BaseException as error:
+            logging.exception("Experiment resource cleanup failed")
+            errors.append(error)
+    if primary_error is not None:
+        for error in errors:
+            primary_error.add_note(f"Resource cleanup also failed: {error!r}")
+    elif len(errors) == 1:
+        raise errors[0]
+    elif errors:
+        raise BaseExceptionGroup("Experiment resource cleanup failed", errors)
+
+
+def _run_ray_experiments(n_jobs, experiments, avg_step_timeout):
+    from agentlab.experiments.graph_execution_ray import execute_task_graph, ray
+
+    # shutdown() also cleans partially initialized local processes. Never take
+    # ownership of a runtime that existed before this launcher was called.
+    owns_runtime = not ray.is_initialized()
+    primary_error = None
+    try:
+        ray.init(
+            num_cpus=n_jobs,
+            dashboard_host="0.0.0.0" if RAY_PUBLIC_DASHBOARD else "127.0.0.1",
+            dashboard_port=None if RAY_DASHBOARD_PORT is None else int(RAY_DASHBOARD_PORT),
+        )
+        execute_task_graph(experiments, avg_step_timeout=avg_step_timeout)
+    except BaseException as error:
+        primary_error = error
+        raise
+    finally:
+        if owns_runtime:
+            _cleanup_resources([ray.shutdown], primary_error)
 
 
 def find_incomplete(study_dir: str | Path, include_errors=True):
