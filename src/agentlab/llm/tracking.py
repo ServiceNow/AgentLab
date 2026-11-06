@@ -17,9 +17,40 @@ if langchain_community is not None:
 else:
     bedrock_anthropic_callback = None
     openai_info = None
+
+_ecologits_available = importlib.util.find_spec("ecologits") is not None
+if _ecologits_available:
+    from ecologits import EcoLogits
+
 from litellm import completion_cost, get_model_info
 
 TRACKER = threading.local()
+
+_ecologits_initialized = False
+
+
+def _ensure_ecologits_init():
+    """Initialize ecologits if available and not yet initialized."""
+    global _ecologits_initialized
+    if _ecologits_available and not _ecologits_initialized:
+        EcoLogits.init()
+        _ecologits_initialized = True
+
+
+def _extract_ecologits_impacts(response):
+    """Extract energy and GWP impacts from an ecologits-enriched response.
+
+    Returns (energy_kwh, gwp_kgco2eq) or (0.0, 0.0) if not available.
+    """
+    if not _ecologits_available:
+        return 0.0, 0.0
+    impacts = getattr(response, "impacts", None)
+    if impacts is None:
+        return 0.0, 0.0
+    energy_kwh = float(getattr(impacts.energy, "value", 0.0))
+    gwp_kgco2eq = float(getattr(impacts.gwp, "value", 0.0))
+    return energy_kwh, gwp_kgco2eq
+
 
 ANTHROPIC_CACHE_PRICING_FACTOR = {
     "cache_read_tokens": 0.1,  # Cost for 5 min ephemeral cache. See Pricing Here: https://docs.anthropic.com/en/docs/about-claude/pricing#model-pricing
@@ -37,14 +68,27 @@ class LLMTracker:
         self.input_tokens = 0
         self.output_tokens = 0
         self.cost = 0.0
+        self.energy_kwh = 0.0
+        self.gwp_kgco2eq = 0.0
         self.input_tokens_key = "input_tokens_" + suffix if suffix else "input_tokens"
         self.output_tokens_key = "output_tokens_" + suffix if suffix else "output_tokens"
         self.cost_key = "cost_" + suffix if suffix else "cost"
+        self.energy_kwh_key = "energy_kwh_" + suffix if suffix else "energy_kwh"
+        self.gwp_kgco2eq_key = "gwp_kgco2eq_" + suffix if suffix else "gwp_kgco2eq"
 
-    def __call__(self, input_tokens: int, output_tokens: int, cost: float):
+    def __call__(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        cost: float,
+        energy_kwh: float = 0.0,
+        gwp_kgco2eq: float = 0.0,
+    ):
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
         self.cost += cost
+        self.energy_kwh += energy_kwh
+        self.gwp_kgco2eq += gwp_kgco2eq
 
     @property
     def stats(self):
@@ -52,13 +96,25 @@ class LLMTracker:
             self.input_tokens_key: self.input_tokens,
             self.output_tokens_key: self.output_tokens,
             self.cost_key: self.cost,
+            self.energy_kwh_key: self.energy_kwh,
+            self.gwp_kgco2eq_key: self.gwp_kgco2eq,
         }
 
     def add_tracker(self, tracker: "LLMTracker"):
-        self(tracker.input_tokens, tracker.output_tokens, tracker.cost)
+        self(
+            tracker.input_tokens,
+            tracker.output_tokens,
+            tracker.cost,
+            tracker.energy_kwh,
+            tracker.gwp_kgco2eq,
+        )
 
     def __repr__(self):
-        return f"LLMTracker(input_tokens={self.input_tokens}, output_tokens={self.output_tokens}, cost={self.cost})"
+        return (
+            f"LLMTracker(input_tokens={self.input_tokens}, "
+            f"output_tokens={self.output_tokens}, cost={self.cost}, "
+            f"energy_kwh={self.energy_kwh}, gwp_kgco2eq={self.gwp_kgco2eq})"
+        )
 
 
 @contextmanager
@@ -196,6 +252,7 @@ class TrackAPIPricingMixin:
 
     def __call__(self, *args, **kwargs):
         """Call the API and update the pricing tracker."""
+        _ensure_ecologits_init()
         # 'self' here calls ._call_api() method of the subclass
         response = self._call_api(*args, **kwargs)
         usage = dict(getattr(response, "usage", {}))
@@ -206,8 +263,10 @@ class TrackAPIPricingMixin:
         usage = {f"usage_{k}": v for k, v in usage.items() if isinstance(v, (int, float))}
         usage |= {"n_api_calls": 1}
         usage |= {"effective_cost": self.get_effective_cost(response)}
+        energy_kwh, gwp_kgco2eq = _extract_ecologits_impacts(response)
+        usage |= {"energy_kwh": energy_kwh, "gwp_kgco2eq": gwp_kgco2eq}
         self.stats.increment_stats_dict(usage)
-        self.update_pricing_tracker(response)
+        self.update_pricing_tracker(response, energy_kwh, gwp_kgco2eq)
         return self._parse_response(response)
 
     def fetch_pricing_information_from_provider(self) -> Optional[dict]:
@@ -249,14 +308,16 @@ class TrackAPIPricingMixin:
                 self.input_cost = 0.0
                 self.output_cost = 0.0
 
-    def update_pricing_tracker(self, raw_response) -> None:
+    def update_pricing_tracker(
+        self, raw_response, energy_kwh: float = 0.0, gwp_kgco2eq: float = 0.0
+    ) -> None:
         """Update the pricing tracker with the input and output tokens and cost."""
 
         input_tokens, output_tokens = self.get_tokens_counts_from_response(raw_response)
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
 
         if hasattr(TRACKER, "instance") and isinstance(TRACKER.instance, LLMTracker):
-            TRACKER.instance(input_tokens, output_tokens, cost)
+            TRACKER.instance(input_tokens, output_tokens, cost, energy_kwh, gwp_kgco2eq)
 
     def get_tokens_counts_from_response(self, response) -> tuple:
         """Get the input and output tokens counts from the response, provider-agnostic."""

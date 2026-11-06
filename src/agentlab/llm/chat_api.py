@@ -288,6 +288,7 @@ class ChatModel(AbstractChatModel):
         )
 
     def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+        tracking._ensure_ecologits_init()
         # Initialize retry tracking attributes
         self.retries = 0
         self.success = False
@@ -328,11 +329,12 @@ class ChatModel(AbstractChatModel):
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+        energy_kwh, gwp_kgco2eq = tracking._extract_ecologits_impacts(completion)
 
         if hasattr(tracking.TRACKER, "instance") and isinstance(
             tracking.TRACKER.instance, tracking.LLMTracker
         ):
-            tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+            tracking.TRACKER.instance(input_tokens, output_tokens, cost, energy_kwh, gwp_kgco2eq)
 
         if n_samples == 1:
             res = AIMessage(completion.choices[0].message.content)
@@ -530,6 +532,7 @@ class AnthropicChatModel(AbstractChatModel):
             self.output_cost = 0.0
 
     def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+        tracking._ensure_ecologits_init()
         # Convert OpenAI format to Anthropic format
         system_message = None
         anthropic_messages = []
@@ -574,11 +577,15 @@ class AnthropicChatModel(AbstractChatModel):
                     + cache_write_tokens * cache_write_cost
                 )
 
+                energy_kwh, gwp_kgco2eq = tracking._extract_ecologits_impacts(response)
+
                 # Track usage if available
                 if hasattr(tracking.TRACKER, "instance") and isinstance(
                     tracking.TRACKER.instance, tracking.LLMTracker
                 ):
-                    tracking.TRACKER.instance(new_input_tokens, output_tokens, cost)
+                    tracking.TRACKER.instance(
+                        new_input_tokens, output_tokens, cost, energy_kwh, gwp_kgco2eq
+                    )
 
                 return AIMessage(response.content[0].text)
 
@@ -681,6 +688,7 @@ class LiteLLMChatModel(AbstractChatModel):
             self.output_cost = 0.0
 
     def __call__(self, messages: list[dict], n_samples: int = 1, temperature: float = None) -> dict:
+        tracking._ensure_ecologits_init()
         from litellm import completion as litellm_completion
 
         # Initialize retry tracking attributes
@@ -719,11 +727,12 @@ class LiteLLMChatModel(AbstractChatModel):
         input_tokens = completion.usage.prompt_tokens
         output_tokens = completion.usage.completion_tokens
         cost = input_tokens * self.input_cost + output_tokens * self.output_cost
+        energy_kwh, gwp_kgco2eq = tracking._extract_ecologits_impacts(completion)
 
         if hasattr(tracking.TRACKER, "instance") and isinstance(
             tracking.TRACKER.instance, tracking.LLMTracker
         ):
-            tracking.TRACKER.instance(input_tokens, output_tokens, cost)
+            tracking.TRACKER.instance(input_tokens, output_tokens, cost, energy_kwh, gwp_kgco2eq)
 
         if n_samples == 1:
             res_text = completion.choices[0].message.content
