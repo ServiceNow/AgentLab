@@ -59,7 +59,10 @@ hint = [
     "sentence-transformers>=5.0.0",
 ]
 transformers = [
-    "transformers>=4.38.2", 
+    "transformers>=4.38.2",
+]
+ecologits = [
+    "ecologits",
 ]
 
 

@@ -21,6 +21,8 @@ def test_get_action_decorator():
         "input_tokens": 1,
         "output_tokens": 1,
         "cost": 1.0,
+        "energy_kwh": 0.0,
+        "gwp_kgco2eq": 0.0,
     }
 
 
@@ -175,3 +177,71 @@ def test_openrouter_chat_model():
         answer = chat_model(messages)
     assert "5" in answer.get("content")
     assert tracker.stats["cost"] > 0
+
+
+# -- ecologits integration tests ------------------------------------------------
+
+
+def call_llm_with_ecologits():
+    """Simulate an LLM call that reports ecologits impacts."""
+    if hasattr(tracking.TRACKER, "instance") and isinstance(
+        tracking.TRACKER.instance, tracking.LLMTracker
+    ):
+        tracking.TRACKER.instance(10, 5, 0.001, energy_kwh=0.0003, gwp_kgco2eq=0.00012)
+    return "action", {"stats": {}}
+
+
+def test_tracker_ecologits_fields():
+    """LLMTracker accumulates energy and carbon when provided."""
+    with tracking.set_tracker() as tracker:
+        call_llm_with_ecologits()
+        call_llm_with_ecologits()
+
+    assert tracker.stats["energy_kwh"] == pytest.approx(0.0006)
+    assert tracker.stats["gwp_kgco2eq"] == pytest.approx(0.00024)
+    assert tracker.stats["input_tokens"] == 20
+    assert tracker.stats["output_tokens"] == 10
+    assert tracker.stats["cost"] == pytest.approx(0.002)
+
+
+def test_tracker_ecologits_defaults():
+    """Energy and carbon default to 0.0 when not provided."""
+    with tracking.set_tracker() as tracker:
+        call_llm()
+
+    assert tracker.stats["energy_kwh"] == 0.0
+    assert tracker.stats["gwp_kgco2eq"] == 0.0
+    assert tracker.stats["cost"] == 1.0
+
+
+def test_tracker_ecologits_nested():
+    """Nested trackers accumulate ecologits impacts correctly."""
+    with tracking.set_tracker() as outer:
+        call_llm_with_ecologits()
+        with tracking.set_tracker() as inner:
+            call_llm_with_ecologits()
+
+    assert inner.stats["energy_kwh"] == pytest.approx(0.0003)
+    assert inner.stats["gwp_kgco2eq"] == pytest.approx(0.00012)
+    assert outer.stats["energy_kwh"] == pytest.approx(0.0006)
+    assert outer.stats["gwp_kgco2eq"] == pytest.approx(0.00024)
+
+
+def test_extract_ecologits_impacts_no_impacts():
+    """_extract_ecologits_impacts returns zeros when response has no impacts."""
+
+    class MockResponse:
+        pass
+
+    energy, gwp = tracking._extract_ecologits_impacts(MockResponse())
+    assert energy == 0.0
+    assert gwp == 0.0
+
+
+def test_tracker_repr_includes_ecologits():
+    """LLMTracker repr includes energy and carbon fields."""
+    tracker = tracking.LLMTracker()
+    tracker(10, 5, 0.5, energy_kwh=0.001, gwp_kgco2eq=0.0004)
+    repr_str = repr(tracker)
+    assert "energy_kwh=0.001" in repr_str
+    assert "gwp_kgco2eq=0.0004" in repr_str
