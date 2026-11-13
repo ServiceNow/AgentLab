@@ -17,7 +17,7 @@ from slugify import slugify
 
 from agentlab.agents.agent_args import AgentArgs
 from agentlab.analyze import inspect_results
-from agentlab.benchmarks.abstract_env import AbstractEnvArgs
+from agentlab.benchmarks.abstract_env import AbstractBenchmark, AbstractEnvArgs
 from agentlab.experiments import reproducibility_util as repro
 from agentlab.experiments.exp_utils import RESULTS_DIR, add_dependencies
 from agentlab.experiments.launch_exp import (
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def make_study(
     agent_args: list[AgentArgs] | AgentArgs,
-    benchmark: Benchmark | str,
+    benchmark: Benchmark | AbstractBenchmark | str,
     logging_level=logging.WARNING,
     logging_level_stdout=logging.WARNING,
     suffix="",
