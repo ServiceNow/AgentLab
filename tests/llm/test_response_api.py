@@ -168,7 +168,7 @@ def create_mock_anthropic_response(
     response.usage = MagicMock()
     response.usage.input_tokens = input_tokens
     response.usage.output_tokens = output_tokens
-    response.usage.cache_input_tokens = 0
+    response.usage.cache_read_input_tokens = 0
     response.usage.cache_creation_input_tokens = 0
     return response
 
