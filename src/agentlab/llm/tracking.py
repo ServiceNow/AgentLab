@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from functools import cache, partial
 from typing import Optional
 
+import llm_prices
 import requests
 
 langchain_community = importlib.util.find_spec("langchain_community")
@@ -21,6 +22,8 @@ from litellm import completion_cost, get_model_info
 
 TRACKER = threading.local()
 
+# Fallback cache factors, only used for models that llm-prices has no row for. Models in the
+# llm-prices table are priced with their own listed cache read and cache write prices.
 ANTHROPIC_CACHE_PRICING_FACTOR = {
     "cache_read_tokens": 0.1,  # Cost for 5 min ephemeral cache. See Pricing Here: https://docs.anthropic.com/en/docs/about-claude/pricing#model-pricing
     "cache_write_tokens": 1.25,
@@ -163,6 +166,14 @@ def get_pricing_anthropic():
     return res
 
 
+def _token_count(obj, name: str) -> int:
+    """Returns the integer token count `obj.name`, or 0 when it is missing or not an int."""
+    value = getattr(obj, name, 0)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
+
+
 def get_pricing_litellm(model_name):
     """Returns a dictionary of model pricing for a LiteLLM model."""
     try:
@@ -232,7 +243,21 @@ class TrackAPIPricingMixin:
         return pricing_fn()
 
     def set_pricing_attributes(self) -> None:
-        """Set the pricing attributes for the model based on the provider."""
+        """Set the pricing attributes for the model based on the provider.
+
+        OpenAI and Anthropic models are priced from the llm-prices table first, which also
+        gives the model's own cache read and cache write prices for the effective cost. Models
+        it has no row for (and every other provider) use the provider pricing below.
+        """
+        self._llm_price = None
+        if self._pricing_api in ("openai", "anthropic"):
+            price = llm_prices.lookup_provider(self._pricing_api, self.model_name)
+            if price is not None and price.input is not None and price.output is not None:
+                self._llm_price = price
+                self.input_cost = price.input_per_token
+                self.output_cost = price.output_per_token
+                return
+
         model_to_price_dict = self.fetch_pricing_information_from_provider()
         model_costs = model_to_price_dict.get(self.model_name) if model_to_price_dict else None
         if model_costs:
@@ -299,6 +324,45 @@ class TrackAPIPricingMixin:
             )
             return 0.0
 
+    def _get_effective_cost_from_llm_prices(
+        self, new_input_tokens, output_tokens, cache_read_tokens, cache_write_5m, cache_write_1h
+    ) -> Optional[float]:
+        """Price one response with the model's llm-prices row.
+
+        Cache reads and cache writes are billed at the model's listed prices, and the
+        long-context prices apply above the model's threshold.
+
+        Args:
+            new_input_tokens: Uncached input tokens.
+            output_tokens: Output tokens, reasoning tokens included.
+            cache_read_tokens: Input tokens served from the prompt cache.
+            cache_write_5m: Input tokens written to the cache with a 5-minute lifetime.
+            cache_write_1h: Input tokens written to the cache with a 1-hour lifetime.
+
+        Returns:
+            Optional[float]: The cost in USD, or None when the model has no llm-prices row or
+                a price the usage needs is not listed.
+        """
+        price = getattr(self, "_llm_price", None)
+        counts = (
+            new_input_tokens,
+            output_tokens,
+            cache_read_tokens,
+            cache_write_5m,
+            cache_write_1h,
+        )
+        if price is None or not all(isinstance(c, int) and not isinstance(c, bool) for c in counts):
+            return None
+        usage = llm_prices.Usage(
+            input=max(new_input_tokens, 0),
+            output=max(output_tokens, 0),
+            cache_read=max(cache_read_tokens, 0),
+            cache_write_5m=max(cache_write_5m, 0),
+            cache_write_1h=max(cache_write_1h, 0),
+        )
+        cost = price.cost_usage(usage)
+        return None if cost is None else cost.total
+
     def get_effective_cost_from_antrophic_api(self, response) -> float:
         """
         Get the effective cost from the Anthropic API response.
@@ -314,10 +378,22 @@ class TrackAPIPricingMixin:
             float: The effective cost calculated from the response.
         """
         usage = getattr(response, "usage", {})
-        new_input_tokens = getattr(usage, "input_tokens", 0)  # new input tokens
-        output_tokens = getattr(usage, "output_tokens", 0)
-        cache_read_tokens = getattr(usage, "cache_input_tokens", 0)
-        cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0)
+        new_input_tokens = _token_count(usage, "input_tokens")  # new input tokens
+        output_tokens = _token_count(usage, "output_tokens")
+        cache_read_tokens = _token_count(usage, "cache_read_input_tokens")
+        cache_write_tokens = _token_count(usage, "cache_creation_input_tokens")
+        # Newer SDKs split cache writes by lifetime; the total alone means 5-minute writes.
+        cache_creation = getattr(usage, "cache_creation", None)
+        cache_write_1h = min(
+            _token_count(cache_creation, "ephemeral_1h_input_tokens"), cache_write_tokens
+        )
+        cache_write_5m = cache_write_tokens - cache_write_1h
+
+        effective_cost = self._get_effective_cost_from_llm_prices(
+            new_input_tokens, output_tokens, cache_read_tokens, cache_write_5m, cache_write_1h
+        )
+        if effective_cost is not None:
+            return effective_cost
 
         cache_read_cost = self.input_cost * ANTHROPIC_CACHE_PRICING_FACTOR["cache_read_tokens"]
         cache_write_cost = self.input_cost * ANTHROPIC_CACHE_PRICING_FACTOR["cache_write_tokens"]
@@ -373,6 +449,11 @@ class TrackAPIPricingMixin:
         else:
             logging.warning(f"Unsupported API type: {api_type}. Defaulting cost to 0.0.")
             return 0.0
+        effective_cost = self._get_effective_cost_from_llm_prices(
+            new_input_tokens, output_tokens, cached_input_tokens, 0, 0
+        )
+        if effective_cost is not None:
+            return effective_cost
         cache_read_cost = self.input_cost * OPENAI_CACHE_PRICING_FACTOR["cache_read_tokens"]
         effective_cost = (
             self.input_cost * new_input_tokens

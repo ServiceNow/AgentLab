@@ -52,6 +52,7 @@ dependencies = [
     "anthropic>=0.62.0",
     "litellm>=1.75.3",
     "python-dotenv>=1.1.1",
+    "llm-prices>=1.3.0",
 ]
 
 [project.optional-dependencies]
